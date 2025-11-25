@@ -1,79 +1,75 @@
 const API_BASE = '/api';
 
-// 核心入口：页面加载后立即执行
+// 核心入口
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. 立即检查登录状态
-    await enforceSecurity();
-
-    // 2. 如果通过了安全检查，初始化应用逻辑
+    // 立即初始化界面逻辑（保证按钮能点）
     initApp();
+    
+    // 然后检查安全
+    await checkSecurity();
 });
 
-// --- 安全守卫 ---
-async function enforceSecurity() {
+// --- 安全检查 ---
+async function checkSecurity() {
     try {
         const res = await fetch(`${API_BASE}/user`);
+        
+        // 如果API不通(比如后端挂了)，直接停止，防止报错刷屏
+        if (!res.ok) {
+            console.warn("API连接异常", res.status);
+            return; 
+        }
+
         const data = await res.json();
         
         if (!data.loggedIn) {
-            // 未登录：直接踢到登录页
-            window.location.replace('/login.html');
-            // 抛出错误以停止后续脚本执行
-            throw new Error("Redirecting to login..."); 
+            console.log("未登录，跳转中...");
+            window.location.href = '/login.html'; // 使用 href 跳转更稳妥
+        } else {
+            // 已登录，填充数据
+            document.getElementById('username').textContent = data.username;
+            document.getElementById('coinCount').textContent = data.coins;
+            
+            const userBadge = document.getElementById('userLevel');
+            userBadge.innerHTML = `LV.1 OPERATOR <span id="logoutBtn" style="cursor:pointer;color:red;margin-left:5px">[EXIT]</span>`;
+            document.getElementById('logoutBtn').onclick = doLogout;
         }
-
-        // 已登录：显示页面，填充用户信息
-        document.body.style.display = 'block'; // <--- 关键：只有登录了才显示页面
-        
-        // 填充数据
-        document.getElementById('username').textContent = data.username;
-        document.getElementById('coinCount').textContent = data.coins;
-        
-        const userBadge = document.getElementById('userLevel');
-        userBadge.innerHTML = `LV.1 OPERATOR <span id="logoutBtn" style="cursor:pointer;color:red;margin-left:5px">[EXIT]</span>`;
-        
-        // 绑定登出事件
-        document.getElementById('logoutBtn').onclick = doLogout;
 
     } catch (e) {
-        if (e.message !== "Redirecting to login...") {
-            console.error("Auth check error:", e);
-            window.location.replace('/login.html'); // 出错也踢回登录页
-        }
+        console.error("Auth check failed:", e);
+        // 如果出错，为了安全，可以解开下面这行的注释强制跳转
+        // window.location.href = '/login.html';
     }
 }
 
-// --- 应用初始化 ---
+// --- 初始化应用 (绑定事件) ---
 function initApp() {
-    // 绑定汉堡菜单 (三条杠)
+    // 绑定移动端菜单
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    const sidebar = document.getElementById('sidebar');
-    if (mobileMenuBtn && sidebar) {
-        mobileMenuBtn.onclick = function() {
+    if (mobileMenuBtn) {
+        mobileMenuBtn.onclick = () => {
+            const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('open');
-            console.log("Menu toggled"); // 调试用
         };
     }
 
-    // 绑定签到按钮
+    // 绑定签到
     const checkInBtn = document.getElementById('checkInBtn');
-    if (checkInBtn) {
-        checkInBtn.onclick = doCheckIn;
-    }
+    if (checkInBtn) checkInBtn.onclick = doCheckIn;
 
-    // 绑定发布文章表单
+    // 绑定发布表单
     const postForm = document.getElementById('postForm');
-    if (postForm) {
-        postForm.onsubmit = doPost;
-    }
+    if (postForm) postForm.onsubmit = doPost;
 
-    // 启动路由监听
+    // 路由监听
     window.addEventListener('hashchange', handleRoute);
-    // 手动触发一次路由以加载当前视图
-    handleRoute();
+    handleRoute(); // 手动触发一次
 
-    // 启动时钟
-    setInterval(() => document.getElementById('clock').textContent = new Date().toLocaleTimeString(), 1000);
+    // 时钟
+    setInterval(() => {
+        const el = document.getElementById('clock');
+        if(el) el.textContent = new Date().toLocaleTimeString();
+    }, 1000);
 }
 
 // --- 路由逻辑 ---
@@ -89,25 +85,26 @@ async function handleRoute() {
     const navLinks = document.querySelectorAll('.nav-link');
 
     // 隐藏所有视图
-    Object.values(views).forEach(el => el.style.display = 'none');
+    Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
     navLinks.forEach(el => el.classList.remove('active'));
 
-    // 移动端：切换路由后自动收起菜单
+    // 移动端自动收起菜单
     if(sidebar) sidebar.classList.remove('open');
 
-    // 路由判断
+    // 路由切换
     if (hash === '#home') {
-        views.home.style.display = 'block';
-        document.querySelector('a[href="#home"]').classList.add('active');
+        if(views.home) views.home.style.display = 'block';
+        const link = document.querySelector('a[href="#home"]');
+        if(link) link.classList.add('active');
         loadPosts();
     } 
     else if (hash === '#write') {
-        views.write.style.display = 'block';
-        const writeBtn = document.getElementById('navWrite');
-        if(writeBtn) writeBtn.classList.add('active');
+        if(views.write) views.write.style.display = 'block';
+        const link = document.getElementById('navWrite');
+        if(link) link.classList.add('active');
     } 
     else if (hash.startsWith('#post?id=')) {
-        views.post.style.display = 'block';
+        if(views.post) views.post.style.display = 'block';
         const id = hash.split('=')[1];
         loadSinglePost(id);
     }
@@ -118,6 +115,8 @@ async function handleRoute() {
 // 1. 加载文章列表
 async function loadPosts() {
     const container = document.getElementById('posts-list');
+    if(!container) return;
+    
     container.innerHTML = '<div class="loading">正在同步数据流...</div>';
     
     try {
@@ -139,7 +138,6 @@ async function loadPosts() {
                 <h2>${post.title}</h2>
                 <div class="post-snippet">${post.content.substring(0, 100)}...</div>
             `;
-            // 绑定点击跳转
             div.onclick = () => window.location.hash = `#post?id=${post.id}`;
             container.appendChild(div);
         });
@@ -148,13 +146,14 @@ async function loadPosts() {
     }
 }
 
-// 2. 加载单篇文章 (含 Giscus)
+// 2. 加载单篇文章
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
     const giscusContainer = document.getElementById('giscus-container');
-    
+    if(!container) return;
+
     container.innerHTML = '读取中...';
-    giscusContainer.innerHTML = ''; // 清理旧评论
+    if(giscusContainer) giscusContainer.innerHTML = ''; 
 
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
@@ -172,27 +171,26 @@ async function loadSinglePost(id) {
             <div class="article-body">${post.content}</div>
         `;
 
-        // 重新加载 Giscus
-        // 注意：Giscus 脚本只需要加载一次，但如果切换文章需要重载 iframe。
-        // 最简单的方法是每次都重新插入 script
-        const script = document.createElement('script');
-        script.src = "https://giscus.app/client.js";
-        script.setAttribute("data-repo", "1eakkkk/my-blog");
-        script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
-        script.setAttribute("data-category", "General");
-        script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j");
-        script.setAttribute("data-mapping", "specific");
-        script.setAttribute("data-term", post.title);
-        script.setAttribute("data-strict", "0");
-        script.setAttribute("data-reactions-enabled", "1");
-        script.setAttribute("data-emit-metadata", "0");
-        script.setAttribute("data-input-position", "top");
-        script.setAttribute("data-theme", "dark_dimmed");
-        script.setAttribute("data-lang", "zh-CN");
-        script.setAttribute("crossorigin", "anonymous");
-        script.async = true;
-        
-        giscusContainer.appendChild(script);
+        // 加载 Giscus
+        if(giscusContainer) {
+            const script = document.createElement('script');
+            script.src = "https://giscus.app/client.js";
+            script.setAttribute("data-repo", "1eakkkk/my-blog");
+            script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
+            script.setAttribute("data-category", "General");
+            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j");
+            script.setAttribute("data-mapping", "specific");
+            script.setAttribute("data-term", post.title);
+            script.setAttribute("data-strict", "0");
+            script.setAttribute("data-reactions-enabled", "1");
+            script.setAttribute("data-emit-metadata", "0");
+            script.setAttribute("data-input-position", "top");
+            script.setAttribute("data-theme", "dark_dimmed");
+            script.setAttribute("data-lang", "zh-CN");
+            script.setAttribute("crossorigin", "anonymous");
+            script.async = true;
+            giscusContainer.appendChild(script);
+        }
 
     } catch (e) {
         container.innerHTML = 'Error loading post.';
@@ -236,7 +234,6 @@ async function doPost(e) {
 async function doCheckIn() {
     const btn = document.getElementById('checkInBtn');
     if(btn.disabled) return;
-    
     btn.disabled = true;
     btn.textContent = "SYNCING...";
     
@@ -245,9 +242,8 @@ async function doCheckIn() {
         const data = await res.json();
         alert(`SYSTEM: ${data.message}`);
         if(data.coins !== undefined) document.getElementById('coinCount').textContent = data.coins;
-    } catch(e) { 
-        alert("通讯中断"); 
-    } finally {
+    } catch(e) { alert("通讯中断"); } 
+    finally {
         btn.disabled = false;
         btn.textContent = "每日签到 (+10)";
     }
@@ -257,15 +253,14 @@ async function doCheckIn() {
 async function doLogout() {
     if(confirm("确认断开连接？")) {
         await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
-        window.location.replace('/login.html');
+        window.location.href = '/login.html';
     }
 }
 
-// 6. VIP 模拟
+// 6. VIP
 window.upgradeVip = function() {
     let coins = parseInt(document.getElementById('coinCount').textContent);
     if (isNaN(coins)) coins = 0;
-    
     if (coins >= 50) {
         alert("扣除50 i币功能开发中... 管理员权限待下发");
     } else {
