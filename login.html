@@ -7,79 +7,42 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* 登录页专用样式 */
         body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            flex-direction: column;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; flex-direction: column;
         }
         .login-card {
-            width: 100%;
-            max-width: 400px;
-            background: #0a0a0a;
-            border: 1px solid var(--accent-blue);
-            padding: 2rem;
-            box-shadow: 0 0 50px rgba(0, 112, 243, 0.15);
-            text-align: center;
+            width: 100%; max-width: 400px; background: #0a0a0a;
+            border: 1px solid var(--accent-blue); padding: 2rem;
+            box-shadow: 0 0 50px rgba(0, 112, 243, 0.15); text-align: center;
         }
-        .system-logo {
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 2rem;
-            letter-spacing: 4px;
-        }
-        .tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #333;
-        }
-        .tab {
-            flex: 1;
-            padding: 10px;
-            cursor: pointer;
-            color: var(--text-dim);
-            transition: 0.3s;
-        }
-        .tab.active {
-            color: var(--accent-blue);
-            border-bottom: 2px solid var(--accent-blue);
-        }
-        .msg-box {
-            min-height: 20px;
-            color: #ff3333;
-            font-size: 0.8rem;
-            margin-bottom: 10px;
-        }
+        .system-logo { font-size: 2rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 4px; }
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #333; }
+        .tab { flex: 1; padding: 10px; cursor: pointer; color: var(--text-dim); transition: 0.3s; }
+        .tab.active { color: var(--accent-blue); border-bottom: 2px solid var(--accent-blue); }
+        .msg-box { min-height: 20px; color: #ff3333; font-size: 0.8rem; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-
     <div class="bg-grid"></div>
-
     <div class="login-card">
         <div class="system-logo">1EAK<span class="dot">.</span>COOL</div>
-        
         <div class="tabs">
             <div class="tab active" onclick="switchTab('login')">LOGIN</div>
             <div class="tab" onclick="switchTab('register')">REGISTER</div>
         </div>
-
         <form id="authForm">
-            <input type="text" id="username" class="cyber-input" placeholder="USERNAME // 用户名" required>
-            <input type="password" id="password" class="cyber-input" placeholder="PASSWORD // 密钥" required>
+            <input type="text" id="username" class="cyber-input" placeholder="USERNAME" required>
+            <input type="password" id="password" class="cyber-input" placeholder="PASSWORD" required>
             <div id="msgBox" class="msg-box"></div>
             <button type="submit" class="cyber-btn" id="submitBtn">SYSTEM ACCESS >></button>
         </form>
     </div>
-
     <script>
         let isRegister = false;
         const msgBox = document.getElementById('msgBox');
         const submitBtn = document.getElementById('submitBtn');
-
-        // 检查是否已经登录，如果已登录直接跳转主页
+        
         fetch('/api/user').then(res => res.json()).then(data => {
             if (data.loggedIn) window.location.href = '/index.html';
         });
@@ -87,14 +50,11 @@
         function switchTab(mode) {
             const tabs = document.querySelectorAll('.tab');
             isRegister = (mode === 'register');
-            
             if (isRegister) {
-                tabs[0].classList.remove('active');
-                tabs[1].classList.add('active');
+                tabs[0].classList.remove('active'); tabs[1].classList.add('active');
                 submitBtn.textContent = "CREATE ACCOUNT >";
             } else {
-                tabs[0].classList.add('active');
-                tabs[1].classList.remove('active');
+                tabs[0].classList.add('active'); tabs[1].classList.remove('active');
                 submitBtn.textContent = "SYSTEM ACCESS >>";
             }
             msgBox.textContent = "";
@@ -105,10 +65,7 @@
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
             const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-
-            submitBtn.disabled = true;
-            submitBtn.textContent = "PROCESSING...";
-
+            submitBtn.disabled = true; submitBtn.textContent = "PROCESSING...";
             try {
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -116,26 +73,16 @@
                     body: JSON.stringify({ username: u, password: p })
                 });
                 const data = await res.json();
-
                 if (data.success) {
                     if (isRegister) {
-                        alert("注册成功，请登录 // REGISTRATION COMPLETE");
-                        switchTab('login');
+                        alert("注册成功 // REGISTRATION COMPLETE"); switchTab('login');
                     } else {
-                        // 登录成功，跳转到主页
                         window.location.href = '/index.html';
                     }
-                } else {
-                    msgBox.textContent = "ERROR: " + (data.error || "操作失败");
-                }
-            } catch (err) {
-                msgBox.textContent = "CRITICAL ERROR: 连接中断";
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = isRegister ? "CREATE ACCOUNT >" : "SYSTEM ACCESS >>";
-            }
+                } else { msgBox.textContent = "ERROR: " + (data.error || "Failed"); }
+            } catch (err) { msgBox.textContent = "CRITICAL ERROR: 连接中断"; }
+            finally { submitBtn.disabled = false; submitBtn.textContent = isRegister ? "CREATE ACCOUNT >" : "SYSTEM ACCESS >>"; }
         };
     </script>
 </body>
-
 </html>
