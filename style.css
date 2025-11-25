@@ -274,3 +274,17 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     .content { padding: 1.5rem; margin-top: 40px; }
     .mobile-menu-btn { display: block; }
 }
+
+/* --- 底部版权栏样式 (添加到文件末尾) --- */
+footer {
+    margin-top: 4rem;
+    border-top: 1px solid var(--border-color);
+    text-align: center; /* 文字水平居中 */
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    padding: 20px 0; /* 上下留白 */
+    width: 100%;
+    display: flex;       /* 使用弹性布局 */
+    justify-content: center; /* 确保内容绝对居中 */
+    align-items: center;
+}
