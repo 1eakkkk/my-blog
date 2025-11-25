@@ -5,121 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1eak.cool | 数字基地</title>
     <link rel="stylesheet" href="style.css">
-    <!-- 引入高科技字体 -->
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-        <!-- 登录/注册 模态框 -->
-    <div id="authModal" class="modal">
-        <div class="modal-content glass-card">
-            <span class="close-btn">&times;</span>
-            <h2 id="modalTitle">SYSTEM LOGIN</h2>
-            <form id="authForm">
-                <input type="text" id="authUsername" placeholder="Username / 代号" required class="cyber-input">
-                <input type="password" id="authPassword" placeholder="Password / 密钥" required class="cyber-input">
-                <button type="submit" class="cyber-btn" id="authSubmitBtn">ACCESS >></button>
-            </form>
-            <p class="switch-mode" id="switchModeBtn">没有账号？点击注册 // REGISTER</p>
-        </div>
-    </div>
-    <!-- 背景动态粒子（CSS实现） -->
+
+    <!-- 背景 -->
     <div class="bg-grid"></div>
 
+    <!-- 移动端菜单按钮 -->
+    <div class="mobile-menu-btn" id="mobileMenuBtn">☰</div>
+
     <div class="app-container">
-        <!-- 左侧侧边栏 -->
-        <aside class="sidebar">
+        <!-- 侧边栏 -->
+        <aside class="sidebar" id="sidebar">
             <div class="logo">1EAK<span class="dot">.</span>COOL</div>
+            
+            <!-- 用户卡片 -->
             <div class="user-card" id="userCard">
-                <div class="avatar"></div>
+                <div class="avatar" id="userAvatar"></div>
                 <div class="user-info">
-                    <h3 id="username">访客 007</h3>
-                    <span class="badge" id="userLevel">LV.1 平民</span>
+                    <h3 id="username">GUEST</h3>
+                    <span class="badge" id="userLevel">OFFLINE</span>
                 </div>
             </div>
             
             <nav>
-                <a href="#" class="active">控制台 / Dashboard</a>
-                <a href="#">文章归档 / Archives</a>
-                <a href="#">项目 / Projects</a>
-                <a href="#">关于 / About</a>
+                <a href="#home" class="nav-link active">首页 / Home</a>
+                <a href="#write" class="nav-link" id="navWrite" style="display:none;">发布文章 / Write</a>
+                <a href="javascript:void(0)" onclick="alert('开发中...')" class="nav-link">项目 / Projects</a>
             </nav>
+
+            <!-- VIP 区域 (已移至侧边栏) -->
+            <div class="vip-sidebar-box">
+                <h4>VIP ACCESS</h4>
+                <p>解锁高级权限</p>
+                <button onclick="upgradeVip()" class="vip-mini-btn">UPGRADE</button>
+            </div>
 
             <div class="status-panel">
                 <div class="status-item">
                     <span>1eak 币</span>
                     <span class="value blue" id="coinCount">0</span>
                 </div>
-                <button id="checkInBtn" class="cyber-btn">每日签到 (+10)</button>
+                <button id="checkInBtn" class="cyber-btn">登录 / LOGIN</button>
             </div>
         </aside>
 
-        <!-- 右侧主内容区 -->
+        <!-- 主内容区 -->
         <main class="content">
             <header>
-                <div class="breadcrumbs">SYSTEM // HOME</div>
+                <div class="breadcrumbs" id="breadcrumbs">SYSTEM // HOME</div>
                 <div class="date-display" id="clock">00:00:00</div>
             </header>
 
-            <div class="hero-section">
-                <h1>WELCOME TO THE VOID</h1>
-                <p>保持极简，保持冷静。这里是 1eak 的数字思维空间。</p>
-            </div>
+            <!-- 视图容器：通过 JS 切换显示 -->
+            <div id="view-container">
+                <!-- 1. 文章列表视图 -->
+                <div id="view-home" class="view-section active">
+                    <div class="hero-section">
+                        <h1>DATA STREAM</h1>
+                        <p>欢迎来到数字思维空间。</p>
+                    </div>
+                    <div id="posts-list" class="posts-grid">
+                        <div class="loading">正在加载数据流...</div>
+                    </div>
+                </div>
 
-            <!-- VIP 充值模拟区 (高科技感) -->
-            <div class="vip-section">
-                <div class="glass-card">
-                    <h3>开通 VIP 权限</h3>
-                    <p>解锁高级阅读模式与专属徽章</p>
-                    <button class="vip-btn" onclick="upgradeVip()">立即升级 (模拟)</button>
+                <!-- 2. 文章发布视图 -->
+                <div id="view-write" class="view-section" style="display:none;">
+                    <h2>// NEW ENTRY</h2>
+                    <form id="postForm">
+                        <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
+                        <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content (支持纯文本)" required></textarea>
+                        <button type="submit" class="cyber-btn big-btn">发布 / PUBLISH</button>
+                    </form>
+                </div>
+
+                <!-- 3. 文章详情视图 (含评论) -->
+                <div id="view-post" class="view-section" style="display:none;">
+                    <button onclick="window.location.hash='#home'" class="back-btn">< BACK</button>
+                    <article id="single-post-content" class="full-article">
+                        <!-- 内容由 JS 填充 -->
+                    </article>
+                    
+                    <div class="comments-section">
+                        <h3>// 评论终端</h3>
+                        <div id="giscus-container"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 文章列表 -->
-            <div class="posts-grid">
-                <article class="post-card">
-                    <div class="post-meta">2023-10-25 | TECH</div>
-                    <h2>Cloudflare Pages 部署实战</h2>
-                    <p>如何利用无服务器架构构建高性能静态博客...</p>
-                    <a href="#" class="read-more">READ_LOG ></a>
-                </article>
-
-                <article class="post-card">
-                    <div class="post-meta">2023-10-26 | LIFE</div>
-                    <h2>数字极简主义</h2>
-                    <p>在信息过载的时代，如何保持专注与清醒...</p>
-                    <a href="#" class="read-more">READ_LOG ></a>
-                </article>
-            </div>
-
-            <!-- 评论区 (Giscus 占位符，稍后教你配置) -->
-            <div class="comments-section">
-                <h3>// 评论终端</h3>
-                <div class="giscus"></div>
-            </div>
-
             <footer>
-                <p>© 2025 1EAK.COOL | SYSTEM ONLINE</p>
+                <p>© 2023 1EAK.COOL | SYSTEM ONLINE</p>
             </footer>
         </main>
     </div>
 
-    <!-- 引入脚本 -->
+    <!-- 登录/注册 模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content glass-card">
+            <span class="close-btn">&times;</span>
+            <h2 id="modalTitle">SYSTEM LOGIN</h2>
+            <form id="authForm">
+                <input type="text" id="authUsername" placeholder="Username" required class="cyber-input">
+                <input type="password" id="authPassword" placeholder="Password" required class="cyber-input">
+                <button type="submit" class="cyber-btn" id="authSubmitBtn">ACCESS >></button>
+            </form>
+            <div class="modal-footer">
+                <span class="switch-mode" id="switchModeBtn">注册新账号 // REGISTER</span>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
-    <!-- 引入 Giscus 评论脚本 (需要你后续配置 repo 后替换这里，目前只是示例) -->
-    <script src="https://giscus.app/client.js"
-        data-repo="1eakkkk/my-blog"
-        data-repo-id="[稍后获取]"
-        data-category="General"
-        data-category-id="[稍后获取]"
-        data-mapping="pathname"
-        data-strict="0"
-        data-reactions-enabled="1"
-        data-emit-metadata="0"
-        data-input-position="top"
-        data-theme="dark_dimmed"
-        data-lang="zh-CN"
-        crossorigin="anonymous"
-        async>
-    </script>
 </body>
 </html>
