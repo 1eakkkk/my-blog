@@ -1,8 +1,10 @@
+// --- functions/api/auth/login.js ---
+
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const { username, password } = await context.request.json();
 
-  // 1. 计算输入的密码哈希
+  // 1. 密码哈希
   const myText = new TextEncoder().encode(password);
   const myDigest = await crypto.subtle.digest({ name: 'SHA-256' }, myText);
   const hashArray = Array.from(new Uint8Array(myDigest));
@@ -20,14 +22,15 @@ export async function onRequestPost(context) {
   // 3. 生成 Session ID
   const sessionId = crypto.randomUUID();
   
-  // 4. 存入数据库
+  // 4. 存入数据库 (如果这一步报错，前端会提示错误)
   await db.prepare('INSERT INTO sessions (session_id, user_id, created_at) VALUES (?, ?, ?)')
     .bind(sessionId, user.id, Date.now())
     .run();
 
-  // 5. 设置 Cookie (HttpOnly)
+  // 5. 设置 Cookie (关键修复：增加 Secure; SameSite=None)
   const headers = new Headers();
-  headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`); // 1天过期
+  // 注意：Max-Age=86400 是一天
+  headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; Secure; HttpOnly; SameSite=None; Max-Age=86400`);
   headers.append('Content-Type', 'application/json');
 
   return new Response(JSON.stringify({ success: true, username: user.username }), { headers });
