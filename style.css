@@ -1,3 +1,5 @@
+/* --- START OF FILE style.css --- */
+
 :root {
     --bg-color: #050505;
     --sidebar-bg: #0a0a0a;
@@ -5,7 +7,7 @@
     --text-main: #fff;
     --text-dim: #888;
     --accent-blue: #0070f3;
-    --accent-purple: #bc13fe; /* 新增：幸运紫 */
+    --accent-purple: #bc13fe; /* 幸运紫 */
     --accent-glow: rgba(0, 112, 243, 0.4);
     --purple-glow: rgba(188, 19, 254, 0.4);
     --border-color: #333;
@@ -101,7 +103,7 @@ nav a:hover, nav a.active { color: #fff; border-left-color: var(--accent-blue); 
 .cyber-btn:hover { background: var(--accent-blue); color: white; box-shadow: 0 0 15px var(--accent-glow); }
 .cyber-btn:disabled { border-color: #333; color: #555; cursor: not-allowed; box-shadow: none; background: transparent; }
 
-/* 幸运抽奖按钮 (紫色风格) */
+/* 幸运抽奖按钮 (紫色，但样式与通用按钮一致) */
 .lucky-draw-btn {
     width: 100%;
     background: transparent;
@@ -111,14 +113,12 @@ nav a:hover, nav a.active { color: #fff; border-left-color: var(--accent-blue); 
     cursor: pointer;
     font-family: var(--font-tech);
     transition: 0.3s;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    /* 移除原来的加粗和大写，保持一致性 */
 }
 .lucky-draw-btn:hover {
     background: var(--accent-purple);
     color: white;
-    box-shadow: 0 0 20px var(--purple-glow);
+    box-shadow: 0 0 15px var(--purple-glow);
 }
 .lucky-draw-btn:disabled {
     border-color: #333;
@@ -164,18 +164,18 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 .back-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; margin-bottom: 10px; font-family: var(--font-tech); }
 .back-btn:hover { color: #fff; }
 
-/* 头部容器：强制 Flex 布局，顶部对齐 */
+/* 头部容器 */
 .post-header-row {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start; /* 顶部对齐，防止高度拉伸 */
+    align-items: flex-start; /* 顶部对齐 */
     margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     gap: 15px;
 }
 
-/* 作者信息区域：占据剩余空间 */
+/* 作者信息区域 */
 .post-author-info {
     display: flex;
     align-items: center; /* 垂直居中 */
@@ -204,8 +204,8 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     flex-direction: column;
     gap: 4px;
     font-size: 0.9rem;
-    color: var(--text-dim);
-    overflow: hidden; /* 配合 min-width:0 使用 */
+    color: var(--text-dim); /* 灰色文字 */
+    overflow: hidden; 
     text-overflow: ellipsis;
 }
 
@@ -220,7 +220,7 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     cursor: pointer;
     transition: 0.3s;
     white-space: nowrap; /* 防止按钮文字换行 */
-    flex-shrink: 0; /* 按钮也不许被挤扁 */
+    flex-shrink: 0;
 }
 .delete-btn:hover { background-color: #ff3333; color: white; box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
 
