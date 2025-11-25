@@ -6,17 +6,14 @@
     <title>1eak.cool | 数字基地</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        /* 关键修复：默认隐藏整个页面，防止未登录偷看 */
-        body { display: none; }
-    </style>
+    <!-- 删除原来的 style 标签，不再默认隐藏 -->
 </head>
 <body>
 
     <!-- 背景 -->
     <div class="bg-grid"></div>
 
-    <!-- 移动端菜单按钮 (z-index 设高一点防止被挡) -->
+    <!-- 移动端菜单按钮 -->
     <div class="mobile-menu-btn" id="mobileMenuBtn" style="z-index: 9999;">☰</div>
 
     <div class="app-container">
@@ -51,7 +48,6 @@
                     <span>i 币</span>
                     <span class="value blue" id="coinCount">-</span>
                 </div>
-                <!-- 这个按钮专门用于签到，文字由JS控制 -->
                 <button id="checkInBtn" class="cyber-btn">每日签到 (+10)</button>
             </div>
         </aside>
@@ -107,7 +103,6 @@
         </main>
     </div>
 
-    <!-- 引用脚本 -->
     <script src="script.js"></script>
 </body>
 </html>
