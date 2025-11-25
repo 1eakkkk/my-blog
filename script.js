@@ -22,8 +22,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkSecurity();
 });
 
-// --- 像素头像生成器 ---
-function generatePixelAvatar(seedStr) {
+// --- 像素头像生成器 (核心修改：增加 variant 参数) ---
+function generatePixelAvatar(username, variant = 0) {
+    // 将 variant 加入种子，改变 variant 就会改变 hash，从而改变头像
+    const seedStr = username + "v" + variant;
+    
     let hash = 0;
     for (let i = 0; i < seedStr.length; i++) {
         hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
@@ -87,7 +90,14 @@ async function checkSecurity() {
             document.getElementById('username').textContent = displayName;
             document.getElementById('coinCount').textContent = data.coins;
             
-            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username)}</div>`;
+            // 渲染侧边栏头像 (带变数)
+            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
+            
+            // 渲染设置页预览头像
+            const settingPreview = document.getElementById('settingAvatarPreview');
+            if(settingPreview) {
+                settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+            }
 
             const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
@@ -183,7 +193,32 @@ async function handleRoute() {
 
 // === 业务功能 ===
 
-// 1. 每日幸运抽奖 (带弹窗反馈)
+// 新增：随机重置头像
+window.randomizeAvatar = async function() {
+    if(!confirm("确定要重置头像颜色吗？")) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/random_avatar`, { method: 'POST' });
+        const data = await res.json();
+        
+        if(data.success) {
+            alert("重置成功！");
+            // 立即更新全局变量和界面，无需刷新
+            currentUser.avatar_variant = data.variant;
+            const newSvg = generatePixelAvatar(currentUser.username, data.variant);
+            
+            // 更新侧边栏
+            document.querySelector('#avatarContainer .post-avatar-box').innerHTML = newSvg;
+            // 更新设置页预览
+            document.getElementById('settingAvatarPreview').innerHTML = newSvg;
+        } else {
+            alert(data.error);
+        }
+    } catch(e) {
+        alert("操作失败");
+    }
+};
+
 window.doLuckyDraw = async function() {
     const btn = document.querySelector('.lucky-draw-btn');
     if(btn) {
@@ -196,11 +231,9 @@ window.doLuckyDraw = async function() {
         const data = await res.json();
         
         if(data.success) {
-            // 成功弹窗
             alert(`🎉 ${data.message}`);
-            window.location.reload(); // 刷新页面以更新经验条
+            window.location.reload();
         } else {
-            // 失败弹窗 (比如今天已经抽过了)
             alert(`🚫 ${data.error}`);
         }
     } catch(e) {
@@ -276,7 +309,6 @@ async function loadPosts() {
     }
 }
 
-// 5. 加载单篇 (核心修复：Flex布局解决头像重叠)
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
     const giscusContainer = document.getElementById('giscus-container');
@@ -297,16 +329,15 @@ async function loadSinglePost(id) {
         
         const authorDisplay = post.author_nickname || post.author_username || post.author_name;
         const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
-        const avatarSvg = generatePixelAvatar(post.author_username || "default");
+        // 渲染文章作者头像：使用作者的 username + 作者的变数
+        const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
 
         container.innerHTML = `
             <div class="post-header-row">
                 <div class="post-author-info">
-                    <!-- 头像固定容器 -->
                     <div class="post-avatar-box">
                         ${avatarSvg}
                     </div>
-                    <!-- 文字信息竖排 -->
                     <div class="post-meta-text">
                         <span style="color:#fff; font-size:1rem; font-weight:bold;">
                             ${vipDisplay}${authorDisplay} <span class="badge lv-${post.author_level||1}" style="transform:scale(0.8)">LV.${post.author_level||1}</span>
