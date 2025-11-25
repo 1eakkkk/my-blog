@@ -17,57 +17,46 @@ const db = {
 if (!db.get('coins')) db.set('coins', 0);
 if (!db.get('isVip')) db.set('isVip', 'false');
 
-// 更新界面上的数据
-function updateUI() {
-    // 更新金币
-    document.getElementById('coinCount').textContent = db.get('coins');
-    
-    // 更新VIP状态
-    if (db.get('isVip') === 'true') {
-        const badge = document.getElementById('userLevel');
-        badge.textContent = "LV.99 ADMIN";
-        badge.style.color = "gold";
-        badge.style.borderColor = "gold";
-        document.querySelector('.avatar').style.background = "gold";
-        document.querySelector('.avatar').style.boxShadow = "0 0 15px gold";
+// 更新界面金币 (从服务器获取)
+async function updateUI() {
+    try {
+        // 请求后端 API
+        const response = await fetch('/api/checkin'); 
+        const data = await response.json();
+        
+        document.getElementById('coinCount').textContent = data.coins;
+    } catch (err) {
+        console.error("无法连接到数字基地数据库", err);
     }
 }
 
-// 签到功能
+// 签到功能 (连接真实数据库)
 const checkInBtn = document.getElementById('checkInBtn');
-checkInBtn.addEventListener('click', () => {
-    const lastCheckIn = db.get('lastCheckIn');
-    const today = new Date().toDateString();
+checkInBtn.addEventListener('click', async () => {
+    checkInBtn.disabled = true;
+    checkInBtn.textContent = "通讯中...";
 
-    if (lastCheckIn === today) {
-        alert("SYSTEM: 今日已签到，请勿重复操作。");
-        return;
-    }
+    try {
+        // 发送 POST 请求给后端
+        const response = await fetch('/api/checkin', { method: 'POST' });
+        const data = await response.json();
 
-    // 增加金币
-    let currentCoins = parseInt(db.get('coins'));
-    currentCoins += 10;
-    db.set('coins', currentCoins);
-    db.set('lastCheckIn', today);
-
-    updateUI();
-    alert("SYSTEM: 签到成功！获得 10 1eak币。");
-});
-
-// VIP 升级功能
-window.upgradeVip = function() {
-    let coins = parseInt(db.get('coins'));
-    if (coins >= 50) {
-        if(confirm("确认消耗 50 1eak币开通 VIP 吗？")) {
-            db.set('coins', coins - 50);
-            db.set('isVip', 'true');
-            updateUI();
-            alert("SYSTEM: 权限已提升。欢迎回来，指挥官。");
+        if (data.success) {
+            alert(`SYSTEM: ${data.message}`);
+        } else {
+            alert(`SYSTEM: ${data.message}`);
         }
-    } else {
-        alert(`SYSTEM: 余额不足。需要 50 1eak币，当前仅有 ${coins}。请明日继续签到。`);
+        
+        // 更新显示的数字
+        document.getElementById('coinCount').textContent = data.coins;
+
+    } catch (err) {
+        alert("SYSTEM ERROR: 连接中断");
+    } finally {
+        checkInBtn.disabled = false;
+        checkInBtn.textContent = "每日签到 (+10)";
     }
-};
+});
 
 // 初始化
 updateUI();
