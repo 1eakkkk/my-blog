@@ -1,3 +1,4 @@
+// START OF FILE script.js
 const API_BASE = '/api';
 let currentUser = null;
 
@@ -20,33 +21,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkSecurity();
 });
 
-// --- 像素头像生成器 (不占R2存储) ---
+// --- 像素头像生成器 ---
 function generatePixelAvatar(seedStr) {
-    // 简单的哈希函数
     let hash = 0;
     for (let i = 0; i < seedStr.length; i++) {
         hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
     }
-    // 生成颜色
     const c = (hash & 0x00FFFFFF).toString(16).toUpperCase().padStart(6, "0");
     const color = `#${c}`;
     
-    // 生成 5x5 像素矩阵 (svg)
     let rects = '';
     for(let i=0; i<5; i++) {
         for(let j=0; j<5; j++) {
-            // 利用哈希值的位操作决定该格子上不上色，并且做对称
             const val = (hash >> (i * 5 + j)) & 1; 
             if(val) {
                 rects += `<rect x="${j*10}" y="${i*10}" width="10" height="10" fill="${color}" />`;
             }
         }
     }
-    // 返回 SVG 字符串
     return `<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
 }
 
-// --- 计算等级和进度条 ---
+// --- 计算等级 ---
 function calculateLevel(xp) {
     let currentLv = 1;
     let nextXp = 100;
@@ -59,12 +55,11 @@ function calculateLevel(xp) {
             if (i < LEVEL_TABLE.length - 1) {
                 nextXp = LEVEL_TABLE[i+1].xp;
             } else {
-                nextXp = 99999; // 满级
+                nextXp = 99999;
             }
         }
     }
     
-    // 计算百分比
     let percent = 0;
     if(nextXp !== 99999) {
         percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
@@ -87,27 +82,20 @@ async function checkSecurity() {
         } else {
             currentUser = data;
             
-            // 1. 渲染文字信息
             const displayName = data.nickname || data.username;
             document.getElementById('username').textContent = displayName;
             document.getElementById('coinCount').textContent = data.coins;
             
-            // 2. 生成并渲染头像 (使用用户名作为种子，保证永远不变)
             document.getElementById('avatarContainer').innerHTML = generatePixelAvatar(data.username);
 
-            // 3. 计算等级
             const levelInfo = calculateLevel(data.xp || 0);
-            
-            // 4. 渲染等级徽章
             const badgesArea = document.getElementById('badgesArea');
             let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
             badgesArea.innerHTML = `<span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> ${vipTag}`;
             
-            // 5. 渲染经验条
             document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
 
-            // 6. VIP 按钮状态
             if(data.is_vip) {
                 document.getElementById('vipBox').innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
                 document.getElementById('vipBox').style.borderColor = 'gold';
@@ -194,7 +182,28 @@ async function handleRoute() {
 
 // === 业务功能 ===
 
-// 1. 更新昵称
+// 新增：每日抽奖
+window.doLuckyDraw = async function() {
+    const btn = document.querySelector('.lucky-draw-btn');
+    if(btn) btn.disabled = true;
+    
+    try {
+        const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
+        const data = await res.json();
+        
+        if(data.success) {
+            alert(`🎉 ${data.message}`);
+            window.location.reload(); // 刷新更新经验条
+        } else {
+            alert(data.error);
+        }
+    } catch(e) {
+        alert("系统繁忙，请稍后再试");
+    } finally {
+        if(btn) btn.disabled = false;
+    }
+};
+
 window.updateProfile = async function() {
     const nick = document.getElementById('newNickname').value;
     if(!nick) return alert("请输入昵称");
@@ -215,7 +224,6 @@ window.updateProfile = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// 2. 购买VIP
 window.buyVip = async function() {
     if(!confirm("确认消耗50 i币开通VIP吗？")) return;
     try {
@@ -226,25 +234,6 @@ window.buyVip = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// 3. 模拟评论得经验 (简单的冷却机制)
-let lastCommentTime = 0;
-window.claimCommentXp = function() {
-    const now = Date.now();
-    if(now - lastCommentTime < 30000) {
-        alert("系统冷却中... 请勿频繁操作");
-        return;
-    }
-    // 这里其实应该调用后端加经验，简单复用签到接口模拟，或者你可以新建一个专门的接口
-    // 为了简单，我们提示用户“已记录”，实际后端需要专门接口。
-    // 既然我们没有专门的comment_xp接口，我们用一个小技巧：发一个特殊的隐藏签到? 
-    // 或者，我们这里暂时只做提示，等以后有webhook再做自动。
-    // *修正*：既然用户要求了，我们就做一个简单的前端假装，实际要后端支持比较复杂。
-    // *真正做法*：我们前面没有写comment_xp的api，所以这里暂时弹窗提示。
-    alert("系统提示: 评论经验结算需要接入GitHub Webhook (开发中)。\n目前请通过 [签到] 和 [发帖] 获取经验。");
-    lastCommentTime = now;
-};
-
-// 4. 加载文章列表
 async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
@@ -278,7 +267,7 @@ async function loadPosts() {
     }
 }
 
-// 5. 加载单篇
+// 核心修复：解决头像重叠问题的版本
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
     const giscusContainer = document.getElementById('giscus-container');
@@ -293,30 +282,38 @@ async function loadSinglePost(id) {
 
         const date = new Date(post.created_at).toLocaleString();
         let deleteBtnHtml = '';
-        // 兼容 username 和 nickname 判断
         if (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id)) {
-            deleteBtnHtml = `<button onclick="deletePost(${post.id})" class="delete-btn">删除此文章 / DELETE</button>`;
+            deleteBtnHtml = `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
         }
         
         const authorDisplay = post.author_nickname || post.author_username || post.author_name;
-        const vipDisplay = post.author_vip ? `<span style="color:gold">[VIP]</span>` : '';
-        // 生成作者头像
+        const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
         const avatarSvg = generatePixelAvatar(post.author_username || "default");
 
+        // === 新结构：使用 Flexbox 隔离头像和文字 ===
         container.innerHTML = `
             <div class="post-header-row">
-                <div class="post-meta" style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:30px;height:30px">${avatarSvg}</div>
-                    <span>ID: ${post.id} // ${date}</span>
-                    <span>AUTHOR: ${vipDisplay} ${authorDisplay} (LV.${post.author_level||1})</span>
+                <div class="post-author-info">
+                    <!-- 头像固定容器 -->
+                    <div class="post-avatar-box">
+                        ${avatarSvg}
+                    </div>
+                    <!-- 文字信息竖排 -->
+                    <div class="post-meta-text">
+                        <span style="color:#fff; font-size:1rem; font-weight:bold;">
+                            ${vipDisplay}${authorDisplay} <span class="badge lv-${post.author_level||1}" style="transform:scale(0.8)">LV.${post.author_level||1}</span>
+                        </span>
+                        <span>ID: ${post.id} // ${date}</span>
+                    </div>
                 </div>
                 ${deleteBtnHtml}
             </div>
-            <h1>${post.title}</h1>
+            <h1 style="margin-top:20px;">${post.title}</h1>
             <div class="article-body">${post.content}</div>
         `;
 
         if(giscusContainer) {
+            console.log("注入 Giscus...");
             const script = document.createElement('script');
             script.src = "https://giscus.app/client.js";
             script.setAttribute("data-repo", "1eakkkk/my-blog");
@@ -378,7 +375,7 @@ async function doCheckIn() {
         const res = await fetch(`${API_BASE}/checkin`, { method: 'POST' });
         const data = await res.json();
         alert(data.message);
-        if(data.coins) window.location.reload(); // 刷新以更新经验条
+        if(data.coins) window.location.reload(); 
     } catch(e) { alert("Error"); } 
     finally { btn.disabled = false; }
 }
@@ -389,4 +386,3 @@ async function doLogout() {
         window.location.href = '/login.html';
     }
 }
-
