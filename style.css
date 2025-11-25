@@ -200,3 +200,100 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     color: white;
     box-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
 }
+
+/* --- 在 style.css 末尾追加 --- */
+
+/* 像素头像 */
+.pixel-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 4px; /* 像素风也可以稍微圆角一点点 */
+    image-rendering: pixelated; /* 关键：像素风格 */
+    background: #000;
+    border: 1px solid #333;
+}
+
+/* 侧边栏布局微调 */
+.user-card {
+    flex-direction: column; /* 改成垂直布局以便放经验条 */
+    align-items: flex-start;
+    gap: 10px;
+}
+.user-header-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+}
+
+/* 经验条容器 */
+.xp-container {
+    width: 100%;
+    margin-top: 5px;
+}
+.xp-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #888;
+    margin-bottom: 2px;
+}
+.xp-bar-bg {
+    width: 100%;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0070f3, #00c6ff);
+    width: 0%; /* JS控制 */
+    transition: width 0.5s ease;
+}
+
+/* 等级徽章系统 */
+.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; border: 1px solid transparent; }
+.badge.lv-1 { border-color: #666; color: #aaa; } /* 废铁 */
+.badge.lv-2 { border-color: #fff; color: #fff; } /* 白银 */
+.badge.lv-3 { border-color: #00ff00; color: #00ff00; box-shadow: 0 0 5px rgba(0,255,0,0.2); } /* 绿色 */
+.badge.lv-4 { border-color: #00ccff; color: #00ccff; box-shadow: 0 0 8px rgba(0,204,255,0.3); } /* 蓝色 */
+.badge.lv-5 { border-color: #9933ff; color: #9933ff; box-shadow: 0 0 10px rgba(153,51,255,0.4); } /* 紫色 */
+.badge.lv-6 { border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 12px rgba(255,0,255,0.5); } /* 粉色 */
+.badge.lv-7 { border-color: #ff9900; color: #ff9900; box-shadow: 0 0 15px rgba(255,153,0,0.6); } /* 橙色 */
+.badge.lv-8 { border-color: #ff3333; color: #ff3333; box-shadow: 0 0 18px rgba(255,51,51,0.7); } /* 红色 */
+.badge.lv-9 { border-color: gold; color: gold; box-shadow: 0 0 20px gold; } /* 金色 */
+.badge.lv-10 { 
+    background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
+    background-size: 400%;
+    animation: rainbow 5s linear infinite;
+    color: #fff;
+    border: none;
+}
+@keyframes rainbow { 0% {background-position: 0%;} 100% {background-position: 400%;} }
+
+.badge.vip-tag {
+    margin-left: 5px;
+    background: linear-gradient(45deg, #FFD700, #FFA500);
+    color: #000;
+    border: none;
+    padding: 2px 5px;
+}
+
+/* 简单的表格样式 */
+.tech-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    color: #ccc;
+    font-size: 0.9rem;
+}
+.tech-table th, .tech-table td {
+    border: 1px solid #333;
+    padding: 10px;
+    text-align: left;
+}
+.tech-table th {
+    background: #111;
+    color: var(--accent-blue);
+}
