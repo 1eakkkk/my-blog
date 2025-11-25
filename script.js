@@ -1,4 +1,5 @@
 const API_BASE = '/api';
+let currentUser = null; // 全局变量，存储当前用户信息
 
 // 核心入口
 document.addEventListener('DOMContentLoaded', async () => {
@@ -17,6 +18,9 @@ async function checkSecurity() {
         if (!data.loggedIn) {
             window.location.replace('/login.html');
         } else {
+            // === 存储用户信息到全局变量 (重要) ===
+            currentUser = data; 
+
             document.getElementById('username').textContent = data.username;
             document.getElementById('coinCount').textContent = data.coins;
             const userBadge = document.getElementById('userLevel');
@@ -133,8 +137,6 @@ async function loadPosts() {
     }
 }
 
-// --- script.js 中的 loadSinglePost 函数 ---
-
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
     const giscusContainer = document.getElementById('giscus-container');
@@ -153,40 +155,40 @@ async function loadSinglePost(id) {
         }
 
         const date = new Date(post.created_at).toLocaleString();
+        
+        // === 判断是否显示删除按钮 ===
+        // 如果当前登录用户名 == 文章作者名，则生成删除按钮
+        let deleteBtnHtml = '';
+        if (currentUser && currentUser.username === post.author_name) {
+            deleteBtnHtml = `<button onclick="deletePost(${post.id})" class="delete-btn">删除此文章 / DELETE</button>`;
+        }
+
         container.innerHTML = `
-            <div class="post-meta">ID: ${post.id} // ${date} // AUTHOR: ${post.author_name}</div>
+            <div class="post-header-row">
+                <div class="post-meta">ID: ${post.id} // ${date} // AUTHOR: ${post.author_name}</div>
+                ${deleteBtnHtml}
+            </div>
             <h1>${post.title}</h1>
             <div class="article-body">${post.content}</div>
         `;
 
-        // === Giscus 配置 (请仔细核对 ID) ===
+        // === Giscus 配置 ===
         if(giscusContainer) {
-            console.log("注入 Giscus..."); 
+            console.log("正在注入 Giscus..."); 
             const script = document.createElement('script');
             script.src = "https://giscus.app/client.js";
             
-            // 1. 仓库信息
             script.setAttribute("data-repo", "1eakkkk/my-blog");
-            
-            // 2.  这里填官网获取的最新 Repo ID
-            script.setAttribute("data-repo-id", "R_kgDOQcdfsQ"); 
-            
-            // 3.  建议分类选 General，因为 Announcements 可能无法让普通人发帖
+            script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
             script.setAttribute("data-category", "General");
-            
-            // 4.  这里填官网获取的最新 Category ID (General分类的ID)
-            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4k"); 
-            
-            // 5. 映射规则：使用特定字符串 + 文章ID，确保绝对唯一
+            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j");
             script.setAttribute("data-mapping", "specific");
             script.setAttribute("data-term", `1eak-post-${post.id}`);
-            
-            // 其他设置
             script.setAttribute("data-strict", "0");
             script.setAttribute("data-reactions-enabled", "1");
             script.setAttribute("data-emit-metadata", "0");
             script.setAttribute("data-input-position", "top");
-            script.setAttribute("data-theme", "dark_dimmed"); // 黑色主题
+            script.setAttribute("data-theme", "dark_dimmed");
             script.setAttribute("data-lang", "zh-CN");
             script.setAttribute("crossorigin", "anonymous");
             script.async = true;
@@ -199,6 +201,30 @@ async function loadSinglePost(id) {
         console.error(e);
     }
 }
+
+// === 新增：删除文章函数 ===
+window.deletePost = async function(id) {
+    if (!confirm("⚠️ 警告：确定要永久删除这篇文章吗？操作不可逆。")) {
+        return;
+    }
+
+    try {
+        // 发送 DELETE 请求
+        const res = await fetch(`${API_BASE}/posts?id=${id}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            alert("SYSTEM: 文章已删除。");
+            window.location.hash = '#home'; // 返回首页
+        } else {
+            alert("删除失败: " + data.error);
+        }
+    } catch (e) {
+        alert("网络错误，操作失败");
+    }
+};
 
 async function doPost(e) {
     e.preventDefault();
@@ -265,5 +291,3 @@ window.upgradeVip = function() {
         alert(`SYSTEM: i币不足。需要 50，当前 ${coins}。`);
     }
 };
-
-
