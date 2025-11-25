@@ -2,43 +2,51 @@ const API_BASE = '/api';
 
 // 核心入口
 document.addEventListener('DOMContentLoaded', async () => {
-    // 立即初始化界面逻辑（保证按钮能点）
+    // 1. 初始化界面事件 (解决按钮点不动的问题)
     initApp();
     
-    // 然后检查安全
+    // 2. 执行安全检查 (这是最重要的一步)
     await checkSecurity();
 });
 
-// --- 安全检查 ---
+// --- 安全检查 (控制遮罩层) ---
 async function checkSecurity() {
+    const mask = document.getElementById('loading-mask');
+    
     try {
         const res = await fetch(`${API_BASE}/user`);
         
-        // 如果API不通(比如后端挂了)，直接停止，防止报错刷屏
-        if (!res.ok) {
-            console.warn("API连接异常", res.status);
-            return; 
-        }
+        // 如果网络错误，强制跳转登录
+        if (!res.ok) throw new Error("API Error");
 
         const data = await res.json();
         
         if (!data.loggedIn) {
-            console.log("未登录，跳转中...");
-            window.location.href = '/login.html'; // 使用 href 跳转更稳妥
+            // === 未登录 ===
+            // 保持遮罩层不消失，直接跳转
+            window.location.replace('/login.html');
         } else {
-            // 已登录，填充数据
+            // === 已登录 ===
+            // 1. 填充用户数据
             document.getElementById('username').textContent = data.username;
             document.getElementById('coinCount').textContent = data.coins;
             
             const userBadge = document.getElementById('userLevel');
             userBadge.innerHTML = `LV.1 OPERATOR <span id="logoutBtn" style="cursor:pointer;color:red;margin-left:5px">[EXIT]</span>`;
             document.getElementById('logoutBtn').onclick = doLogout;
+
+            // 2. 移除遮罩层，显示页面 (增加淡出效果)
+            if (mask) {
+                mask.style.transition = 'opacity 0.5s';
+                mask.style.opacity = '0';
+                setTimeout(() => mask.remove(), 500);
+            }
         }
 
     } catch (e) {
         console.error("Auth check failed:", e);
-        // 如果出错，为了安全，可以解开下面这行的注释强制跳转
-        // window.location.href = '/login.html';
+        // 出错时也跳转登录，防止卡死在黑屏
+        window.location.replace('/login.html');
     }
 }
 
@@ -47,11 +55,22 @@ function initApp() {
     // 绑定移动端菜单
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) {
-        mobileMenuBtn.onclick = () => {
+        mobileMenuBtn.onclick = (e) => {
+            e.stopPropagation(); // 防止冒泡
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('open');
+            console.log("Menu clicked"); // 调试日志
         };
     }
+    
+    // 点击侧边栏外部关闭菜单
+    document.addEventListener('click', (e) => {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('mobileMenuBtn');
+        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btn) {
+            sidebar.classList.remove('open');
+        }
+    });
 
     // 绑定签到
     const checkInBtn = document.getElementById('checkInBtn');
