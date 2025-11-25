@@ -9,9 +9,9 @@ export async function onRequestGet(context) {
 
   if (!sessionId) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
 
-  // 获取更多字段：nickname, xp, level, is_vip, username(用于生成头像)
+  // !!! 关键修改：增加了 users.avatar_variant !!!
   const result = await db.prepare(`
-    SELECT users.username, users.nickname, users.coins, users.id, users.xp, users.level, users.is_vip
+    SELECT users.username, users.nickname, users.coins, users.id, users.xp, users.level, users.is_vip, users.avatar_variant
     FROM sessions 
     JOIN users ON sessions.user_id = users.id 
     WHERE sessions.session_id = ?
@@ -21,6 +21,6 @@ export async function onRequestGet(context) {
 
   return new Response(JSON.stringify({ 
     loggedIn: true, 
-    ...result // 展开所有字段返回前端
+    ...result 
   }), { headers: { 'Content-Type': 'application/json' } });
 }
