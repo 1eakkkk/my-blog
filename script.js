@@ -198,12 +198,10 @@ window.randomizeAvatar = async function() {
             // 重新生成 SVG
             const newSvg = generatePixelAvatar(currentUser.username, data.variant);
             
-            // 实时更新界面，无需刷新
-            // 1. 更新侧边栏头像
+            // 实时更新界面
             const sideAvatar = document.querySelector('#avatarContainer .post-avatar-box');
             if(sideAvatar) sideAvatar.innerHTML = newSvg;
             
-            // 2. 更新设置页预览
             const preview = document.getElementById('settingAvatarPreview');
             if(preview) preview.innerHTML = newSvg;
             
@@ -395,3 +393,4 @@ async function doLogout() {
         window.location.href = '/login.html';
     }
 }
+
