@@ -176,14 +176,19 @@ async function loadSinglePost(id) {
             <div class="article-body">${post.content}</div>
         `;
 
-        // === Giscus 配置 ===
+       // === Giscus 配置 (修正版) ===
         if(giscusContainer) {
+            console.log("正在注入 Giscus..."); 
             const script = document.createElement('script');
             script.src = "https://giscus.app/client.js";
+            
             script.setAttribute("data-repo", "1eakkkk/my-blog");
             script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
             script.setAttribute("data-category", "General");
-            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j");
+            
+            // 修正后
+            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4k");
+            
             script.setAttribute("data-mapping", "specific");
             script.setAttribute("data-term", `1eak-post-${post.id}`);
             script.setAttribute("data-strict", "0");
@@ -194,6 +199,7 @@ async function loadSinglePost(id) {
             script.setAttribute("data-lang", "zh-CN");
             script.setAttribute("crossorigin", "anonymous");
             script.async = true;
+            
             giscusContainer.appendChild(script);
         }
 
@@ -291,4 +297,5 @@ window.upgradeVip = function() {
         alert(`SYSTEM: i币不足。需要 50，当前 ${coins}。`);
     }
 };
+
 
