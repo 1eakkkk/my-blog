@@ -133,14 +133,15 @@ async function loadPosts() {
     }
 }
 
-// 核心修复：更精准的评论映射
+// --- 修改 script.js 中的 loadSinglePost 函数 ---
+
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
     const giscusContainer = document.getElementById('giscus-container');
     if(!container) return;
 
     container.innerHTML = '读取中...';
-    // 必须清空容器，否则切换文章时旧评论会残留
+    // 清空旧评论
     if(giscusContainer) giscusContainer.innerHTML = ''; 
 
     try {
@@ -159,20 +160,22 @@ async function loadSinglePost(id) {
             <div class="article-body">${post.content}</div>
         `;
 
-        // === Giscus 配置 ===
+        // === 加载 Giscus ===
         if(giscusContainer) {
+            console.log("正在注入 Giscus..."); // <--- F12 控制台看这里
             const script = document.createElement('script');
             script.src = "https://giscus.app/client.js";
             
-            // 基础配置
+            // 你的配置 (请再次核对这些 ID 是否真的正确)
             script.setAttribute("data-repo", "1eakkkk/my-blog");
             script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
             script.setAttribute("data-category", "General");
             script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j");
             
-            // 关键修复：使用特定映射，并且 Term 包含 ID，确保唯一性
+            // 映射规则：使用 ID (1eak-post-1)
+            // 如果你想看之前的评论，这里暂时改回 "title" 试试
             script.setAttribute("data-mapping", "specific");
-            script.setAttribute("data-term", `1eak-post-${post.id}`); // 例如: 1eak-post-1
+            script.setAttribute("data-term", `1eak-post-${post.id}`);
             
             script.setAttribute("data-strict", "0");
             script.setAttribute("data-reactions-enabled", "1");
@@ -180,7 +183,7 @@ async function loadSinglePost(id) {
             script.setAttribute("data-input-position", "top");
             script.setAttribute("data-theme", "dark_dimmed");
             script.setAttribute("data-lang", "zh-CN");
-            script.setAttribute("data-loading", "lazy");
+            // script.setAttribute("data-loading", "lazy"); <--- 删掉了这行，强制立即加载
             script.setAttribute("crossorigin", "anonymous");
             script.async = true;
             
@@ -189,6 +192,7 @@ async function loadSinglePost(id) {
 
     } catch (e) {
         container.innerHTML = 'Error loading post.';
+        console.error(e);
     }
 }
 
@@ -257,3 +261,4 @@ window.upgradeVip = function() {
         alert(`SYSTEM: i币不足。需要 50，当前 ${coins}。`);
     }
 };
+
