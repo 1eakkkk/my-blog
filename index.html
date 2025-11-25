@@ -90,12 +90,24 @@
             </footer>
         </main>
     </div>
-
+    <!-- 登录/注册 模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content glass-card">
+            <span class="close-btn">&times;</span>
+            <h2 id="modalTitle">SYSTEM LOGIN</h2>
+            <form id="authForm">
+                <input type="text" id="authUsername" placeholder="Username / 代号" required class="cyber-input">
+                <input type="password" id="authPassword" placeholder="Password / 密钥" required class="cyber-input">
+                <button type="submit" class="cyber-btn" id="authSubmitBtn">ACCESS >></button>
+            </form>
+            <p class="switch-mode" id="switchModeBtn">没有账号？点击注册 // REGISTER</p>
+        </div>
+    </div>
     <!-- 引入脚本 -->
     <script src="script.js"></script>
     <!-- 引入 Giscus 评论脚本 (需要你后续配置 repo 后替换这里，目前只是示例) -->
     <script src="https://giscus.app/client.js"
-        data-repo="[你的GitHub用户名]/my-blog"
+        data-repo="1eakkkk/my-blog"
         data-repo-id="[稍后获取]"
         data-category="General"
         data-category-id="[稍后获取]"

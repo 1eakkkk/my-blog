@@ -199,3 +199,58 @@ footer {
     .sidebar { width: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
     .content { padding: 1.5rem; }
 }
+/* 模态框样式 */
+.modal {
+    display: none; /* 默认隐藏 */
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    margin: 15% auto;
+    width: 300px;
+    text-align: center;
+    position: relative;
+    border: 1px solid var(--accent-blue);
+    box-shadow: 0 0 30px rgba(0, 112, 243, 0.2);
+}
+
+.close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.close-btn:hover { color: var(--accent-blue); }
+
+.cyber-input {
+    width: 90%;
+    background: #000;
+    border: 1px solid #333;
+    color: white;
+    padding: 10px;
+    margin: 10px 0;
+    font-family: var(--font-tech);
+}
+.cyber-input:focus {
+    border-color: var(--accent-blue);
+    outline: none;
+}
+
+.switch-mode {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    margin-top: 15px;
+    text-decoration: underline;
+}
+.switch-mode:hover { color: var(--accent-blue); }
