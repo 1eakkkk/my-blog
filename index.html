@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* 核心修复：强制遮罩层，防止未登录看到内容 */
+        /* 遮罩层样式 */
         #loading-mask {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -20,6 +20,7 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 1.2rem;
             flex-direction: column;
+            text-align: center;
         }
         .loading-spinner {
             width: 40px; height: 40px;
@@ -30,15 +31,42 @@
             margin-bottom: 20px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* 错误提示按钮样式 */
+        .fallback-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: 1px solid #333;
+            background: transparent;
+            color: #fff;
+            cursor: pointer;
+            font-family: inherit;
+            display: none; /* 默认隐藏，超时才显示 */
+        }
+        .fallback-btn:hover { border-color: #0070f3; color: #0070f3; }
     </style>
 </head>
 <body>
 
     <!-- 1. 启动时的遮罩层 -->
     <div id="loading-mask">
-        <div class="loading-spinner"></div>
-        <div>SYSTEM SECURITY CHECK...</div>
+        <div class="loading-spinner" id="spinner"></div>
+        <div id="loading-text">SYSTEM SECURITY CHECK...</div>
+        <!-- 超时后显示的按钮 -->
+        <button class="fallback-btn" onclick="window.location.href='/login.html'">强制跳转登录 / FORCE LOGIN</button>
     </div>
+
+    <!-- 紧急救援脚本：如果主JS挂了，5秒后显示手动按钮 -->
+    <script>
+        setTimeout(() => {
+            const mask = document.getElementById('loading-mask');
+            if (mask && mask.style.opacity !== '0') {
+                document.getElementById('loading-text').innerHTML = "CONNECTION TIMEOUT<br><span style='font-size:0.8rem;color:red'>无法连接核心系统</span>";
+                document.getElementById('spinner').style.borderTopColor = 'red';
+                document.querySelector('.fallback-btn').style.display = 'block';
+            }
+        }, 5000); // 5秒超时
+    </script>
 
     <!-- 2. 背景 -->
     <div class="bg-grid"></div>
@@ -51,7 +79,6 @@
         <aside class="sidebar" id="sidebar">
             <div class="logo">1EAK<span class="dot">.</span>COOL</div>
             
-            <!-- 用户卡片 -->
             <div class="user-card" id="userCard">
                 <div class="avatar" id="userAvatar"></div>
                 <div class="user-info">
@@ -66,7 +93,6 @@
                 <a href="javascript:void(0)" onclick="alert('更多功能开发中...')" class="nav-link">关于 / About</a>
             </nav>
 
-            <!-- VIP 区域 -->
             <div class="vip-sidebar-box">
                 <h4>VIP ACCESS</h4>
                 <p>解锁高级权限</p>
@@ -82,16 +108,13 @@
             </div>
         </aside>
 
-        <!-- 主内容区 -->
         <main class="content">
             <header>
                 <div class="breadcrumbs" id="breadcrumbs">SYSTEM // HOME</div>
                 <div class="date-display" id="clock">00:00:00</div>
             </header>
 
-            <!-- 视图容器 -->
             <div id="view-container">
-                <!-- 1. 文章列表视图 -->
                 <div id="view-home" class="view-section active">
                     <div class="hero-section">
                         <h1>DATA STREAM</h1>
@@ -102,7 +125,6 @@
                     </div>
                 </div>
 
-                <!-- 2. 文章发布视图 -->
                 <div id="view-write" class="view-section" style="display:none;">
                     <h2>// CREATE PROJECT</h2>
                     <p style="color:var(--text-dim); margin-bottom: 20px;">在此终端发布新的文章或项目记录。</p>
@@ -113,13 +135,9 @@
                     </form>
                 </div>
 
-                <!-- 3. 文章详情视图 (含评论) -->
                 <div id="view-post" class="view-section" style="display:none;">
                     <button onclick="window.location.hash='#home'" class="back-btn">< BACK</button>
-                    <article id="single-post-content" class="full-article">
-                        <!-- 内容由 JS 填充 -->
-                    </article>
-                    
+                    <article id="single-post-content" class="full-article"></article>
                     <div class="comments-section">
                         <h3>// 评论终端</h3>
                         <div id="giscus-container"></div>
@@ -127,9 +145,7 @@
                 </div>
             </div>
 
-            <footer>
-                <p>© 2023 1EAK.COOL | SYSTEM ONLINE</p>
-            </footer>
+            <footer><p>© 2023 1EAK.COOL | SYSTEM ONLINE</p></footer>
         </main>
     </div>
 
