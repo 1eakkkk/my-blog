@@ -3,40 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的个人博客</title>
+    <title>1eak.cool | 数字基地</title>
     <link rel="stylesheet" href="style.css">
+    <!-- 引入高科技字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-    <header>
-        <h1>欢迎来到我的世界</h1>
-        <p>记录生活，分享技术，保持热爱。</p>
-    </header>
+    <!-- 背景动态粒子（CSS实现） -->
+    <div class="bg-grid"></div>
 
-    <nav>
-        <a href="#">首页</a>
-        <a href="#">关于我</a>
-        <a href="#">联系方式</a>
-    </nav>
+    <div class="app-container">
+        <!-- 左侧侧边栏 -->
+        <aside class="sidebar">
+            <div class="logo">1EAK<span class="dot">.</span>COOL</div>
+            <div class="user-card" id="userCard">
+                <div class="avatar"></div>
+                <div class="user-info">
+                    <h3 id="username">访客 007</h3>
+                    <span class="badge" id="userLevel">LV.1 平民</span>
+                </div>
+            </div>
+            
+            <nav>
+                <a href="#" class="active">控制台 / Dashboard</a>
+                <a href="#">文章归档 / Archives</a>
+                <a href="#">项目 / Projects</a>
+                <a href="#">关于 / About</a>
+            </nav>
 
-    <div class="container">
-        <article class="post">
-            <h2>我的第一篇博客文章</h2>
-            <p class="date">2023年10月24日</p>
-            <p>你好，世界！这是我通过 Cloudflare Pages 和 GitHub 部署的第一个网站。虽然我是新手，但我成功了！</p>
-            <p>在这里，我将开始记录我的学习和生活点滴。</p>
-        </article>
+            <div class="status-panel">
+                <div class="status-item">
+                    <span>1eak 币</span>
+                    <span class="value blue" id="coinCount">0</span>
+                </div>
+                <button id="checkInBtn" class="cyber-btn">每日签到 (+10)</button>
+            </div>
+        </aside>
 
-        <article class="post">
-            <h2>学习心得</h2>
-            <p class="date">2023年10月25日</p>
-            <p>今天学习了如何把网页部署上线，原来并没有想象中那么难。只要一步步操作，每个人都能拥有自己的网站。</p>
-        </article>
+        <!-- 右侧主内容区 -->
+        <main class="content">
+            <header>
+                <div class="breadcrumbs">SYSTEM // HOME</div>
+                <div class="date-display" id="clock">00:00:00</div>
+            </header>
+
+            <div class="hero-section">
+                <h1>WELCOME TO THE VOID</h1>
+                <p>保持极简，保持冷静。这里是 1eak 的数字思维空间。</p>
+            </div>
+
+            <!-- VIP 充值模拟区 (高科技感) -->
+            <div class="vip-section">
+                <div class="glass-card">
+                    <h3>开通 VIP 权限</h3>
+                    <p>解锁高级阅读模式与专属徽章</p>
+                    <button class="vip-btn" onclick="upgradeVip()">立即升级 (模拟)</button>
+                </div>
+            </div>
+
+            <!-- 文章列表 -->
+            <div class="posts-grid">
+                <article class="post-card">
+                    <div class="post-meta">2023-10-25 | TECH</div>
+                    <h2>Cloudflare Pages 部署实战</h2>
+                    <p>如何利用无服务器架构构建高性能静态博客...</p>
+                    <a href="#" class="read-more">READ_LOG ></a>
+                </article>
+
+                <article class="post-card">
+                    <div class="post-meta">2023-10-26 | LIFE</div>
+                    <h2>数字极简主义</h2>
+                    <p>在信息过载的时代，如何保持专注与清醒...</p>
+                    <a href="#" class="read-more">READ_LOG ></a>
+                </article>
+            </div>
+
+            <!-- 评论区 (Giscus 占位符，稍后教你配置) -->
+            <div class="comments-section">
+                <h3>// 评论终端</h3>
+                <div class="giscus"></div>
+            </div>
+
+            <footer>
+                <p>© 2023 1EAK.COOL | SYSTEM ONLINE</p>
+            </footer>
+        </main>
     </div>
 
-    <footer>
-        <p>&copy; 2023 我的个人博客 | Powered by Cloudflare Pages</p>
-    </footer>
-
+    <!-- 引入脚本 -->
+    <script src="script.js"></script>
+    <!-- 引入 Giscus 评论脚本 (需要你后续配置 repo 后替换这里，目前只是示例) -->
+    <script src="https://giscus.app/client.js"
+        data-repo="[你的GitHub用户名]/my-blog"
+        data-repo-id="[稍后获取]"
+        data-category="General"
+        data-category-id="[稍后获取]"
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="dark_dimmed"
+        data-lang="zh-CN"
+        crossorigin="anonymous"
+        async>
+    </script>
 </body>
 </html>

@@ -1,65 +1,201 @@
+:root {
+    --bg-color: #050505;
+    --sidebar-bg: #0a0a0a;
+    --card-bg: #111;
+    --text-main: #fff;
+    --text-dim: #888;
+    --accent-blue: #0070f3;
+    --accent-glow: rgba(0, 112, 243, 0.5);
+    --border-color: #333;
+    --font-tech: 'JetBrains Mono', monospace;
+}
+
 body {
-    font-family: "Microsoft YaHei", sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f4f4f9;
-    color: #333;
-    line-height: 1.6;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: var(--font-tech);
+    overflow-x: hidden;
+}
+
+/* 背景网格线 */
+.bg-grid {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: -1;
+}
+
+.app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* 侧边栏 */
+.sidebar {
+    width: 280px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 3rem;
+}
+
+.dot { color: var(--accent-blue); }
+
+.user-card {
+    background: #161616;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 2rem;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.user-info h3 { margin: 0; font-size: 0.9rem; }
+.badge { font-size: 0.7rem; color: var(--text-dim); border: 1px solid #333; padding: 2px 6px; border-radius: 4px; margin-top: 4px; display: inline-block;}
+
+nav a {
+    display: block;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 10px 0;
+    transition: 0.3s;
+}
+
+nav a:hover, nav a.active {
+    color: var(--text-main);
+    padding-left: 10px;
+    border-left: 2px solid var(--accent-blue);
+}
+
+.status-panel {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color);
+    padding-top: 20px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+}
+
+.value.blue { color: var(--accent-blue); text-shadow: 0 0 5px var(--accent-glow); }
+
+.cyber-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--accent-blue);
+    color: var(--accent-blue);
+    padding: 10px;
+    cursor: pointer;
+    font-family: var(--font-tech);
+    transition: 0.3s;
+}
+
+.cyber-btn:hover {
+    background: var(--accent-blue);
+    color: white;
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+/* 主内容区 */
+.content {
+    flex: 1;
+    padding: 3rem;
 }
 
 header {
-    background-color: #2c3e50;
-    color: white;
-    padding: 2rem 0;
-    text-align: center;
-}
-
-nav {
-    background-color: #34495e;
     display: flex;
-    justify-content: center;
-    padding: 10px 0;
+    justify-content: space-between;
+    color: var(--text-dim);
+    margin-bottom: 4rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
 }
 
-nav a {
-    color: white;
-    text-decoration: none;
-    margin: 0 15px;
-    font-weight: bold;
+.hero-section h1 {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
 }
 
-nav a:hover {
-    color: #3498db;
+.vip-section {
+    margin: 2rem 0;
 }
 
-.container {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 0 20px;
+.glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    padding: 2rem;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
 }
 
-.post {
-    background: white;
-    margin-bottom: 20px;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+.vip-btn {
+    background: linear-gradient(45deg, #000, #111);
+    border: 1px solid gold;
+    color: gold;
+    padding: 10px 20px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-family: var(--font-tech);
 }
 
-h2 {
-    color: #2c3e50;
+.post-card {
+    border: 1px solid var(--border-color);
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    transition: 0.3s;
 }
 
-.date {
-    color: #7f8c8d;
-    font-size: 0.9em;
-    margin-bottom: 10px;
+.post-card:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
 }
+
+.post-meta { color: var(--accent-blue); font-size: 0.8rem; margin-bottom: 10px; }
+h2 { margin: 0 0 10px 0; }
+.read-more { color: var(--text-dim); text-decoration: none; font-size: 0.9rem; }
+.read-more:hover { color: var(--accent-blue); }
 
 footer {
+    margin-top: 4rem;
+    border-top: 1px solid var(--border-color);
     text-align: center;
-    padding: 20px 0;
-    background-color: #2c3e50;
-    color: white;
-    margin-top: 40px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    padding-top: 20px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .app-container { flex-direction: column; }
+    .sidebar { width: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
+    .content { padding: 1.5rem; }
 }
