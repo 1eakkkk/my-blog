@@ -5,7 +5,9 @@
     --text-main: #fff;
     --text-dim: #888;
     --accent-blue: #0070f3;
+    --accent-purple: #bc13fe; /* 新增：幸运紫 */
     --accent-glow: rgba(0, 112, 243, 0.4);
+    --purple-glow: rgba(188, 19, 254, 0.4);
     --border-color: #333;
     --font-tech: 'JetBrains Mono', monospace;
 }
@@ -44,57 +46,90 @@ body {
     position: sticky;
     top: 0;
     height: 100vh;
-    z-index: 50; /* 确保侧边栏在内容之上 */
+    z-index: 50;
     transition: transform 0.3s ease;
 }
 
 .logo { font-size: 1.5rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 2px; }
 .dot { color: var(--accent-blue); }
 
+/* 用户卡片 & 经验条 */
 .user-card {
     background: #161616;
     padding: 15px;
     border: 1px solid var(--border-color);
     display: flex;
-    align-items: center;
-    gap: 15px;
+    flex-direction: column;
+    gap: 10px;
     margin-bottom: 2rem;
 }
-.avatar { width: 40px; height: 40px; background: #333; border-radius: 50%; }
+.user-header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
 .user-info h3 { margin: 0; font-size: 0.9rem; }
-.badge { font-size: 0.7rem; color: var(--text-dim); border: 1px solid #333; padding: 2px 4px; }
 
+.xp-container { width: 100%; margin-top: 5px; }
+.xp-info { display: flex; justify-content: space-between; font-size: 0.7rem; color: #888; margin-bottom: 2px; }
+.xp-bar-bg { width: 100%; height: 4px; background: #333; border-radius: 2px; overflow: hidden; }
+.xp-bar-fill { height: 100%; background: linear-gradient(90deg, #0070f3, #00c6ff); width: 0%; transition: width 0.5s ease; }
+
+/* 导航 */
 nav a {
     display: block; color: var(--text-dim); text-decoration: none; padding: 12px 0;
     transition: 0.2s; border-left: 2px solid transparent; padding-left: 10px;
 }
 nav a:hover, nav a.active { color: #fff; border-left-color: var(--accent-blue); padding-left: 15px; background: rgba(255,255,255,0.02); }
 
+/* VIP 区域 */
 .vip-sidebar-box {
-    margin-top: 20px;
-    padding: 15px;
-    border: 1px solid gold;
-    background: rgba(255, 215, 0, 0.05);
-    text-align: center;
+    margin-top: 20px; padding: 15px; border: 1px solid gold;
+    background: rgba(255, 215, 0, 0.05); text-align: center;
 }
 .vip-sidebar-box h4 { color: gold; margin: 0 0 5px 0; }
 .vip-sidebar-box p { font-size: 0.8rem; margin: 0 0 10px 0; color: #ccc; }
 .vip-mini-btn { background: gold; color: black; border: none; padding: 5px 15px; cursor: pointer; font-weight: bold; font-family: var(--font-tech); }
 
+/* 底部状态栏 & 按钮 */
 .status-panel { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 20px; }
 .status-item { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 0.9rem; }
 .value.blue { color: var(--accent-blue); text-shadow: 0 0 8px var(--accent-glow); }
 
+/* 通用按钮 (蓝色) */
 .cyber-btn {
     width: 100%; background: transparent; border: 1px solid var(--accent-blue);
     color: var(--accent-blue); padding: 10px; cursor: pointer; font-family: var(--font-tech);
-    transition: 0.3s;
+    transition: 0.3s; margin-bottom: 10px;
 }
 .cyber-btn:hover { background: var(--accent-blue); color: white; box-shadow: 0 0 15px var(--accent-glow); }
+.cyber-btn:disabled { border-color: #333; color: #555; cursor: not-allowed; box-shadow: none; background: transparent; }
 
-/* 主内容 */
+/* 幸运抽奖按钮 (紫色风格) */
+.lucky-draw-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--accent-purple);
+    color: var(--accent-purple);
+    padding: 10px;
+    cursor: pointer;
+    font-family: var(--font-tech);
+    transition: 0.3s;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.lucky-draw-btn:hover {
+    background: var(--accent-purple);
+    color: white;
+    box-shadow: 0 0 20px var(--purple-glow);
+}
+.lucky-draw-btn:disabled {
+    border-color: #333;
+    color: #555;
+    cursor: not-allowed;
+    box-shadow: none;
+    background: transparent;
+}
+
+/* 主内容区 */
 .content { flex: 1; padding: 3rem; width: 100%; max-width: 1000px; margin: 0 auto; }
-
 header { display: flex; justify-content: space-between; color: var(--text-dim); margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
 
 /* 视图切换 */
@@ -104,7 +139,7 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 .hero-section { margin-bottom: 3rem; }
 .hero-section h1 { font-size: 2.5rem; margin: 0; }
 
-/* 文章卡片 */
+/* 文章列表卡片 */
 .posts-grid { display: grid; gap: 20px; }
 .post-card {
     border: 1px solid var(--border-color); padding: 1.5rem; background: rgba(20,20,20,0.5);
@@ -123,59 +158,13 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 .cyber-textarea { height: 200px; resize: vertical; }
 .cyber-input:focus, .cyber-textarea:focus { border-color: var(--accent-blue); outline: none; }
 
-/* 单篇文章 */
+/* --- 文章详情页布局 (核心修复：解决头像重叠) --- */
 .full-article { border: 1px solid var(--border-color); padding: 2rem; margin-top: 1rem; background: #0e0e0e; }
-.full-article h1 { color: var(--accent-blue); }
 .article-body { white-space: pre-wrap; line-height: 1.6; color: #ddd; }
 .back-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; margin-bottom: 10px; font-family: var(--font-tech); }
 .back-btn:hover { color: #fff; }
 
-/* 移动端适配 */
-.mobile-menu-btn { 
-    display: none; 
-    position: fixed; 
-    top: 15px; 
-    right: 15px; 
-    z-index: 1000; /* 调高层级 */
-    font-size: 1.5rem; 
-    background: #000; 
-    color: white;
-    padding: 5px 10px; 
-    border: 1px solid #333; 
-    cursor: pointer; 
-}
-
-@media (max-width: 768px) {
-    .app-container { flex-direction: column; }
-    .sidebar {
-        position: fixed; left: -280px; top: 0; height: 100%;
-        box-shadow: 5px 0 15px rgba(0,0,0,0.5);
-        width: 250px;
-    }
-    .sidebar.open { transform: translateX(280px); }
-    .content { padding: 1.5rem; margin-top: 40px; }
-    .mobile-menu-btn { display: block; }
-    .hero-section h1 { font-size: 1.8rem; }
-
-}
-/* --- Giscus 评论区专用样式 --- */
-.comments-section {
-    margin-top: 3rem;
-    padding-top: 2rem;
-    border-top: 1px dashed #333;
-}
-
-/* 强制给 Giscus 容器一个最小高度，防止塌陷 */
-#giscus-container {
-    min-height: 200px;
-    width: 100%;
-    margin-top: 20px;
-    background: rgba(255, 255, 255, 0.05); /* 微微发白，确保能看清位置 */
-    border-radius: 8px;
-    padding: 10px;
-}
-
-/* 文章头部的布局容器 */
+/* 头部容器：强制 Flex 布局，顶部对齐 */
 .post-header-row {
     display: flex;
     justify-content: space-between;
@@ -183,9 +172,44 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
+    gap: 15px;
 }
 
-/* 删除按钮样式 - 红色警告风格 */
+/* 作者信息区域：占据剩余空间 */
+.post-author-info {
+    display: flex;
+    align-items: center; /* 垂直居中 */
+    gap: 15px; /* 头像和文字的间距 */
+    flex: 1; /* 占据中间所有空间 */
+    min-width: 0; /* 关键！防止 Flex 子元素溢出 */
+}
+
+/* 头像容器：固定大小，禁止压缩 */
+.post-avatar-box {
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0; /* 关键！禁止被挤扁 */
+    border: 1px solid #333;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 文字信息：允许换行 */
+.post-meta-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    overflow: hidden; /* 配合 min-width:0 使用 */
+    text-overflow: ellipsis;
+}
+
+/* 删除按钮 */
 .delete-btn {
     background-color: transparent;
     border: 1px solid #ff3333;
@@ -195,153 +219,39 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     font-family: var(--font-tech);
     cursor: pointer;
     transition: 0.3s;
+    white-space: nowrap; /* 防止按钮文字换行 */
+    flex-shrink: 0; /* 按钮也不许被挤扁 */
 }
+.delete-btn:hover { background-color: #ff3333; color: white; box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
 
-.delete-btn:hover {
-    background-color: #ff3333;
-    color: white;
-    box-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
-}
-
-/* --- 在 style.css 末尾追加 --- */
-
-/* 像素头像 */
-.pixel-avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 4px; /* 像素风也可以稍微圆角一点点 */
-    image-rendering: pixelated; /* 关键：像素风格 */
-    background: #000;
-    border: 1px solid #333;
-}
-
-/* 侧边栏布局微调 */
-.user-card {
-    flex-direction: column; /* 改成垂直布局以便放经验条 */
-    align-items: flex-start;
-    gap: 10px;
-}
-.user-header-row {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    width: 100%;
-}
-
-/* 经验条容器 */
-.xp-container {
-    width: 100%;
-    margin-top: 5px;
-}
-.xp-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.7rem;
-    color: #888;
-    margin-bottom: 2px;
-}
-.xp-bar-bg {
-    width: 100%;
-    height: 4px;
-    background: #333;
-    border-radius: 2px;
-    overflow: hidden;
-}
-.xp-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #0070f3, #00c6ff);
-    width: 0%; /* JS控制 */
-    transition: width 0.5s ease;
-}
+/* 像素头像 SVG */
+.pixel-avatar { width: 100%; height: 100%; image-rendering: pixelated; }
 
 /* 等级徽章系统 */
-.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; border: 1px solid transparent; }
-.badge.lv-1 { border-color: #666; color: #aaa; } /* 废铁 */
-.badge.lv-2 { border-color: #fff; color: #fff; } /* 白银 */
-.badge.lv-3 { border-color: #00ff00; color: #00ff00; box-shadow: 0 0 5px rgba(0,255,0,0.2); } /* 绿色 */
-.badge.lv-4 { border-color: #00ccff; color: #00ccff; box-shadow: 0 0 8px rgba(0,204,255,0.3); } /* 蓝色 */
-.badge.lv-5 { border-color: #9933ff; color: #9933ff; box-shadow: 0 0 10px rgba(153,51,255,0.4); } /* 紫色 */
-.badge.lv-6 { border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 12px rgba(255,0,255,0.5); } /* 粉色 */
-.badge.lv-7 { border-color: #ff9900; color: #ff9900; box-shadow: 0 0 15px rgba(255,153,0,0.6); } /* 橙色 */
-.badge.lv-8 { border-color: #ff3333; color: #ff3333; box-shadow: 0 0 18px rgba(255,51,51,0.7); } /* 红色 */
-.badge.lv-9 { border-color: gold; color: gold; box-shadow: 0 0 20px gold; } /* 金色 */
-.badge.lv-10 { 
-    background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
-    background-size: 400%;
-    animation: rainbow 5s linear infinite;
-    color: #fff;
-    border: none;
-}
+.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; border: 1px solid transparent; vertical-align: middle; }
+.badge.lv-1 { border-color: #666; color: #aaa; }
+.badge.lv-2 { border-color: #fff; color: #fff; }
+.badge.lv-3 { border-color: #00ff00; color: #00ff00; box-shadow: 0 0 5px rgba(0,255,0,0.2); }
+.badge.lv-4 { border-color: #00ccff; color: #00ccff; box-shadow: 0 0 8px rgba(0,204,255,0.3); }
+.badge.lv-5 { border-color: #9933ff; color: #9933ff; box-shadow: 0 0 10px rgba(153,51,255,0.4); }
+.badge.lv-6 { border-color: #ff00ff; color: #ff00ff; box-shadow: 0 0 12px rgba(255,0,255,0.5); }
+.badge.lv-7 { border-color: #ff9900; color: #ff9900; box-shadow: 0 0 15px rgba(255,153,0,0.6); }
+.badge.lv-8 { border-color: #ff3333; color: #ff3333; box-shadow: 0 0 18px rgba(255,51,51,0.7); }
+.badge.lv-9 { border-color: gold; color: gold; box-shadow: 0 0 20px gold; }
+.badge.lv-10 { background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; animation: rainbow 5s linear infinite; color: #fff; border: none; }
 @keyframes rainbow { 0% {background-position: 0%;} 100% {background-position: 400%;} }
+.badge.vip-tag { margin-right: 5px; background: linear-gradient(45deg, #FFD700, #FFA500); color: #000; border: none; padding: 2px 5px; }
 
-.badge.vip-tag {
-    margin-left: 5px;
-    background: linear-gradient(45deg, #FFD700, #FFA500);
-    color: #000;
-    border: none;
-    padding: 2px 5px;
-}
+/* Giscus */
+.comments-section { margin-top: 3rem; padding-top: 2rem; border-top: 1px dashed #333; }
+#giscus-container { min-height: 200px; width: 100%; margin-top: 20px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px; }
 
-/* 简单的表格样式 */
-.tech-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-    color: #ccc;
-    font-size: 0.9rem;
-}
-.tech-table th, .tech-table td {
-    border: 1px solid #333;
-    padding: 10px;
-    text-align: left;
-}
-.tech-table th {
-    background: #111;
-    color: var(--accent-blue);
-}
-
-/* 左侧：头像+信息 */
-.post-author-info {
-    display: flex;
-    align-items: center;
-    gap: 15px; /* 头像和文字的间距 */
-}
-
-/* 头像容器：关键修复！ */
-.post-avatar-box {
-    width: 50px;
-    height: 50px;
-    flex-shrink: 0; /* 禁止缩小！防止被文字挤扁 */
-    border: 2px solid var(--accent-blue);
-    border-radius: 6px;
-    overflow: hidden;
-    background: #000;
-}
-
-/* 文字信息区域 */
-.post-meta-text {
-    display: flex;
-    flex-direction: column; /* 上下排列 */
-    gap: 4px;
-    font-size: 0.8rem;
-    color: var(--text-dim);
-    line-height: 1.2;
-}
-
-/* 抽奖按钮样式 */
-.lucky-draw-btn {
-    width: 100%;
-    margin-top: 10px;
-    background: linear-gradient(45deg, #222, #333);
-    border: 1px dashed var(--accent-blue);
-    color: #fff;
-    padding: 8px;
-    cursor: pointer;
-    font-family: var(--font-tech);
-    transition: 0.3s;
-}
-.lucky-draw-btn:hover {
-    background: var(--accent-blue);
-    border-style: solid;
-    box-shadow: 0 0 15px var(--accent-glow);
+/* 移动端适配 */
+.mobile-menu-btn { display: none; position: fixed; top: 15px; right: 15px; z-index: 1000; font-size: 1.5rem; background: #000; color: white; padding: 5px 10px; border: 1px solid #333; cursor: pointer; }
+@media (max-width: 768px) {
+    .app-container { flex-direction: column; }
+    .sidebar { position: fixed; left: -280px; top: 0; height: 100%; box-shadow: 5px 0 15px rgba(0,0,0,0.5); width: 250px; }
+    .sidebar.open { transform: translateX(280px); }
+    .content { padding: 1.5rem; margin-top: 40px; }
+    .mobile-menu-btn { display: block; }
 }
