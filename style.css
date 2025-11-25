@@ -37,7 +37,7 @@ body {
 /* 布局 */
 .app-container { display: flex; min-height: 100vh; transition: 0.3s; }
 
-/* 侧边栏 */
+/* --- 侧边栏 (核心修复：增加滚动条) --- */
 .sidebar {
     width: 280px;
     background: var(--sidebar-bg);
@@ -50,9 +50,14 @@ body {
     height: 100vh;
     z-index: 50;
     transition: transform 0.3s ease;
+    /* 关键修复：允许垂直滚动，防止小屏幕下底部按钮被遮挡 */
+    overflow-y: auto; 
+    /* 隐藏滚动条样式(可选，为了美观) */
+    scrollbar-width: none; /* Firefox */
 }
+.sidebar::-webkit-scrollbar { display: none; /* Chrome/Safari */ }
 
-.logo { font-size: 1.5rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 2px; }
+.logo { font-size: 1.5rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 2px; flex-shrink: 0; }
 .dot { color: var(--accent-blue); }
 
 /* 用户卡片 & 经验条 */
@@ -64,6 +69,7 @@ body {
     flex-direction: column;
     gap: 10px;
     margin-bottom: 2rem;
+    flex-shrink: 0; /* 防止被挤压 */
 }
 .user-header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
 .user-info h3 { margin: 0; font-size: 0.9rem; }
@@ -74,6 +80,7 @@ body {
 .xp-bar-fill { height: 100%; background: linear-gradient(90deg, #0070f3, #00c6ff); width: 0%; transition: width 0.5s ease; }
 
 /* 导航 */
+nav { flex-shrink: 0; }
 nav a {
     display: block; color: var(--text-dim); text-decoration: none; padding: 12px 0;
     transition: 0.2s; border-left: 2px solid transparent; padding-left: 10px;
@@ -84,13 +91,20 @@ nav a:hover, nav a.active { color: #fff; border-left-color: var(--accent-blue); 
 .vip-sidebar-box {
     margin-top: 20px; padding: 15px; border: 1px solid gold;
     background: rgba(255, 215, 0, 0.05); text-align: center;
+    flex-shrink: 0; /* 防止被挤压 */
 }
 .vip-sidebar-box h4 { color: gold; margin: 0 0 5px 0; }
 .vip-sidebar-box p { font-size: 0.8rem; margin: 0 0 10px 0; color: #ccc; }
 .vip-mini-btn { background: gold; color: black; border: none; padding: 5px 15px; cursor: pointer; font-weight: bold; font-family: var(--font-tech); }
 
 /* 底部状态栏 & 按钮 */
-.status-panel { margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 20px; }
+.status-panel { 
+    margin-top: auto; /* 这会让它尽量靠底，但如果空间不够会被挤出去，所以配合上面的 overflow-y: auto */
+    border-top: 1px solid var(--border-color); 
+    padding-top: 20px; 
+    flex-shrink: 0; 
+    padding-bottom: 20px; /* 底部留点空隙，防止紧贴边缘 */
+}
 .status-item { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 0.9rem; }
 .value.blue { color: var(--accent-blue); text-shadow: 0 0 8px var(--accent-glow); }
 
@@ -103,7 +117,7 @@ nav a:hover, nav a.active { color: #fff; border-left-color: var(--accent-blue); 
 .cyber-btn:hover { background: var(--accent-blue); color: white; box-shadow: 0 0 15px var(--accent-glow); }
 .cyber-btn:disabled { border-color: #333; color: #555; cursor: not-allowed; box-shadow: none; background: transparent; }
 
-/* 幸运抽奖按钮 (紫色，但样式与通用按钮一致) */
+/* 幸运抽奖按钮 (紫色) */
 .lucky-draw-btn {
     width: 100%;
     background: transparent;
@@ -113,7 +127,6 @@ nav a:hover, nav a.active { color: #fff; border-left-color: var(--accent-blue); 
     cursor: pointer;
     font-family: var(--font-tech);
     transition: 0.3s;
-    /* 移除原来的加粗和大写，保持一致性 */
 }
 .lucky-draw-btn:hover {
     background: var(--accent-purple);
@@ -158,37 +171,34 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 .cyber-textarea { height: 200px; resize: vertical; }
 .cyber-input:focus, .cyber-textarea:focus { border-color: var(--accent-blue); outline: none; }
 
-/* --- 文章详情页布局 (核心修复：解决头像重叠) --- */
+/* 文章详情页布局 */
 .full-article { border: 1px solid var(--border-color); padding: 2rem; margin-top: 1rem; background: #0e0e0e; }
 .article-body { white-space: pre-wrap; line-height: 1.6; color: #ddd; }
 .back-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; margin-bottom: 10px; font-family: var(--font-tech); }
 .back-btn:hover { color: #fff; }
 
-/* 头部容器 */
 .post-header-row {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start; /* 顶部对齐 */
+    align-items: flex-start;
     margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
     gap: 15px;
 }
 
-/* 作者信息区域 */
 .post-author-info {
     display: flex;
-    align-items: center; /* 垂直居中 */
-    gap: 15px; /* 头像和文字的间距 */
-    flex: 1; /* 占据中间所有空间 */
-    min-width: 0; /* 关键！防止 Flex 子元素溢出 */
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+    min-width: 0;
 }
 
-/* 头像容器：固定大小，禁止压缩 */
 .post-avatar-box {
     width: 50px;
     height: 50px;
-    flex-shrink: 0; /* 关键！禁止被挤扁 */
+    flex-shrink: 0;
     border: 1px solid #333;
     border-radius: 4px;
     overflow: hidden;
@@ -198,13 +208,12 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     justify-content: center;
 }
 
-/* 文字信息：允许换行 */
 .post-meta-text {
     display: flex;
     flex-direction: column;
     gap: 4px;
     font-size: 0.9rem;
-    color: var(--text-dim); /* 灰色文字 */
+    color: var(--text-dim);
     overflow: hidden; 
     text-overflow: ellipsis;
 }
@@ -219,15 +228,15 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     font-family: var(--font-tech);
     cursor: pointer;
     transition: 0.3s;
-    white-space: nowrap; /* 防止按钮文字换行 */
+    white-space: nowrap; 
     flex-shrink: 0;
 }
 .delete-btn:hover { background-color: #ff3333; color: white; box-shadow: 0 0 10px rgba(255, 51, 51, 0.5); }
 
-/* 像素头像 SVG */
+/* SVG */
 .pixel-avatar { width: 100%; height: 100%; image-rendering: pixelated; }
 
-/* 等级徽章系统 */
+/* Badge */
 .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; border: 1px solid transparent; vertical-align: middle; }
 .badge.lv-1 { border-color: #666; color: #aaa; }
 .badge.lv-2 { border-color: #fff; color: #fff; }
@@ -248,9 +257,19 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 
 /* 移动端适配 */
 .mobile-menu-btn { display: none; position: fixed; top: 15px; right: 15px; z-index: 1000; font-size: 1.5rem; background: #000; color: white; padding: 5px 10px; border: 1px solid #333; cursor: pointer; }
+
 @media (max-width: 768px) {
     .app-container { flex-direction: column; }
-    .sidebar { position: fixed; left: -280px; top: 0; height: 100%; box-shadow: 5px 0 15px rgba(0,0,0,0.5); width: 250px; }
+    .sidebar { 
+        position: fixed; 
+        left: -280px; 
+        top: 0; 
+        height: 100%; 
+        box-shadow: 5px 0 15px rgba(0,0,0,0.5); 
+        width: 250px;
+        /* 移动端关键配置：z-index 必须比内容高 */
+        z-index: 1001; 
+    }
     .sidebar.open { transform: translateX(280px); }
     .content { padding: 1.5rem; margin-top: 40px; }
     .mobile-menu-btn { display: block; }
