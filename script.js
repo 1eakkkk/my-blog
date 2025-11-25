@@ -133,7 +133,7 @@ async function loadPosts() {
     }
 }
 
-// --- 修改 script.js 中的 loadSinglePost 函数 ---
+// --- script.js 中的 loadSinglePost 函数 ---
 
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
@@ -141,7 +141,6 @@ async function loadSinglePost(id) {
     if(!container) return;
 
     container.innerHTML = '读取中...';
-    // 清空旧评论
     if(giscusContainer) giscusContainer.innerHTML = ''; 
 
     try {
@@ -160,30 +159,35 @@ async function loadSinglePost(id) {
             <div class="article-body">${post.content}</div>
         `;
 
-        // === 加载 Giscus ===
+        // === Giscus 配置 (请仔细核对 ID) ===
         if(giscusContainer) {
-            console.log("正在注入 Giscus..."); // <--- F12 控制台看这里
+            console.log("注入 Giscus..."); 
             const script = document.createElement('script');
             script.src = "https://giscus.app/client.js";
             
-            // 你的配置 (请再次核对这些 ID 是否真的正确)
+            // 1. 仓库信息
             script.setAttribute("data-repo", "1eakkkk/my-blog");
-            script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
-            script.setAttribute("data-category", "General");
-            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j");
             
-            // 映射规则：使用 ID (1eak-post-1)
-            // 如果你想看之前的评论，这里暂时改回 "title" 试试
+            // 2.  这里填官网获取的最新 Repo ID
+            script.setAttribute("data-repo-id", "R_kgDOQcdfsQ"); 
+            
+            // 3.  建议分类选 General，因为 Announcements 可能无法让普通人发帖
+            script.setAttribute("data-category", "General");
+            
+            // 4.  这里填官网获取的最新 Category ID (General分类的ID)
+            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4k"); 
+            
+            // 5. 映射规则：使用特定字符串 + 文章ID，确保绝对唯一
             script.setAttribute("data-mapping", "specific");
             script.setAttribute("data-term", `1eak-post-${post.id}`);
             
+            // 其他设置
             script.setAttribute("data-strict", "0");
             script.setAttribute("data-reactions-enabled", "1");
             script.setAttribute("data-emit-metadata", "0");
             script.setAttribute("data-input-position", "top");
-            script.setAttribute("data-theme", "dark_dimmed");
+            script.setAttribute("data-theme", "dark_dimmed"); // 黑色主题
             script.setAttribute("data-lang", "zh-CN");
-            // script.setAttribute("data-loading", "lazy"); <--- 删掉了这行，强制立即加载
             script.setAttribute("crossorigin", "anonymous");
             script.async = true;
             
@@ -261,4 +265,5 @@ window.upgradeVip = function() {
         alert(`SYSTEM: i币不足。需要 50，当前 ${coins}。`);
     }
 };
+
 
