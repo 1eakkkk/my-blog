@@ -22,9 +22,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkSecurity();
 });
 
-// --- 像素头像生成器 (核心修改：增加 variant 参数) ---
+// --- 像素头像生成器 (加入 variant 变数) ---
 function generatePixelAvatar(username, variant = 0) {
-    // 将 variant 加入种子，改变 variant 就会改变 hash，从而改变头像
+    // 核心：种子 = 用户名 + 变数
+    // 只要变数变了，算出来的颜色和形状就全变了
     const seedStr = username + "v" + variant;
     
     let hash = 0;
@@ -46,31 +47,21 @@ function generatePixelAvatar(username, variant = 0) {
     return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
 }
 
-// --- 计算等级 ---
 function calculateLevel(xp) {
     let currentLv = 1;
     let nextXp = 100;
     let prevXp = 0;
-
     for (let i = 0; i < LEVEL_TABLE.length; i++) {
         if (xp >= LEVEL_TABLE[i].xp) {
             currentLv = LEVEL_TABLE[i].lv;
             prevXp = LEVEL_TABLE[i].xp;
-            if (i < LEVEL_TABLE.length - 1) {
-                nextXp = LEVEL_TABLE[i+1].xp;
-            } else {
-                nextXp = 99999;
-            }
+            if (i < LEVEL_TABLE.length - 1) nextXp = LEVEL_TABLE[i+1].xp;
+            else nextXp = 99999;
         }
     }
-    
     let percent = 0;
-    if(nextXp !== 99999) {
-        percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
-    } else {
-        percent = 100;
-    }
-    
+    if(nextXp !== 99999) percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
+    else percent = 100;
     return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp };
 }
 
@@ -90,14 +81,13 @@ async function checkSecurity() {
             document.getElementById('username').textContent = displayName;
             document.getElementById('coinCount').textContent = data.coins;
             
-            // 渲染侧边栏头像 (带变数)
-            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
+            // 渲染侧边栏头像 (传入 variant)
+            const avatarHtml = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
+            document.getElementById('avatarContainer').innerHTML = avatarHtml;
             
             // 渲染设置页预览头像
-            const settingPreview = document.getElementById('settingAvatarPreview');
-            if(settingPreview) {
-                settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
-            }
+            const previewEl = document.getElementById('settingAvatarPreview');
+            if(previewEl) previewEl.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
 
             const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
@@ -193,7 +183,7 @@ async function handleRoute() {
 
 // === 业务功能 ===
 
-// 新增：随机重置头像
+// 1. 随机重置头像 (核心修复)
 window.randomizeAvatar = async function() {
     if(!confirm("确定要重置头像颜色吗？")) return;
     
@@ -203,19 +193,25 @@ window.randomizeAvatar = async function() {
         
         if(data.success) {
             alert("重置成功！");
-            // 立即更新全局变量和界面，无需刷新
+            // 更新本地数据
             currentUser.avatar_variant = data.variant;
+            // 重新生成 SVG
             const newSvg = generatePixelAvatar(currentUser.username, data.variant);
             
-            // 更新侧边栏
-            document.querySelector('#avatarContainer .post-avatar-box').innerHTML = newSvg;
-            // 更新设置页预览
-            document.getElementById('settingAvatarPreview').innerHTML = newSvg;
+            // 实时更新界面，无需刷新
+            // 1. 更新侧边栏头像
+            const sideAvatar = document.querySelector('#avatarContainer .post-avatar-box');
+            if(sideAvatar) sideAvatar.innerHTML = newSvg;
+            
+            // 2. 更新设置页预览
+            const preview = document.getElementById('settingAvatarPreview');
+            if(preview) preview.innerHTML = newSvg;
+            
         } else {
             alert(data.error);
         }
     } catch(e) {
-        alert("操作失败");
+        alert("操作失败，请检查网络");
     }
 };
 
@@ -225,31 +221,18 @@ window.doLuckyDraw = async function() {
         btn.disabled = true;
         btn.textContent = "DRAWING...";
     }
-    
     try {
         const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
         const data = await res.json();
-        
-        if(data.success) {
-            alert(`🎉 ${data.message}`);
-            window.location.reload();
-        } else {
-            alert(`🚫 ${data.error}`);
-        }
-    } catch(e) {
-        alert("⚠️ 系统繁忙，请稍后再试");
-    } finally {
-        if(btn) {
-            btn.disabled = false;
-            btn.textContent = "🎲 每日幸运抽奖";
-        }
-    }
+        if(data.success) { alert(`🎉 ${data.message}`); window.location.reload(); }
+        else { alert(`🚫 ${data.error}`); }
+    } catch(e) { alert("⚠️ 系统繁忙"); } 
+    finally { if(btn) { btn.disabled = false; btn.textContent = "🎲 每日幸运抽奖"; } }
 };
 
 window.updateProfile = async function() {
     const nick = document.getElementById('newNickname').value;
     if(!nick) return alert("请输入昵称");
-    
     try {
         const res = await fetch(`${API_BASE}/profile`, {
             method: 'POST',
@@ -257,12 +240,8 @@ window.updateProfile = async function() {
             body: JSON.stringify({nickname: nick})
         });
         const data = await res.json();
-        if(data.success) {
-            alert("修改成功");
-            window.location.reload();
-        } else {
-            alert(data.error);
-        }
+        if(data.success) { alert("修改成功"); window.location.reload(); }
+        else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
 
@@ -280,20 +259,15 @@ async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
     container.innerHTML = '<div class="loading">正在同步数据流...</div>';
-    
     try {
         const res = await fetch(`${API_BASE}/posts`);
         const posts = await res.json();
         container.innerHTML = '';
-        if (posts.length === 0) {
-            container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>';
-            return;
-        }
+        if (posts.length === 0) { container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; return; }
         posts.forEach(post => {
             const date = new Date(post.created_at).toLocaleDateString();
             const author = post.author_nickname || "Unknown";
             const vipBadge = post.author_vip ? `<span style="color:gold;font-weight:bold">[VIP]</span>` : '';
-            
             const div = document.createElement('div');
             div.className = 'post-card';
             div.innerHTML = `
@@ -304,9 +278,7 @@ async function loadPosts() {
             div.onclick = () => window.location.hash = `#post?id=${post.id}`;
             container.appendChild(div);
         });
-    } catch (e) {
-        container.innerHTML = '<p style="color:red">无法获取数据流。</p>';
-    }
+    } catch (e) { container.innerHTML = '<p style="color:red">无法获取数据流。</p>'; }
 }
 
 async function loadSinglePost(id) {
@@ -329,15 +301,14 @@ async function loadSinglePost(id) {
         
         const authorDisplay = post.author_nickname || post.author_username || post.author_name;
         const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
-        // 渲染文章作者头像：使用作者的 username + 作者的变数
+        
+        // 渲染文章作者头像 (带变数)
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
 
         container.innerHTML = `
             <div class="post-header-row">
                 <div class="post-author-info">
-                    <div class="post-avatar-box">
-                        ${avatarSvg}
-                    </div>
+                    <div class="post-avatar-box">${avatarSvg}</div>
                     <div class="post-meta-text">
                         <span style="color:#fff; font-size:1rem; font-weight:bold;">
                             ${vipDisplay}${authorDisplay} <span class="badge lv-${post.author_level||1}" style="transform:scale(0.8)">LV.${post.author_level||1}</span>
@@ -399,7 +370,7 @@ async function doPost(e) {
             body: JSON.stringify({title, content})
         });
         const data = await res.json();
-        if (data.success) { alert("发布成功！经验已增加"); window.location.hash = '#home'; document.getElementById('postTitle').value=''; document.getElementById('postContent').value=''; }
+        if (data.success) { alert("发布成功！"); window.location.hash = '#home'; document.getElementById('postTitle').value=''; document.getElementById('postContent').value=''; }
         else { alert(data.error); }
     } catch(err) { alert("Error"); } 
     finally { btn.disabled = false; }
