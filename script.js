@@ -1,4 +1,5 @@
-// START OF FILE script.js
+// --- START OF FILE script.js ---
+
 const API_BASE = '/api';
 let currentUser = null;
 
@@ -39,7 +40,7 @@ function generatePixelAvatar(seedStr) {
             }
         }
     }
-    return `<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
+    return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
 }
 
 // --- 计算等级 ---
@@ -86,7 +87,7 @@ async function checkSecurity() {
             document.getElementById('username').textContent = displayName;
             document.getElementById('coinCount').textContent = data.coins;
             
-            document.getElementById('avatarContainer').innerHTML = generatePixelAvatar(data.username);
+            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username)}</div>`;
 
             const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
@@ -182,28 +183,37 @@ async function handleRoute() {
 
 // === 业务功能 ===
 
-// 新增：每日抽奖
+// 1. 每日幸运抽奖 (紫色按钮对应功能)
 window.doLuckyDraw = async function() {
     const btn = document.querySelector('.lucky-draw-btn');
-    if(btn) btn.disabled = true;
+    if(btn) {
+        btn.disabled = true;
+        btn.textContent = "DRAWING...";
+    }
     
     try {
         const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
         const data = await res.json();
         
         if(data.success) {
+            // 成功弹窗
             alert(`🎉 ${data.message}`);
-            window.location.reload(); // 刷新更新经验条
+            window.location.reload(); // 刷新页面以更新经验条
         } else {
-            alert(data.error);
+            // 失败弹窗 (比如今天已经抽过了)
+            alert(`🚫 ${data.error}`);
         }
     } catch(e) {
-        alert("系统繁忙，请稍后再试");
+        alert("⚠️ 系统繁忙，请稍后再试");
     } finally {
-        if(btn) btn.disabled = false;
+        if(btn) {
+            btn.disabled = false;
+            btn.textContent = "🎲 每日幸运抽奖";
+        }
     }
 };
 
+// 2. 更新昵称
 window.updateProfile = async function() {
     const nick = document.getElementById('newNickname').value;
     if(!nick) return alert("请输入昵称");
@@ -224,6 +234,7 @@ window.updateProfile = async function() {
     } catch(e) { alert("Error"); }
 };
 
+// 3. 购买VIP
 window.buyVip = async function() {
     if(!confirm("确认消耗50 i币开通VIP吗？")) return;
     try {
@@ -234,6 +245,7 @@ window.buyVip = async function() {
     } catch(e) { alert("Error"); }
 };
 
+// 4. 加载文章列表
 async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
@@ -267,7 +279,7 @@ async function loadPosts() {
     }
 }
 
-// 核心修复：解决头像重叠问题的版本
+// 5. 加载单篇 (核心修复：Flex布局解决头像重叠)
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
     const giscusContainer = document.getElementById('giscus-container');
@@ -282,6 +294,7 @@ async function loadSinglePost(id) {
 
         const date = new Date(post.created_at).toLocaleString();
         let deleteBtnHtml = '';
+        // 兼容 username 和 nickname 判断
         if (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id)) {
             deleteBtnHtml = `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
         }
@@ -313,7 +326,6 @@ async function loadSinglePost(id) {
         `;
 
         if(giscusContainer) {
-            console.log("注入 Giscus...");
             const script = document.createElement('script');
             script.src = "https://giscus.app/client.js";
             script.setAttribute("data-repo", "1eakkkk/my-blog");
