@@ -174,3 +174,29 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     border-radius: 8px;
     padding: 10px;
 }
+
+/* 文章详情页头部布局 */
+.post-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* 删除按钮样式 - 红色警告风格 */
+.delete-btn {
+    background-color: transparent;
+    border: 1px solid #ff3333;
+    color: #ff3333;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    font-family: var(--font-tech);
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.delete-btn:hover {
+    background-color: #ff3333;
+    color: white;
+    box-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
+}
