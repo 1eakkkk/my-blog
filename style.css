@@ -156,4 +156,21 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     .content { padding: 1.5rem; margin-top: 40px; }
     .mobile-menu-btn { display: block; }
     .hero-section h1 { font-size: 1.8rem; }
+
+}
+/* --- Giscus 评论区专用样式 --- */
+.comments-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px dashed #333;
+}
+
+/* 强制给 Giscus 容器一个最小高度，防止塌陷 */
+#giscus-container {
+    min-height: 200px;
+    width: 100%;
+    margin-top: 20px;
+    background: rgba(255, 255, 255, 0.05); /* 微微发白，确保能看清位置 */
+    border-radius: 8px;
+    padding: 10px;
 }
