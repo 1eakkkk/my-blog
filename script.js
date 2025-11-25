@@ -1,5 +1,3 @@
---- START OF FILE script.js ---
-
 const API_BASE = '/api';
 let currentUser = null; // 【关键点1】全局变量，用于存储“我是谁”
 
@@ -293,3 +291,4 @@ window.upgradeVip = function() {
         alert(`SYSTEM: i币不足。需要 50，当前 ${coins}。`);
     }
 };
+
