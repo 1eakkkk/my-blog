@@ -1,5 +1,3 @@
---- START OF FILE script.js ---
-
 const API_BASE = '/api';
 let currentUser = null;
 
@@ -391,3 +389,4 @@ async function doLogout() {
         window.location.href = '/login.html';
     }
 }
+
