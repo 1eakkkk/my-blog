@@ -1,3 +1,5 @@
+--- START OF FILE index.html ---
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -24,18 +26,18 @@
             <div class="user-card" id="userCard">
                 <div class="avatar" id="userAvatar"></div>
                 <div class="user-info">
-                    <h3 id="username">GUEST</h3>
-                    <span class="badge" id="userLevel">OFFLINE</span>
+                    <h3 id="username">LOADING...</h3>
+                    <span class="badge" id="userLevel">CONNECTING</span>
                 </div>
             </div>
             
             <nav>
-                <a href="#home" class="nav-link active">首页 / Home</a>
-                <a href="#write" class="nav-link" id="navWrite" style="display:none;">发布文章 / Write</a>
-                <a href="javascript:void(0)" onclick="alert('开发中...')" class="nav-link">项目 / Projects</a>
+                <a href="#home" class="nav-link active">首页 / Dashboard</a>
+                <a href="#write" class="nav-link" id="navWrite">项目(发布) / Projects</a>
+                <a href="javascript:void(0)" onclick="alert('更多功能开发中...')" class="nav-link">关于 / About</a>
             </nav>
 
-            <!-- VIP 区域 (已移至侧边栏) -->
+            <!-- VIP 区域 -->
             <div class="vip-sidebar-box">
                 <h4>VIP ACCESS</h4>
                 <p>解锁高级权限</p>
@@ -44,10 +46,11 @@
 
             <div class="status-panel">
                 <div class="status-item">
-                    <span>1eak 币</span>
-                    <span class="value blue" id="coinCount">0</span>
+                    <span>i 币</span>
+                    <span class="value blue" id="coinCount">-</span>
                 </div>
-                <button id="checkInBtn" class="cyber-btn">登录 / LOGIN</button>
+                <!-- 这里只保留签到功能，因为如果不登录会被踢出页面 -->
+                <button id="checkInBtn" class="cyber-btn">每日签到 (+10)</button>
             </div>
         </aside>
 
@@ -58,13 +61,13 @@
                 <div class="date-display" id="clock">00:00:00</div>
             </header>
 
-            <!-- 视图容器：通过 JS 切换显示 -->
+            <!-- 视图容器 -->
             <div id="view-container">
                 <!-- 1. 文章列表视图 -->
                 <div id="view-home" class="view-section active">
                     <div class="hero-section">
                         <h1>DATA STREAM</h1>
-                        <p>欢迎来到数字思维空间。</p>
+                        <p>保持极简，保持冷静。这里是 1eak 的数字思维空间。</p>
                     </div>
                     <div id="posts-list" class="posts-grid">
                         <div class="loading">正在加载数据流...</div>
@@ -73,7 +76,8 @@
 
                 <!-- 2. 文章发布视图 -->
                 <div id="view-write" class="view-section" style="display:none;">
-                    <h2>// NEW ENTRY</h2>
+                    <h2>// CREATE PROJECT</h2>
+                    <p style="color:var(--text-dim); margin-bottom: 20px;">在此终端发布新的文章或项目记录。</p>
                     <form id="postForm">
                         <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
                         <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content (支持纯文本)" required></textarea>
@@ -101,21 +105,7 @@
         </main>
     </div>
 
-    <!-- 登录/注册 模态框 -->
-    <div id="authModal" class="modal">
-        <div class="modal-content glass-card">
-            <span class="close-btn">&times;</span>
-            <h2 id="modalTitle">SYSTEM LOGIN</h2>
-            <form id="authForm">
-                <input type="text" id="authUsername" placeholder="Username" required class="cyber-input">
-                <input type="password" id="authPassword" placeholder="Password" required class="cyber-input">
-                <button type="submit" class="cyber-btn" id="authSubmitBtn">ACCESS >></button>
-            </form>
-            <div class="modal-footer">
-                <span class="switch-mode" id="switchModeBtn">注册新账号 // REGISTER</span>
-            </div>
-        </div>
-    </div>
+    <!-- 移除了模态框，因为有独立的 login.html -->
 
     <script src="script.js"></script>
 </body>

@@ -1,3 +1,5 @@
+--- START OF FILE style.css ---
+
 :root {
     --bg-color: #050505;
     --sidebar-bg: #0a0a0a;
@@ -130,18 +132,6 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 .back-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; margin-bottom: 10px; font-family: var(--font-tech); }
 .back-btn:hover { color: #fff; }
 
-/* 模态框 */
-.modal {
-    display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-    width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
-}
-.modal-content {
-    background: #111; margin: 10vh auto; padding: 2rem; border: 1px solid var(--accent-blue);
-    width: 90%; max-width: 400px; position: relative; box-shadow: 0 0 30px rgba(0, 112, 243, 0.2);
-}
-.close-btn { position: absolute; right: 15px; top: 10px; font-size: 1.5rem; cursor: pointer; }
-.switch-mode { display: block; text-align: center; margin-top: 15px; color: var(--text-dim); cursor: pointer; text-decoration: underline; }
-
 /* 移动端适配 */
 .mobile-menu-btn { display: none; position: fixed; top: 15px; right: 15px; z-index: 100; font-size: 1.5rem; background: #000; padding: 5px 10px; border: 1px solid #333; cursor: pointer; }
 
@@ -152,9 +142,7 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
         box-shadow: 5px 0 15px rgba(0,0,0,0.5);
     }
     .sidebar.open { transform: translateX(280px); }
-    .content { padding: 1.5rem; margin-top: 40px; } /* 给顶部菜单留位置 */
+    .content { padding: 1.5rem; margin-top: 40px; }
     .mobile-menu-btn { display: block; }
-    
     .hero-section h1 { font-size: 1.8rem; }
-    .modal-content { margin-top: 20vh; }
 }

@@ -1,3 +1,5 @@
+--- START OF FILE script.js ---
+
 // 全局状态
 let currentUser = null;
 const API_BASE = '/api';
@@ -9,31 +11,67 @@ const views = {
     post: document.getElementById('view-post')
 };
 const navLinks = document.querySelectorAll('.nav-link');
-const authModal = document.getElementById('authModal');
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 const sidebar = document.getElementById('sidebar');
 
-// --- 1. 路由与视图控制 ---
+// --- 1. 核心认证逻辑 (Gatekeeper) ---
+
+async function checkLogin() {
+    try {
+        const res = await fetch(`${API_BASE}/user`);
+        const data = await res.json();
+        
+        if (!data.loggedIn) {
+            // 如果未登录，强制跳转到登录页
+            window.location.href = '/login.html';
+            return;
+        }
+
+        // 登录成功，更新 UI
+        currentUser = data;
+        document.getElementById('username').textContent = data.username;
+        document.getElementById('coinCount').textContent = data.coins;
+        
+        const userBadge = document.getElementById('userLevel');
+        userBadge.textContent = "LV.1 OPERATOR";
+        userBadge.style.color = "#0f0";
+        userBadge.style.borderColor = "#0f0";
+        
+        // 添加登出按钮
+        userBadge.innerHTML += ` <span onclick="doLogout()" style="cursor:pointer;color:red;margin-left:5px">[EXIT]</span>`;
+
+        // 绑定签到按钮逻辑 (此时用户必已登录，所以直接绑签到)
+        const checkInBtn = document.getElementById('checkInBtn');
+        checkInBtn.textContent = "每日签到 (+10)";
+        checkInBtn.onclick = doCheckIn;
+
+    } catch (e) {
+        console.error("Auth check failed", e);
+        // 如果 API 挂了，为了安全也踢回登录页或显示错误
+        document.body.innerHTML = "<h1 style='color:white;text-align:center;margin-top:20%'>SYSTEM ERROR: 连接核心失败</h1>";
+    }
+}
+
+// --- 2. 路由与视图控制 ---
 
 function showView(viewName) {
-    // 隐藏所有视图
     Object.values(views).forEach(el => el.style.display = 'none');
     navLinks.forEach(el => el.classList.remove('active'));
     
-    // 显示目标视图
-    if (views[viewName]) {
-        views[viewName].style.display = 'block';
-    }
+    if (views[viewName]) views[viewName].style.display = 'block';
     
-    // 更新导航高亮
-    const activeLink = document.querySelector(`a[href="#${viewName}"]`);
-    if (activeLink) activeLink.classList.add('active');
+    // 更新侧边栏高亮
+    // 特殊处理：write 对应 navWrite
+    if (viewName === 'write') {
+        document.getElementById('navWrite').classList.add('active');
+    } else if (viewName === 'home') {
+        document.querySelector('a[href="#home"]').classList.add('active');
+    }
 
-    // 移动端：切换视图后自动关闭侧边栏
     sidebar.classList.remove('open');
 }
 
-// 监听路由变化 (Hash Router)
+// 监听路由
 window.addEventListener('hashchange', handleRoute);
 window.addEventListener('load', handleRoute);
 
@@ -44,13 +82,7 @@ async function handleRoute() {
         showView('home');
         loadPosts();
     } else if (hash === '#write') {
-        if (!currentUser) {
-            alert("请先登录权限 // ACCESS DENIED");
-            window.location.hash = '#home';
-            openLoginModal();
-        } else {
-            showView('write');
-        }
+        showView('write');
     } else if (hash.startsWith('#post?id=')) {
         const id = hash.split('=')[1];
         showView('post');
@@ -58,7 +90,7 @@ async function handleRoute() {
     }
 }
 
-// --- 2. 数据加载逻辑 ---
+// --- 3. 业务逻辑 ---
 
 // 加载文章列表
 async function loadPosts() {
@@ -71,7 +103,7 @@ async function loadPosts() {
         
         container.innerHTML = '';
         if (posts.length === 0) {
-            container.innerHTML = '<p>暂无数据。待写入。</p>';
+            container.innerHTML = '<p style="color:#666">暂无文章。点击左侧“项目(发布)”创建第一条记录。</p>';
             return;
         }
 
@@ -88,18 +120,17 @@ async function loadPosts() {
             container.appendChild(div);
         });
     } catch (e) {
-        container.innerHTML = '<p style="color:red">连接中断。</p>';
+        container.innerHTML = '<p style="color:red">无法获取数据流。</p>';
     }
 }
 
-// 加载单篇文章 + 动态加载评论
+// 加载单篇文章
 async function loadSinglePost(id) {
     const container = document.getElementById('single-post-content');
     const giscusContainer = document.getElementById('giscus-container');
     
     container.innerHTML = '读取中...';
-    // 清空旧评论，防止串台
-    giscusContainer.innerHTML = ''; 
+    giscusContainer.innerHTML = ''; // 清理旧评论
 
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
@@ -110,7 +141,6 @@ async function loadSinglePost(id) {
             return;
         }
 
-        // 渲染文章
         const date = new Date(post.created_at).toLocaleString();
         container.innerHTML = `
             <div class="post-meta">ID: ${post.id} // ${date} // AUTHOR: ${post.author_name}</div>
@@ -118,15 +148,15 @@ async function loadSinglePost(id) {
             <div class="article-body">${post.content}</div>
         `;
 
-        // 动态加载评论 (Giscus)
+        // 加载 Giscus
         const script = document.createElement('script');
         script.src = "https://giscus.app/client.js";
-        script.setAttribute("data-repo", "1eakkkk/my-blog"); 
-        script.setAttribute("data-repo-id", "R_kgDOQcdfsQ"); 
+        script.setAttribute("data-repo", "1eakkkk/my-blog");
+        script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
         script.setAttribute("data-category", "General");
-        script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j"); 
+        script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4j");
         script.setAttribute("data-mapping", "specific");
-        script.setAttribute("data-term", post.title); // 使用文章标题作为评论唯一标识
+        script.setAttribute("data-term", post.title);
         script.setAttribute("data-strict", "0");
         script.setAttribute("data-reactions-enabled", "1");
         script.setAttribute("data-emit-metadata", "0");
@@ -139,134 +169,40 @@ async function loadSinglePost(id) {
         giscusContainer.appendChild(script);
 
     } catch (e) {
-        container.innerHTML = 'Error loading data.';
+        container.innerHTML = 'Error loading post.';
     }
 }
 
-// --- 3. 认证与用户逻辑 ---
-
-// 检查登录
-async function checkLogin() {
-    try {
-        const res = await fetch(`${API_BASE}/user`);
-        const data = await res.json();
-        
-        const btn = document.getElementById('checkInBtn');
-        const userBadge = document.getElementById('userLevel');
-        const writeLink = document.getElementById('navWrite');
-
-        if (data.loggedIn) {
-            currentUser = data;
-            document.getElementById('username').textContent = data.username;
-            document.getElementById('coinCount').textContent = data.coins;
-            
-            userBadge.textContent = "LV.1 OPERATOR";
-            userBadge.style.color = "#0f0";
-            
-            // 登录后显示“发布文章”链接
-            writeLink.style.display = 'block';
-            
-            btn.textContent = "每日签到 (+10)";
-            btn.onclick = doCheckIn;
-            
-            // 添加登出
-            userBadge.innerHTML += ` <span onclick="doLogout()" style="cursor:pointer;color:red;margin-left:5px">[EXIT]</span>`;
-        } else {
-            currentUser = null;
-            document.getElementById('username').textContent = "GUEST";
-            userBadge.textContent = "OFFLINE";
-            writeLink.style.display = 'none';
-            btn.textContent = "登录 / LOGIN";
-            btn.onclick = openLoginModal;
-        }
-    } catch (e) { console.error(e); }
-}
-
-// 签到
+// 签到逻辑
 async function doCheckIn() {
     const btn = document.getElementById('checkInBtn');
+    if(btn.disabled) return;
+    
     btn.disabled = true;
+    btn.textContent = "SYNCING...";
+    
     try {
         const res = await fetch(`${API_BASE}/checkin`, { method: 'POST' });
         const data = await res.json();
-        alert(data.message);
-        if(data.coins) document.getElementById('coinCount').textContent = data.coins;
-    } catch(e) { alert("Error"); }
-    btn.disabled = false;
-}
-
-// 登出
-window.doLogout = async function() {
-    if(confirm("断开连接?")) {
-        await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
-        window.location.reload();
-    }
-};
-
-// --- 4. 模态框逻辑 (修复按钮点击问题) ---
-
-let isRegister = false;
-const modalTitle = document.getElementById('modalTitle');
-const authSubmitBtn = document.getElementById('authSubmitBtn');
-const switchModeBtn = document.getElementById('switchModeBtn');
-
-function openLoginModal() {
-    authModal.style.display = "block";
-    isRegister = false;
-    updateModalUI();
-}
-
-document.querySelector('.close-btn').onclick = () => authModal.style.display = "none";
-
-// 切换注册/登录
-switchModeBtn.onclick = () => {
-    isRegister = !isRegister;
-    updateModalUI();
-};
-
-function updateModalUI() {
-    modalTitle.textContent = isRegister ? "REGISTER NEW USER" : "SYSTEM LOGIN";
-    authSubmitBtn.textContent = isRegister ? "注册 / REGISTER" : "进入 / ACCESS";
-    switchModeBtn.textContent = isRegister ? "已有账号？去登录" : "注册新账号 // REGISTER";
-}
-
-// 处理表单提交
-document.getElementById('authForm').onsubmit = async (e) => {
-    e.preventDefault(); // 阻止页面刷新
-    const u = document.getElementById('authUsername').value;
-    const p = document.getElementById('authPassword').value;
-    const url = isRegister ? `${API_BASE}/auth/register` : `${API_BASE}/auth/login`;
-
-    try {
-        authSubmitBtn.textContent = "PROCESSING...";
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username: u, password: p})
-        });
-        const data = await res.json();
-
-        if (data.success) {
-            if (isRegister) {
-                alert("注册成功，请登录");
-                isRegister = false; 
-                updateModalUI();
-            } else {
-                authModal.style.display = "none";
-                checkLogin(); // 刷新状态
-                alert("Welcome back, Commander.");
-            }
-        } else {
-            alert("Error: " + (data.error || "Failed"));
-        }
-    } catch (e) {
-        alert("System Error");
+        alert(`SYSTEM: ${data.message}`);
+        if(data.coins !== undefined) document.getElementById('coinCount').textContent = data.coins;
+    } catch(e) { 
+        alert("通讯中断"); 
     } finally {
-        authSubmitBtn.textContent = isRegister ? "注册 / REGISTER" : "进入 / ACCESS";
+        btn.disabled = false;
+        btn.textContent = "每日签到 (+10)";
+    }
+}
+
+// 登出逻辑
+window.doLogout = async function() {
+    if(confirm("确认断开连接？")) {
+        await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+        window.location.href = '/login.html';
     }
 };
 
-// --- 5. 发布文章逻辑 ---
+// 发布文章逻辑
 document.getElementById('postForm').onsubmit = async (e) => {
     e.preventDefault();
     const title = document.getElementById('postTitle').value;
@@ -281,7 +217,7 @@ document.getElementById('postForm').onsubmit = async (e) => {
         const data = await res.json();
         if (data.success) {
             alert("上传成功 / UPLOAD COMPLETE");
-            window.location.hash = '#home'; // 跳回首页
+            window.location.hash = '#home'; 
             document.getElementById('postTitle').value = '';
             document.getElementById('postContent').value = '';
         } else {
@@ -290,19 +226,23 @@ document.getElementById('postForm').onsubmit = async (e) => {
     } catch(e) { alert("Error"); }
 };
 
-// --- 6. 移动端菜单 ---
-mobileMenuBtn.onclick = () => {
-    sidebar.classList.toggle('open');
+// VIP 功能
+window.upgradeVip = function() {
+    let coins = parseInt(document.getElementById('coinCount').textContent);
+    if (isNaN(coins)) coins = 0;
+    
+    if (coins >= 50) {
+        alert("扣除50i币功能开发中... 管理员权限待下发");
+    } else {
+        alert(`SYSTEM: i币不足。需要 50，当前 ${coins}。`);
+    }
 };
 
-// VIP
-window.upgradeVip = function() {
-    if(!currentUser) { openLoginModal(); return; }
-    alert("VIP系统正在维护中... (需要消耗50金币)");
-};
+// 移动端菜单
+mobileMenuBtn.onclick = () => sidebar.classList.toggle('open');
 
 // 时钟
 setInterval(() => document.getElementById('clock').textContent = new Date().toLocaleTimeString(), 1000);
 
-// 初始化
+// 启动认证检查
 checkLogin();
