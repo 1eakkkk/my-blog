@@ -1,5 +1,7 @@
+--- START OF FILE script.js ---
+
 const API_BASE = '/api';
-let currentUser = null; // 全局变量，存储当前用户信息
+let currentUser = null; // 【关键点1】全局变量，用于存储“我是谁”
 
 // 核心入口
 document.addEventListener('DOMContentLoaded', async () => {
@@ -18,8 +20,9 @@ async function checkSecurity() {
         if (!data.loggedIn) {
             window.location.replace('/login.html');
         } else {
-            // === 存储用户信息到全局变量 (重要) ===
+            // 【关键点2】把查到的用户信息存入全局变量
             currentUser = data; 
+            console.log("当前登录用户:", currentUser.username); // 调试日志
 
             document.getElementById('username').textContent = data.username;
             document.getElementById('coinCount').textContent = data.coins;
@@ -63,7 +66,7 @@ function initApp() {
     if (postForm) postForm.onsubmit = doPost;
 
     window.addEventListener('hashchange', handleRoute);
-    handleRoute();
+    handleRoute(); // 页面加载时触发一次
 
     setInterval(() => {
         const el = document.getElementById('clock');
@@ -156,17 +159,20 @@ async function loadSinglePost(id) {
 
         const date = new Date(post.created_at).toLocaleString();
         
-        // === 判断是否显示删除按钮 ===
-        // 如果当前登录用户名 == 文章作者名，则生成删除按钮
+        // === 【关键点3】 判断逻辑 ===
         let deleteBtnHtml = '';
+        console.log("文章作者:", post.author_name, "当前用户:", currentUser ? currentUser.username : "未获取");
+        
         if (currentUser && currentUser.username === post.author_name) {
+            // 如果匹配成功，生成按钮代码
             deleteBtnHtml = `<button onclick="deletePost(${post.id})" class="delete-btn">删除此文章 / DELETE</button>`;
         }
 
+        // === 【关键点4】 必须把 deleteBtnHtml 放到下面的字符串里 ===
         container.innerHTML = `
             <div class="post-header-row">
                 <div class="post-meta">ID: ${post.id} // ${date} // AUTHOR: ${post.author_name}</div>
-                ${deleteBtnHtml}
+                ${deleteBtnHtml} 
             </div>
             <h1>${post.title}</h1>
             <div class="article-body">${post.content}</div>
@@ -174,10 +180,8 @@ async function loadSinglePost(id) {
 
         // === Giscus 配置 ===
         if(giscusContainer) {
-            console.log("正在注入 Giscus..."); 
             const script = document.createElement('script');
             script.src = "https://giscus.app/client.js";
-            
             script.setAttribute("data-repo", "1eakkkk/my-blog");
             script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
             script.setAttribute("data-category", "General");
@@ -192,7 +196,6 @@ async function loadSinglePost(id) {
             script.setAttribute("data-lang", "zh-CN");
             script.setAttribute("crossorigin", "anonymous");
             script.async = true;
-            
             giscusContainer.appendChild(script);
         }
 
@@ -202,14 +205,13 @@ async function loadSinglePost(id) {
     }
 }
 
-// === 新增：删除文章函数 ===
+// === 删除功能 ===
 window.deletePost = async function(id) {
     if (!confirm("⚠️ 警告：确定要永久删除这篇文章吗？操作不可逆。")) {
         return;
     }
 
     try {
-        // 发送 DELETE 请求
         const res = await fetch(`${API_BASE}/posts?id=${id}`, {
             method: 'DELETE'
         });
