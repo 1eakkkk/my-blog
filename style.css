@@ -175,12 +175,14 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     padding: 10px;
 }
 
-/* 文章详情页头部布局 */
+/* 文章头部的布局容器 */
 .post-header-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+    align-items: flex-start; /* 顶部对齐，防止高度拉伸 */
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 /* 删除按钮样式 - 红色警告风格 */
@@ -296,4 +298,50 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 .tech-table th {
     background: #111;
     color: var(--accent-blue);
+}
+
+/* 左侧：头像+信息 */
+.post-author-info {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* 头像和文字的间距 */
+}
+
+/* 头像容器：关键修复！ */
+.post-avatar-box {
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0; /* 禁止缩小！防止被文字挤扁 */
+    border: 2px solid var(--accent-blue);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #000;
+}
+
+/* 文字信息区域 */
+.post-meta-text {
+    display: flex;
+    flex-direction: column; /* 上下排列 */
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.2;
+}
+
+/* 抽奖按钮样式 */
+.lucky-draw-btn {
+    width: 100%;
+    margin-top: 10px;
+    background: linear-gradient(45deg, #222, #333);
+    border: 1px dashed var(--accent-blue);
+    color: #fff;
+    padding: 8px;
+    cursor: pointer;
+    font-family: var(--font-tech);
+    transition: 0.3s;
+}
+.lucky-draw-btn:hover {
+    background: var(--accent-blue);
+    border-style: solid;
+    box-shadow: 0 0 15px var(--accent-glow);
 }
