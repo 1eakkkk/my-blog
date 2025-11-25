@@ -9,7 +9,19 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
+        <!-- 登录/注册 模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content glass-card">
+            <span class="close-btn">&times;</span>
+            <h2 id="modalTitle">SYSTEM LOGIN</h2>
+            <form id="authForm">
+                <input type="text" id="authUsername" placeholder="Username / 代号" required class="cyber-input">
+                <input type="password" id="authPassword" placeholder="Password / 密钥" required class="cyber-input">
+                <button type="submit" class="cyber-btn" id="authSubmitBtn">ACCESS >></button>
+            </form>
+            <p class="switch-mode" id="switchModeBtn">没有账号？点击注册 // REGISTER</p>
+        </div>
+    </div>
     <!-- 背景动态粒子（CSS实现） -->
     <div class="bg-grid"></div>
 
@@ -86,23 +98,11 @@
             </div>
 
             <footer>
-                <p>© 2023 1EAK.COOL | SYSTEM ONLINE</p>
+                <p>© 2025 1EAK.COOL | SYSTEM ONLINE</p>
             </footer>
         </main>
     </div>
-    <!-- 登录/注册 模态框 -->
-    <div id="authModal" class="modal">
-        <div class="modal-content glass-card">
-            <span class="close-btn">&times;</span>
-            <h2 id="modalTitle">SYSTEM LOGIN</h2>
-            <form id="authForm">
-                <input type="text" id="authUsername" placeholder="Username / 代号" required class="cyber-input">
-                <input type="password" id="authPassword" placeholder="Password / 密钥" required class="cyber-input">
-                <button type="submit" class="cyber-btn" id="authSubmitBtn">ACCESS >></button>
-            </form>
-            <p class="switch-mode" id="switchModeBtn">没有账号？点击注册 // REGISTER</p>
-        </div>
-    </div>
+
     <!-- 引入脚本 -->
     <script src="script.js"></script>
     <!-- 引入 Giscus 评论脚本 (需要你后续配置 repo 后替换这里，目前只是示例) -->
