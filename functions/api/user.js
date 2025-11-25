@@ -1,4 +1,3 @@
-// --- functions/api/user.js ---
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -9,7 +8,7 @@ export async function onRequestGet(context) {
 
   if (!sessionId) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
 
-  // !!! 关键修改：增加了 users.avatar_variant !!!
+  // 增加 avatar_variant 字段
   const result = await db.prepare(`
     SELECT users.username, users.nickname, users.coins, users.id, users.xp, users.level, users.is_vip, users.avatar_variant
     FROM sessions 
@@ -19,8 +18,5 @@ export async function onRequestGet(context) {
 
   if (!result) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
 
-  return new Response(JSON.stringify({ 
-    loggedIn: true, 
-    ...result 
-  }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ loggedIn: true, ...result }), { headers: { 'Content-Type': 'application/json' } });
 }
