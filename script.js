@@ -183,7 +183,7 @@ async function handleRoute() {
 
 // === 业务功能 ===
 
-// 1. 每日幸运抽奖 (紫色按钮对应功能)
+// 1. 每日幸运抽奖 (带弹窗反馈)
 window.doLuckyDraw = async function() {
     const btn = document.querySelector('.lucky-draw-btn');
     if(btn) {
@@ -213,7 +213,6 @@ window.doLuckyDraw = async function() {
     }
 };
 
-// 2. 更新昵称
 window.updateProfile = async function() {
     const nick = document.getElementById('newNickname').value;
     if(!nick) return alert("请输入昵称");
@@ -234,7 +233,6 @@ window.updateProfile = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// 3. 购买VIP
 window.buyVip = async function() {
     if(!confirm("确认消耗50 i币开通VIP吗？")) return;
     try {
@@ -245,7 +243,6 @@ window.buyVip = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// 4. 加载文章列表
 async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
@@ -294,7 +291,6 @@ async function loadSinglePost(id) {
 
         const date = new Date(post.created_at).toLocaleString();
         let deleteBtnHtml = '';
-        // 兼容 username 和 nickname 判断
         if (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id)) {
             deleteBtnHtml = `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
         }
@@ -303,7 +299,6 @@ async function loadSinglePost(id) {
         const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
         const avatarSvg = generatePixelAvatar(post.author_username || "default");
 
-        // === 新结构：使用 Flexbox 隔离头像和文字 ===
         container.innerHTML = `
             <div class="post-header-row">
                 <div class="post-author-info">
