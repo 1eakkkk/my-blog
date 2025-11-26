@@ -167,8 +167,8 @@ async function checkSecurity() {
     }
 }
 
+// 修复 loadPosts 函数
 
-// 3. 修改 loadPosts (显示分类标签)
 async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
@@ -204,14 +204,18 @@ async function loadPosts() {
                 custom_title: post.author_title,
                 custom_title_color: post.author_title_color,
                 is_vip: post.author_vip,
-                xp: post.author_xp // <--- 这里传入XP，getBadgesHtml 里的 calculateLevel 就能算出正确等级
+                xp: post.author_xp
             });
-
+            
+            // 点赞按钮
             const likeClass = post.is_liked ? 'liked' : '';
             const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">
                 ❤ <span class="count">${post.like_count || 0}</span>
             </button>`;
-
+            
+            // === 关键修复：先定义 div，再赋值 ===
+            const div = document.createElement('div');
+            div.className = `post-card ${isAnnounceClass}`;
             div.innerHTML = `
                 <div class="post-meta">
                     ${catHtml} ${date} | ${badgeHtml} @${author}
@@ -220,17 +224,6 @@ async function loadPosts() {
                     <h2 style="margin:0">${post.title}</h2>
                     ${likeBtn}
                 </div>
-                <div class="post-snippet">${post.content.substring(0, 100)}...</div>
-            `;
-            
-            const div = document.createElement('div');
-            div.className = `post-card ${isAnnounceClass}`; // 给公告卡片加特效
-            div.innerHTML = `
-                <div class="post-meta">
-                    ${catHtml} 
-                    ${date} | ${badgeHtml} @${author}
-                </div>
-                <h2>${post.title}</h2>
                 <div class="post-snippet">${post.content.substring(0, 100)}...</div>
             `;
             div.onclick = () => window.location.hash = `#post?id=${post.id}`;
@@ -786,4 +779,5 @@ window.adminGenInvite = async function() {
         } else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
+
 
