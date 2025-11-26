@@ -108,6 +108,12 @@ async function checkSecurity() {
         const res = await fetch(`${API_BASE}/user`);
         if (!res.ok) throw new Error("API Error");
         const data = await res.json();
+
+        if (userRole === 'admin') {
+                document.getElementById('navAdmin').style.display = 'flex';
+                // 新增：如果是管理员，允许发公告
+                document.getElementById('optAdmin').style.display = 'block';
+            }
         
         if (!data.loggedIn) {
             window.location.replace('/login.html');
@@ -162,6 +168,7 @@ async function checkSecurity() {
 }
 
 
+// 3. 修改 loadPosts (显示分类标签)
 async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
@@ -171,7 +178,6 @@ async function loadPosts() {
         const res = await fetch(`${API_BASE}/posts`);
         const posts = await res.json();
         container.innerHTML = '';
-        
         if (posts.length === 0) { 
             container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; 
             return; 
@@ -179,25 +185,35 @@ async function loadPosts() {
 
         posts.forEach(post => {
             const date = new Date(post.created_at).toLocaleDateString();
-            
-            // === 核心修复 1：名称回退逻辑 ===
-            // 如果没有昵称，就显示用户名，只有两个都没有才显示 Unknown
             const author = post.author_nickname || post.author_username || "Unknown";
             
-            // === 核心修复 2：在列表页也显示徽章 (Admin/VIP/头衔) ===
-            // 构造一个临时对象传给 getBadgesHtml
+            // --- 处理分类标签 ---
+            const cat = post.category || '灌水';
+            let catClass = '';
+            if(cat === '技术') catClass = 'cat-tech';
+            else if(cat === '生活') catClass = 'cat-life';
+            else if(cat === '提问') catClass = 'cat-question';
+            else if(cat === '公告') catClass = 'cat-announce';
+            
+            const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
+            const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
+
+            // 徽章生成
             const badgeHtml = getBadgesHtml({
                 role: post.author_role,
                 custom_title: post.author_title,
                 custom_title_color: post.author_title_color,
                 is_vip: post.author_vip,
-                xp: 0 // 列表页一般不显示具体等级，或者你可以让后端传 xp 过来
+                xp: 0
             });
             
             const div = document.createElement('div');
-            div.className = 'post-card';
+            div.className = `post-card ${isAnnounceClass}`; // 给公告卡片加特效
             div.innerHTML = `
-                <div class="post-meta">${date} | ${badgeHtml} @${author}</div>
+                <div class="post-meta">
+                    ${catHtml} 
+                    ${date} | ${badgeHtml} @${author}
+                </div>
                 <h2>${post.title}</h2>
                 <div class="post-snippet">${post.content.substring(0, 100)}...</div>
             `;
@@ -221,6 +237,30 @@ async function loadSinglePost(id) {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
         const post = await res.json();
         if (!post) { container.innerHTML = '<h1>404</h1>'; return; }
+
+        // --- 处理分类标签 ---
+        const cat = post.category || '灌水';
+        let catClass = '';
+        if(cat === '公告') catClass = 'cat-announce';
+        const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
+
+        container.innerHTML = `
+            <div class="post-header-row">
+                <div class="post-author-info">
+                    <div class="post-avatar-box">${avatarSvg}</div>
+                    <div class="post-meta-text">
+                        <span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                            ${authorDisplay} ${badgesHtml}
+                        </span>
+                        <span>${catHtml} ID: ${post.id} // ${date}</span>
+                    </div>
+                    ${tipBtn}
+                </div>
+                <div>${actionBtns}</div>
+            </div>
+            <h1 style="margin-top:20px;">${post.title}</h1>
+            <div class="article-body">${post.content}</div>
+        `;
 
         const date = new Date(post.created_at).toLocaleString();
         let actionBtns = '';
@@ -534,23 +574,38 @@ window.deletePost = async function(id) {
     } catch (e) { alert("Fail"); }
 };
 
+//修改 doPost (发送 category)
 async function doPost(e) {
     e.preventDefault();
     const title = document.getElementById('postTitle').value;
     const content = document.getElementById('postContent').value;
+    // 新增：获取分类
+    const category = document.getElementById('postCategory').value;
+    
     const btn = document.querySelector('#postForm button');
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/posts`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({title, content})
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                title, 
+                content, 
+                category // 发送分类
+            })
         });
         const data = await res.json();
-        if (data.success) { alert("发布成功！经验已增加"); window.location.hash = '#home'; document.getElementById('postTitle').value=''; document.getElementById('postContent').value=''; }
+        if (data.success) { 
+            alert(data.message); 
+            window.location.hash = '#home'; 
+            document.getElementById('postTitle').value=''; 
+            document.getElementById('postContent').value=''; 
+        }
         else { alert(data.error); }
     } catch(err) { alert("Error"); } 
     finally { btn.disabled = false; }
 }
+
 
 async function doCheckIn() {
     const btn = document.getElementById('checkInBtn');
@@ -623,4 +678,5 @@ window.adminGenKey = async function() {
         else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
+
 
