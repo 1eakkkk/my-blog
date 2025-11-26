@@ -5,6 +5,8 @@ let userRole = 'user';
 let currentUser = null;
 let currentPostId = null;
 let returnToNotifications = false;
+// 新增：标记应用是否准备就绪（用户信息已加载）
+let isAppReady = false;
 
 // 分页 & 状态
 let currentPage = 1;
@@ -88,7 +90,6 @@ async function checkSecurity() {
         const res = await fetch(`${API_BASE}/user`);
         if (!res.ok) throw new Error("API Error");
         const data = await res.json();
-        if (userRole === 'admin') document.getElementById('navAdmin').style.display = 'flex';
         
         if (!data.loggedIn) {
             window.location.replace('/login.html');
@@ -96,6 +97,9 @@ async function checkSecurity() {
             currentUser = data;
             userRole = data.role || 'user';
             
+            // 标记 App 就绪
+            isAppReady = true;
+
             document.getElementById('username').textContent = data.nickname || data.username;
             document.getElementById('coinCount').textContent = data.coins;
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
@@ -134,6 +138,10 @@ async function checkSecurity() {
             setInterval(checkNotifications, 60000);
             renderLevelTable();
             checkForDrafts();
+            
+            // 关键：权限确认后，手动触发一次路由处理，确保能正确显示 Admin 页面
+            handleRoute();
+
             if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
         }
     } catch (e) { console.error(e); window.location.replace('/login.html'); }
@@ -141,11 +149,9 @@ async function checkSecurity() {
 
 // --- 业务逻辑 ---
 
-// 提交反馈
 window.submitFeedback = async function() {
     const content = document.getElementById('feedbackContent').value;
     if(!content || content.length < 5) return alert("反馈内容太短");
-    
     try {
         const res = await fetch(`${API_BASE}/feedback`, {
             method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -157,7 +163,6 @@ window.submitFeedback = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// ADMIN: 加载统计和设置
 async function loadAdminStats() {
     try {
         const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) });
@@ -170,7 +175,6 @@ async function loadAdminStats() {
     } catch(e){}
 }
 
-// ADMIN: 切换邀请码开关
 window.toggleInviteSystem = async function() {
     const enabled = document.getElementById('inviteToggle').checked;
     try {
@@ -180,7 +184,6 @@ window.toggleInviteSystem = async function() {
     } catch(e){ alert("设置失败"); }
 };
 
-// ADMIN: 加载邀请码列表
 async function loadAdminInvites() {
     const tbody = document.querySelector('#adminInviteTable tbody');
     tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
@@ -211,7 +214,6 @@ async function loadAdminInvites() {
     } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; }
 }
 
-// ADMIN: 补满邀请码
 window.refillInvites = async function() {
     try {
         const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) });
@@ -221,7 +223,6 @@ window.refillInvites = async function() {
     } catch(e){ alert("Error"); }
 };
 
-// ADMIN: 删除邀请码
 window.deleteInvite = async function(id) {
     if(!confirm("Delete?")) return;
     try {
@@ -230,7 +231,6 @@ window.deleteInvite = async function(id) {
     } catch(e){ alert("Error"); }
 };
 
-// ADMIN: 加载反馈列表
 async function loadAdminFeedbacks() {
     const tbody = document.querySelector('#adminFeedbackTable tbody');
     tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
@@ -354,7 +354,6 @@ window.updateProfile = async function() { const n=document.getElementById('newNi
 window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await fetch(`${API_BASE}/vip`, {method:'POST'}); const d=await r.json(); alert(d.message); if(d.success) window.location.reload(); };
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
 window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
-async function loadTasks() { const c=document.getElementById('taskContainer'); if(!c)return; c.innerHTML='Loading...'; try{ const r=await fetch(`${API_BASE}/tasks`); const t=await r.json(); const m={'checkin':'每日签到','post':'发布文章','comment':'发表评论'}; const done=t.progress>=t.target; const btn=t.is_claimed?`<button class="cyber-btn" disabled>已完成 / CLAIMED</button>`:(done?`<button onclick="claimTask()" class="cyber-btn" style="border-color:#0f0;color:#0f0">领取奖励</button>`:`<button class="cyber-btn" disabled>进行中</button>`); const rr=(t.reroll_count===0&&!t.is_claimed)?`<button onclick="rerollTask()" class="cyber-btn" style="margin-top:10px;border-color:orange;color:orange">刷新 (10i)</button>`:''; c.innerHTML=`<div class="task-card"><div class="task-header"><h3>${m[t.task_type]||t.task_type} (${t.progress}/${t.target})</h3><span>${t.reward_xp}XP, ${t.reward_coins}i</span></div><div class="task-progress-bg"><div class="task-progress-fill" style="width:${Math.min(100,(t.progress/t.target)*100)}%"></div></div>${btn}${rr}</div>`; }catch(e){} }
 
 function initApp() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
@@ -390,6 +389,9 @@ async function handleRoute() {
     Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
     navLinks.forEach(el => el.classList.remove('active'));
     if(sidebar) sidebar.classList.remove('open');
+
+    // 修复：如果应用还没就绪（userRole未知），不要处理敏感路由
+    if(!isAppReady && hash === '#admin') return;
 
     if(hash !== '#write' && isEditingPost) {
         isEditingPost = false; editingPostId = null;
