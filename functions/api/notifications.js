@@ -19,7 +19,6 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify({ count: countResult.count, list: listResult.results }), { headers: { 'Content-Type': 'application/json' } });
 }
 
-// 标记所有为已读
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -27,7 +26,17 @@ export async function onRequestPost(context) {
   const user = await db.prepare(`SELECT users.id FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
   
   if (user) {
-    await db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').bind(user.id).run();
+    // 读取请求体，查看是否有特定的 ID
+    let body = {};
+    try { body = await context.request.json(); } catch(e) {}
+
+    if (body.id) {
+        // 标记单条已读
+        await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').bind(body.id, user.id).run();
+    } else {
+        // 标记全部已读
+        await db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').bind(user.id).run();
+    }
   }
   return new Response(JSON.stringify({ success: true }));
 }
