@@ -58,7 +58,7 @@ export async function onRequestGet(context) {
   }
 }
 
-// 修改 onRequestPost 逻辑
+// 仅修改 onRequestPost
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -95,17 +95,6 @@ export async function onRequestPost(context) {
   return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }), { headers: { 'Content-Type': 'application/json' } });
 }
 
-// (请确保 helper function addXpWithCap 存在于此文件顶部)
-async function addXpWithCap(db, userId, amount, today) {
-  const user = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(userId).first();
-  let currentDailyXp = (user.last_xp_date === today) ? (user.daily_xp || 0) : 0;
-  if (currentDailyXp >= 120) { await db.prepare('UPDATE users SET last_xp_date = ? WHERE id = ?').bind(today, userId).run(); return { added: 0, msg: '今日经验已满' }; }
-  let actualAdd = amount;
-  if (currentDailyXp + amount > 120) actualAdd = 120 - currentDailyXp;
-  await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?').bind(actualAdd, currentDailyXp + actualAdd, today, userId).run();
-  return { added: actualAdd, msg: `经验 +${actualAdd}` };
-}
-
 export async function onRequestDelete(context) {
     // (删除逻辑保持不变，请保留)
     const db = context.env.DB;
@@ -122,4 +111,5 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
 
