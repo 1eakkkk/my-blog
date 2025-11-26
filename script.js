@@ -5,19 +5,43 @@ let userRole = 'user';
 let currentUser = null;
 let currentPostId = null;
 
-// === 等级配置表 ===
+// === 核心升级：新等级表 ===
 const LEVEL_TABLE = [
-    { lv: 1,  xp: 0,    title: "废铁平民" },
-    { lv: 2,  xp: 100,  title: "普通公民" },
-    { lv: 3,  xp: 250,  title: "进阶行者" },
-    { lv: 4,  xp: 500,  title: "精英干员" },
-    { lv: 5,  xp: 900,  title: "战术大师" },
-    { lv: 6,  xp: 1500, title: "传奇英雄" },
-    { lv: 7,  xp: 2400, title: "深渊行者" },
-    { lv: 8,  xp: 3700, title: "猩红收割" },
-    { lv: 9,  xp: 5500, title: "黄金传说" },
-    { lv: 10, xp: 8000, title: "赛博神明" }
+    { lv: 1,  xp: 0 },
+    { lv: 2,  xp: 300 },
+    { lv: 3,  xp: 1200 },
+    { lv: 4,  xp: 2000 },
+    { lv: 5,  xp: 5000 },
+    { lv: 6,  xp: 10000 },
+    { lv: 7,  xp: 20000 },
+    { lv: 8,  xp: 35000 },
+    { lv: 9,  xp: 50000 },
+    { lv: 10, xp: 60000 }
 ];
+
+function calculateLevel(xp) {
+    // 满级特判
+    if (xp >= 60000) {
+        return { lv: 10, percent: 100, next: 'MAX' };
+    }
+
+    let currentLv = 1;
+    let nextXp = 300;
+    let prevXp = 0;
+
+    for (let i = 0; i < LEVEL_TABLE.length; i++) {
+        if (xp >= LEVEL_TABLE[i].xp) {
+            currentLv = LEVEL_TABLE[i].lv;
+            prevXp = LEVEL_TABLE[i].xp;
+            if (i < LEVEL_TABLE.length - 1) {
+                nextXp = LEVEL_TABLE[i+1].xp;
+            }
+        }
+    }
+    
+    let percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
+    return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp };
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     initApp();
@@ -774,6 +798,7 @@ window.adminGenInvite = async function() {
         } else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
+
 
 
 
