@@ -92,14 +92,46 @@ body {
 }
 
 /* 2. 重新设计等级徽章区域 (将作为等级和退出按钮的容器) */
+/* --- 侧边栏徽章区域优化 (防挤压) --- */
 #badgesArea {
     display: flex;
     align-items: center;
-    width: 100%; /* 占满宽度 */
-    height: 24px; /* 固定高度，防止抖动 */
+    flex-wrap: wrap; /* 关键：允许换行 */
+    gap: 5px; /* 徽章之间的间距 */
+    width: 100%;
+    margin-top: 5px;
+}
+
+/* 统一徽章样式 (Admin/Title/Level) */
+.badge { 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center;
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    font-size: 0.7rem; 
+    font-weight: bold; 
+    border: 1px solid transparent; 
+    height: 20px;
+    white-space: nowrap; /* 防止文字折行 */
+}
+
+/* Admin 徽章 */
+.badge.admin-tag {
+    background: #ff3333;
+    color: white;
+    border: none;
+    box-shadow: 0 0 5px rgba(255, 51, 51, 0.5);
+}
+
+/* 自定义头衔徽章 */
+.badge.custom-tag {
+    border: 1px solid currentColor; /* 边框颜色跟随文字颜色 */
+    background: rgba(255,255,255,0.05);
 }
 
 /* 3. 退出按钮样式优化 */
+/* 退出按钮 (放在徽章流中) */
 #logoutBtn {
     font-size: 0.7rem;
     color: #ff3333;
@@ -108,15 +140,10 @@ body {
     border-radius: 4px;
     cursor: pointer;
     transition: 0.3s;
-    
-    /* 核心魔法：自动占据左侧所有空隙，把自己推到最右边 */
-    margin-left: auto; 
-    
-    display: flex;
-    align-items: center;
     height: 20px;
-    font-family: var(--font-tech);
-    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto; /* 把它推到该行的最右边 */
 }
 
 #logoutBtn:hover {
@@ -390,3 +417,28 @@ footer {
 .notify-item:hover { background: rgba(255, 255, 255, 0.05); }
 .notify-item.unread { border-left-color: #ff3333; background: rgba(255, 51, 51, 0.05); }
 .notify-time { font-size: 0.7rem; color: #666; margin-top: 5px; }
+
+/* --- 等级表优化 (横线、对齐) --- */
+.tech-table {
+    width: 100%;
+    border-collapse: collapse; /* 合并边框 */
+    margin-top: 20px;
+    color: #ccc;
+    font-size: 0.9rem;
+}
+
+.tech-table th, .tech-table td {
+    border: 1px solid #333; /* 表格线 */
+    padding: 12px;
+}
+
+.tech-table th {
+    background: #111;
+    color: var(--accent-blue);
+    border-bottom: 2px solid var(--accent-blue);
+}
+
+/* 左中右对齐核心 */
+.tech-table th:nth-child(1), .tech-table td:nth-child(1) { text-align: left; }   /* 等级 */
+.tech-table th:nth-child(2), .tech-table td:nth-child(2) { text-align: center; } /* 称号 */
+.tech-table th:nth-child(3), .tech-table td:nth-child(3) { text-align: right; }  /* XP */
