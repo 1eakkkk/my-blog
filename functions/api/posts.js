@@ -1,8 +1,39 @@
-// 只展示修改后的 Get，请合并到你的文件中
+// 覆盖 onRequestGet
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
+
+  const fields = `
+    posts.*, 
+    users.username as author_username, 
+    users.nickname as author_nickname, 
+    users.is_vip as author_vip, 
+    users.level as author_level, 
+    users.avatar_variant as author_avatar_variant,
+    users.role as author_role,
+    users.custom_title as author_title,
+    users.custom_title_color as author_title_color
+  `;
+
+  if (id) {
+    const post = await db.prepare(`
+      SELECT ${fields}
+      FROM posts 
+      JOIN users ON posts.user_id = users.id 
+      WHERE posts.id = ?
+    `).bind(id).first();
+    return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
+  } else {
+    const posts = await db.prepare(`
+      SELECT ${fields}
+      FROM posts 
+      JOIN users ON posts.user_id = users.id 
+      ORDER BY posts.created_at DESC
+    `).all();
+    return new Response(JSON.stringify(posts.results), { headers: { 'Content-Type': 'application/json' } });
+  }
+}
 
   if (id) {
     const post = await db.prepare(`
@@ -79,3 +110,4 @@ export async function onRequestDelete(context) {
     return new Response(JSON.stringify({ success: false, error: '无法删除：无权操作或文章不存在' }), { status: 403 });
   }
 }
+
