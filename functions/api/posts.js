@@ -58,9 +58,8 @@ export async function onRequestGet(context) {
   }
 }
 
+// 修改 onRequestPost 逻辑
 export async function onRequestPost(context) {
-  // (发帖逻辑保持不变，请保留原来的代码，为了篇幅这里省略)
-  // 务必保留原来的 Post 逻辑，包括经验限制、管理员判断等
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
   if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
@@ -68,18 +67,43 @@ export async function onRequestPost(context) {
   const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
   if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
   if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号已封禁' }), { status: 403 });
+
   const { title, content, category } = await context.request.json();
   if (!title || !content) return new Response(JSON.stringify({ success: false, error: '内容不能为空' }), { status: 400 });
+
   let finalCategory = category || '灌水';
   if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
+
   await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(user.id, user.nickname || user.username, title, content, finalCategory, Date.now()).run();
+
+  // === UTC+8 日期 ===
   const now = new Date();
   const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
-  const xpBase = user.is_vip ? 100 : 50;
-  const xpResult = await addXpWithCap(db, user.id, xpBase, today);
+
+  // === 经验调整：改为 +10 (VIP +20) ===
+  const xpBase = user.is_vip ? 20 : 10;
+  // 注意：这里需要你把之前的 addXpWithCap 函数定义也放在 posts.js 里
+  const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
+
+  // === 任务钩子：如果今天是“发帖”任务，进度+1 ===
+  await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 
+                    WHERE user_id = ? AND task_type = 'post' AND is_claimed = 0 AND last_update_date = ?`)
+          .bind(user.id, today).run();
+
   return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+// (请确保 helper function addXpWithCap 存在于此文件顶部)
+async function addXpWithCap(db, userId, amount, today) {
+  const user = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(userId).first();
+  let currentDailyXp = (user.last_xp_date === today) ? (user.daily_xp || 0) : 0;
+  if (currentDailyXp >= 120) { await db.prepare('UPDATE users SET last_xp_date = ? WHERE id = ?').bind(today, userId).run(); return { added: 0, msg: '今日经验已满' }; }
+  let actualAdd = amount;
+  if (currentDailyXp + amount > 120) actualAdd = 120 - currentDailyXp;
+  await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?').bind(actualAdd, currentDailyXp + actualAdd, today, userId).run();
+  return { added: actualAdd, msg: `经验 +${actualAdd}` };
 }
 
 export async function onRequestDelete(context) {
@@ -98,3 +122,4 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
