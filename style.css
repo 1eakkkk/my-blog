@@ -442,3 +442,34 @@ footer {
 .tech-table th:nth-child(1), .tech-table td:nth-child(1) { text-align: left; }   /* 等级 */
 .tech-table th:nth-child(2), .tech-table td:nth-child(2) { text-align: center; } /* 称号 */
 .tech-table th:nth-child(3), .tech-table td:nth-child(3) { text-align: right; }  /* XP */
+
+/* 分类标签样式 */
+.category-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-right: 8px;
+    border: 1px solid #666;
+    color: #aaa;
+    vertical-align: middle;
+}
+
+/* 特殊分类颜色 */
+.cat-tech { border-color: #0070f3; color: #0070f3; }
+.cat-life { border-color: #00c6ff; color: #00c6ff; }
+.cat-question { border-color: #ff9900; color: #ff9900; }
+
+/* 公告样式 - 显眼 */
+.cat-announce { 
+    border-color: #ff3333; 
+    color: #ff3333; 
+    background: rgba(255, 51, 51, 0.1);
+    box-shadow: 0 0 5px rgba(255, 51, 51, 0.3);
+}
+
+/* 如果是公告贴，整个卡片边框也可以稍微变红一点 (可选) */
+.post-card.is-announce {
+    border: 1px solid rgba(255, 51, 51, 0.3);
+}
