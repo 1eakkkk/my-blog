@@ -72,7 +72,58 @@ body {
     flex-shrink: 0; /* 防止被挤压 */
 }
 .user-header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
-.user-info h3 { margin: 0; font-size: 0.9rem; }
+/* --- 修改 style.css 中关于用户卡片的部分 --- */
+
+/* 1. 确保用户信息区域占满右侧剩余空间 */
+.user-info {
+    flex: 1; /* 关键：占满剩余宽度 */
+    min-width: 0; /* 防止文字溢出 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.user-info h3 {
+    margin: 0 0 5px 0; /* 名字和等级之间留点空隙 */
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 2. 重新设计等级徽章区域 (将作为等级和退出按钮的容器) */
+#badgesArea {
+    display: flex;
+    align-items: center;
+    width: 100%; /* 占满宽度 */
+    height: 24px; /* 固定高度，防止抖动 */
+}
+
+/* 3. 退出按钮样式优化 */
+#logoutBtn {
+    font-size: 0.7rem;
+    color: #ff3333;
+    border: 1px solid #ff3333;
+    padding: 1px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.3s;
+    
+    /* 核心魔法：自动占据左侧所有空隙，把自己推到最右边 */
+    margin-left: auto; 
+    
+    display: flex;
+    align-items: center;
+    height: 20px;
+    font-family: var(--font-tech);
+    font-weight: bold;
+}
+
+#logoutBtn:hover {
+    background: #ff3333;
+    color: white;
+    box-shadow: 0 0 8px rgba(255, 51, 51, 0.5);
+}
 
 .xp-container { width: 100%; margin-top: 5px; }
 .xp-info { display: flex; justify-content: space-between; font-size: 0.7rem; color: #888; margin-bottom: 2px; }
@@ -288,3 +339,4 @@ footer {
     justify-content: center; /* 确保内容绝对居中 */
     align-items: center;
 }
+
