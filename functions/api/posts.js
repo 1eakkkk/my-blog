@@ -1,6 +1,5 @@
 // --- functions/api/posts.js ---
 
-// (保留辅助函数 addXpWithCap)
 async function addXpWithCap(db, userId, amount, today) {
   const user = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(userId).first();
   let currentDailyXp = (user.last_xp_date === today) ? (user.daily_xp || 0) : 0;
@@ -16,7 +15,6 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
   
-  // 获取当前查看的用户ID (用于判断是否点赞过)
   const cookie = context.request.headers.get('Cookie');
   let currentUserId = null;
   if (cookie && cookie.includes('session_id')) {
@@ -25,7 +23,7 @@ export async function onRequestGet(context) {
       if(u) currentUserId = u.user_id;
   }
 
-  // 核心修复：加入了 users.xp as author_xp
+  // === 核心修复：添加 users.badge_preference ===
   const fields = `
     posts.*, 
     users.username as author_username, 
@@ -37,6 +35,7 @@ export async function onRequestGet(context) {
     users.role as author_role,
     users.custom_title as author_title,
     users.custom_title_color as author_title_color,
+    users.badge_preference as author_badge_preference,
     (SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = ${currentUserId || 0}) as is_liked
   `;
 
@@ -58,7 +57,6 @@ export async function onRequestGet(context) {
   }
 }
 
-// 仅修改 onRequestPost
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -77,17 +75,13 @@ export async function onRequestPost(context) {
   await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(user.id, user.nickname || user.username, title, content, finalCategory, Date.now()).run();
 
-  // === UTC+8 日期 ===
   const now = new Date();
   const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
 
-  // === 经验调整：改为 +10 (VIP +20) ===
   const xpBase = user.is_vip ? 20 : 10;
-  // 注意：这里需要你把之前的 addXpWithCap 函数定义也放在 posts.js 里
   const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
 
-  // === 任务钩子：如果今天是“发帖”任务，进度+1 ===
   await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 
                     WHERE user_id = ? AND task_type = 'post' AND is_claimed = 0 AND last_update_date = ?`)
           .bind(user.id, today).run();
@@ -96,7 +90,6 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequestDelete(context) {
-    // (删除逻辑保持不变，请保留)
     const db = context.env.DB;
     const cookie = context.request.headers.get('Cookie');
     if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
@@ -111,5 +104,3 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
-
-
