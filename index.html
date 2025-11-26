@@ -178,7 +178,21 @@
                             <button onclick="randomizeAvatar()" class="cyber-btn" style="margin:0; flex:1;">🎲 随机重置头像 / RANDOMIZE</button>
                         </div>
                     </div>
-                    <!--7. 账户安全/密钥查看 -->
+
+                     <!-- 7：头衔显示偏好设置 -->
+                    <div class="glass-card" style="margin-top: 20px;">
+                        <h3>头衔显示偏好 / BADGE DISPLAY</h3>
+                        <p style="color:#666; font-size:0.9rem;">选择在名字旁边显示等级数字还是专属称号。</p>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <select id="badgePreferenceSelect" class="cyber-input" style="margin:0; flex:1;">
+                                <option value="number">显示等级数字 (LV.X)</option>
+                                <option value="title">显示等级称号 (e.g. 赛博神)</option>
+                            </select>
+                            <button onclick="saveBadgePreference()" class="cyber-btn" style="margin:0; width:auto;">保存 / SAVE</button>
+                        </div>
+                    </div>
+                    
+                    <!--8. 账户安全/密钥查看 -->
                     <div class="glass-card" style="margin-top: 20px; border-color: var(--accent-blue);">
                         <h3>账户安全密钥 (RECOVERY KEY)</h3>
                         <p style="color:#666; font-size:0.9rem;">这是您找回密码的唯一凭证，请勿泄露。</p>
@@ -245,6 +259,7 @@
     <script src="script.js?v=3.1"></script>
 </body>
 </html>
+
 
 
 
