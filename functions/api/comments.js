@@ -46,3 +46,32 @@ export async function onRequestPost(context) {
 
   return new Response(JSON.stringify({ success: true, message: '评论发布成功 +5 XP' }));
 }
+// --- 追加删除评论功能 ---
+
+export async function onRequestDelete(context) {
+  const db = context.env.DB;
+  const cookie = context.request.headers.get('Cookie');
+  if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
+  
+  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
+  const user = await db.prepare(`SELECT users.id, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
+  
+  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+
+  const url = new URL(context.request.url);
+  const commentId = url.searchParams.get('id');
+
+  // 管理员可删所有，普通用户只能删自己
+  let result;
+  if (user.role === 'admin') {
+      result = await db.prepare('DELETE FROM comments WHERE id = ?').bind(commentId).run();
+  } else {
+      result = await db.prepare('DELETE FROM comments WHERE id = ? AND user_id = ?').bind(commentId, user.id).run();
+  }
+
+  if (result.meta.changes > 0) {
+    return new Response(JSON.stringify({ success: true, message: '评论已删除' }));
+  } else {
+    return new Response(JSON.stringify({ success: false, error: '删除失败' }), { status: 403 });
+  }
+}
