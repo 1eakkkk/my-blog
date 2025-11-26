@@ -195,6 +195,21 @@
                         </tbody>
                     </table>
                 </div>
+                                <!-- 放在 view-about 后面 -->
+                <div id="view-admin" class="view-section" style="display:none;">
+                    <h2 style="color:#ff3333">// ADMIN CONSOLE (TOP SECRET)</h2>
+    
+                    <div class="glass-card" style="border-color:#ff3333">
+                        <h3>旧账号密钥补发</h3>
+                        <input type="text" id="adminTargetUser" class="cyber-input" placeholder="输入用户名">
+                        <button onclick="adminGenKey()" class="cyber-btn" style="border-color:#ff3333; color:#ff3333">生成/查询密钥</button>
+                        <div id="adminKeyResult" style="margin-top:10px; color:#0f0; font-weight:bold;"></div>
+                    </div>
+                </div>
+                <nav>
+                    <!-- ... 其他链接 ... -->
+                    <a href="#admin" class="nav-link" id="navAdmin" style="display:none; color:#ff3333">⚠️ 管理后台 / Admin</a>
+                </nav>
             </div>
 
             <footer><p>© 2025 1EAK.COOL | SYSTEM ONLINE</p></footer>
@@ -204,4 +219,5 @@
     <script src="script.js?v=3.0"></script>
 </body>
 </html>
+
 
