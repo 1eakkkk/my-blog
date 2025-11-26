@@ -603,3 +603,12 @@ footer {
     border-radius: 4px;
     display: inline-block;
 }
+
+/* 已编辑标签样式 */
+.edited-tag {
+    font-size: 0.7rem;
+    color: #888;
+    font-style: italic;
+    margin-left: 5px;
+    border-bottom: 1px dotted #666;
+}
