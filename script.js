@@ -114,8 +114,20 @@ async function checkSecurity() {
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
             document.getElementById('logoutBtn').onclick = doLogout;
 
-            if (userRole === 'admin') document.getElementById('navAdmin').style.display = 'flex';
-            else document.getElementById('navAdmin').style.display = 'none';
+            if (userRole === 'admin') {
+                document.getElementById('navAdmin').style.display = 'flex';
+                // === 修复1：为管理员添加公告选项 ===
+                const postCat = document.getElementById('postCategory');
+                if(postCat && !postCat.querySelector('option[value="公告"]')) {
+                    const opt = document.createElement('option');
+                    opt.value = '公告';
+                    opt.innerText = '📢 公告 / ANNOUNCE';
+                    opt.style.color = '#ff3333';
+                    postCat.prepend(opt); // 放到最前面
+                }
+            } else {
+                document.getElementById('navAdmin').style.display = 'none';
+            }
 
             if(data.is_vip) {
                 const vipBox = document.getElementById('vipBox');
@@ -133,7 +145,7 @@ async function checkSecurity() {
     } catch (e) { console.error(e); window.location.replace('/login.html'); }
 }
 
-// --- 分页加载 ---
+// --- 分页加载 (含时间显示优化) ---
 async function loadPosts(reset = false) {
     const container = document.getElementById('posts-list');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -153,7 +165,11 @@ async function loadPosts(reset = false) {
             container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>';
         } else {
             posts.forEach(post => {
-                const date = new Date(post.created_at).toLocaleDateString();
+                // === 修复：显示编辑时间和标签 ===
+                const rawDate = post.updated_at || post.created_at;
+                const dateStr = new Date(rawDate).toLocaleDateString();
+                const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
+
                 const author = post.author_nickname || post.author_username || "Unknown";
                 const cat = post.category || '灌水';
                 let catClass = '';
@@ -173,7 +189,7 @@ async function loadPosts(reset = false) {
                 if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
 
                 div.innerHTML = `
-                    <div class="post-meta">${pinnedIcon}${catHtml} ${date} | ${badgeHtml} @${author}</div>
+                    <div class="post-meta">${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div>
                     <div style="display:flex; justify-content:space-between; align-items:flex-start">
                         <h2 style="margin:0">${post.title}</h2>${likeBtn}
                     </div>
@@ -198,7 +214,7 @@ async function loadPosts(reset = false) {
     }
 }
 
-// --- 文章详情 ---
+// --- 文章详情 (含时间显示优化) ---
 async function loadSinglePost(id) {
     currentPostId = id;
     const container = document.getElementById('single-post-content');
@@ -225,8 +241,12 @@ async function loadSinglePost(id) {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
         const post = await res.json();
         if (!post) { container.innerHTML = '<h1>404 - 内容可能已被删除</h1>'; return; }
-        const date = new Date(post.created_at).toLocaleString();
         
+        // === 修复：显示编辑时间和标签 ===
+        const rawDate = post.updated_at || post.created_at;
+        const dateStr = new Date(rawDate).toLocaleString();
+        const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
+
         let actionBtns = '';
         if (userRole === 'admin') {
             const pinText = post.is_pinned ? "取消置顶 / UNPIN" : "置顶 / PIN";
@@ -265,7 +285,7 @@ async function loadSinglePost(id) {
                     <div class="post-avatar-box">${avatarSvg}</div>
                     <div class="post-meta-text">
                         <span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">${authorDisplay} ${badgesHtml}</span>
-                        <div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${date}</span>${likeBtn}</div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div>
                     </div>${tipBtn}
                 </div><div style="display:flex">${actionBtns}</div>
             </div>
@@ -275,7 +295,7 @@ async function loadSinglePost(id) {
     } catch (e) { console.error(e); container.innerHTML = 'Error loading post.'; }
 }
 
-// --- 评论加载 (修复：回复层主不显示标签) ---
+// --- 评论加载 ---
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
@@ -289,19 +309,13 @@ async function loadNativeComments(postId) {
         const replies = allComments.filter(c => c.parent_id);
 
         rootComments.forEach(c => {
-            // 渲染根评论
             const commentNode = createCommentElement(c, false);
             list.appendChild(commentNode);
-
-            // 查找子评论
             const myReplies = replies.filter(r => r.parent_id === c.id);
             if (myReplies.length > 0) {
                 const replyContainer = document.createElement('div');
                 replyContainer.className = 'replies-container';
-                // 关键：将 c.user_id (层主ID) 传下去，用于判断是否隐式回复
-                myReplies.forEach(r => { 
-                    replyContainer.appendChild(createCommentElement(r, true, c.user_id)); 
-                });
+                myReplies.forEach(r => { replyContainer.appendChild(createCommentElement(r, true, c.user_id)); });
                 list.appendChild(replyContainer);
             }
         });
@@ -330,7 +344,6 @@ function createCommentElement(c, isReply, rootOwnerId) {
     const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`;
     const pinnedBadge = c.is_pinned ? '<span style="color:#0f0;font-weight:bold;font-size:0.7rem;margin-right:5px">📌置顶</span>' : '';
 
-    // === 关键修复：只有当回复的人存在，且不是层主时，才显示标签 ===
     let replyIndicator = '';
     if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) {
         const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown";
@@ -358,97 +371,102 @@ function createCommentElement(c, isReply, rootOwnerId) {
     return div;
 }
 
-// --- 通用 & 交互 ---
-window.prepareReply = function(commentId, username) {
-    const input = document.getElementById('commentInput');
-    input.dataset.parentId = commentId || "";
-    input.placeholder = username ? `回复 @${username} ...` : "输入你的看法...";
-    input.focus();
-    let cancelBtn = document.getElementById('cancelReplyBtn');
+// --- 编辑帖子模式 & 取消按钮 ---
+window.editPostMode = function(id, titleEncoded, contentEncoded, category) {
+    isEditingPost = true;
+    editingPostId = id;
+    
+    window.location.hash = '#write';
+    
+    document.getElementById('postTitle').value = decodeURIComponent(titleEncoded);
+    document.getElementById('postContent').value = decodeURIComponent(contentEncoded);
+    document.getElementById('postCategory').value = category;
+
+    const btn = document.querySelector('#postForm button');
+    btn.textContent = "保存修改 / UPDATE POST";
+
+    // === 修复：添加取消按钮 ===
+    let cancelBtn = document.getElementById('cancelEditPostBtn');
     if (!cancelBtn) {
         cancelBtn = document.createElement('button');
-        cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px';
-        cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply;
-        document.querySelector('.comment-input-box').appendChild(cancelBtn);
+        cancelBtn.id = 'cancelEditPostBtn';
+        cancelBtn.type = 'button'; // 防止提交表单
+        cancelBtn.className = 'cyber-btn';
+        cancelBtn.style.marginTop = '10px';
+        cancelBtn.style.borderColor = '#ff3333';
+        cancelBtn.style.color = '#ff3333';
+        cancelBtn.textContent = '取消编辑 / CANCEL';
+        cancelBtn.onclick = cancelEditPost;
+        // 插入到提交按钮后面
+        btn.parentNode.insertBefore(cancelBtn, btn.nextSibling);
     }
-    cancelBtn.style.display = 'inline-block';
+    cancelBtn.style.display = 'block';
 };
-window.cancelReply = function() {
-    const input = document.getElementById('commentInput');
-    input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)";
-    const cancelBtn = document.getElementById('cancelReplyBtn');
+
+// 新增：取消编辑逻辑
+window.cancelEditPost = function() {
+    isEditingPost = false;
+    editingPostId = null;
+    document.querySelector('#postForm button').textContent = "发布 / PUBLISH";
+    document.getElementById('postTitle').value = '';
+    document.getElementById('postContent').value = '';
+    
+    const cancelBtn = document.getElementById('cancelEditPostBtn');
     if(cancelBtn) cancelBtn.style.display = 'none';
+    
+    window.location.hash = '#home';
 };
 
-window.submitComment = async function() {
-    const input = document.getElementById('commentInput');
-    const content = input.value.trim();
-    const parentId = input.dataset.parentId || null;
-    if(!content) return alert("内容不能为空");
-    const btn = document.querySelector('.comment-input-box button:first-of-type'); 
-    if(btn) btn.disabled = true;
-
-    try {
-        if (isEditingComment) {
-            const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) });
-            const data = await res.json();
-            if(data.success) { alert(data.message); window.location.reload(); } else alert(data.error);
-        } else {
-            const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) });
-            const data = await res.json();
-            if(data.success) { alert(data.message); input.value = ''; cancelReply(); loadNativeComments(currentPostId); } else { alert(data.error); }
-        }
-    } catch(e) { alert("Error"); }
-    finally { if(btn) btn.disabled = false; }
-};
-
-// ... 保持其他功能不变 ...
-function checkForDrafts() {
-    const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory');
-    if(pTitle && pContent) {
-        const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } };
-        pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save);
-    }
-}
-function tryRestoreDraft() {
-    if(isEditingPost) return; 
-    const t = localStorage.getItem('draft_title'); const c = localStorage.getItem('draft_content'); const cat = localStorage.getItem('draft_cat');
-    if ((t || c) && document.getElementById('postTitle').value === '') {
-        if(confirm("发现未发布的草稿，是否恢复？\n取消则清空草稿。")) {
-            document.getElementById('postTitle').value = t || ''; document.getElementById('postContent').value = c || ''; if(cat) document.getElementById('postCategory').value = cat;
-        } else { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); }
-    }
-}
-window.editPostMode = function(id, t, c, cat) {
-    isEditingPost = true; editingPostId = id; window.location.hash = '#write';
-    document.getElementById('postTitle').value = decodeURIComponent(t); document.getElementById('postContent').value = decodeURIComponent(c); document.getElementById('postCategory').value = cat;
-    document.querySelector('#postForm button').textContent = "保存修改 / UPDATE POST";
-};
-window.editCommentMode = function(id, c) {
-    isEditingComment = true; editingCommentId = id;
-    const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView();
-    const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE";
-    prepareReply(null, null); 
-    const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑";
-    cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); };
-};
+// --- 提交帖子 ---
 async function doPost(e) {
-    e.preventDefault(); const t = document.getElementById('postTitle').value; const c = document.getElementById('postContent').value; const cat = document.getElementById('postCategory').value;
-    const btn = document.querySelector('#postForm button'); btn.disabled = true;
+    e.preventDefault();
+    const title = document.getElementById('postTitle').value;
+    const content = document.getElementById('postContent').value;
+    const category = document.getElementById('postCategory').value;
+    
+    const btn = document.querySelector('#postForm button');
+    btn.disabled = true;
+
     try {
-        let url = `${API_BASE}/posts`; let method = 'POST'; let body = { title: t, content: c, category: cat };
-        if (isEditingPost) { method = 'PUT'; body = { action: 'edit', id: editingPostId, title: t, content: c, category: cat }; }
-        const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        let url = `${API_BASE}/posts`;
+        let method = 'POST';
+        let body = { title, content, category };
+
+        if (isEditingPost) {
+            method = 'PUT';
+            body = { action: 'edit', id: editingPostId, title, content, category };
+        }
+
+        const res = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
         const data = await res.json();
         if (data.success) { 
             alert(data.message); 
-            if(!isEditingPost) { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); }
-            isEditingPost = false; editingPostId = null; btn.textContent = "发布 / PUBLISH";
-            document.getElementById('postTitle').value=''; document.getElementById('postContent').value=''; 
-            window.location.hash = '#home'; 
-        } else { alert(data.error); }
-    } catch(err) { alert("Error"); } finally { btn.disabled = false; }
+            if(!isEditingPost) {
+                localStorage.removeItem('draft_title');
+                localStorage.removeItem('draft_content');
+                localStorage.removeItem('draft_cat');
+            }
+            
+            // 成功后清理编辑状态
+            cancelEditPost(); 
+        }
+        else { alert(data.error); }
+    } catch(err) { alert("Error"); } 
+    finally { btn.disabled = false; }
 }
+
+// ... 保持其他所有函数 (prepareReply, submitComment, toggleLike, etc.) 不变 ...
+// 为节省篇幅，这里省略未修改的辅助函数，请确保保留原有的：
+window.prepareReply = function(commentId, username) { const input = document.getElementById('commentInput'); input.dataset.parentId = commentId || ""; input.placeholder = username ? `回复 @${username} ...` : "输入你的看法..."; input.focus(); let cancelBtn = document.getElementById('cancelReplyBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px'; cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply; document.querySelector('.comment-input-box').appendChild(cancelBtn); } cancelBtn.style.display = 'inline-block'; };
+window.cancelReply = function() { const input = document.getElementById('commentInput'); input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)"; const cancelBtn = document.getElementById('cancelReplyBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; };
+window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return alert("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { alert(data.message); window.location.reload(); } else alert(data.error); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { alert(data.message); input.value = ''; cancelReply(); loadNativeComments(currentPostId); } else { alert(data.error); } } } catch(e) { alert("Error"); } finally { if(btn) btn.disabled = false; } };
+function checkForDrafts() { const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory'); if(pTitle && pContent) { const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } }; pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save); } }
+function tryRestoreDraft() { if(isEditingPost) return; const t = localStorage.getItem('draft_title'); const c = localStorage.getItem('draft_content'); const cat = localStorage.getItem('draft_cat'); if ((t || c) && document.getElementById('postTitle').value === '') { if(confirm("发现未发布的草稿，是否恢复？\n取消则清空草稿。")) { document.getElementById('postTitle').value = t || ''; document.getElementById('postContent').value = c || ''; if(cat) document.getElementById('postCategory').value = cat; } else { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } } }
+window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
 window.pinPost = async function(id) { if(!confirm("确认更改置顶状态？")) return; await fetch(`${API_BASE}/posts`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadSinglePost(id); };
 window.pinComment = async function(id) { if(!confirm("确认更改此评论置顶状态？")) return; await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadNativeComments(currentPostId); };
 window.deleteNotify = async function(id) { if(!confirm("Delete this log?")) return; await fetch(`${API_BASE}/notifications?id=${id}`, {method: 'DELETE'}); loadNotifications(); };
