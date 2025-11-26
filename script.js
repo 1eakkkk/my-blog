@@ -1,6 +1,7 @@
 // --- START OF FILE script.js ---
-let userRole = 'user'; // 'admin' or 'user'
+
 const API_BASE = '/api';
+let userRole = 'user'; // 默认为普通用户
 let currentUser = null;
 let currentPostId = null;
 
@@ -23,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkSecurity();
 });
 
+// --- 像素头像生成器 ---
 function generatePixelAvatar(username, variant = 0) {
     const seedStr = username + "v" + variant;
     let hash = 0;
@@ -70,27 +72,26 @@ async function checkSecurity() {
             window.location.replace('/login.html');
         } else {
             currentUser = data;
-            userRole = data.role || 'user'; // 获取角色
+            userRole = data.role || 'user'; // 更新角色
 
-            // 如果是管理员，显示后台入口
-            if (userRole === 'admin') {
-                document.getElementById('navAdmin').style.display = 'block';
-            }
-
-            // ... (原来的渲染逻辑保持不变) ...
-            // ... 渲染头像、等级、经验条 ...
-            
-            // (这里省略原来的代码，请保留你原来的头像/等级渲染代码)
+            // 渲染基本信息
             const displayName = data.nickname || data.username;
             document.getElementById('username').textContent = displayName;
             document.getElementById('coinCount').textContent = data.coins;
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
             
+            // 设置页预览头像
+            const settingPreview = document.getElementById('settingAvatarPreview');
+            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+
+            // 设置页恢复密钥
+            const keyDisplay = document.getElementById('recoveryKeyDisplay');
+            if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成 (旧账号请联系管理员)";
+
+            // 渲染等级和按钮
             const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
-            // VIP 标签
             let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
-            // 管理员标签
             let adminTag = userRole === 'admin' ? `<span class="badge" style="background:#ff3333;color:white;margin-right:5px">ADMIN</span>` : '';
 
             badgesArea.innerHTML = `
@@ -104,16 +105,24 @@ async function checkSecurity() {
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
             document.getElementById('logoutBtn').onclick = doLogout;
 
+            // 如果是管理员，显示入口
+            if (userRole === 'admin') {
+                const adminNav = document.getElementById('navAdmin');
+                if(adminNav) adminNav.style.display = 'block';
+            }
+
             if(data.is_vip) {
                 document.getElementById('vipBox').innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
                 document.getElementById('vipBox').style.borderColor = 'gold';
             }
-            // ... (结束) ...
 
+            // 启动通知轮询
             checkNotifications();
             setInterval(checkNotifications, 60000);
 
+            // 移除遮罩
             if (mask) {
+                mask.style.transition = 'opacity 0.5s';
                 mask.style.opacity = '0';
                 setTimeout(() => mask.remove(), 500);
             }
@@ -124,15 +133,15 @@ async function checkSecurity() {
     }
 }
 
-// === 复制密钥功能 ===
+// === 复制密钥 ===
 window.copyRecoveryKey = function() {
     const keyInput = document.getElementById('recoveryKeyDisplay');
     keyInput.select();
-    document.execCommand('copy'); // 兼容旧浏览器
-    // 或者 navigator.clipboard.writeText(keyInput.value);
+    document.execCommand('copy'); 
     alert("密钥已复制到剪贴板");
 };
 
+// === 评论系统 ===
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
@@ -149,20 +158,21 @@ async function loadNativeComments(postId) {
             const div = document.createElement('div');
             div.className = 'comment-item';
             
-            // 删除评论按钮：作者本人 或 管理员 可删
             let delCommentBtn = '';
             if (userRole === 'admin' || currentUser.id === c.user_id) {
                 delCommentBtn = `<span onclick="deleteComment(${c.id})" style="color:#555;cursor:pointer;font-size:0.7rem;margin-left:10px">[删除]</span>`;
             }
 
             const vip = c.is_vip ? `<span style="color:gold;font-size:0.7em">[VIP]</span>` : '';
+            const realLevelInfo = calculateLevel(c.xp || 0);
+            
             div.innerHTML = `
                 <div class="comment-avatar">${avatar}</div>
                 <div class="comment-content-box">
                     <div class="comment-header">
                         <span class="comment-author">
                             ${vip} ${c.nickname || c.username} 
-                            <span class="badge lv-${c.level||1}" style="transform:scale(0.8)">LV.${c.level||1}</span>
+                            <span class="badge lv-${realLevelInfo.lv}" style="transform:scale(0.8); margin-left:5px;">LV.${realLevelInfo.lv}</span>
                         </span>
                         <span>${new Date(c.created_at).toLocaleString()} ${delCommentBtn}</span>
                     </div>
@@ -174,6 +184,7 @@ async function loadNativeComments(postId) {
     } catch(e) { list.innerHTML = 'Failed to load comments.'; }
 }
 
+// === 消息系统 ===
 async function checkNotifications() {
     try {
         const res = await fetch(`${API_BASE}/notifications`);
@@ -227,6 +238,7 @@ window.submitComment = async function() {
     finally { btn.disabled = false; }
 };
 
+// === 初始化 ===
 function initApp() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) {
@@ -251,13 +263,15 @@ function initApp() {
     }, 1000);
 }
 
+// === 路由视图 ===
 const views = {
     home: document.getElementById('view-home'),
     write: document.getElementById('view-write'),
     post: document.getElementById('view-post'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
-    notifications: document.getElementById('view-notifications')
+    notifications: document.getElementById('view-notifications'),
+    admin: document.getElementById('view-admin') // 确保HTML里有这个ID
 };
 
 async function handleRoute() {
@@ -268,6 +282,7 @@ async function handleRoute() {
     navLinks.forEach(el => el.classList.remove('active'));
     if(sidebar) sidebar.classList.remove('open');
 
+    // 路由判断逻辑 (这里之前出错了，现在修复了)
     if (hash === '#home') {
         if(views.home) views.home.style.display = 'block';
         document.querySelector('a[href="#home"]').classList.add('active');
@@ -285,6 +300,15 @@ async function handleRoute() {
         if(views.notifications) views.notifications.style.display = 'block';
         document.getElementById('navNotify').classList.add('active');
         loadNotifications();
+    } else if (hash === '#admin') {
+        // 管理员鉴权前端拦截
+        if(userRole !== 'admin') {
+            alert("ACCESS DENIED: 需要管理员权限");
+            window.location.hash = '#home';
+            return;
+        }
+        if(views.admin) views.admin.style.display = 'block';
+        document.getElementById('navAdmin').classList.add('active');
     } else if (hash.startsWith('#post?id=')) {
         if(views.post) views.post.style.display = 'block';
         loadSinglePost(hash.split('=')[1]);
@@ -382,18 +406,15 @@ async function loadSinglePost(id) {
 
         const date = new Date(post.created_at).toLocaleString();
         
-        // 删除按钮逻辑：作者本人 或 管理员 可删
         let actionBtns = '';
         if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) {
             actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
         }
         
-        // 管理员封号按钮 (不能封自己)
         if (userRole === 'admin' && post.user_id !== currentUser.id) {
             actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`;
         }
 
-        // 打赏按钮 (不能打赏自己)
         let tipBtn = '';
         if (currentUser.id !== post.user_id) {
             tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`;
@@ -475,49 +496,37 @@ async function doLogout() {
     }
 }
 
-// 打赏功能
+// === 新业务函数 ===
 window.tipUser = async function(targetId) {
     const amount = prompt("请输入打赏金额 (i币):");
     if (!amount) return;
     if (isNaN(amount) || amount <= 0) return alert("请输入有效数字");
-
     try {
         const res = await fetch(`${API_BASE}/tip`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ target_user_id: targetId, amount: amount })
         });
         const data = await res.json();
-        if (data.success) {
-            alert(data.message);
-            window.location.reload(); // 刷新更新余额
-        } else {
-            alert(data.error);
-        }
+        if (data.success) { alert(data.message); window.location.reload(); }
+        else { alert(data.error); }
     } catch (e) { alert("打赏失败"); }
 };
 
-// 删除评论
 window.deleteComment = async function(commentId) {
     if(!confirm("确认删除此评论？")) return;
     try {
         const res = await fetch(`${API_BASE}/comments?id=${commentId}`, { method: 'DELETE' });
         const data = await res.json();
-        if(data.success) {
-            loadNativeComments(currentPostId); // 局部刷新评论
-        } else {
-            alert(data.error);
-        }
+        if(data.success) { loadNativeComments(currentPostId); }
+        else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
 
-// 管理员封号
 window.adminBanUser = async function(userId) {
-    if(!confirm("【高危操作】确定要封禁该用户吗？该用户将无法登录。")) return;
+    if(!confirm("【高危操作】确定要封禁该用户吗？")) return;
     try {
         const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ action: 'ban_user', target_user_id: userId })
         });
         const data = await res.json();
@@ -526,35 +535,16 @@ window.adminBanUser = async function(userId) {
     } catch(e) { alert("Error"); }
 };
 
-// 管理员生成密钥
 window.adminGenKey = async function() {
     const username = document.getElementById('adminTargetUser').value;
     if(!username) return alert("请输入用户名");
-    
     try {
         const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ action: 'gen_key', target_username: username })
         });
         const data = await res.json();
-        if(data.success) {
-            document.getElementById('adminKeyResult').innerHTML = `KEY: ${data.key} <br>(请手动发送给用户)`;
-        } else {
-            alert(data.error);
-        }
+        if(data.success) { document.getElementById('adminKeyResult').innerHTML = `KEY: ${data.key} <br>(请手动发送给用户)`; }
+        else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
-
-// 不要忘记把 'admin' 加入路由视图
-async function handleRoute() {
-    // ... (前面代码不变) ...
-    } else if (hash === '#admin') { // 新增
-        if(userRole !== 'admin') { window.location.hash='#home'; return; }
-        if(views.admin) views.admin.style.display = 'block'; // 需在 views 对象中添加 admin
-    } 
-    // ...
-}
-
-// 记得在 views 对象里加 admin
-views.admin = document.getElementById('view-admin');
