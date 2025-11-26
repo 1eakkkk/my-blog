@@ -521,3 +521,53 @@ footer {
 .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .task-progress-bg { width: 100%; height: 10px; background: #111; border-radius: 5px; overflow: hidden; margin-bottom: 10px; }
 .task-progress-fill { height: 100%; background: #0f0; width: 0%; transition: 0.3s; }
+
+/* --- CSS Update for Replies & Likes --- */
+
+/* 子评论容器 */
+.replies-container {
+    margin-left: 50px; /* 缩进 */
+    border-left: 2px solid #333;
+    padding-left: 15px;
+    margin-top: 10px;
+}
+
+/* 移动端缩进调整 */
+@media (max-width: 768px) {
+    .replies-container {
+        margin-left: 20px;
+        padding-left: 10px;
+    }
+}
+
+/* 子评论微调 */
+.sub-comment {
+    border-bottom: 1px dashed #222; /* 子评论分割线虚线 */
+    padding: 10px 0;
+}
+.sub-comment:last-child {
+    border-bottom: none;
+}
+
+/* 评论区小按钮 (回复/点赞) */
+.reply-action-btn {
+    color: #666;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-left: 10px;
+    transition: 0.3s;
+}
+.reply-action-btn:hover {
+    color: var(--accent-blue);
+    text-decoration: underline;
+}
+
+.like-btn.mini {
+    padding: 1px 6px;
+    font-size: 0.7rem;
+    border: none; /* 评论区点赞去掉边框，保持简洁 */
+    background: rgba(255,255,255,0.05);
+}
+.like-btn.mini:hover {
+    background: rgba(255, 51, 51, 0.2);
+}
