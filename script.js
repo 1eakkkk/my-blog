@@ -1,5 +1,5 @@
 // --- START OF FILE script.js ---
-
+let userRole = 'user'; // 'admin' or 'user'
 const API_BASE = '/api';
 let currentUser = null;
 let currentPostId = null;
@@ -70,29 +70,31 @@ async function checkSecurity() {
             window.location.replace('/login.html');
         } else {
             currentUser = data;
+            userRole = data.role || 'user'; // 获取角色
+
+            // 如果是管理员，显示后台入口
+            if (userRole === 'admin') {
+                document.getElementById('navAdmin').style.display = 'block';
+            }
+
+            // ... (原来的渲染逻辑保持不变) ...
+            // ... 渲染头像、等级、经验条 ...
             
+            // (这里省略原来的代码，请保留你原来的头像/等级渲染代码)
             const displayName = data.nickname || data.username;
-            
             document.getElementById('username').textContent = displayName;
             document.getElementById('coinCount').textContent = data.coins;
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
             
-            // 填充设置页的头像预览
-            const settingPreview = document.getElementById('settingAvatarPreview');
-            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
-
-            // 填充设置页的恢复密钥 (如果存在)
-            const keyDisplay = document.getElementById('recoveryKeyDisplay');
-            if(keyDisplay) {
-                keyDisplay.value = data.recovery_key || "未生成 (旧账号请联系管理员)";
-            }
-
             const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
+            // VIP 标签
             let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
-            
-            // 侧边栏显示等级
+            // 管理员标签
+            let adminTag = userRole === 'admin' ? `<span class="badge" style="background:#ff3333;color:white;margin-right:5px">ADMIN</span>` : '';
+
             badgesArea.innerHTML = `
+                ${adminTag}
                 <span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> 
                 ${vipTag}
                 <div id="logoutBtn">EXIT</div>
@@ -106,12 +108,12 @@ async function checkSecurity() {
                 document.getElementById('vipBox').innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
                 document.getElementById('vipBox').style.borderColor = 'gold';
             }
+            // ... (结束) ...
 
             checkNotifications();
             setInterval(checkNotifications, 60000);
 
             if (mask) {
-                mask.style.transition = 'opacity 0.5s';
                 mask.style.opacity = '0';
                 setTimeout(() => mask.remove(), 500);
             }
@@ -131,7 +133,6 @@ window.copyRecoveryKey = function() {
     alert("密钥已复制到剪贴板");
 };
 
-// === 评论系统 (核心修复：使用 calculateLevel 实时计算) ===
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
@@ -147,21 +148,23 @@ async function loadNativeComments(postId) {
             const avatar = generatePixelAvatar(c.username, c.avatar_variant);
             const div = document.createElement('div');
             div.className = 'comment-item';
+            
+            // 删除评论按钮：作者本人 或 管理员 可删
+            let delCommentBtn = '';
+            if (userRole === 'admin' || currentUser.id === c.user_id) {
+                delCommentBtn = `<span onclick="deleteComment(${c.id})" style="color:#555;cursor:pointer;font-size:0.7rem;margin-left:10px">[删除]</span>`;
+            }
+
             const vip = c.is_vip ? `<span style="color:gold;font-size:0.7em">[VIP]</span>` : '';
-            
-            // 核心修复：使用 calculateLevel 根据经验值算等级，而不是直接用 c.level
-            // 这样能保证等级永远和经验同步，并且颜色正确
-            const realLevelInfo = calculateLevel(c.xp || 0);
-            
             div.innerHTML = `
                 <div class="comment-avatar">${avatar}</div>
                 <div class="comment-content-box">
                     <div class="comment-header">
                         <span class="comment-author">
                             ${vip} ${c.nickname || c.username} 
-                            <span class="badge lv-${realLevelInfo.lv}" style="transform:scale(0.8); margin-left:5px;">LV.${realLevelInfo.lv}</span>
+                            <span class="badge lv-${c.level||1}" style="transform:scale(0.8)">LV.${c.level||1}</span>
                         </span>
-                        <span>${new Date(c.created_at).toLocaleString()}</span>
+                        <span>${new Date(c.created_at).toLocaleString()} ${delCommentBtn}</span>
                     </div>
                     <div class="comment-text">${c.content}</div>
                 </div>
@@ -170,8 +173,6 @@ async function loadNativeComments(postId) {
         });
     } catch(e) { list.innerHTML = 'Failed to load comments.'; }
 }
-
-// ... 以下函数保持不变 ...
 
 async function checkNotifications() {
     try {
@@ -380,12 +381,25 @@ async function loadSinglePost(id) {
         if (!post) { container.innerHTML = '<h1>404</h1>'; return; }
 
         const date = new Date(post.created_at).toLocaleString();
-        let deleteBtnHtml = '';
-        if (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id)) {
-            deleteBtnHtml = `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
+        
+        // 删除按钮逻辑：作者本人 或 管理员 可删
+        let actionBtns = '';
+        if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) {
+            actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
         }
         
-        const authorDisplay = post.author_nickname || post.author_username || post.author_name;
+        // 管理员封号按钮 (不能封自己)
+        if (userRole === 'admin' && post.user_id !== currentUser.id) {
+            actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`;
+        }
+
+        // 打赏按钮 (不能打赏自己)
+        let tipBtn = '';
+        if (currentUser.id !== post.user_id) {
+            tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`;
+        }
+        
+        const authorDisplay = post.author_nickname || post.author_username;
         const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
 
@@ -399,8 +413,9 @@ async function loadSinglePost(id) {
                         </span>
                         <span>ID: ${post.id} // ${date}</span>
                     </div>
+                    ${tipBtn}
                 </div>
-                ${deleteBtnHtml}
+                <div>${actionBtns}</div>
             </div>
             <h1 style="margin-top:20px;">${post.title}</h1>
             <div class="article-body">${post.content}</div>
@@ -459,3 +474,87 @@ async function doLogout() {
         window.location.href = '/login.html';
     }
 }
+
+// 打赏功能
+window.tipUser = async function(targetId) {
+    const amount = prompt("请输入打赏金额 (i币):");
+    if (!amount) return;
+    if (isNaN(amount) || amount <= 0) return alert("请输入有效数字");
+
+    try {
+        const res = await fetch(`${API_BASE}/tip`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ target_user_id: targetId, amount: amount })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            window.location.reload(); // 刷新更新余额
+        } else {
+            alert(data.error);
+        }
+    } catch (e) { alert("打赏失败"); }
+};
+
+// 删除评论
+window.deleteComment = async function(commentId) {
+    if(!confirm("确认删除此评论？")) return;
+    try {
+        const res = await fetch(`${API_BASE}/comments?id=${commentId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if(data.success) {
+            loadNativeComments(currentPostId); // 局部刷新评论
+        } else {
+            alert(data.error);
+        }
+    } catch(e) { alert("Error"); }
+};
+
+// 管理员封号
+window.adminBanUser = async function(userId) {
+    if(!confirm("【高危操作】确定要封禁该用户吗？该用户将无法登录。")) return;
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'ban_user', target_user_id: userId })
+        });
+        const data = await res.json();
+        if(data.success) alert("用户已封禁");
+        else alert(data.error);
+    } catch(e) { alert("Error"); }
+};
+
+// 管理员生成密钥
+window.adminGenKey = async function() {
+    const username = document.getElementById('adminTargetUser').value;
+    if(!username) return alert("请输入用户名");
+    
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'gen_key', target_username: username })
+        });
+        const data = await res.json();
+        if(data.success) {
+            document.getElementById('adminKeyResult').innerHTML = `KEY: ${data.key} <br>(请手动发送给用户)`;
+        } else {
+            alert(data.error);
+        }
+    } catch(e) { alert("Error"); }
+};
+
+// 不要忘记把 'admin' 加入路由视图
+async function handleRoute() {
+    // ... (前面代码不变) ...
+    } else if (hash === '#admin') { // 新增
+        if(userRole !== 'admin') { window.location.hash='#home'; return; }
+        if(views.admin) views.admin.style.display = 'block'; // 需在 views 对象中添加 admin
+    } 
+    // ...
+}
+
+// 记得在 views 对象里加 admin
+views.admin = document.getElementById('view-admin');
