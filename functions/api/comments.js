@@ -12,16 +12,19 @@ export async function onRequestGet(context) {
   }
   if (!postId) return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
 
-  // === 排序：置顶优先，然后按时间 ===
+  // === 修改：关联查询获取被回复者的信息 ===
   const comments = await db.prepare(`
     SELECT comments.*, 
            users.username, users.nickname, users.avatar_variant, 
            users.is_vip, users.level, users.xp, users.role, 
            users.custom_title, users.custom_title_color, users.badge_preference,
+           reply_users.username as reply_to_username,
+           reply_users.nickname as reply_to_nickname,
            (SELECT COUNT(*) FROM likes WHERE target_id = comments.id AND target_type = 'comment') as like_count,
            (SELECT COUNT(*) FROM likes WHERE target_id = comments.id AND target_type = 'comment' AND user_id = ?) as is_liked
     FROM comments
     JOIN users ON comments.user_id = users.id
+    LEFT JOIN users AS reply_users ON comments.reply_to_uid = reply_users.id
     WHERE comments.post_id = ?
     ORDER BY comments.is_pinned DESC, comments.created_at ASC
   `).bind(currentUserId, postId).all();
@@ -30,7 +33,6 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  // ... (保留原有的发布逻辑)
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
   if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
@@ -42,17 +44,31 @@ export async function onRequestPost(context) {
   const { post_id, content, parent_id } = await context.request.json();
   if (!content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
 
-  let finalParentId = null;
+  let finalParentId = null; // 数据库存储的父ID（永远指向根评论）
+  let replyToUid = null;    // 实际回复的目标用户ID
+
+  // === 修改：处理回复逻辑 ===
   if (parent_id) {
-      const parentComment = await db.prepare('SELECT id, parent_id, user_id FROM comments WHERE id = ?').bind(parent_id).first();
-      if (!parentComment) return new Response(JSON.stringify({ success: false, error: '回复的评论不存在' }), { status: 404 });
-      if (parentComment.parent_id) finalParentId = parentComment.parent_id;
-      else finalParentId = parentComment.id;
+      // 查找用户点击的那条评论
+      const targetComment = await db.prepare('SELECT id, parent_id, user_id, content FROM comments WHERE id = ?').bind(parent_id).first();
+      if (!targetComment) return new Response(JSON.stringify({ success: false, error: '回复的评论不存在' }), { status: 404 });
+      
+      // 记录实际回复的人
+      replyToUid = targetComment.user_id;
+
+      // 计算根评论ID (视觉缩进用)
+      if (targetComment.parent_id) {
+          finalParentId = targetComment.parent_id; // 如果回复的是子评论，挂到爷爷(根)下面
+      } else {
+          finalParentId = targetComment.id; // 如果回复的是根评论，挂到它下面
+      }
   }
 
-  await db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(post_id, user.id, content, finalParentId, Date.now()).run();
+  // 插入评论
+  await db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, reply_to_uid, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(post_id, user.id, content, finalParentId, replyToUid, Date.now()).run();
 
+  // 经验逻辑
   const now = new Date();
   const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
@@ -68,14 +84,21 @@ export async function onRequestPost(context) {
   } else { xpMsg = " (今日满)"; }
 
   const senderName = user.nickname || user.username;
-  if (finalParentId) {
-      const parentOwner = await db.prepare('SELECT user_id, content FROM comments WHERE id = ?').bind(finalParentId).first();
-      if (parentOwner && parentOwner.user_id !== user.id) {
-          const msg = `${senderName} 回复了你的评论: ${parentOwner.content.substring(0, 20)}...`;
-          await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
-            .bind(parentOwner.user_id, 'reply', msg, `#post?id=${post_id}`, Date.now()).run();
-      }
-  } else {
+  
+  // === 修改：精准通知逻辑 ===
+  // 只有当有明确回复目标(replyToUid)，且不是自己回复自己时，才发回复通知
+  if (replyToUid && replyToUid !== user.id) {
+       // 为了通知内容更友好，我们再次查询目标评论内容（可选，其实targetComment还在上面）
+       // 这里简单处理：通知内容显示“回复了你的评论”
+       const targetContent = await db.prepare('SELECT content FROM comments WHERE id = ?').bind(parent_id).first(); // 获取直接点击的那条
+       const snippet = targetContent ? targetContent.content.substring(0, 20) : "";
+       const msg = `${senderName} 回复了你的评论: ${snippet}...`;
+       
+       await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
+         .bind(replyToUid, 'reply', msg, `#post?id=${post_id}`, Date.now()).run();
+  } 
+  // 如果是直接评论文章（没有 replyToUid），则通知文章作者
+  else if (!replyToUid) {
       const post = await db.prepare('SELECT user_id, title FROM posts WHERE id = ?').bind(post_id).first();
       if (post && post.user_id !== user.id) {
         const msg = `${senderName} 评论了你的文章: ${post.title}`;
@@ -83,11 +106,11 @@ export async function onRequestPost(context) {
           .bind(post.user_id, 'comment', msg, `#post?id=${post_id}`, Date.now()).run();
       }
   }
+
   await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 WHERE user_id = ? AND task_type = 'comment' AND is_claimed = 0 AND last_update_date = ?`).bind(user.id, today).run();
   return new Response(JSON.stringify({ success: true, message: `发布成功${xpMsg}` }));
 }
 
-// === 新增：PUT 用于编辑和置顶评论 ===
 export async function onRequestPut(context) {
     const db = context.env.DB;
     const cookie = context.request.headers.get('Cookie');
@@ -98,7 +121,6 @@ export async function onRequestPut(context) {
 
     const { id, action, content } = await context.request.json();
 
-    // 1. 编辑评论
     if (action === 'edit') {
         const comment = await db.prepare('SELECT user_id FROM comments WHERE id = ?').bind(id).first();
         if(!comment) return new Response(JSON.stringify({ success: false, error: '评论不存在' }));
@@ -109,34 +131,24 @@ export async function onRequestPut(context) {
         return new Response(JSON.stringify({ success: true, message: '评论已更新' }));
     }
 
-    // 2. 置顶评论 (文章作者 或 管理员 可以置顶)
     if (action === 'pin') {
-        // 先查这篇文章是谁写的
         const comment = await db.prepare('SELECT post_id, is_pinned FROM comments WHERE id = ?').bind(id).first();
         if(!comment) return new Response(JSON.stringify({ success: false, error: '评论不存在' }));
-        
         const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(comment.post_id).first();
         if (!post) return new Response(JSON.stringify({ success: false, error: '文章不存在' }));
-
-        // 鉴权：是文章作者 或者是 管理员
         if (post.user_id !== user.id && user.role !== 'admin') {
             return new Response(JSON.stringify({ success: false, error: '无权置顶此评论' }), { status: 403 });
         }
-
         const newState = comment.is_pinned ? 0 : 1;
-        // 如果是置顶，先把该文章下其他置顶取消（可选逻辑，这里假设只能置顶一个）
-        // 如果允许置顶多个，则不需要这行。通常评论区只置顶一个。
         if (newState === 1) {
             await db.prepare('UPDATE comments SET is_pinned = 0 WHERE post_id = ?').bind(comment.post_id).run();
         }
-
         await db.prepare('UPDATE comments SET is_pinned = ? WHERE id = ?').bind(newState, id).run();
         return new Response(JSON.stringify({ success: true, message: newState ? '评论已置顶' : '已取消置顶' }));
     }
 }
 
 export async function onRequestDelete(context) {
-    // ... (保留原有的删除逻辑)
     const db = context.env.DB;
     const cookie = context.request.headers.get('Cookie');
     if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
