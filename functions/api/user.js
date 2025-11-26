@@ -16,15 +16,14 @@ export async function onRequestGet(context) {
 
   if (!user) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
 
-  // === 核心：检查封禁是否过期 ===
+  // 检查封禁状态
   if (user.status === 'banned' && user.ban_expires_at < Date.now()) {
-      // 封禁过期，自动解封
       await db.prepare("UPDATE users SET status = 'active', ban_expires_at = 0 WHERE id = ?").bind(user.id).run();
-      user.status = 'active'; // 更新内存中的状态
+      user.status = 'active';
   }
 
-  // 为了安全，过滤掉 password 字段后再返回
   delete user.password;
-
+  // 确保 recovery_key 只有在特定接口才返回，或者前端不显示，这里保留原样
+  
   return new Response(JSON.stringify({ loggedIn: true, ...user }), { headers: { 'Content-Type': 'application/json' } });
 }
