@@ -2,7 +2,7 @@
 
 const API_BASE = '/api';
 let currentUser = null;
-let currentPostId = null; // 记录当前正在看的文章ID
+let currentPostId = null;
 
 // === 等级配置表 ===
 const LEVEL_TABLE = [
@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkSecurity();
 });
 
-// --- 像素头像生成器 ---
 function generatePixelAvatar(username, variant = 0) {
     const seedStr = username + "v" + variant;
     let hash = 0;
@@ -72,17 +71,32 @@ async function checkSecurity() {
         } else {
             currentUser = data;
             
-            // 渲染信息
             const displayName = data.nickname || data.username;
-            const levelInfo = calculateLevel(data.xp || 0);
-            let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
-
+            
             document.getElementById('username').textContent = displayName;
             document.getElementById('coinCount').textContent = data.coins;
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
             
+            // 填充设置页的头像预览
+            const settingPreview = document.getElementById('settingAvatarPreview');
+            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+
+            // 填充设置页的恢复密钥 (如果存在)
+            const keyDisplay = document.getElementById('recoveryKeyDisplay');
+            if(keyDisplay) {
+                keyDisplay.value = data.recovery_key || "未生成 (旧账号请联系管理员)";
+            }
+
+            const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
-            badgesArea.innerHTML = `<span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> ${vipTag} <div id="logoutBtn">EXIT</div>`;
+            let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
+            
+            // 侧边栏显示等级
+            badgesArea.innerHTML = `
+                <span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> 
+                ${vipTag}
+                <div id="logoutBtn">EXIT</div>
+            `;
             
             document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
@@ -93,9 +107,8 @@ async function checkSecurity() {
                 document.getElementById('vipBox').style.borderColor = 'gold';
             }
 
-            // 开始轮询消息
             checkNotifications();
-            setInterval(checkNotifications, 60000); // 每分钟检查一次
+            setInterval(checkNotifications, 60000);
 
             if (mask) {
                 mask.style.transition = 'opacity 0.5s';
@@ -109,57 +122,16 @@ async function checkSecurity() {
     }
 }
 
-// --- 消息系统 ---
-async function checkNotifications() {
-    try {
-        const res = await fetch(`${API_BASE}/notifications`);
-        const data = await res.json();
-        const badge = document.getElementById('notifyBadge');
-        if (data.count > 0) {
-            badge.style.display = 'inline-block';
-            badge.textContent = data.count;
-        } else {
-            badge.style.display = 'none';
-        }
-    } catch(e) {}
-}
-
-async function loadNotifications() {
-    const container = document.getElementById('notifyList');
-    container.innerHTML = 'Loading logs...';
-    try {
-        const res = await fetch(`${API_BASE}/notifications`);
-        const data = await res.json();
-        container.innerHTML = '';
-        if(data.list.length === 0) {
-            container.innerHTML = '<p style="color:#666">暂无消息 / NO LOGS</p>';
-            return;
-        }
-        data.list.forEach(n => {
-            const div = document.createElement('div');
-            div.className = `notify-item ${n.is_read ? '' : 'unread'}`;
-            div.innerHTML = `
-                <div class="notify-msg">${n.message}</div>
-                <div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>
-            `;
-            div.onclick = () => {
-                window.location.hash = n.link;
-                // 点击后应该标记为已读，这里简单处理，刷新会自动变
-            };
-            container.appendChild(div);
-        });
-    } catch(e) {
-        container.innerHTML = 'Error';
-    }
-}
-
-window.markAllRead = async function() {
-    await fetch(`${API_BASE}/notifications`, { method: 'POST' });
-    loadNotifications();
-    checkNotifications();
+// === 复制密钥功能 ===
+window.copyRecoveryKey = function() {
+    const keyInput = document.getElementById('recoveryKeyDisplay');
+    keyInput.select();
+    document.execCommand('copy'); // 兼容旧浏览器
+    // 或者 navigator.clipboard.writeText(keyInput.value);
+    alert("密钥已复制到剪贴板");
 };
 
-// --- 评论系统 ---
+// === 评论系统 (核心修复：使用 calculateLevel 实时计算) ===
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
@@ -176,11 +148,19 @@ async function loadNativeComments(postId) {
             const div = document.createElement('div');
             div.className = 'comment-item';
             const vip = c.is_vip ? `<span style="color:gold;font-size:0.7em">[VIP]</span>` : '';
+            
+            // 核心修复：使用 calculateLevel 根据经验值算等级，而不是直接用 c.level
+            // 这样能保证等级永远和经验同步，并且颜色正确
+            const realLevelInfo = calculateLevel(c.xp || 0);
+            
             div.innerHTML = `
                 <div class="comment-avatar">${avatar}</div>
                 <div class="comment-content-box">
                     <div class="comment-header">
-                        <span class="comment-author">${vip} ${c.nickname || c.username} <span class="badge lv-${c.level||1}" style="transform:scale(0.8)">LV.${c.level||1}</span></span>
+                        <span class="comment-author">
+                            ${vip} ${c.nickname || c.username} 
+                            <span class="badge lv-${realLevelInfo.lv}" style="transform:scale(0.8); margin-left:5px;">LV.${realLevelInfo.lv}</span>
+                        </span>
                         <span>${new Date(c.created_at).toLocaleString()}</span>
                     </div>
                     <div class="comment-text">${c.content}</div>
@@ -191,38 +171,65 @@ async function loadNativeComments(postId) {
     } catch(e) { list.innerHTML = 'Failed to load comments.'; }
 }
 
+// ... 以下函数保持不变 ...
+
+async function checkNotifications() {
+    try {
+        const res = await fetch(`${API_BASE}/notifications`);
+        const data = await res.json();
+        const badge = document.getElementById('notifyBadge');
+        if (data.count > 0) {
+            badge.style.display = 'inline-block';
+            badge.textContent = data.count;
+        } else { badge.style.display = 'none'; }
+    } catch(e) {}
+}
+
+async function loadNotifications() {
+    const container = document.getElementById('notifyList');
+    container.innerHTML = 'Loading logs...';
+    try {
+        const res = await fetch(`${API_BASE}/notifications`);
+        const data = await res.json();
+        container.innerHTML = '';
+        if(data.list.length === 0) { container.innerHTML = '<p style="color:#666">暂无消息 / NO LOGS</p>'; return; }
+        data.list.forEach(n => {
+            const div = document.createElement('div');
+            div.className = `notify-item ${n.is_read ? '' : 'unread'}`;
+            div.innerHTML = `<div class="notify-msg">${n.message}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`;
+            div.onclick = () => { window.location.hash = n.link; };
+            container.appendChild(div);
+        });
+    } catch(e) { container.innerHTML = 'Error'; }
+}
+
+window.markAllRead = async function() {
+    await fetch(`${API_BASE}/notifications`, { method: 'POST' });
+    loadNotifications(); checkNotifications();
+};
+
 window.submitComment = async function() {
     const input = document.getElementById('commentInput');
     const content = input.value.trim();
     if(!content) return alert("内容不能为空");
-    
     const btn = document.querySelector('.comment-input-box button');
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/comments`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ post_id: currentPostId, content: content })
         });
         const data = await res.json();
-        if(data.success) {
-            alert(data.message);
-            input.value = '';
-            loadNativeComments(currentPostId);
-        } else { alert(data.error); }
+        if(data.success) { alert(data.message); input.value = ''; loadNativeComments(currentPostId); }
+        else { alert(data.error); }
     } catch(e) { alert("Error"); }
     finally { btn.disabled = false; }
 };
 
-// --- 其他逻辑 ---
-
 function initApp() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) {
-        mobileMenuBtn.onclick = (e) => {
-            e.stopPropagation();
-            document.getElementById('sidebar').classList.toggle('open');
-        };
+        mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); };
     }
     document.addEventListener('click', (e) => {
         const sidebar = document.getElementById('sidebar');
@@ -231,16 +238,12 @@ function initApp() {
             sidebar.classList.remove('open');
         }
     });
-
     const checkInBtn = document.getElementById('checkInBtn');
     if (checkInBtn) checkInBtn.onclick = doCheckIn;
-
     const postForm = document.getElementById('postForm');
     if (postForm) postForm.onsubmit = doPost;
-
     window.addEventListener('hashchange', handleRoute);
     handleRoute();
-
     setInterval(() => {
         const el = document.getElementById('clock');
         if(el) el.textContent = new Date().toLocaleTimeString();
@@ -253,14 +256,13 @@ const views = {
     post: document.getElementById('view-post'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
-    notifications: document.getElementById('view-notifications') // 新增
+    notifications: document.getElementById('view-notifications')
 };
 
 async function handleRoute() {
     const hash = window.location.hash || '#home';
     const sidebar = document.getElementById('sidebar');
     const navLinks = document.querySelectorAll('.nav-link');
-
     Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
     navLinks.forEach(el => el.classList.remove('active'));
     if(sidebar) sidebar.classList.remove('open');
@@ -278,7 +280,7 @@ async function handleRoute() {
     } else if (hash === '#about') {
         if(views.about) views.about.style.display = 'block';
         document.querySelector('a[href="#about"]').classList.add('active');
-    } else if (hash === '#notifications') { // 新增
+    } else if (hash === '#notifications') {
         if(views.notifications) views.notifications.style.display = 'block';
         document.getElementById('navNotify').classList.add('active');
         loadNotifications();
@@ -320,8 +322,7 @@ window.updateProfile = async function() {
     if(!nick) return alert("请输入昵称");
     try {
         const res = await fetch(`${API_BASE}/profile`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({nickname: nick})
         });
         const data = await res.json();
@@ -367,11 +368,10 @@ async function loadPosts() {
 }
 
 async function loadSinglePost(id) {
-    currentPostId = id; // 记录当前ID供评论使用
+    currentPostId = id;
     const container = document.getElementById('single-post-content');
     if(!container) return;
     container.innerHTML = '读取中...';
-    // 清空评论列表
     document.getElementById('commentsList').innerHTML = '';
 
     try {
@@ -405,10 +405,7 @@ async function loadSinglePost(id) {
             <h1 style="margin-top:20px;">${post.title}</h1>
             <div class="article-body">${post.content}</div>
         `;
-
-        // 加载自研评论系统
         loadNativeComments(id);
-
     } catch (e) {
         console.error(e);
         container.innerHTML = 'Error loading post.';
@@ -433,8 +430,7 @@ async function doPost(e) {
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/posts`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({title, content})
         });
         const data = await res.json();
