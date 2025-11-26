@@ -5,7 +5,6 @@ let userRole = 'user';
 let currentUser = null;
 let currentPostId = null;
 let returnToNotifications = false;
-// 新增：标记应用是否准备就绪（用户信息已加载）
 let isAppReady = false;
 
 // 分页 & 状态
@@ -96,8 +95,6 @@ async function checkSecurity() {
         } else {
             currentUser = data;
             userRole = data.role || 'user';
-            
-            // 标记 App 就绪
             isAppReady = true;
 
             document.getElementById('username').textContent = data.nickname || data.username;
@@ -123,6 +120,9 @@ async function checkSecurity() {
                     opt.value = '公告'; opt.innerText = '📢 公告 / ANNOUNCE'; opt.style.color = '#ff3333';
                     postCat.prepend(opt);
                 }
+                // 立即检查管理员反馈提示
+                checkAdminStatus();
+                setInterval(checkAdminStatus, 60000);
             } else {
                 document.getElementById('navAdmin').style.display = 'none';
             }
@@ -138,17 +138,102 @@ async function checkSecurity() {
             setInterval(checkNotifications, 60000);
             renderLevelTable();
             checkForDrafts();
-            
-            // 关键：权限确认后，手动触发一次路由处理，确保能正确显示 Admin 页面
             handleRoute();
-
             if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
         }
     } catch (e) { console.error(e); window.location.replace('/login.html'); }
 }
 
-// --- 业务逻辑 ---
+// --- 管理员专属：检查状态（反馈红点） ---
+async function checkAdminStatus() {
+    try {
+        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) });
+        const data = await res.json();
+        if(data.success) {
+            // 更新侧边栏徽章
+            const badge = document.getElementById('adminFeedbackBadge');
+            if(data.unreadFeedback > 0) {
+                badge.style.display = 'inline-block';
+                badge.textContent = data.unreadFeedback;
+            } else {
+                badge.style.display = 'none';
+            }
+            
+            // 如果当前在 admin 界面，顺便更新数字
+            const statTotal = document.getElementById('statTotalUsers');
+            if(statTotal && statTotal.offsetParent !== null) {
+                statTotal.innerText = data.totalUsers;
+                document.getElementById('statActiveUsers').innerText = data.activeUsers;
+                document.getElementById('inviteToggle').checked = data.inviteRequired;
+            }
+        }
+    } catch(e){}
+}
 
+// --- 管理员：反馈列表与操作 ---
+async function loadAdminFeedbacks() {
+    const tbody = document.querySelector('#adminFeedbackTable tbody');
+    tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+    try {
+        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_feedbacks'}) });
+        const data = await res.json();
+        tbody.innerHTML = '';
+        if(data.success && data.list.length > 0) {
+            data.list.forEach(fb => {
+                const tr = document.createElement('tr');
+                // 未读高亮
+                if (!fb.is_read) tr.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
+                
+                let replyHTML = '';
+                if (fb.reply_content) {
+                    replyHTML = `<div style="margin-top:5px;padding:5px;border-left:2px solid #0f0;font-size:0.8rem;color:#888;">
+                        <span style="color:#0f0">ADMIN:</span> ${fb.reply_content}
+                    </div>`;
+                }
+
+                tr.innerHTML = `
+                    <td>${fb.nickname || fb.username}</td>
+                    <td style="white-space:pre-wrap;max-width:300px;">
+                        ${fb.content}
+                        ${replyHTML}
+                        <div style="margin-top:8px;">
+                            ${!fb.is_read ? `<button onclick="adminMarkRead(${fb.id})" class="mini-action-btn" style="color:gold">已读</button>` : ''}
+                            <button onclick="adminReplyFeedback(${fb.id}, ${fb.user_id})" class="mini-action-btn" style="color:#0070f3">回复</button>
+                            <button onclick="adminDeleteFeedback(${fb.id})" class="mini-action-btn" style="color:#f33">删除</button>
+                        </div>
+                    </td>
+                    <td>${new Date(fb.created_at).toLocaleString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else { tbody.innerHTML = '<tr><td colspan="3">暂无反馈</td></tr>'; }
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>'; }
+}
+
+window.adminMarkRead = async function(id) {
+    await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'mark_feedback_read', id}) });
+    loadAdminFeedbacks(); checkAdminStatus();
+};
+
+window.adminDeleteFeedback = async function(id) {
+    if(!confirm("Delete feedback?")) return;
+    await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_feedback', id}) });
+    loadAdminFeedbacks(); checkAdminStatus();
+};
+
+window.adminReplyFeedback = async function(id, userId) {
+    const reply = prompt("请输入回复内容：");
+    if(!reply) return;
+    const res = await fetch(`${API_BASE}/admin`, { 
+        method: 'POST', 
+        body: JSON.stringify({action: 'reply_feedback', id, user_id: userId, content: reply}) 
+    });
+    const d = await res.json();
+    if(d.success) { alert(d.message); loadAdminFeedbacks(); checkAdminStatus(); }
+    else alert(d.error);
+};
+
+// --- 其他业务逻辑 (保持不变) ---
 window.submitFeedback = async function() {
     const content = document.getElementById('feedbackContent').value;
     if(!content || content.length < 5) return alert("反馈内容太短");
@@ -162,100 +247,38 @@ window.submitFeedback = async function() {
         else alert(data.error);
     } catch(e) { alert("Error"); }
 };
-
-async function loadAdminStats() {
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) });
-        const data = await res.json();
-        if(data.success) {
-            document.getElementById('statTotalUsers').innerText = data.totalUsers;
-            document.getElementById('statActiveUsers').innerText = data.activeUsers;
-            document.getElementById('inviteToggle').checked = data.inviteRequired;
-        }
-    } catch(e){}
-}
-
+async function loadAdminStats() { /* 已合并到 checkAdminStatus, 但保留给 admin tab 切换使用 */ checkAdminStatus(); }
 window.toggleInviteSystem = async function() {
     const enabled = document.getElementById('inviteToggle').checked;
     try {
         const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) });
-        const data = await res.json();
-        alert(data.message);
+        const data = await res.json(); alert(data.message);
     } catch(e){ alert("设置失败"); }
 };
-
 async function loadAdminInvites() {
-    const tbody = document.querySelector('#adminInviteTable tbody');
-    tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+    const tbody = document.querySelector('#adminInviteTable tbody'); tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
     try {
         const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_invites'}) });
-        const data = await res.json();
-        tbody.innerHTML = '';
+        const data = await res.json(); tbody.innerHTML = '';
         if(data.success && data.list.length > 0) {
             data.list.forEach(inv => {
                 const isExpired = inv.expires_at < Date.now();
-                let status = '<span style="color:#0f0">可用</span>';
-                if(inv.is_used) status = '<span style="color:#666">已用</span>';
-                else if(isExpired) status = '<span style="color:#f00">过期</span>';
-                
+                let status = '<span style="color:#0f0">可用</span>'; if(inv.is_used) status = '<span style="color:#666">已用</span>'; else if(isExpired) status = '<span style="color:#f00">过期</span>';
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${inv.code}</td>
-                    <td>${status}</td>
-                    <td>${new Date(inv.expires_at).toLocaleDateString()}</td>
-                    <td>
-                        <button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button>
-                        <button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button>
-                    </td>
-                `;
+                tr.innerHTML = `<td>${inv.code}</td><td>${status}</td><td>${new Date(inv.expires_at).toLocaleDateString()}</td><td><button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button><button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button></td>`;
                 tbody.appendChild(tr);
             });
         } else { tbody.innerHTML = '<tr><td colspan="4">暂无数据</td></tr>'; }
     } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; }
 }
-
 window.refillInvites = async function() {
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) });
-        const data = await res.json();
-        if(data.success) { alert(data.message); loadAdminInvites(); }
-        else alert(data.error);
-    } catch(e){ alert("Error"); }
+    try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) }); const data = await res.json(); if(data.success) { alert(data.message); loadAdminInvites(); } else alert(data.error); } catch(e){ alert("Error"); }
 };
-
-// === 修复：使用 code 删除 ===
 window.deleteInvite = async function(code) {
     if(!confirm("Delete?")) return;
-    try {
-        await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', code: code}) });
-        loadAdminInvites();
-    } catch(e){ alert("Error"); }
+    try { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', code: code}) }); loadAdminInvites(); } catch(e){ alert("Error"); }
 };
-
-async function loadAdminFeedbacks() {
-    const tbody = document.querySelector('#adminFeedbackTable tbody');
-    tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_feedbacks'}) });
-        const data = await res.json();
-        tbody.innerHTML = '';
-        if(data.success && data.list.length > 0) {
-            data.list.forEach(fb => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${fb.nickname || fb.username}</td>
-                    <td style="white-space:pre-wrap;max-width:300px;">${fb.content}</td>
-                    <td>${new Date(fb.created_at).toLocaleString()}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        } else { tbody.innerHTML = '<tr><td colspan="3">暂无反馈</td></tr>'; }
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>'; }
-}
-
-window.copyText = function(txt) {
-    navigator.clipboard.writeText(txt).then(() => alert("已复制"));
-};
+window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => alert("已复制")); };
 
 // ... 分页, 帖子, 评论, 置顶, 编辑, 通知 (保持不变) ...
 async function loadPosts(reset = false) {
@@ -356,21 +379,6 @@ window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
 window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
 
-function initApp() {
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    if (mobileMenuBtn) { mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; }
-    document.addEventListener('click', (e) => {
-        const sidebar = document.getElementById('sidebar');
-        const btn = document.getElementById('mobileMenuBtn');
-        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btn) { sidebar.classList.remove('open'); }
-    });
-    const checkInBtn = document.getElementById('checkInBtn'); if (checkInBtn) checkInBtn.onclick = window.doCheckIn;
-    const postForm = document.getElementById('postForm'); if (postForm) postForm.onsubmit = doPost;
-    window.addEventListener('hashchange', handleRoute);
-    handleRoute();
-    setInterval(() => { const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString(); }, 1000);
-}
-
 const views = {
     home: document.getElementById('view-home'),
     write: document.getElementById('view-write'),
@@ -391,7 +399,6 @@ async function handleRoute() {
     navLinks.forEach(el => el.classList.remove('active'));
     if(sidebar) sidebar.classList.remove('open');
 
-    // 修复：如果应用还没就绪（userRole未知），不要处理敏感路由
     if(!isAppReady && hash === '#admin') return;
 
     if(hash !== '#write' && isEditingPost) {
