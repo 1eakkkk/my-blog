@@ -504,6 +504,7 @@ function initApp() {
 const views = {
     home: document.getElementById('view-home'),
     write: document.getElementById('view-write'),
+    tasks: document.getElementById('view-tasks'),
     post: document.getElementById('view-post'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
@@ -526,6 +527,9 @@ async function handleRoute() {
     } else if (hash === '#write') {
         if(views.write) views.write.style.display = 'block';
         document.getElementById('navWrite').classList.add('active');
+     } else if (hash === '#tasks') {
+        if(views.tasks) views.tasks.style.display = 'block';
+        loadTasks();
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
         document.querySelector('a[href="#settings"]').classList.add('active');
@@ -799,6 +803,51 @@ window.adminGenInvite = async function() {
     } catch(e) { alert("Error"); }
 };
 
+// 加载任务
+async function loadTasks() {
+    const container = document.getElementById('taskContainer');
+    container.innerHTML = 'Loading...';
+    try {
+        const res = await fetch(`${API_BASE}/tasks`);
+        const t = await res.json();
+        
+        const typeMap = { 'checkin': '每日签到', 'post': '发布文章', 'comment': '发表评论' };
+        const isDone = t.progress >= t.target;
+        const btnState = t.is_claimed ? 
+            `<button class="cyber-btn" disabled>已完成 / CLAIMED</button>` : 
+            (isDone ? `<button onclick="claimTask()" class="cyber-btn" style="border-color:#0f0;color:#0f0">领取奖励 / CLAIM</button>` : `<button class="cyber-btn" disabled>未完成 / IN PROGRESS</button>`);
+        
+        const rerollBtn = (t.reroll_count === 0 && !t.is_claimed) ? 
+            `<button onclick="rerollTask()" class="cyber-btn" style="margin-top:10px;border-color:orange;color:orange">刷新任务 (10 i币)</button>` : '';
+
+        container.innerHTML = `
+            <div class="task-card">
+                <div class="task-header">
+                    <h3>${typeMap[t.task_type]} (${t.progress}/${t.target})</h3>
+                    <span>奖励: ${t.reward_xp} XP, ${t.reward_coins} i币</span>
+                </div>
+                <div class="task-progress-bg">
+                    <div class="task-progress-fill" style="width:${Math.min(100, (t.progress/t.target)*100)}%"></div>
+                </div>
+                ${btnState}
+                ${rerollBtn}
+            </div>
+        `;
+    } catch(e) { container.innerHTML = 'Error loading task'; }
+}
+
+window.rerollTask = async function() {
+    if(!confirm("消耗10 i币刷新今日任务？")) return;
+    await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'reroll'}) });
+    loadTasks();
+};
+
+window.claimTask = async function() {
+    const res = await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'claim'}) });
+    const data = await res.json();
+    if(data.success) { alert(data.message); loadTasks(); checkSecurity(); }
+    else alert(data.error);
+};
 
 
 
