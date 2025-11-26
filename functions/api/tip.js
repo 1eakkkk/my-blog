@@ -22,6 +22,31 @@ export async function onRequestPost(context) {
   // 2. 增加接收者金币，增加经验 (5币=1经验)
   const receiverXpAdd = Math.floor(payAmount / 5); 
 
+  const now = new Date();
+  const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  const today = utc8.toISOString().split('T')[0];
+
+  const receiverData = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(target_user_id).first();
+  let receiverDailyXp = (receiverData.last_xp_date === today) ? (receiverData.daily_xp || 0) : 0;
+  let actualReceiverAdd = 0;
+
+  if (receiverDailyXp < 120) {
+      actualReceiverAdd = receiverXpAdd;
+      if (receiverDailyXp + receiverXpAdd > 120) actualReceiverAdd = 120 - receiverDailyXp;
+  }
+
+  // 执行数据库事务
+  await db.batch([
+      // 打赏者：扣钱，加全额经验
+      db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ? WHERE id = ?').bind(payAmount, senderXpAdd, sender.id),
+    
+      // 接收者：加钱，加受限经验，更新 daily_xp
+      db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ?, daily_xp = daily_xp + ?, last_xp_date = ? WHERE id = ?')
+        .bind(payAmount, actualReceiverAdd, actualReceiverAdd, today, target_user_id),
+      
+      // ... (通知逻辑) ...
+  ]);
+  
   try {
     await db.batch([
       // 扣款
