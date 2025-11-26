@@ -65,6 +65,8 @@ function calculateLevel(xp) {
     return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp };
 }
 
+//修复 checkSecurity 函数 ---
+
 async function checkSecurity() {
     const mask = document.getElementById('loading-mask');
     try {
@@ -78,16 +80,22 @@ async function checkSecurity() {
             currentUser = data;
             
             const displayName = data.nickname || data.username;
-            document.getElementById('username').textContent = displayName;
+            
+            // === 修复点：在这里添加登出按钮 ===
+            // 找到 username 元素，把名字放进去，后面跟一个红色的 [EXIT]
+            const usernameEl = document.getElementById('username');
+            usernameEl.innerHTML = `${displayName} <span id="logoutBtn" style="cursor:pointer;color:#ff3333;font-size:0.8em;margin-left:8px;border:1px solid #ff3333;padding:0 4px;border-radius:4px;">EXIT</span>`;
+            
             document.getElementById('coinCount').textContent = data.coins;
             
-            // 渲染侧边栏头像 (传入 variant)
-            const avatarHtml = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
-            document.getElementById('avatarContainer').innerHTML = avatarHtml;
+            // 渲染侧边栏头像
+            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
             
-            // 渲染设置页预览头像
-            const previewEl = document.getElementById('settingAvatarPreview');
-            if(previewEl) previewEl.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+            // 渲染设置页预览
+            const settingPreview = document.getElementById('settingAvatarPreview');
+            if(settingPreview) {
+                settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+            }
 
             const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
@@ -96,6 +104,9 @@ async function checkSecurity() {
             
             document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
+
+            // 绑定登出事件
+            document.getElementById('logoutBtn').onclick = doLogout;
 
             if(data.is_vip) {
                 document.getElementById('vipBox').innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
@@ -393,4 +404,5 @@ async function doLogout() {
         window.location.href = '/login.html';
     }
 }
+
 
