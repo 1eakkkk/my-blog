@@ -204,8 +204,24 @@ async function loadPosts() {
                 custom_title: post.author_title,
                 custom_title_color: post.author_title_color,
                 is_vip: post.author_vip,
-                xp: 0
+                xp: post.author_xp // <--- 这里传入XP，getBadgesHtml 里的 calculateLevel 就能算出正确等级
             });
+
+            const likeClass = post.is_liked ? 'liked' : '';
+            const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">
+                ❤ <span class="count">${post.like_count || 0}</span>
+            </button>`;
+
+            div.innerHTML = `
+                <div class="post-meta">
+                    ${catHtml} ${date} | ${badgeHtml} @${author}
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                    <h2 style="margin:0">${post.title}</h2>
+                    ${likeBtn}
+                </div>
+                <div class="post-snippet">${post.content.substring(0, 100)}...</div>
+            `;
             
             const div = document.createElement('div');
             div.className = `post-card ${isAnnounceClass}`; // 给公告卡片加特效
@@ -712,5 +728,6 @@ window.adminPostAnnounce = async function() {
         else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
+
 
 
