@@ -226,6 +226,8 @@ async function loadPosts() {
     }
 }
 
+// --- 修复 script.js 中的 loadSinglePost 函数 ---
+
 async function loadSinglePost(id) {
     currentPostId = id;
     const container = document.getElementById('single-post-content');
@@ -238,10 +240,45 @@ async function loadSinglePost(id) {
         const post = await res.json();
         if (!post) { container.innerHTML = '<h1>404</h1>'; return; }
 
-        // --- 处理分类标签 ---
+        const date = new Date(post.created_at).toLocaleString();
+        
+        let actionBtns = '';
+        if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) {
+            actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
+        }
+        
+        if (userRole === 'admin' && post.user_id !== currentUser.id) {
+            actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`;
+        }
+
+        let tipBtn = '';
+        if (currentUser.id !== post.user_id) {
+            tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`;
+        }
+        
+        const authorDisplay = post.author_nickname || post.author_username;
+        const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
+        
+        // === 关键修复：必须先定义 avatarSvg，下面才能用 ===
+        const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
+
+        // 获取徽章 HTML
+        const badgeObj = {
+            role: post.author_role,
+            custom_title: post.author_title,
+            custom_title_color: post.author_title_color,
+            is_vip: post.author_vip,
+            xp: 0 // 详情页暂无XP数据，等级显示可能为默认
+        };
+        const badgesHtml = getBadgesHtml(badgeObj);
+
+        // 处理分类标签
         const cat = post.category || '灌水';
         let catClass = '';
         if(cat === '公告') catClass = 'cat-announce';
+        else if(cat === '技术') catClass = 'cat-tech';
+        else if(cat === '生活') catClass = 'cat-life';
+        else if(cat === '提问') catClass = 'cat-question';
         const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
 
         container.innerHTML = `
@@ -261,59 +298,12 @@ async function loadSinglePost(id) {
             <h1 style="margin-top:20px;">${post.title}</h1>
             <div class="article-body">${post.content}</div>
         `;
-
-        const date = new Date(post.created_at).toLocaleString();
-        let actionBtns = '';
-        if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) {
-            actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
-        }
-        if (userRole === 'admin' && post.user_id !== currentUser.id) {
-            actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`;
-        }
-        let tipBtn = '';
-        if (currentUser.id !== post.user_id) {
-            tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`;
-        }
-        
-        const authorDisplay = post.author_nickname || post.author_username;
-        const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
-        
-        // 详情页使用统一徽章 (API 已返回所有字段)
-        // 这里的 post 对象字段包含 author_role, author_title 等
-        const badgeObj = {
-            role: post.author_role,
-            custom_title: post.author_title,
-            custom_title_color: post.author_title_color,
-            is_vip: post.author_vip,
-            xp: 0 // 详情页目前API没返回作者XP，如果需要精准等级，需修改posts.js返回author_xp
-        };
-        // 为了让等级显示 LV.1 (默认) 而不是乱码，我们暂且这样。建议后续在 posts.js 加上 author_xp
-        const badgesHtml = getBadgesHtml(badgeObj);
-
-        container.innerHTML = `
-            <div class="post-header-row">
-                <div class="post-author-info">
-                    <div class="post-avatar-box">${avatarSvg}</div>
-                    <div class="post-meta-text">
-                        <span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                            ${authorDisplay} ${badgesHtml}
-                        </span>
-                        <span>ID: ${post.id} // ${date}</span>
-                    </div>
-                    ${tipBtn}
-                </div>
-                <div>${actionBtns}</div>
-            </div>
-            <h1 style="margin-top:20px;">${post.title}</h1>
-            <div class="article-body">${post.content}</div>
-        `;
         loadNativeComments(id);
     } catch (e) {
         console.error(e);
         container.innerHTML = 'Error loading post.';
     }
 }
-
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
@@ -678,5 +668,6 @@ window.adminGenKey = async function() {
         else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
+
 
 
