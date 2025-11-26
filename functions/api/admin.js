@@ -36,5 +36,20 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: true, message: '密钥获取成功', key: key }));
   }
 
+  // === 功能3: 发放自定义头衔 ===
+  if (action === 'grant_title') {
+    const { title, color } = await context.request.json();
+    // 验证长度 2-6
+    if(title && (title.length < 2 || title.length > 6)) {
+        return new Response(JSON.stringify({ success: false, error: '头衔长度限制 2-6 字符' }));
+    }
+    
+    await db.prepare("UPDATE users SET custom_title = ?, custom_title_color = ? WHERE username = ?")
+      .bind(title, color, target_username) // title传空字符串代表删除头衔
+      .run();
+      
+    return new Response(JSON.stringify({ success: true, message: '头衔设置成功' }));
+  }
+
   return new Response(JSON.stringify({ success: false, error: '未知指令' }));
 }
