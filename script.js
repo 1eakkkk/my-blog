@@ -5,29 +5,26 @@ let userRole = 'user';
 let currentUser = null;
 let currentPostId = null;
 
-// === 核心升级：重新定义等级表与称号 ===
-// 注意：等级称号头衔的颜色由 CSS .lv-X 类控制，与数字头衔保持一致
+// === 等级表定义 ===
 const LEVEL_TABLE = [
-    { lv: 1,  xp: 0,     title: '潜行者' }, // Stalker
-    { lv: 2,  xp: 300,   title: '漫游者' }, // Roamer
-    { lv: 3,  xp: 1200,  title: '观察者' }, // Observer
-    { lv: 4,  xp: 2000,  title: '骇客' },   // Hacker
-    { lv: 5,  xp: 5000,  title: '执政官' }, // Archon
-    { lv: 6,  xp: 10000, title: '领主' },   // Overlord
-    { lv: 7,  xp: 20000, title: '宗师' },   // Grandmaster
-    { lv: 8,  xp: 35000, title: '传奇' },   // Legend
-    { lv: 9,  xp: 50000, title: '半神' },   // Demigod
-    { lv: 10, xp: 60000, title: '赛博神' }  // CyberGod
+    { lv: 1,  xp: 0,     title: '潜行者' },
+    { lv: 2,  xp: 300,   title: '漫游者' },
+    { lv: 3,  xp: 1200,  title: '观察者' },
+    { lv: 4,  xp: 2000,  title: '骇客' },
+    { lv: 5,  xp: 5000,  title: '执政官' },
+    { lv: 6,  xp: 10000, title: '领主' },
+    { lv: 7,  xp: 20000, title: '宗师' },
+    { lv: 8,  xp: 35000, title: '传奇' },
+    { lv: 9,  xp: 50000, title: '半神' },
+    { lv: 10, xp: 60000, title: '赛博神' }
 ];
 
 function calculateLevel(xp) {
     if (xp >= 60000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
-
     let currentLv = 1;
     let currentTitle = '潜行者';
     let nextXp = 300;
     let prevXp = 0;
-
     for (let i = 0; i < LEVEL_TABLE.length; i++) {
         if (xp >= LEVEL_TABLE[i].xp) {
             currentLv = LEVEL_TABLE[i].lv;
@@ -38,7 +35,6 @@ function calculateLevel(xp) {
             }
         }
     }
-    
     let percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
     return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp, title: currentTitle };
 }
@@ -49,7 +45,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- 工具函数 ---
-
 function generatePixelAvatar(username, variant = 0) {
     const seedStr = username + "v" + variant;
     let hash = 0;
@@ -68,41 +63,27 @@ function generatePixelAvatar(username, variant = 0) {
     return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
 }
 
-// --- 核心：统一生成所有徽章 HTML (支持偏好选择) ---
 function getBadgesHtml(userObj) {
     let html = '';
-    
-    // 1. Admin 徽章
     if (userObj.role === 'admin' || userObj.author_role === 'admin') {
         html += `<span class="badge admin-tag">ADMIN</span>`;
     }
-
-    // 2. 自定义头衔 (管理员发放的，最高优先级，单独显示)
     const title = userObj.author_title || userObj.custom_title;
     const color = userObj.author_title_color || userObj.custom_title_color || '#fff';
     if (title) {
         html += `<span class="badge custom-tag" style="color:${color};border-color:${color}">${title}</span>`;
     }
-
-    // 3. 等级/称号徽章 (互斥显示)
     const xp = userObj.xp !== undefined ? userObj.xp : (userObj.author_xp || 0);
     const lvInfo = calculateLevel(xp);
-    const pref = userObj.badge_preference || 'number'; // 默认为 number
-
+    const pref = userObj.badge_preference || 'number';
     if (pref === 'title') {
-        // 显示称号，颜色保持等级颜色 (lv-X class)
         html += `<span class="badge lv-${lvInfo.lv}">${lvInfo.title}</span>`;
     } else {
-        // 显示数字
         html += `<span class="badge lv-${lvInfo.lv}">LV.${lvInfo.lv}</span>`;
     }
-    
-    // 4. VIP 徽章
-    const isVip = userObj.is_vip || userObj.author_vip;
-    if (isVip) {
+    if (userObj.is_vip || userObj.author_vip) {
         html += `<span class="badge vip-tag">VIP</span>`;
     }
-    
     return html;
 }
 
@@ -126,7 +107,8 @@ async function checkSecurity() {
         const data = await res.json();
 
         if (userRole === 'admin') {
-            document.getElementById('navAdmin').style.display = 'flex';
+            const adminNav = document.getElementById('navAdmin');
+            if(adminNav) adminNav.style.display = 'flex';
         }
         
         if (!data.loggedIn) {
@@ -135,8 +117,7 @@ async function checkSecurity() {
             currentUser = data;
             userRole = data.role || 'user';
 
-            const displayName = data.nickname || data.username;
-            document.getElementById('username').textContent = displayName;
+            document.getElementById('username').textContent = data.nickname || data.username;
             document.getElementById('coinCount').textContent = data.coins;
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
             
@@ -146,11 +127,8 @@ async function checkSecurity() {
             const keyDisplay = document.getElementById('recoveryKeyDisplay');
             if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
 
-            // 设置页面的佩戴偏好回显
             const badgePrefSelect = document.getElementById('badgePreferenceSelect');
-            if(badgePrefSelect) {
-                badgePrefSelect.value = data.badge_preference || 'number';
-            }
+            if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
 
             const badgesArea = document.getElementById('badgesArea');
             badgesArea.innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
@@ -161,15 +139,21 @@ async function checkSecurity() {
             document.getElementById('logoutBtn').onclick = doLogout;
 
             if (userRole === 'admin') {
-                document.getElementById('navAdmin').style.display = 'flex';
-                document.getElementById('view-admin').style.display = 'block'; 
+                const navAdmin = document.getElementById('navAdmin');
+                if(navAdmin) navAdmin.style.display = 'flex';
+                const viewAdmin = document.getElementById('view-admin');
+                if(viewAdmin) viewAdmin.style.display = 'block'; 
             } else {
-                 document.getElementById('navAdmin').style.display = 'none';
+                 const navAdmin = document.getElementById('navAdmin');
+                 if(navAdmin) navAdmin.style.display = 'none';
             }
 
             if(data.is_vip) {
-                document.getElementById('vipBox').innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
-                document.getElementById('vipBox').style.borderColor = 'gold';
+                const vipBox = document.getElementById('vipBox');
+                if(vipBox) {
+                    vipBox.innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
+                    vipBox.style.borderColor = 'gold';
+                }
             }
 
             checkNotifications();
@@ -187,6 +171,7 @@ async function checkSecurity() {
     }
 }
 
+// --- 文章列表 ---
 async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
@@ -204,14 +189,12 @@ async function loadPosts() {
         posts.forEach(post => {
             const date = new Date(post.created_at).toLocaleDateString();
             const author = post.author_nickname || post.author_username || "Unknown";
-            
             const cat = post.category || '灌水';
             let catClass = '';
             if(cat === '技术') catClass = 'cat-tech';
             else if(cat === '生活') catClass = 'cat-life';
             else if(cat === '提问') catClass = 'cat-question';
             else if(cat === '公告') catClass = 'cat-announce';
-            
             const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
             const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
 
@@ -223,7 +206,6 @@ async function loadPosts() {
                 xp: post.author_xp,
                 badge_preference: 'number' 
             });
-            
             const likeClass = post.is_liked ? 'liked' : '';
             const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">
                 ❤ <span class="count">${post.like_count || 0}</span>
@@ -250,6 +232,7 @@ async function loadPosts() {
     }
 }
 
+// --- 文章详情 ---
 async function loadSinglePost(id) {
     currentPostId = id;
     const container = document.getElementById('single-post-content');
@@ -257,19 +240,14 @@ async function loadSinglePost(id) {
     container.innerHTML = '读取中...';
     document.getElementById('commentsList').innerHTML = '';
     
-    // === 修复1：重置输入框状态前检查元素是否存在 ===
     const commentInput = document.getElementById('commentInput');
     if(commentInput) {
         commentInput.value = '';
         commentInput.placeholder = "输入你的看法... (支持纯文本)";
-        commentInput.dataset.parentId = ""; // 清除回复对象
+        commentInput.dataset.parentId = "";
     }
-    
-    // === 修复1：检查取消按钮是否存在，防止 TypeError ===
     const cancelBtn = document.getElementById('cancelReplyBtn');
-    if (cancelBtn) {
-        cancelBtn.style.display = 'none';
-    }
+    if (cancelBtn) cancelBtn.style.display = 'none';
 
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
@@ -293,7 +271,6 @@ async function loadSinglePost(id) {
         
         const authorDisplay = post.author_nickname || post.author_username;
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
-
         const badgeObj = {
             role: post.author_role,
             custom_title: post.author_title,
@@ -303,7 +280,6 @@ async function loadSinglePost(id) {
             badge_preference: 'number' 
         };
         const badgesHtml = getBadgesHtml(badgeObj);
-
         const cat = post.category || '灌水';
         let catClass = '';
         if(cat === '公告') catClass = 'cat-announce';
@@ -311,7 +287,6 @@ async function loadSinglePost(id) {
         else if(cat === '生活') catClass = 'cat-life';
         else if(cat === '提问') catClass = 'cat-question';
         const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
-
         const likeClass = post.is_liked ? 'liked' : '';
         const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
 
@@ -335,7 +310,6 @@ async function loadSinglePost(id) {
             <h1 style="margin-top:20px;">${post.title}</h1>
             <div class="article-body">${post.content}</div>
         `;
-        
         loadNativeComments(id);
     } catch (e) {
         console.error(e);
@@ -343,7 +317,7 @@ async function loadSinglePost(id) {
     }
 }
 
-// === 核心升级：评论加载逻辑（支持嵌套） ===
+// --- 评论加载 ---
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
@@ -356,7 +330,6 @@ async function loadNativeComments(postId) {
             return;
         }
 
-        // 分离根评论和子评论
         const rootComments = allComments.filter(c => !c.parent_id);
         const replies = allComments.filter(c => c.parent_id);
 
@@ -364,7 +337,6 @@ async function loadNativeComments(postId) {
             const commentNode = createCommentElement(c, false);
             list.appendChild(commentNode);
 
-            // 查找属于该根评论的子回复
             const myReplies = replies.filter(r => r.parent_id === c.id);
             if (myReplies.length > 0) {
                 const replyContainer = document.createElement('div');
@@ -375,7 +347,6 @@ async function loadNativeComments(postId) {
                 list.appendChild(replyContainer);
             }
         });
-
     } catch(e) { 
         console.error(e);
         list.innerHTML = 'Failed to load comments.'; 
@@ -391,14 +362,9 @@ function createCommentElement(c, isReply) {
     if (userRole === 'admin' || currentUser.id === c.user_id) {
         delCommentBtn = `<span onclick="deleteComment(${c.id})" style="color:#555;cursor:pointer;font-size:0.7rem;margin-left:10px">[删除]</span>`;
     }
-
     const badgeHtml = getBadgesHtml(c);
-    
     const likeClass = c.is_liked ? 'liked' : '';
     const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`;
-    
-    // 子评论不显示回复按钮，点击直接回复给根评论(逻辑已由后端处理)
-    // 但为了UI友好，我们可以让子评论也显示回复，点击后其实是@该用户，但挂在根下
     const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`;
 
     div.innerHTML = `
@@ -421,14 +387,12 @@ function createCommentElement(c, isReply) {
     return div;
 }
 
-// 准备回复
 window.prepareReply = function(commentId, username) {
     const input = document.getElementById('commentInput');
     input.dataset.parentId = commentId;
     input.placeholder = `回复 @${username} ...`;
     input.focus();
     
-    // 显示取消按钮
     let cancelBtn = document.getElementById('cancelReplyBtn');
     if (!cancelBtn) {
         cancelBtn = document.createElement('button');
@@ -453,7 +417,7 @@ window.cancelReply = function() {
     if(cancelBtn) cancelBtn.style.display = 'none';
 };
 
-// 提交评论 (支持回复)
+// === 修复1：提交评论逻辑 ===
 window.submitComment = async function() {
     const input = document.getElementById('commentInput');
     const content = input.value.trim();
@@ -461,8 +425,10 @@ window.submitComment = async function() {
 
     if(!content) return alert("内容不能为空");
     
-    const btn = document.querySelector('.comment-input-box button:first-child'); 
-    btn.disabled = true;
+    // 修复点：更稳健地获取按钮，即使获取不到也不报错中断
+    const btn = document.querySelector('.comment-input-box button:first-of-type'); 
+    if(btn) btn.disabled = true;
+
     try {
         const res = await fetch(`${API_BASE}/comments`, {
             method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -481,7 +447,9 @@ window.submitComment = async function() {
         }
         else { alert(data.error); }
     } catch(e) { alert("Error"); }
-    finally { btn.disabled = false; }
+    finally { 
+        if(btn) btn.disabled = false; 
+    }
 };
 
 window.toggleLike = async function(targetId, type, btn) {
@@ -494,7 +462,6 @@ window.toggleLike = async function(targetId, type, btn) {
             body: JSON.stringify({ target_id: targetId, target_type: type })
         });
         const data = await res.json();
-        
         if(data.success) {
             const countSpan = btn.querySelector('.count');
             countSpan.textContent = data.count;
@@ -508,7 +475,6 @@ window.toggleLike = async function(targetId, type, btn) {
     finally { btn.disabled = false; }
 };
 
-// 新增：保存头衔显示偏好
 window.saveBadgePreference = async function() {
     const select = document.getElementById('badgePreferenceSelect');
     const pref = select.value;
@@ -528,7 +494,7 @@ window.saveBadgePreference = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// === 修复2：恢复完整的任务加载函数 ===
+// --- 任务系统 ---
 async function loadTasks() {
     const container = document.getElementById('taskContainer');
     if(!container) return;
@@ -578,8 +544,32 @@ window.rerollTask = async function() {
     loadTasks();
 };
 
+// === 修复2：绑定关键按钮功能到 Window，防止HTML OnClick失效 ===
+window.doCheckIn = async function() {
+    const btn = document.getElementById('checkInBtn');
+    if(btn) btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/checkin`, {method:'POST'});
+        const data = await res.json();
+        alert(data.message);
+        if(data.coins) window.location.reload();
+    } catch(e) { alert("Error"); }
+    finally { if(btn) btn.disabled = false; }
+};
 
-// === 补全基础函数 ===
+window.doLuckyDraw = async function() {
+    const btn = document.querySelector('.lucky-draw-btn');
+    if(btn) { btn.disabled = true; btn.textContent = "DRAWING..."; }
+    try {
+        const res = await fetch(`${API_BASE}/draw`, {method:'POST'});
+        const data = await res.json();
+        if(data.success) { alert(`🎉 ${data.message}`); window.location.reload(); }
+        else { alert(`🚫 ${data.error}`); }
+    } catch(e) { alert("系统繁忙"); } 
+    finally { if(btn) { btn.disabled = false; btn.textContent = "🎲 每日幸运抽奖"; } }
+};
+
+// --- 其他全局函数 ---
 window.adminGrantTitle = async function() {
     const username = document.getElementById('adminTitleUser').value;
     const title = document.getElementById('adminTitleText').value;
@@ -602,15 +592,13 @@ window.adminGenKey = async function() { const u=document.getElementById('adminTa
 window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); alert("Posted"); };
 window.adminGenInvite = async function() { const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_invite'})}); const d=await r.json(); document.getElementById('adminInviteResult').innerText=d.codes?d.codes.join('\n'):d.code; };
 window.randomizeAvatar = async function() { if(!confirm("Randomize?"))return; const r=await fetch(`${API_BASE}/random_avatar`, {method:'POST'}); const d=await r.json(); if(d.success) window.location.reload(); };
-window.doLuckyDraw = async function() { await fetch(`${API_BASE}/draw`, {method:'POST'}); window.location.reload(); };
 window.updateProfile = async function() { const n=document.getElementById('newNickname').value; await fetch(`${API_BASE}/profile`, {method:'POST', body:JSON.stringify({nickname:n})}); window.location.reload(); };
 window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await fetch(`${API_BASE}/vip`, {method:'POST'}); const d=await r.json(); alert(d.message); if(d.success) window.location.reload(); };
 async function doPost(e) { e.preventDefault(); const t=document.getElementById('postTitle').value; const c=document.getElementById('postContent').value; const cat=document.getElementById('postCategory').value; await fetch(`${API_BASE}/posts`, {method:'POST', body:JSON.stringify({title:t, content:c, category:cat})}); window.location.hash='#home'; }
-async function doCheckIn() { await fetch(`${API_BASE}/checkin`, {method:'POST'}); window.location.reload(); }
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
 window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
 
-// 初始化
+// --- 初始化 ---
 function initApp() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) {
@@ -623,8 +611,10 @@ function initApp() {
             sidebar.classList.remove('open');
         }
     });
+    // 绑定签到按钮，并确保 doCheckIn 可全局访问
     const checkInBtn = document.getElementById('checkInBtn');
-    if (checkInBtn) checkInBtn.onclick = doCheckIn;
+    if (checkInBtn) checkInBtn.onclick = window.doCheckIn;
+
     const postForm = document.getElementById('postForm');
     if (postForm) postForm.onsubmit = doPost;
     window.addEventListener('hashchange', handleRoute);
