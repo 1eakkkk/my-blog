@@ -65,7 +65,7 @@ export async function onRequestPost(context) {
       .run();
   }
 
-  return new Response(JSON.stringify({ success: true, message: '评论发布成功 +5 XP' }));
+  return new Response(JSON.stringify({ success: true, message: `评论发布成功${xpMsg}` }));
 }
 // --- 追加删除评论功能 ---
 
