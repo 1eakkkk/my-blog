@@ -121,13 +121,7 @@
                             <option value="技术">💻 技术 / TECH</option>
                             <option value="生活">☕ 生活 / LIFE</option>
                             <option value="提问">❓ 提问 / Q&A</option>
-                            <!-- 公告选项将由 JS 动态显示，如果用户是 Admin -->
-                            <option value="公告" id="optAdmin" style="display:none; color:red; font-weight:bold;">📢 公告 / ANNOUNCEMENT</option>
                         </select>
-
-                        <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
-                        <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content" required></textarea>
-                        <button type="submit" class="cyber-btn big-btn">发布 / PUBLISH</button>
                         <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
                         <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content" required></textarea>
                         <button type="submit" class="cyber-btn big-btn">发布 / PUBLISH</button>
@@ -201,7 +195,15 @@
                                 <!-- 覆盖 view-admin 部分 (增加头衔发放) -->
                 <div id="view-admin" class="view-section" style="display:none;">
                     <h2 style="color:#ff3333">// ADMIN CONSOLE (TOP SECRET)</h2>
-    
+
+                    <!-- 新增：公告发布区 -->
+                    <div class="glass-card" style="border-color:#ff3333; margin-bottom:20px; background:rgba(255,51,51,0.05);">
+                        <h3>📣 发布全站公告</h3>
+                        <input type="text" id="adminAnnounceTitle" class="cyber-input" placeholder="公告标题">
+                        <textarea id="adminAnnounceContent" class="cyber-textarea" placeholder="公告内容..." style="height:100px;"></textarea>
+                        <button onclick="adminPostAnnounce()" class="cyber-btn" style="border-color:#ff3333; color:#ff3333">立即发布公告 / PUBLISH</button>
+                    </div>
+                    
                     <div class="glass-card" style="border-color:#ff3333; margin-bottom:20px;">
                         <h3>旧账号密钥补发</h3>
                         <input type="text" id="adminTargetUser" class="cyber-input" placeholder="输入用户名">
@@ -228,5 +230,6 @@
     <script src="script.js?v=3.1"></script>
 </body>
 </html>
+
 
 
