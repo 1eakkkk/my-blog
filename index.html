@@ -192,7 +192,7 @@
                     </table>
                 </div>
 
-                                <!-- 覆盖 view-admin 部分 (增加头衔发放) -->
+                                <!--增加头衔发放 -->
                 <div id="view-admin" class="view-section" style="display:none;">
                     <h2 style="color:#ff3333">// ADMIN CONSOLE (TOP SECRET)</h2>
 
@@ -220,6 +220,13 @@
                         </div>
                         <button onclick="adminGrantTitle()" class="cyber-btn" style="border-color:#bc13fe; color:#bc13fe">发放头衔 / GRANT</button>
                     </div>
+
+                    <div class="glass-card" style="border-color:#00ff00; margin-top:20px;">
+                        <h3>生成注册邀请码</h3>
+                        <p style="font-size:0.8rem; color:#666">控制社区人数，防止机器人泛滥。</p>
+                        <button onclick="adminGenInvite()" class="cyber-btn" style="border-color:#00ff00; color:#00ff00">生成新邀请码 / GENERATE</button>
+                        <div id="adminInviteResult" style="margin-top:10px; color:#fff; font-weight:bold; font-size:1.2rem; letter-spacing:2px;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -230,6 +237,7 @@
     <script src="script.js?v=3.1"></script>
 </body>
 </html>
+
 
 
 
