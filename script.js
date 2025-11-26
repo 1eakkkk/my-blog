@@ -297,20 +297,35 @@ async function loadSinglePost(id) {
         else if(cat === '提问') catClass = 'cat-question';
         const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
 
+        // === 修正后的 HTML 结构 ===
         container.innerHTML = `
             <div class="post-header-row">
                 <div class="post-author-info">
+                    <!-- 头像 -->
                     <div class="post-avatar-box">${avatarSvg}</div>
+                    
+                    <!-- 作者信息区域 -->
                     <div class="post-meta-text">
+                        <!-- 第一行：名字 + 徽章 -->
                         <span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
                             ${authorDisplay} ${badgesHtml}
                         </span>
-                        <span>${catHtml} ID: ${post.id} // ${date}</span>
+                        
+                        <!-- 第二行：分类 + ID + 时间 + 点赞按钮 -->
+                        <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
+                            <span>${catHtml} ID: ${post.id} // ${date}</span>
+                            ${likeBtn}
+                        </div>
                     </div>
+                    
+                    <!-- 打赏按钮 (放在右侧) -->
                     ${tipBtn}
                 </div>
+                
+                <!-- 操作按钮 (删除/封号) -->
                 <div>${actionBtns}</div>
             </div>
+            
             <h1 style="margin-top:20px;">${post.title}</h1>
             <div class="article-body">${post.content}</div>
         `;
@@ -729,5 +744,46 @@ window.adminPostAnnounce = async function() {
     } catch(e) { alert("Error"); }
 };
 
+// === 新增：点赞功能 ===
+window.toggleLike = async function(targetId, type, btn) {
+    // 简单的防抖
+    if(btn.disabled) return;
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(`${API_BASE}/like`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ target_id: targetId, target_type: type })
+        });
+        const data = await res.json();
+        
+        if(data.success) {
+            const countSpan = btn.querySelector('.count');
+            countSpan.textContent = data.count;
+            if(data.isLiked) btn.classList.add('liked');
+            else btn.classList.remove('liked');
+        } else {
+            // 如果是没登录，可能会报401
+            if(res.status === 401) alert("请先登录");
+            else alert(data.error);
+        }
+    } catch(e) { console.error(e); }
+    finally { btn.disabled = false; }
+};
 
+// === 新增：管理员生成邀请码 ===
+window.adminGenInvite = async function() {
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'gen_invite' })
+        });
+        const data = await res.json();
+        if(data.success) {
+            document.getElementById('adminInviteResult').innerText = data.code;
+        } else { alert(data.error); }
+    } catch(e) { alert("Error"); }
+};
 
