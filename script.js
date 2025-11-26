@@ -75,12 +75,15 @@ function getBadgesHtml(userObj) {
     }
     const xp = userObj.xp !== undefined ? userObj.xp : (userObj.author_xp || 0);
     const lvInfo = calculateLevel(xp);
+    // 优先使用传入的偏好，如果没有则默认 number
     const pref = userObj.badge_preference || 'number';
+    
     if (pref === 'title') {
         html += `<span class="badge lv-${lvInfo.lv}">${lvInfo.title}</span>`;
     } else {
         html += `<span class="badge lv-${lvInfo.lv}">LV.${lvInfo.lv}</span>`;
     }
+    
     if (userObj.is_vip || userObj.author_vip) {
         html += `<span class="badge vip-tag">VIP</span>`;
     }
@@ -138,11 +141,11 @@ async function checkSecurity() {
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
             document.getElementById('logoutBtn').onclick = doLogout;
 
+            // === 修复3：只显示菜单，不强制显示视图，防止重叠 ===
             if (userRole === 'admin') {
                 const navAdmin = document.getElementById('navAdmin');
                 if(navAdmin) navAdmin.style.display = 'flex';
-                const viewAdmin = document.getElementById('view-admin');
-                if(viewAdmin) viewAdmin.style.display = 'block'; 
+                // 移除之前错误的 document.getElementById('view-admin').style.display = 'block';
             } else {
                  const navAdmin = document.getElementById('navAdmin');
                  if(navAdmin) navAdmin.style.display = 'none';
@@ -198,13 +201,14 @@ async function loadPosts() {
             const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
             const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
 
+            // === 修复4：使用 API 返回的 author_badge_preference ===
             const badgeHtml = getBadgesHtml({
                 role: post.author_role,
                 custom_title: post.author_title,
                 custom_title_color: post.author_title_color,
                 is_vip: post.author_vip,
                 xp: post.author_xp,
-                badge_preference: 'number' 
+                badge_preference: post.author_badge_preference // 使用后端数据
             });
             const likeClass = post.is_liked ? 'liked' : '';
             const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">
@@ -252,7 +256,7 @@ async function loadSinglePost(id) {
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
         const post = await res.json();
-        if (!post) { container.innerHTML = '<h1>404</h1>'; return; }
+        if (!post) { container.innerHTML = '<h1>404 - 内容可能已被删除</h1>'; return; }
 
         const date = new Date(post.created_at).toLocaleString();
         
@@ -271,13 +275,15 @@ async function loadSinglePost(id) {
         
         const authorDisplay = post.author_nickname || post.author_username;
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
+        
+        // === 修复4：使用 API 返回的 author_badge_preference ===
         const badgeObj = {
             role: post.author_role,
             custom_title: post.author_title,
             custom_title_color: post.author_title_color,
             is_vip: post.author_vip,
             xp: post.author_xp || 0,
-            badge_preference: 'number' 
+            badge_preference: post.author_badge_preference 
         };
         const badgesHtml = getBadgesHtml(badgeObj);
         const cat = post.category || '灌水';
@@ -417,7 +423,6 @@ window.cancelReply = function() {
     if(cancelBtn) cancelBtn.style.display = 'none';
 };
 
-// === 修复1：提交评论逻辑 ===
 window.submitComment = async function() {
     const input = document.getElementById('commentInput');
     const content = input.value.trim();
@@ -425,7 +430,6 @@ window.submitComment = async function() {
 
     if(!content) return alert("内容不能为空");
     
-    // 修复点：更稳健地获取按钮，即使获取不到也不报错中断
     const btn = document.querySelector('.comment-input-box button:first-of-type'); 
     if(btn) btn.disabled = true;
 
@@ -494,7 +498,6 @@ window.saveBadgePreference = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// --- 任务系统 ---
 async function loadTasks() {
     const container = document.getElementById('taskContainer');
     if(!container) return;
@@ -544,7 +547,6 @@ window.rerollTask = async function() {
     loadTasks();
 };
 
-// === 修复2：绑定关键按钮功能到 Window，防止HTML OnClick失效 ===
 window.doCheckIn = async function() {
     const btn = document.getElementById('checkInBtn');
     if(btn) btn.disabled = true;
@@ -569,6 +571,47 @@ window.doLuckyDraw = async function() {
     finally { if(btn) { btn.disabled = false; btn.textContent = "🎲 每日幸运抽奖"; } }
 };
 
+// --- 通知相关：修复单点已读 ---
+async function checkNotifications() { try { const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); const b = document.getElementById('notifyBadge'); if(d.count>0){ b.style.display='inline-block'; b.textContent=d.count;} else b.style.display='none'; } catch(e){} }
+
+// === 修复1 & 2：重写通知加载与点击逻辑 ===
+async function loadNotifications() { 
+    const c = document.getElementById('notifyList'); 
+    c.innerHTML='Loading...'; 
+    try{ 
+        const r = await fetch(`${API_BASE}/notifications`); 
+        const d = await r.json(); 
+        c.innerHTML=''; 
+        if(d.list.length===0){c.innerHTML='No logs';return;} 
+        d.list.forEach(n=>{ 
+            const div=document.createElement('div'); 
+            div.className=`notify-item ${n.is_read?'':'unread'}`; 
+            div.innerHTML=`<div class="notify-msg">${n.message}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`; 
+            // 绑定点击事件，处理单条已读 + 跳转
+            div.onclick = () => readOneNotify(n.id, n.link, div);
+            c.appendChild(div); 
+        }); 
+    }catch(e){c.innerHTML='Error';} 
+}
+
+// 新增：单条已读处理函数
+window.readOneNotify = async function(id, link, divElement) {
+    // 1. 视觉上立即变灰
+    if(divElement) divElement.classList.remove('unread');
+    
+    // 2. 发送请求标记已读 (不等待返回，直接跳转，提升体验)
+    fetch(`${API_BASE}/notifications`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ id: id })
+    }).then(() => checkNotifications()); // 更新角标
+
+    // 3. 跳转
+    window.location.hash = link;
+};
+
+window.markAllRead = async function() { await fetch(`${API_BASE}/notifications`, {method:'POST'}); loadNotifications(); checkNotifications(); };
+
 // --- 其他全局函数 ---
 window.adminGrantTitle = async function() {
     const username = document.getElementById('adminTitleUser').value;
@@ -582,9 +625,6 @@ window.adminGrantTitle = async function() {
     } catch(e) { alert("Error"); }
 };
 window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); alert("Copied"); };
-async function checkNotifications() { try { const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); const b = document.getElementById('notifyBadge'); if(d.count>0){ b.style.display='inline-block'; b.textContent=d.count;} else b.style.display='none'; } catch(e){} }
-async function loadNotifications() { const c = document.getElementById('notifyList'); c.innerHTML='Loading...'; try{ const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); c.innerHTML=''; if(d.list.length===0){c.innerHTML='No logs';return;} d.list.forEach(n=>{ const div=document.createElement('div'); div.className=`notify-item ${n.is_read?'':'unread'}`; div.innerHTML=`<div class="notify-msg">${n.message}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`; div.onclick=()=>{window.location.hash=n.link;}; c.appendChild(div); }); }catch(e){c.innerHTML='Error';} }
-window.markAllRead = async function() { await fetch(`${API_BASE}/notifications`, {method:'POST'}); loadNotifications(); checkNotifications(); };
 window.deletePost = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); window.location.hash='#home'; };
 window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
 window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d})}); alert("Done"); };
