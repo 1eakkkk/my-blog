@@ -205,7 +205,7 @@ async function loadAdminInvites() {
                     <td>${new Date(inv.expires_at).toLocaleDateString()}</td>
                     <td>
                         <button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button>
-                        <button onclick="deleteInvite('${inv.id}')" class="mini-action-btn" style="color:#f33">DEL</button>
+                        <button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -223,10 +223,11 @@ window.refillInvites = async function() {
     } catch(e){ alert("Error"); }
 };
 
-window.deleteInvite = async function(id) {
+// === 修复：使用 code 删除 ===
+window.deleteInvite = async function(code) {
     if(!confirm("Delete?")) return;
     try {
-        await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', id: id}) });
+        await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', code: code}) });
         loadAdminInvites();
     } catch(e){ alert("Error"); }
 };
