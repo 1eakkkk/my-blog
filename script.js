@@ -642,15 +642,29 @@ window.deleteComment = async function(commentId) {
     } catch(e) { alert("Error"); }
 };
 
+// === 修改：管理员封号 (支持天数) ===
 window.adminBanUser = async function(userId) {
-    if(!confirm("【高危操作】确定要封禁该用户吗？")) return;
+    // 弹出选项
+    const daysStr = prompt("【高危操作】请输入封禁天数：\n1, 3, 7, 14, 30, 365, 9999(永久)", "1");
+    if (daysStr === null) return; // 取消
+    
+    const days = parseInt(daysStr);
+    if (isNaN(days) || days <= 0) return alert("请输入有效天数");
+
+    if(!confirm(`确定要封禁该用户 ${days} 天吗？`)) return;
+
     try {
         const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'ban_user', target_user_id: userId })
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                action: 'ban_user', 
+                target_user_id: userId,
+                days: days // 发送天数
+            })
         });
         const data = await res.json();
-        if(data.success) alert("用户已封禁");
+        if(data.success) alert(data.message);
         else alert(data.error);
     } catch(e) { alert("Error"); }
 };
@@ -669,5 +683,34 @@ window.adminGenKey = async function() {
     } catch(e) { alert("Error"); }
 };
 
+// === 新增：管理员发布公告 ===
+window.adminPostAnnounce = async function() {
+    const title = document.getElementById('adminAnnounceTitle').value;
+    const content = document.getElementById('adminAnnounceContent').value;
+    
+    if(!title || !content) return alert("标题和内容不能为空");
+    
+    if(!confirm("确认发布全站公告？")) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                action: 'post_announce', 
+                title: title,
+                content: content
+            })
+        });
+        const data = await res.json();
+        if(data.success) { 
+            alert("公告发布成功！");
+            document.getElementById('adminAnnounceTitle').value = '';
+            document.getElementById('adminAnnounceContent').value = '';
+            window.location.hash = '#home'; // 跳回首页看效果
+        }
+        else { alert(data.error); }
+    } catch(e) { alert("Error"); }
+};
 
 
