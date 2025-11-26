@@ -35,7 +35,26 @@ export async function onRequestPost(context) {
     .run();
 
   // 评论增加 5 经验
-  await db.prepare('UPDATE users SET xp = xp + 5 WHERE id = ?').bind(user.id).run();
+  // 追加经验限制 
+  const now = new Date();
+  const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  const today = utc8.toISOString().split('T')[0];
+  
+  // 手动内联 addXpWithCap 逻辑
+  const userData = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(user.id).first();
+  let currentDailyXp = (userData.last_xp_date === today) ? (userData.daily_xp || 0) : 0;
+  
+  let xpMsg = "";
+  if (currentDailyXp < 120) {
+      let add = 5;
+      if (currentDailyXp + 5 > 120) add = 120 - currentDailyXp;
+      await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?')
+        .bind(add, currentDailyXp + add, today, user.id)
+        .run();
+      xpMsg = ` +${add} XP`;
+  } else {
+      xpMsg = " (今日经验已满)";
+  }
 
   // 发送通知逻辑 (保持不变)
   const post = await db.prepare('SELECT user_id, title FROM posts WHERE id = ?').bind(post_id).first();
