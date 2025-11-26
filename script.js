@@ -275,7 +275,7 @@ async function loadSinglePost(id) {
     } catch (e) { console.error(e); container.innerHTML = 'Error loading post.'; }
 }
 
-// --- 评论加载 (优化回复显示) ---
+// --- 评论加载 (修复：回复层主不显示标签) ---
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
@@ -289,14 +289,19 @@ async function loadNativeComments(postId) {
         const replies = allComments.filter(c => c.parent_id);
 
         rootComments.forEach(c => {
+            // 渲染根评论
             const commentNode = createCommentElement(c, false);
             list.appendChild(commentNode);
+
+            // 查找子评论
             const myReplies = replies.filter(r => r.parent_id === c.id);
             if (myReplies.length > 0) {
                 const replyContainer = document.createElement('div');
                 replyContainer.className = 'replies-container';
-                // 传入根评论作者 ID (c.user_id)，用于判断是否隐式回复
-                myReplies.forEach(r => { replyContainer.appendChild(createCommentElement(r, true, c.user_id)); });
+                // 关键：将 c.user_id (层主ID) 传下去，用于判断是否隐式回复
+                myReplies.forEach(r => { 
+                    replyContainer.appendChild(createCommentElement(r, true, c.user_id)); 
+                });
                 list.appendChild(replyContainer);
             }
         });
@@ -325,10 +330,9 @@ function createCommentElement(c, isReply, rootOwnerId) {
     const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`;
     const pinnedBadge = c.is_pinned ? '<span style="color:#0f0;font-weight:bold;font-size:0.7rem;margin-right:5px">📌置顶</span>' : '';
 
-    // === 新增：处理显式回复标签 ===
+    // === 关键修复：只有当回复的人存在，且不是层主时，才显示标签 ===
     let replyIndicator = '';
-    // 如果存在被回复人，且被回复人 不是 根评论的作者（因为回复根评论作者是默认行为，不需要显示）
-    if (c.reply_to_uid && c.reply_to_uid !== rootOwnerId) {
+    if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) {
         const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown";
         replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `;
     }
@@ -398,7 +402,7 @@ window.submitComment = async function() {
     finally { if(btn) btn.disabled = false; }
 };
 
-// ... 草稿、编辑、置顶、通知 (保持之前版本) ...
+// ... 保持其他功能不变 ...
 function checkForDrafts() {
     const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory');
     if(pTitle && pContent) {
