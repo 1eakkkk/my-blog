@@ -571,3 +571,24 @@ footer {
 .like-btn.mini:hover {
     background: rgba(255, 51, 51, 0.2);
 }
+
+/* --- 新增样式 (分页 & 置顶) --- */
+
+#loadMoreBtn {
+    margin: 20px auto;
+    display: block;
+    max-width: 300px;
+    text-align: center;
+}
+
+/* 置顶文章的特殊边框 */
+.post-card.pinned {
+    border-left: 3px solid #0f0;
+    background: rgba(0, 255, 0, 0.02);
+}
+
+/* 置顶评论样式 */
+.comment-item.pinned {
+    border: 1px solid rgba(0,255,0,0.3);
+    background: rgba(0,255,0,0.05);
+}
