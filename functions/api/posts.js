@@ -1,7 +1,6 @@
 // --- functions/api/posts.js ---
 
 async function addXpWithCap(db, userId, amount, today) {
-  // ... (保留原有的经验逻辑函数，或者确保它在文件顶部)
   const user = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(userId).first();
   let currentDailyXp = (user.last_xp_date === today) ? (user.daily_xp || 0) : 0;
   if (currentDailyXp >= 120) { await db.prepare('UPDATE users SET last_xp_date = ? WHERE id = ?').bind(today, userId).run(); return { added: 0, msg: '今日经验已满' }; }
@@ -16,9 +15,8 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
   
-  // === 分页参数 ===
   const page = parseInt(url.searchParams.get('page')) || 1;
-  const limit = parseInt(url.searchParams.get('limit')) || 10; // 默认每页10条
+  const limit = parseInt(url.searchParams.get('limit')) || 10; 
   const offset = (page - 1) * limit;
 
   const cookie = context.request.headers.get('Cookie');
@@ -49,8 +47,6 @@ export async function onRequestGet(context) {
       const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(id).first();
       return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
     } else {
-      // === 核心排序逻辑：公告最前 > 置顶次之 > 普通最后，内部按时间倒序 ===
-      // 这里使用 SQLite 的 CASE WHEN 或 布尔排序逻辑
       const posts = await db.prepare(`
         SELECT ${fields} 
         FROM posts 
@@ -70,7 +66,6 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  // ... (保留原有的发布逻辑，注意确保 addXpWithCap 存在)
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
   if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
@@ -98,7 +93,6 @@ export async function onRequestPost(context) {
   return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }));
 }
 
-// === 新增：PUT 用于编辑和置顶 ===
 export async function onRequestPut(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -111,7 +105,6 @@ export async function onRequestPut(context) {
 
   // 1. 编辑帖子
   if (action === 'edit') {
-      // 检查权限：只能编辑自己的，或者管理员
       const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(id).first();
       if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
       if (post.user_id !== user.id && user.role !== 'admin') {
@@ -119,17 +112,17 @@ export async function onRequestPut(context) {
       }
 
       let finalCat = category;
-      // 防止普通用户把帖子改成公告
       if (finalCat === '公告' && user.role !== 'admin') {
           return new Response(JSON.stringify({ success: false, error: '无权发布公告' }), { status: 403 });
       }
 
-      await db.prepare('UPDATE posts SET title = ?, content = ?, category = ? WHERE id = ?')
-          .bind(title, content, finalCat, id).run();
+      // === 修改：更新 updated_at ===
+      await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, updated_at = ? WHERE id = ?')
+          .bind(title, content, finalCat, Date.now(), id).run();
       return new Response(JSON.stringify({ success: true, message: '文章已更新' }));
   }
 
-  // 2. 置顶操作 (仅管理员)
+  // 2. 置顶操作
   if (action === 'pin') {
       if (user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
       const current = await db.prepare('SELECT is_pinned FROM posts WHERE id = ?').bind(id).first();
@@ -142,7 +135,6 @@ export async function onRequestPut(context) {
 }
 
 export async function onRequestDelete(context) {
-    // ... (保留原有的删除逻辑)
     const db = context.env.DB;
     const cookie = context.request.headers.get('Cookie');
     if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
