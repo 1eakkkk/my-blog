@@ -8,17 +8,20 @@ export async function onRequestPost(context) {
   
   if (!admin || admin.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
-  const req = await context.request.json();
+  let req = {};
+  try {
+      req = await context.request.json();
+  } catch(e) {
+      return new Response(JSON.stringify({ success: false, error: '无效的请求体' }), { status: 400 });
+  }
+  
   const { action } = req;
 
   // 1. 获取统计数据
   if (action === 'get_stats') {
       const total = await db.prepare('SELECT COUNT(*) as c FROM users').first();
-      // 活跃定义：最近3天有登录或注册
       const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
       const active = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(threeDaysAgo).first();
-      
-      // 获取邀请码开关状态
       const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'invite_required'").first();
       const inviteRequired = setting ? setting.value === 'true' : true;
 
@@ -32,9 +35,8 @@ export async function onRequestPost(context) {
 
   // 2. 切换邀请码开关
   if (action === 'toggle_invite_system') {
-      const { enabled } = req; // true or false
+      const { enabled } = req;
       const val = enabled ? 'true' : 'false';
-      // 写入或更新设置
       await db.prepare("INSERT INTO system_settings (key, value) VALUES ('invite_required', ?) ON CONFLICT(key) DO UPDATE SET value = ?")
         .bind(val, val).run();
       return new Response(JSON.stringify({ success: true, message: `邀请注册已${enabled?'开启':'关闭'}` }));
@@ -46,7 +48,7 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, list: codes.results }));
   }
 
-  // 4. 补全邀请码 (补满10个)
+  // 4. 补全邀请码
   if (action === 'refill_invites') {
       const validCount = await db.prepare('SELECT COUNT(*) as c FROM invites WHERE is_used = 0 AND expires_at > ?').bind(Date.now()).first();
       const currentValid = validCount.c;
@@ -56,7 +58,7 @@ export async function onRequestPost(context) {
       if (need > 10) need = 10;
 
       const now = Date.now();
-      const expire = now + (7 * 24 * 60 * 60 * 1000); // 7天有效期
+      const expire = now + (7 * 24 * 60 * 60 * 1000);
       const stmt = db.prepare('INSERT INTO invites (code, created_at, expires_at) VALUES (?, ?, ?)');
       const batch = [];
       
@@ -68,8 +70,9 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, message: `已补充 ${need} 个邀请码` }));
   }
 
-  // 5. 删除邀请码
+  // 5. 删除邀请码 (修复点)
   if (action === 'delete_invite') {
+      if (!req.id) return new Response(JSON.stringify({ success: false, error: 'ID缺失' }));
       await db.prepare('DELETE FROM invites WHERE id = ?').bind(req.id).run();
       return new Response(JSON.stringify({ success: true }));
   }
@@ -85,7 +88,6 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, list: list.results }));
   }
 
-  // ... 保留原有的其他 admin action (ban_user, gen_key, grant_title, post_announce) ...
   if (action === 'ban_user') {
       const expireTime = Date.now() + (parseInt(req.days) * 86400000);
       await db.prepare("UPDATE users SET status = 'banned', ban_expires_at = ? WHERE id = ?").bind(expireTime, req.target_user_id).run();
