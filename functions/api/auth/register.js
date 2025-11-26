@@ -10,8 +10,12 @@ export async function onRequestPost(context) {
   if (!inviteCode) return new Response(JSON.stringify({success:false, error:"需要邀请码"}), { status: 400 });
   
   const invite = await db.prepare('SELECT * FROM invites WHERE code = ? AND is_used = 0').bind(inviteCode).first();
+  // 检查是否存在及是否过期
   if (!invite) {
-      return new Response(JSON.stringify({success:false, error:"邀请码无效或已被使用"}), { status: 403 });
+      return new Response(JSON.stringify({success:false, error:"邀请码无效"}), { status: 403 });
+  }
+  if (invite.expires_at && invite.expires_at < Date.now()) {
+      return new Response(JSON.stringify({success:false, error:"邀请码已过期"}), { status: 403 });
   }
 
   const myText = new TextEncoder().encode(password);
@@ -38,3 +42,4 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: false, error: '用户名已存在' }), { status: 409 });
   }
 }
+
