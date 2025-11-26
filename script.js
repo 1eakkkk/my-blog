@@ -161,28 +161,37 @@ async function checkSecurity() {
     }
 }
 
-// ... (中间的 loadNativeComments, loadSinglePost 等函数) ...
 
 async function loadPosts() {
     const container = document.getElementById('posts-list');
     if(!container) return;
     container.innerHTML = '<div class="loading">正在同步数据流...</div>';
+    
     try {
         const res = await fetch(`${API_BASE}/posts`);
         const posts = await res.json();
         container.innerHTML = '';
-        if (posts.length === 0) { container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; return; }
+        
+        if (posts.length === 0) { 
+            container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; 
+            return; 
+        }
+
         posts.forEach(post => {
             const date = new Date(post.created_at).toLocaleDateString();
-            const author = post.author_nickname || "Unknown";
-            // 列表页也使用统一徽章 (注意 API 字段映射)
-            // 我们需要构造一个类似 userObj 的对象传给 getBadgesHtml
+            
+            // === 核心修复 1：名称回退逻辑 ===
+            // 如果没有昵称，就显示用户名，只有两个都没有才显示 Unknown
+            const author = post.author_nickname || post.author_username || "Unknown";
+            
+            // === 核心修复 2：在列表页也显示徽章 (Admin/VIP/头衔) ===
+            // 构造一个临时对象传给 getBadgesHtml
             const badgeHtml = getBadgesHtml({
                 role: post.author_role,
                 custom_title: post.author_title,
                 custom_title_color: post.author_title_color,
                 is_vip: post.author_vip,
-                xp: 0 // 列表页没传XP，这里等级显示可能不准，建议列表页不显示详细等级，或者后端传XP
+                xp: 0 // 列表页一般不显示具体等级，或者你可以让后端传 xp 过来
             });
             
             const div = document.createElement('div');
@@ -195,7 +204,10 @@ async function loadPosts() {
             div.onclick = () => window.location.hash = `#post?id=${post.id}`;
             container.appendChild(div);
         });
-    } catch (e) { container.innerHTML = '<p style="color:red">无法获取数据流。</p>'; }
+    } catch (e) { 
+        console.error(e);
+        container.innerHTML = '<p style="color:red">无法获取数据流。</p>'; 
+    }
 }
 
 async function loadSinglePost(id) {
@@ -611,3 +623,4 @@ window.adminGenKey = async function() {
         else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
+
