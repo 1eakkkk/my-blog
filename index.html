@@ -148,18 +148,30 @@
 
                 <div id="view-settings" class="view-section" style="display:none;">
                     <h2>// PROFILE SETTINGS</h2>
+    
                     <div class="glass-card">
                         <h3>修改昵称</h3>
-                        <p style="color:#666; font-size:0.9rem;">昵称将显示在文章作者栏。</p>
+                        <p style="color:#666; font-size:0.9rem;">昵称将显示在文章作者栏，用户名不会改变。</p>
                         <input type="text" id="newNickname" class="cyber-input" placeholder="输入新昵称" maxlength="12">
                         <button onclick="updateProfile()" class="cyber-btn">保存更改 / SAVE</button>
                     </div>
+
                     <div class="glass-card" style="margin-top: 20px;">
                         <h3>数字形象重构</h3>
                         <p style="color:#666; font-size:0.9rem;">如果不满意当前的像素配色，可以随机重置。</p>
                         <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
                             <div id="settingAvatarPreview" style="width:50px; height:50px; border:1px solid #333;"></div>
                             <button onclick="randomizeAvatar()" class="cyber-btn" style="margin:0; flex:1;">🎲 随机重置头像 / RANDOMIZE</button>
+                        </div>
+                    </div>
+
+                    <!-- 新增：账户安全/密钥查看 -->
+                    <div class="glass-card" style="margin-top: 20px; border-color: var(--accent-blue);">
+                        <h3>账户安全密钥 (RECOVERY KEY)</h3>
+                        <p style="color:#666; font-size:0.9rem;">这是您找回密码的唯一凭证，请勿泄露。</p>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <input type="text" id="recoveryKeyDisplay" class="cyber-input" readonly style="margin:0; color:var(--accent-blue); letter-spacing:1px;" value="LOADING...">
+                            <button onclick="copyRecoveryKey()" class="cyber-btn" style="width:auto; margin:0; white-space:nowrap;">复制 / COPY</button>
                         </div>
                     </div>
                 </div>
@@ -192,3 +204,4 @@
     <script src="script.js?v=3.0"></script>
 </body>
 </html>
+
