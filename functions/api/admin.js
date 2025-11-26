@@ -64,5 +64,11 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: true, message: '头衔设置成功' }));
   }
 
+  if (action === 'gen_invite') {
+      const amount = 1; // 一次生成一个，或者你可以传参
+      const code = 'INV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      await db.prepare('INSERT INTO invites (code, created_at) VALUES (?, ?)').bind(code, Date.now()).run();
+      return new Response(JSON.stringify({ success: true, code: code }));
+  }
   return new Response(JSON.stringify({ success: false, error: '未知指令' }));
 }
