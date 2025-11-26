@@ -4,15 +4,10 @@
 async function addXpWithCap(db, userId, amount, today) {
   const user = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(userId).first();
   let currentDailyXp = (user.last_xp_date === today) ? (user.daily_xp || 0) : 0;
-
-  if (currentDailyXp >= 120) return { added: 0, msg: '今日经验已满' };
-
+  if (currentDailyXp >= 120) { await db.prepare('UPDATE users SET last_xp_date = ? WHERE id = ?').bind(today, userId).run(); return { added: 0, msg: '今日经验已满' }; }
   let actualAdd = amount;
   if (currentDailyXp + amount > 120) actualAdd = 120 - currentDailyXp;
-
-  await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?')
-    .bind(actualAdd, currentDailyXp + actualAdd, today, userId)
-    .run();
+  await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?').bind(actualAdd, currentDailyXp + actualAdd, today, userId).run();
   return { added: actualAdd, msg: `经验 +${actualAdd}` };
 }
 
@@ -55,3 +50,4 @@ export async function onRequestPost(context) {
     coins: user.coins + coinAdd 
   }));
 }
+
