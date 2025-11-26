@@ -78,7 +78,6 @@ function getBadgesHtml(userObj) {
     }
 
     // 2. 自定义头衔 (管理员发放的，最高优先级，单独显示)
-    // 兼容 posts 表的字段 (author_title) 和 comments/users 表的字段 (custom_title)
     const title = userObj.author_title || userObj.custom_title;
     const color = userObj.author_title_color || userObj.custom_title_color || '#fff';
     if (title) {
@@ -86,9 +85,6 @@ function getBadgesHtml(userObj) {
     }
 
     // 3. 等级/称号徽章 (互斥显示)
-    // 检查偏好：users表字段是 badge_preference
-    // 在 loadPosts 中，我们没有 join badge_preference，所以文章列表暂时默认显示数字，
-    // 但在评论区和个人中心，我们有完整数据。
     const xp = userObj.xp !== undefined ? userObj.xp : (userObj.author_xp || 0);
     const lvInfo = calculateLevel(xp);
     const pref = userObj.badge_preference || 'number'; // 默认为 number
@@ -166,7 +162,7 @@ async function checkSecurity() {
 
             if (userRole === 'admin') {
                 document.getElementById('navAdmin').style.display = 'flex';
-                document.getElementById('view-admin').style.display = 'block'; // 预加载避免闪烁
+                document.getElementById('view-admin').style.display = 'block'; 
             } else {
                  document.getElementById('navAdmin').style.display = 'none';
             }
@@ -219,15 +215,13 @@ async function loadPosts() {
             const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
             const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
 
-            // 文章列表暂时无法获取偏好，默认显示数字或需要在posts接口做join，这里暂时按默认处理
-            // 为保证一致性，我们在 posts.js 建议返回 badge_preference，如果没返回则默认为 number
             const badgeHtml = getBadgesHtml({
                 role: post.author_role,
                 custom_title: post.author_title,
                 custom_title_color: post.author_title_color,
                 is_vip: post.author_vip,
                 xp: post.author_xp,
-                badge_preference: 'number' // 列表页暂定默认，节省查询开销
+                badge_preference: 'number' 
             });
             
             const likeClass = post.is_liked ? 'liked' : '';
@@ -262,12 +256,20 @@ async function loadSinglePost(id) {
     if(!container) return;
     container.innerHTML = '读取中...';
     document.getElementById('commentsList').innerHTML = '';
-    // 重置评论输入框状态
+    
+    // === 修复1：重置输入框状态前检查元素是否存在 ===
     const commentInput = document.getElementById('commentInput');
-    commentInput.value = '';
-    commentInput.placeholder = "输入你的看法... (支持纯文本)";
-    commentInput.dataset.parentId = ""; // 清除回复对象
-    document.getElementById('cancelReplyBtn').style.display = 'none';
+    if(commentInput) {
+        commentInput.value = '';
+        commentInput.placeholder = "输入你的看法... (支持纯文本)";
+        commentInput.dataset.parentId = ""; // 清除回复对象
+    }
+    
+    // === 修复1：检查取消按钮是否存在，防止 TypeError ===
+    const cancelBtn = document.getElementById('cancelReplyBtn');
+    if (cancelBtn) {
+        cancelBtn.style.display = 'none';
+    }
 
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
@@ -292,7 +294,6 @@ async function loadSinglePost(id) {
         const authorDisplay = post.author_nickname || post.author_username;
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
 
-        // 详情页如果有 badge_preference 最好，没有则默认
         const badgeObj = {
             role: post.author_role,
             custom_title: post.author_title,
@@ -364,7 +365,6 @@ async function loadNativeComments(postId) {
             list.appendChild(commentNode);
 
             // 查找属于该根评论的子回复
-            // 注意：因为后端逻辑将所有孙子评论都挂到了根下面 (parent_id 指向根)，所以直接匹配 parent_id === c.id 即可
             const myReplies = replies.filter(r => r.parent_id === c.id);
             if (myReplies.length > 0) {
                 const replyContainer = document.createElement('div');
@@ -392,15 +392,13 @@ function createCommentElement(c, isReply) {
         delCommentBtn = `<span onclick="deleteComment(${c.id})" style="color:#555;cursor:pointer;font-size:0.7rem;margin-left:10px">[删除]</span>`;
     }
 
-    // 徽章
     const badgeHtml = getBadgesHtml(c);
     
-    // 点赞
     const likeClass = c.is_liked ? 'liked' : '';
     const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`;
     
-    // 回复按钮 (限制缩进：子评论不显示回复按钮，或者点击回复子评论时，实际上是对根的回复)
-    // 方案：点击任意回复按钮，都设置 parent_id。如果是子评论，后端已处理归属。
+    // 子评论不显示回复按钮，点击直接回复给根评论(逻辑已由后端处理)
+    // 但为了UI友好，我们可以让子评论也显示回复，点击后其实是@该用户，但挂在根下
     const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`;
 
     div.innerHTML = `
@@ -433,7 +431,6 @@ window.prepareReply = function(commentId, username) {
     // 显示取消按钮
     let cancelBtn = document.getElementById('cancelReplyBtn');
     if (!cancelBtn) {
-        // 如果 HTML 没写，动态加一个
         cancelBtn = document.createElement('button');
         cancelBtn.id = 'cancelReplyBtn';
         cancelBtn.className = 'cyber-btn';
@@ -452,7 +449,8 @@ window.cancelReply = function() {
     const input = document.getElementById('commentInput');
     input.dataset.parentId = "";
     input.placeholder = "输入你的看法... (支持纯文本)";
-    document.getElementById('cancelReplyBtn').style.display = 'none';
+    const cancelBtn = document.getElementById('cancelReplyBtn');
+    if(cancelBtn) cancelBtn.style.display = 'none';
 };
 
 // 提交评论 (支持回复)
@@ -463,7 +461,7 @@ window.submitComment = async function() {
 
     if(!content) return alert("内容不能为空");
     
-    const btn = document.querySelector('.comment-input-box button:first-child'); // 发送按钮
+    const btn = document.querySelector('.comment-input-box button:first-child'); 
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/comments`, {
@@ -471,23 +469,20 @@ window.submitComment = async function() {
             body: JSON.stringify({ 
                 post_id: currentPostId, 
                 content: content,
-                parent_id: parentId // 发送父ID
+                parent_id: parentId 
             })
         });
         const data = await res.json();
         if(data.success) { 
             alert(data.message); 
             input.value = ''; 
-            cancelReply(); // 重置状态
+            cancelReply(); 
             loadNativeComments(currentPostId); 
         }
         else { alert(data.error); }
     } catch(e) { alert("Error"); }
     finally { btn.disabled = false; }
 };
-
-// ... (其他原有函数保持不变，如 notifications, admin, etc.) ...
-// 为了确保完整性，以下是需要保留的关键函数
 
 window.toggleLike = async function(targetId, type, btn) {
     if(btn.disabled) return;
@@ -533,11 +528,58 @@ window.saveBadgePreference = async function() {
     } catch(e) { alert("Error"); }
 };
 
-// ... 原有的 admin, tasks, checkin, deletePost, etc. ...
-// 这里为了篇幅不重复粘贴所有未修改的函数，但你需要保证它们在 script.js 中。
-// 建议：直接保留你原来的辅助函数，只替换 loadPosts, loadSinglePost, loadNativeComments, submitComment, checkSecurity, 和新增 saveBadgePreference, prepareReply, cancelReply。
+// === 修复2：恢复完整的任务加载函数 ===
+async function loadTasks() {
+    const container = document.getElementById('taskContainer');
+    if(!container) return;
+    container.innerHTML = 'Loading...';
+    try {
+        const res = await fetch(`${API_BASE}/tasks`);
+        const t = await res.json();
+        
+        const typeMap = { 'checkin': '每日签到', 'post': '发布文章', 'comment': '发表评论' };
+        const isDone = t.progress >= t.target;
+        const btnState = t.is_claimed ? 
+            `<button class="cyber-btn" disabled>已完成 / CLAIMED</button>` : 
+            (isDone ? `<button onclick="claimTask()" class="cyber-btn" style="border-color:#0f0;color:#0f0">领取奖励 / CLAIM</button>` : `<button class="cyber-btn" disabled>未完成 / IN PROGRESS</button>`);
+        
+        const rerollBtn = (t.reroll_count === 0 && !t.is_claimed) ? 
+            `<button onclick="rerollTask()" class="cyber-btn" style="margin-top:10px;border-color:orange;color:orange">刷新任务 (10 i币)</button>` : '';
 
-// === 补全基础函数以防丢失 ===
+        container.innerHTML = `
+            <div class="task-card">
+                <div class="task-header">
+                    <h3>${typeMap[t.task_type] || t.task_type} (${t.progress}/${t.target})</h3>
+                    <span>奖励: ${t.reward_xp} XP, ${t.reward_coins} i币</span>
+                </div>
+                <div class="task-progress-bg">
+                    <div class="task-progress-fill" style="width:${Math.min(100, (t.progress/t.target)*100)}%"></div>
+                </div>
+                ${btnState}
+                ${rerollBtn}
+            </div>
+        `;
+    } catch(e) { 
+        console.error(e);
+        container.innerHTML = 'Error loading task'; 
+    }
+}
+
+window.claimTask = async function() {
+    const res = await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'claim'}) });
+    const data = await res.json();
+    if(data.success) { alert(data.message); loadTasks(); checkSecurity(); }
+    else alert(data.error);
+};
+
+window.rerollTask = async function() {
+    if(!confirm("消耗10 i币刷新今日任务？")) return;
+    await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'reroll'}) });
+    loadTasks();
+};
+
+
+// === 补全基础函数 ===
 window.adminGrantTitle = async function() {
     const username = document.getElementById('adminTitleUser').value;
     const title = document.getElementById('adminTitleText').value;
@@ -567,9 +609,6 @@ async function doPost(e) { e.preventDefault(); const t=document.getElementById('
 async function doCheckIn() { await fetch(`${API_BASE}/checkin`, {method:'POST'}); window.location.reload(); }
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
 window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
-async function loadTasks() { const c=document.getElementById('taskContainer'); try{ const r=await fetch(`${API_BASE}/tasks`); const t=await r.json(); c.innerHTML=`<h3>${t.task_type} ${t.progress}/${t.target}</h3>`; if(t.progress>=t.target && !t.is_claimed) c.innerHTML+='<button onclick="claimTask()">CLAIM</button>'; }catch(e){} }
-window.claimTask = async function() { await fetch(`${API_BASE}/tasks`, {method:'POST', body:JSON.stringify({action:'claim'})}); loadTasks(); };
-window.rerollTask = async function() { await fetch(`${API_BASE}/tasks`, {method:'POST', body:JSON.stringify({action:'reroll'})}); loadTasks(); };
 
 // 初始化
 function initApp() {
