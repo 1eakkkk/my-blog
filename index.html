@@ -116,6 +116,18 @@
                 <div id="view-write" class="view-section" style="display:none;">
                     <h2>// CREATE PROJECT</h2>
                     <form id="postForm">
+                        <select id="postCategory" class="cyber-input" style="margin-bottom:15px; color:var(--accent-blue);">
+                            <option value="灌水">🌊 灌水 / GENERAL</option>
+                            <option value="技术">💻 技术 / TECH</option>
+                            <option value="生活">☕ 生活 / LIFE</option>
+                            <option value="提问">❓ 提问 / Q&A</option>
+                            <!-- 公告选项将由 JS 动态显示，如果用户是 Admin -->
+                            <option value="公告" id="optAdmin" style="display:none; color:red; font-weight:bold;">📢 公告 / ANNOUNCEMENT</option>
+                        </select>
+
+                        <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
+                        <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content" required></textarea>
+                        <button type="submit" class="cyber-btn big-btn">发布 / PUBLISH</button>
                         <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
                         <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content" required></textarea>
                         <button type="submit" class="cyber-btn big-btn">发布 / PUBLISH</button>
@@ -216,4 +228,5 @@
     <script src="script.js?v=3.1"></script>
 </body>
 </html>
+
 
