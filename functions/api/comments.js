@@ -18,6 +18,7 @@ export async function onRequestGet(context) {
   return new Response(JSON.stringify(comments.results), { headers: { 'Content-Type': 'application/json' } });
 }
 // ... (保留原来的 onRequestPost 和 onRequestDelete) ...
+
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
