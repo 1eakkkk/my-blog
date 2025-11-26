@@ -70,10 +70,10 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, message: `已补充 ${need} 个邀请码` }));
   }
 
-  // 5. 删除邀请码 (修复点)
+  // 5. 删除邀请码 (修复：改用 code 删除，防止 id 不存在导致 500 错误)
   if (action === 'delete_invite') {
-      if (!req.id) return new Response(JSON.stringify({ success: false, error: 'ID缺失' }));
-      await db.prepare('DELETE FROM invites WHERE id = ?').bind(req.id).run();
+      if (!req.code) return new Response(JSON.stringify({ success: false, error: '邀请码缺失' }));
+      await db.prepare('DELETE FROM invites WHERE code = ?').bind(req.code).run();
       return new Response(JSON.stringify({ success: true }));
   }
 
