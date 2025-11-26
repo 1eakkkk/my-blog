@@ -251,37 +251,37 @@ async function loadSinglePost(id) {
 
         const date = new Date(post.created_at).toLocaleString();
         
+        // 1. 定义操作按钮 (删除/封号)
         let actionBtns = '';
         if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) {
             actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
         }
-        
         if (userRole === 'admin' && post.user_id !== currentUser.id) {
             actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`;
         }
 
+        // 2. 定义打赏按钮
         let tipBtn = '';
         if (currentUser.id !== post.user_id) {
             tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`;
         }
         
         const authorDisplay = post.author_nickname || post.author_username;
-        const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
         
-        // === 关键修复：必须先定义 avatarSvg，下面才能用 ===
+        // 3. 定义头像 (关键修复：之前报过错)
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
 
-        // 获取徽章 HTML
+        // 4. 定义徽章
         const badgeObj = {
             role: post.author_role,
             custom_title: post.author_title,
             custom_title_color: post.author_title_color,
             is_vip: post.author_vip,
-            xp: 0 // 详情页暂无XP数据，等级显示可能为默认
+            xp: 0 
         };
         const badgesHtml = getBadgesHtml(badgeObj);
 
-        // 处理分类标签
+        // 5. 定义分类标签
         const cat = post.category || '灌水';
         let catClass = '';
         if(cat === '公告') catClass = 'cat-announce';
@@ -290,38 +290,33 @@ async function loadSinglePost(id) {
         else if(cat === '提问') catClass = 'cat-question';
         const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
 
-        // === 修正后的 HTML 结构 ===
+        // 6. === 核心修复：定义点赞按钮 (likeBtn) ===
+        // 之前报错就是因为缺了这一段！
+        const likeClass = post.is_liked ? 'liked' : '';
+        const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
+
+        // 7. 渲染 HTML
         container.innerHTML = `
             <div class="post-header-row">
                 <div class="post-author-info">
-                    <!-- 头像 -->
                     <div class="post-avatar-box">${avatarSvg}</div>
-                    
-                    <!-- 作者信息区域 -->
                     <div class="post-meta-text">
-                        <!-- 第一行：名字 + 徽章 -->
                         <span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
                             ${authorDisplay} ${badgesHtml}
                         </span>
-                        
-                        <!-- 第二行：分类 + ID + 时间 + 点赞按钮 -->
                         <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
                             <span>${catHtml} ID: ${post.id} // ${date}</span>
                             ${likeBtn}
                         </div>
                     </div>
-                    
-                    <!-- 打赏按钮 (放在右侧) -->
                     ${tipBtn}
                 </div>
-                
-                <!-- 操作按钮 (删除/封号) -->
                 <div>${actionBtns}</div>
             </div>
-            
             <h1 style="margin-top:20px;">${post.title}</h1>
             <div class="article-body">${post.content}</div>
         `;
+        
         loadNativeComments(id);
     } catch (e) {
         console.error(e);
@@ -779,5 +774,6 @@ window.adminGenInvite = async function() {
         } else { alert(data.error); }
     } catch(e) { alert("Error"); }
 };
+
 
 
