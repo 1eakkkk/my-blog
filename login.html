@@ -1,87 +1,221 @@
+<!-- START OF FILE login.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACCESS CONTROL | 1eak.cool</title>
-    <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root { --accent: #0070f3; --bg: #050505; }
         body {
+            margin: 0; padding: 0;
+            background-color: var(--bg); color: #fff;
+            font-family: 'JetBrains Mono', monospace;
             display: flex; justify-content: center; align-items: center;
-            min-height: 100vh; flex-direction: column;
+            min-height: 100vh; overflow: hidden;
+            position: relative;
         }
+
+        /* 动态背景效果 */
+        .cyber-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 112, 243, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 112, 243, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -1;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            animation: moveGrid 20s linear infinite;
+        }
+        @keyframes moveGrid { from { transform: translateY(0); } to { transform: translateY(40px); } }
+
+        /* 扫描线特效 */
+        .scanline {
+            width: 100%; height: 5px; background: rgba(0, 112, 243, 0.3);
+            position: absolute; top: 0; left: 0; z-index: 0;
+            animation: scan 3s linear infinite;
+            box-shadow: 0 0 10px var(--accent);
+        }
+        @keyframes scan { 0% { top: -10%; opacity: 0; } 50% { opacity: 1; } 100% { top: 110%; opacity: 0; } }
+
+        /* 卡片样式 */
         .login-card {
-            width: 100%; max-width: 400px; background: #0a0a0a;
-            border: 1px solid var(--accent-blue); padding: 2rem;
-            box-shadow: 0 0 50px rgba(0, 112, 243, 0.15); text-align: center;
+            width: 90%; max-width: 400px;
+            background: rgba(10, 10, 10, 0.9);
+            border: 1px solid var(--accent);
+            padding: 2.5rem;
+            box-shadow: 0 0 30px rgba(0, 112, 243, 0.2);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+            backdrop-filter: blur(10px);
         }
-        .system-logo { font-size: 2rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 4px; }
-        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #333; }
-        .tab { flex: 1; padding: 10px; cursor: pointer; color: var(--text-dim); transition: 0.3s; }
-        .tab.active { color: var(--accent-blue); border-bottom: 2px solid var(--accent-blue); }
-        .msg-box { min-height: 20px; color: #ff3333; font-size: 0.8rem; margin-bottom: 10px; }
+        .login-card::before {
+            content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            background: linear-gradient(45deg, transparent, var(--accent), transparent);
+            z-index: -1; opacity: 0.5; filter: blur(5px);
+        }
+
+        .system-logo { font-size: 2rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 4px; text-shadow: 0 0 10px var(--accent); }
+        .dot { color: var(--accent); }
+
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid #333; font-size: 0.9rem; }
+        .tab { flex: 1; padding: 10px; cursor: pointer; color: #666; transition: 0.3s; }
+        .tab:hover { color: #fff; }
+        .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); background: rgba(0, 112, 243, 0.05); }
+
+        input {
+            width: 100%; background: #000; border: 1px solid #333; color: white;
+            padding: 12px; margin-bottom: 15px; font-family: inherit; transition: 0.3s;
+        }
+        input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 10px rgba(0, 112, 243, 0.3); }
+
+        button {
+            width: 100%; background: var(--accent); border: none; color: white;
+            padding: 12px; cursor: pointer; font-family: inherit; font-weight: bold;
+            transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        button:hover { background: #005bb5; box-shadow: 0 0 15px var(--accent); }
+        button:disabled { background: #333; cursor: not-allowed; }
+
+        .msg-box { min-height: 20px; color: #ff3333; font-size: 0.8rem; margin-bottom: 15px; text-align: left; }
+        .success-msg { color: #00ff00; }
+        
+        .recovery-box {
+            display: none; margin-top: 15px; padding: 10px; border: 1px dashed #00ff00; 
+            background: rgba(0, 255, 0, 0.05); font-size: 0.8rem; text-align: left; word-break: break-all;
+        }
     </style>
 </head>
 <body>
-    <div class="bg-grid"></div>
+
+    <div class="cyber-bg"></div>
+    <div class="scanline"></div>
+
     <div class="login-card">
         <div class="system-logo">1EAK<span class="dot">.</span>COOL</div>
+        
         <div class="tabs">
             <div class="tab active" onclick="switchTab('login')">LOGIN</div>
             <div class="tab" onclick="switchTab('register')">REGISTER</div>
+            <div class="tab" onclick="switchTab('reset')">RESET PW</div>
         </div>
+
         <form id="authForm">
-            <input type="text" id="username" class="cyber-input" placeholder="USERNAME" required>
-            <input type="password" id="password" class="cyber-input" placeholder="PASSWORD" required>
+            <input type="text" id="username" placeholder="USERNAME // 用户名" required>
+            <input type="password" id="password" placeholder="PASSWORD // 密码" required>
+            
+            <!-- 只有重置密码时才显示恢复密钥输入框 -->
+            <input type="text" id="recoveryKeyInput" placeholder="RECOVERY KEY // 恢复密钥" style="display:none;">
+            
             <div id="msgBox" class="msg-box"></div>
-            <button type="submit" class="cyber-btn" id="submitBtn">SYSTEM ACCESS >></button>
+            <button type="submit" id="submitBtn">SYSTEM ACCESS >></button>
         </form>
+
+        <!-- 注册成功后显示的密钥框 -->
+        <div id="newRecoveryKey" class="recovery-box"></div>
     </div>
+
     <script>
-        let isRegister = false;
+        let currentMode = 'login'; // login, register, reset
         const msgBox = document.getElementById('msgBox');
         const submitBtn = document.getElementById('submitBtn');
-        
+        const passInput = document.getElementById('password');
+        const keyInput = document.getElementById('recoveryKeyInput');
+        const recoveryBox = document.getElementById('newRecoveryKey');
+
+        // 检查是否已登录
         fetch('/api/user').then(res => res.json()).then(data => {
             if (data.loggedIn) window.location.href = '/index.html';
         });
 
         function switchTab(mode) {
-            const tabs = document.querySelectorAll('.tab');
-            isRegister = (mode === 'register');
-            if (isRegister) {
-                tabs[0].classList.remove('active'); tabs[1].classList.add('active');
-                submitBtn.textContent = "CREATE ACCOUNT >";
-            } else {
-                tabs[0].classList.add('active'); tabs[1].classList.remove('active');
-                submitBtn.textContent = "SYSTEM ACCESS >>";
-            }
+            currentMode = mode;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
             msgBox.textContent = "";
+            msgBox.className = "msg-box";
+            recoveryBox.style.display = 'none';
+
+            if (mode === 'login') {
+                submitBtn.textContent = "SYSTEM ACCESS >>";
+                passInput.placeholder = "PASSWORD // 密码";
+                keyInput.style.display = 'none';
+                keyInput.removeAttribute('required');
+            } else if (mode === 'register') {
+                submitBtn.textContent = "CREATE ACCOUNT >";
+                passInput.placeholder = "PASSWORD // 设置密码";
+                keyInput.style.display = 'none';
+                keyInput.removeAttribute('required');
+            } else if (mode === 'reset') {
+                submitBtn.textContent = "RESET PASSWORD >";
+                passInput.placeholder = "NEW PASSWORD // 新密码";
+                keyInput.style.display = 'block';
+                keyInput.required = true;
+            }
         }
 
         document.getElementById('authForm').onsubmit = async (e) => {
             e.preventDefault();
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
-            const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-            submitBtn.disabled = true; submitBtn.textContent = "PROCESSING...";
+            const k = keyInput.value;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "PROCESSING...";
+            msgBox.textContent = "";
+
+            let endpoint = '/api/auth/login';
+            let body = { username: u, password: p };
+
+            if (currentMode === 'register') {
+                endpoint = '/api/auth/register';
+            } else if (currentMode === 'reset') {
+                endpoint = '/api/auth/reset';
+                body = { username: u, newPassword: p, recoveryKey: k };
+            }
+
             try {
                 const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: u, password: p })
+                    body: JSON.stringify(body)
                 });
                 const data = await res.json();
+
                 if (data.success) {
-                    if (isRegister) {
-                        alert("注册成功 // REGISTRATION COMPLETE"); switchTab('login');
-                    } else {
+                    if (currentMode === 'login') {
                         window.location.href = '/index.html';
+                    } else if (currentMode === 'register') {
+                        msgBox.textContent = "注册成功! 请务必保存下方的恢复密钥!";
+                        msgBox.classList.add('success-msg');
+                        // 显示恢复密钥
+                        recoveryBox.style.display = 'block';
+                        recoveryBox.innerHTML = `<strong>SYSTEM KEY GENERATED:</strong><br>${data.recoveryKey}<br><br>⚠️ 请截图或复制保存，忘记密码时需要使用它！`;
+                        submitBtn.textContent = "GO TO LOGIN";
+                        // 强制切换逻辑让用户下次点击变成去登录
+                        document.getElementById('authForm').onsubmit = () => { switchTab('login'); return false; };
+                    } else if (currentMode === 'reset') {
+                        alert("密码已重置，请登录");
+                        switchTab('login');
                     }
-                } else { msgBox.textContent = "ERROR: " + (data.error || "Failed"); }
-            } catch (err) { msgBox.textContent = "CRITICAL ERROR: 连接中断"; }
-            finally { submitBtn.disabled = false; submitBtn.textContent = isRegister ? "CREATE ACCOUNT >" : "SYSTEM ACCESS >>"; }
+                } else {
+                    msgBox.textContent = "ERROR: " + (data.error || "操作失败");
+                    msgBox.classList.remove('success-msg');
+                }
+            } catch (err) {
+                msgBox.textContent = "CRITICAL ERROR: 连接中断";
+            } finally {
+                submitBtn.disabled = false;
+                if (submitBtn.textContent === "PROCESSING...") {
+                    if (currentMode === 'login') submitBtn.textContent = "SYSTEM ACCESS >>";
+                    else if (currentMode === 'register') submitBtn.textContent = "CREATE ACCOUNT >";
+                    else submitBtn.textContent = "RESET PASSWORD >";
+                }
+            }
         };
     </script>
 </body>
