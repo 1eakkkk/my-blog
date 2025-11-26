@@ -65,8 +65,6 @@ function calculateLevel(xp) {
     return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp };
 }
 
-//修复 checkSecurity 函数 ---
-
 async function checkSecurity() {
     const mask = document.getElementById('loading-mask');
     try {
@@ -81,31 +79,33 @@ async function checkSecurity() {
             
             const displayName = data.nickname || data.username;
             
-            // === 修复点：在这里添加登出按钮 ===
-            // 找到 username 元素，把名字放进去，后面跟一个红色的 [EXIT]
-            const usernameEl = document.getElementById('username');
-            usernameEl.innerHTML = `${displayName} <span id="logoutBtn" style="cursor:pointer;color:#ff3333;font-size:0.8em;margin-left:8px;border:1px solid #ff3333;padding:0 4px;border-radius:4px;">EXIT</span>`;
+            // 1. 用户名只显示名字，不加按钮了
+            document.getElementById('username').textContent = displayName;
             
             document.getElementById('coinCount').textContent = data.coins;
             
-            // 渲染侧边栏头像
+            // 渲染头像
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
             
-            // 渲染设置页预览
             const settingPreview = document.getElementById('settingAvatarPreview');
-            if(settingPreview) {
-                settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
-            }
+            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
 
             const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
             let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
-            badgesArea.innerHTML = `<span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> ${vipTag}`;
+            
+            // 2. 核心修改：把 [EXIT] 按钮移到这里
+            // 结构：[等级] [VIP] .........(自动空格)......... [EXIT]
+            badgesArea.innerHTML = `
+                <span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> 
+                ${vipTag}
+                <div id="logoutBtn">EXIT</div>
+            `;
             
             document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
 
-            // 绑定登出事件
+            // 绑定登出事件 (注意：因为按钮是重新生成的，必须在这里绑定)
             document.getElementById('logoutBtn').onclick = doLogout;
 
             if(data.is_vip) {
@@ -124,7 +124,6 @@ async function checkSecurity() {
         window.location.replace('/login.html');
     }
 }
-
 function initApp() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) {
@@ -404,5 +403,6 @@ async function doLogout() {
         window.location.href = '/login.html';
     }
 }
+
 
 
