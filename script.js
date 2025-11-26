@@ -2,6 +2,7 @@
 
 const API_BASE = '/api';
 let currentUser = null;
+let currentPostId = null; // 记录当前正在看的文章ID
 
 // === 等级配置表 ===
 const LEVEL_TABLE = [
@@ -22,26 +23,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkSecurity();
 });
 
-// --- 像素头像生成器 (加入 variant 变数) ---
+// --- 像素头像生成器 ---
 function generatePixelAvatar(username, variant = 0) {
-    // 核心：种子 = 用户名 + 变数
-    // 只要变数变了，算出来的颜色和形状就全变了
     const seedStr = username + "v" + variant;
-    
     let hash = 0;
     for (let i = 0; i < seedStr.length; i++) {
         hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
     }
     const c = (hash & 0x00FFFFFF).toString(16).toUpperCase().padStart(6, "0");
     const color = `#${c}`;
-    
     let rects = '';
     for(let i=0; i<5; i++) {
         for(let j=0; j<5; j++) {
             const val = (hash >> (i * 5 + j)) & 1; 
-            if(val) {
-                rects += `<rect x="${j*10}" y="${i*10}" width="10" height="10" fill="${color}" />`;
-            }
+            if(val) rects += `<rect x="${j*10}" y="${i*10}" width="10" height="10" fill="${color}" />`;
         }
     }
     return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
@@ -77,41 +72,30 @@ async function checkSecurity() {
         } else {
             currentUser = data;
             
+            // 渲染信息
             const displayName = data.nickname || data.username;
-            
-            // 1. 用户名只显示名字，不加按钮了
+            const levelInfo = calculateLevel(data.xp || 0);
+            let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
+
             document.getElementById('username').textContent = displayName;
-            
             document.getElementById('coinCount').textContent = data.coins;
-            
-            // 渲染头像
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
             
-            const settingPreview = document.getElementById('settingAvatarPreview');
-            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
-
-            const levelInfo = calculateLevel(data.xp || 0);
             const badgesArea = document.getElementById('badgesArea');
-            let vipTag = data.is_vip ? `<span class="badge vip-tag">VIP</span>` : '';
-            
-            // 2. 核心修改：把 [EXIT] 按钮移到这里
-            // 结构：[等级] [VIP] .........(自动空格)......... [EXIT]
-            badgesArea.innerHTML = `
-                <span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> 
-                ${vipTag}
-                <div id="logoutBtn">EXIT</div>
-            `;
+            badgesArea.innerHTML = `<span class="badge lv-${levelInfo.lv}">LV.${levelInfo.lv}</span> ${vipTag} <div id="logoutBtn">EXIT</div>`;
             
             document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
-
-            // 绑定登出事件 (注意：因为按钮是重新生成的，必须在这里绑定)
             document.getElementById('logoutBtn').onclick = doLogout;
 
             if(data.is_vip) {
                 document.getElementById('vipBox').innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
                 document.getElementById('vipBox').style.borderColor = 'gold';
             }
+
+            // 开始轮询消息
+            checkNotifications();
+            setInterval(checkNotifications, 60000); // 每分钟检查一次
 
             if (mask) {
                 mask.style.transition = 'opacity 0.5s';
@@ -124,6 +108,114 @@ async function checkSecurity() {
         window.location.replace('/login.html');
     }
 }
+
+// --- 消息系统 ---
+async function checkNotifications() {
+    try {
+        const res = await fetch(`${API_BASE}/notifications`);
+        const data = await res.json();
+        const badge = document.getElementById('notifyBadge');
+        if (data.count > 0) {
+            badge.style.display = 'inline-block';
+            badge.textContent = data.count;
+        } else {
+            badge.style.display = 'none';
+        }
+    } catch(e) {}
+}
+
+async function loadNotifications() {
+    const container = document.getElementById('notifyList');
+    container.innerHTML = 'Loading logs...';
+    try {
+        const res = await fetch(`${API_BASE}/notifications`);
+        const data = await res.json();
+        container.innerHTML = '';
+        if(data.list.length === 0) {
+            container.innerHTML = '<p style="color:#666">暂无消息 / NO LOGS</p>';
+            return;
+        }
+        data.list.forEach(n => {
+            const div = document.createElement('div');
+            div.className = `notify-item ${n.is_read ? '' : 'unread'}`;
+            div.innerHTML = `
+                <div class="notify-msg">${n.message}</div>
+                <div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>
+            `;
+            div.onclick = () => {
+                window.location.hash = n.link;
+                // 点击后应该标记为已读，这里简单处理，刷新会自动变
+            };
+            container.appendChild(div);
+        });
+    } catch(e) {
+        container.innerHTML = 'Error';
+    }
+}
+
+window.markAllRead = async function() {
+    await fetch(`${API_BASE}/notifications`, { method: 'POST' });
+    loadNotifications();
+    checkNotifications();
+};
+
+// --- 评论系统 ---
+async function loadNativeComments(postId) {
+    const list = document.getElementById('commentsList');
+    list.innerHTML = 'Loading comments...';
+    try {
+        const res = await fetch(`${API_BASE}/comments?post_id=${postId}`);
+        const comments = await res.json();
+        list.innerHTML = '';
+        if(comments.length === 0) {
+            list.innerHTML = '<p style="color:#666">暂无评论，抢占沙发。</p>';
+            return;
+        }
+        comments.forEach(c => {
+            const avatar = generatePixelAvatar(c.username, c.avatar_variant);
+            const div = document.createElement('div');
+            div.className = 'comment-item';
+            const vip = c.is_vip ? `<span style="color:gold;font-size:0.7em">[VIP]</span>` : '';
+            div.innerHTML = `
+                <div class="comment-avatar">${avatar}</div>
+                <div class="comment-content-box">
+                    <div class="comment-header">
+                        <span class="comment-author">${vip} ${c.nickname || c.username} <span class="badge lv-${c.level||1}" style="transform:scale(0.8)">LV.${c.level||1}</span></span>
+                        <span>${new Date(c.created_at).toLocaleString()}</span>
+                    </div>
+                    <div class="comment-text">${c.content}</div>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    } catch(e) { list.innerHTML = 'Failed to load comments.'; }
+}
+
+window.submitComment = async function() {
+    const input = document.getElementById('commentInput');
+    const content = input.value.trim();
+    if(!content) return alert("内容不能为空");
+    
+    const btn = document.querySelector('.comment-input-box button');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/comments`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ post_id: currentPostId, content: content })
+        });
+        const data = await res.json();
+        if(data.success) {
+            alert(data.message);
+            input.value = '';
+            loadNativeComments(currentPostId);
+        } else { alert(data.error); }
+    } catch(e) { alert("Error"); }
+    finally { btn.disabled = false; }
+};
+
+// --- 其他逻辑 ---
+
 function initApp() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) {
@@ -160,7 +252,8 @@ const views = {
     write: document.getElementById('view-write'),
     post: document.getElementById('view-post'),
     settings: document.getElementById('view-settings'),
-    about: document.getElementById('view-about')
+    about: document.getElementById('view-about'),
+    notifications: document.getElementById('view-notifications') // 新增
 };
 
 async function handleRoute() {
@@ -185,56 +278,40 @@ async function handleRoute() {
     } else if (hash === '#about') {
         if(views.about) views.about.style.display = 'block';
         document.querySelector('a[href="#about"]').classList.add('active');
+    } else if (hash === '#notifications') { // 新增
+        if(views.notifications) views.notifications.style.display = 'block';
+        document.getElementById('navNotify').classList.add('active');
+        loadNotifications();
     } else if (hash.startsWith('#post?id=')) {
         if(views.post) views.post.style.display = 'block';
         loadSinglePost(hash.split('=')[1]);
     }
 }
 
-// === 业务功能 ===
-
-// 1. 随机重置头像 (核心修复)
 window.randomizeAvatar = async function() {
-    if(!confirm("确定要重置头像颜色吗？")) return;
-    
+    if(!confirm("确定重置头像颜色吗？")) return;
     try {
         const res = await fetch(`${API_BASE}/random_avatar`, { method: 'POST' });
         const data = await res.json();
-        
         if(data.success) {
             alert("重置成功！");
-            // 更新本地数据
             currentUser.avatar_variant = data.variant;
-            // 重新生成 SVG
             const newSvg = generatePixelAvatar(currentUser.username, data.variant);
-            
-            // 实时更新界面
-            const sideAvatar = document.querySelector('#avatarContainer .post-avatar-box');
-            if(sideAvatar) sideAvatar.innerHTML = newSvg;
-            
-            const preview = document.getElementById('settingAvatarPreview');
-            if(preview) preview.innerHTML = newSvg;
-            
-        } else {
-            alert(data.error);
-        }
-    } catch(e) {
-        alert("操作失败，请检查网络");
-    }
+            document.querySelector('#avatarContainer .post-avatar-box').innerHTML = newSvg;
+            document.getElementById('settingAvatarPreview').innerHTML = newSvg;
+        } else { alert(data.error); }
+    } catch(e) { alert("操作失败"); }
 };
 
 window.doLuckyDraw = async function() {
     const btn = document.querySelector('.lucky-draw-btn');
-    if(btn) {
-        btn.disabled = true;
-        btn.textContent = "DRAWING...";
-    }
+    if(btn) { btn.disabled = true; btn.textContent = "DRAWING..."; }
     try {
         const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
         const data = await res.json();
         if(data.success) { alert(`🎉 ${data.message}`); window.location.reload(); }
         else { alert(`🚫 ${data.error}`); }
-    } catch(e) { alert("⚠️ 系统繁忙"); } 
+    } catch(e) { alert("系统繁忙"); } 
     finally { if(btn) { btn.disabled = false; btn.textContent = "🎲 每日幸运抽奖"; } }
 };
 
@@ -290,11 +367,12 @@ async function loadPosts() {
 }
 
 async function loadSinglePost(id) {
+    currentPostId = id; // 记录当前ID供评论使用
     const container = document.getElementById('single-post-content');
-    const giscusContainer = document.getElementById('giscus-container');
     if(!container) return;
     container.innerHTML = '读取中...';
-    if(giscusContainer) giscusContainer.innerHTML = ''; 
+    // 清空评论列表
+    document.getElementById('commentsList').innerHTML = '';
 
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
@@ -309,8 +387,6 @@ async function loadSinglePost(id) {
         
         const authorDisplay = post.author_nickname || post.author_username || post.author_name;
         const vipDisplay = post.author_vip ? `<span style="color:gold;margin-right:5px">[VIP]</span>` : '';
-        
-        // 渲染文章作者头像 (带变数)
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
 
         container.innerHTML = `
@@ -330,25 +406,9 @@ async function loadSinglePost(id) {
             <div class="article-body">${post.content}</div>
         `;
 
-        if(giscusContainer) {
-            const script = document.createElement('script');
-            script.src = "https://giscus.app/client.js";
-            script.setAttribute("data-repo", "1eakkkk/my-blog");
-            script.setAttribute("data-repo-id", "R_kgDOQcdfsQ");
-            script.setAttribute("data-category", "General");
-            script.setAttribute("data-category-id", "DIC_kwDOQcdfsc4Cy_4k");
-            script.setAttribute("data-mapping", "specific");
-            script.setAttribute("data-term", `1eak-post-${post.id}`);
-            script.setAttribute("data-strict", "0");
-            script.setAttribute("data-reactions-enabled", "1");
-            script.setAttribute("data-emit-metadata", "0");
-            script.setAttribute("data-input-position", "top");
-            script.setAttribute("data-theme", "dark_dimmed");
-            script.setAttribute("data-lang", "zh-CN");
-            script.setAttribute("crossorigin", "anonymous");
-            script.async = true;
-            giscusContainer.appendChild(script);
-        }
+        // 加载自研评论系统
+        loadNativeComments(id);
+
     } catch (e) {
         console.error(e);
         container.innerHTML = 'Error loading post.';
@@ -378,7 +438,7 @@ async function doPost(e) {
             body: JSON.stringify({title, content})
         });
         const data = await res.json();
-        if (data.success) { alert("发布成功！"); window.location.hash = '#home'; document.getElementById('postTitle').value=''; document.getElementById('postContent').value=''; }
+        if (data.success) { alert("发布成功！经验已增加"); window.location.hash = '#home'; document.getElementById('postTitle').value=''; document.getElementById('postContent').value=''; }
         else { alert(data.error); }
     } catch(err) { alert("Error"); } 
     finally { btn.disabled = false; }
@@ -403,6 +463,3 @@ async function doLogout() {
         window.location.href = '/login.html';
     }
 }
-
-
-
