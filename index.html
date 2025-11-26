@@ -66,18 +66,18 @@
                 </div>
             </div>
             
+                       <!-- 覆盖对应的 nav 部分 -->
             <nav>
                 <a href="#home" class="nav-link active">首页 / Dashboard</a>
                 <a href="#notifications" class="nav-link" id="navNotify" style="display:flex; justify-content:space-between; align-items:center;">
-                    消息 / Notifications
-                    <span id="notifyBadge" class="notify-badge" style="display:none">0</span>
+                    消息 / Notifications <span id="notifyBadge" class="notify-badge" style="display:none">0</span>
                 </a>
-                <a href="#write" class="nav-link" id="navWrite">项目(发布) / Projects</a>
+                <a href="#write" class="nav-link" id="navWrite">项目发布 / Projects</a>
                 <a href="#settings" class="nav-link">个人设置 / Settings</a>
-                <a href="#about" class="nav-link">关于 / About (等级表)</a>
-                <!-- 管理后台入口 (默认隐藏) -->
+                <a href="#about" class="nav-link">关于系统 / About</a> <!-- 去掉了括号 -->
                 <a href="#admin" class="nav-link" id="navAdmin" style="display:none; color:#ff3333">⚠️ 管理后台 / Admin</a>
             </nav>
+
 
             <div class="vip-sidebar-box" id="vipBox">
                 <h4>VIP ACCESS</h4>
@@ -175,35 +175,36 @@
                     </div>
                 </div>
 
-                <!-- 6. 关于/等级表 -->
                 <div id="view-about" class="view-section" style="display:none;">
                     <h2>// SYSTEM LEVELS</h2>
                     <p>通过签到、发帖、评论积累经验值 (XP)，提升权限等级。</p>
                     <table class="tech-table">
-                        <thead><tr><th>等级</th><th>称号</th><th>XP</th></tr></thead>
-                        <tbody>
-                            <tr><td>LV.1</td><td>废铁平民</td><td>0</td></tr>
-                            <tr><td>LV.2</td><td>普通公民</td><td>100</td></tr>
-                            <tr><td>LV.3</td><td>进阶行者</td><td>250</td></tr>
-                            <tr><td>LV.4</td><td>精英干员</td><td>500</td></tr>
-                            <tr><td>LV.5</td><td>战术大师</td><td>900</td></tr>
-                            <tr><td>LV.6</td><td>传奇英雄</td><td>1500</td></tr>
-                            <tr><td>LV.7</td><td>深渊行者</td><td>2400</td></tr>
-                            <tr><td>LV.8</td><td>猩红收割</td><td>3700</td></tr>
-                            <tr><td>LV.9</td><td>黄金传说</td><td>5500</td></tr>
-                            <tr><td>LV.10</td><td>赛博神明</td><td>8000</td></tr>
+                        <thead><tr><th>等级 (LEVEL)</th><th>称号 (TITLE)</th><th>所需经验 (XP)</th></tr></thead>
+                        <tbody id="levelTableBody">
+                            <!-- JS 动态生成 -->
                         </tbody>
                     </table>
                 </div>
 
-                <!-- 7. 管理后台 (Top Secret) -->
+                                <!-- 覆盖 view-admin 部分 (增加头衔发放) -->
                 <div id="view-admin" class="view-section" style="display:none;">
                     <h2 style="color:#ff3333">// ADMIN CONSOLE (TOP SECRET)</h2>
-                    <div class="glass-card" style="border-color:#ff3333">
+    
+                    <div class="glass-card" style="border-color:#ff3333; margin-bottom:20px;">
                         <h3>旧账号密钥补发</h3>
                         <input type="text" id="adminTargetUser" class="cyber-input" placeholder="输入用户名">
                         <button onclick="adminGenKey()" class="cyber-btn" style="border-color:#ff3333; color:#ff3333">生成/查询密钥</button>
                         <div id="adminKeyResult" style="margin-top:10px; color:#0f0; font-weight:bold;"></div>
+                    </div>
+
+                    <div class="glass-card" style="border-color:#bc13fe;">
+                        <h3>授予荣誉头衔</h3>
+                        <input type="text" id="adminTitleUser" class="cyber-input" placeholder="目标用户名">
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="adminTitleText" class="cyber-input" placeholder="头衔 (2-6字)" maxlength="6">
+                            <input type="color" id="adminTitleColor" value="#00ff00" style="height:45px; width:60px; background:#000; border:1px solid #333;">
+                        </div>
+                        <button onclick="adminGrantTitle()" class="cyber-btn" style="border-color:#bc13fe; color:#bc13fe">发放头衔 / GRANT</button>
                     </div>
                 </div>
             </div>
@@ -215,3 +216,4 @@
     <script src="script.js?v=3.1"></script>
 </body>
 </html>
+
