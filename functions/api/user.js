@@ -1,5 +1,3 @@
-// --- functions/api/user.js ---
-
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -10,9 +8,10 @@ export async function onRequestGet(context) {
 
   if (!sessionId) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
 
-  // 核心修改：在 SELECT 后面加上了 users.role
+  // 增加 role, custom_title, custom_title_color
   const result = await db.prepare(`
-    SELECT users.role, users.username, users.nickname, users.coins, users.id, users.xp, users.level, users.is_vip, users.avatar_variant, users.recovery_key
+    SELECT users.role, users.username, users.nickname, users.coins, users.id, users.xp, users.level, users.is_vip, users.avatar_variant, users.recovery_key,
+           users.custom_title, users.custom_title_color
     FROM sessions 
     JOIN users ON sessions.user_id = users.id 
     WHERE sessions.session_id = ?
