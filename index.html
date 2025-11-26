@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1eak.cool | 数字基地</title>
-    <link rel="stylesheet" href="style.css?v=3.0"> <!-- 版本号升级 -->
+    <link rel="stylesheet" href="style.css?v=3.1">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         #loading-mask {
@@ -48,6 +48,7 @@
     <div class="mobile-menu-btn" id="mobileMenuBtn">☰</div>
 
     <div class="app-container">
+        <!-- 侧边栏 -->
         <aside class="sidebar" id="sidebar">
             <div class="logo">1EAK<span class="dot">.</span>COOL</div>
             
@@ -67,16 +68,15 @@
             
             <nav>
                 <a href="#home" class="nav-link active">首页 / Dashboard</a>
-                
-                <!-- 新增：消息通知入口 -->
                 <a href="#notifications" class="nav-link" id="navNotify" style="display:flex; justify-content:space-between; align-items:center;">
                     消息 / Notifications
                     <span id="notifyBadge" class="notify-badge" style="display:none">0</span>
                 </a>
-                
                 <a href="#write" class="nav-link" id="navWrite">项目(发布) / Projects</a>
                 <a href="#settings" class="nav-link">个人设置 / Settings</a>
                 <a href="#about" class="nav-link">关于 / About (等级表)</a>
+                <!-- 管理后台入口 (默认隐藏) -->
+                <a href="#admin" class="nav-link" id="navAdmin" style="display:none; color:#ff3333">⚠️ 管理后台 / Admin</a>
             </nav>
 
             <div class="vip-sidebar-box" id="vipBox">
@@ -95,6 +95,7 @@
             </div>
         </aside>
 
+        <!-- 主内容区 -->
         <main class="content">
             <header>
                 <div class="breadcrumbs" id="breadcrumbs">SYSTEM // HOME</div>
@@ -102,6 +103,7 @@
             </header>
 
             <div id="view-container">
+                <!-- 1. 首页 -->
                 <div id="view-home" class="view-section active">
                     <div class="hero-section">
                         <h1>DATA STREAM</h1>
@@ -110,6 +112,7 @@
                     <div id="posts-list" class="posts-grid"></div>
                 </div>
 
+                <!-- 2. 发帖 -->
                 <div id="view-write" class="view-section" style="display:none;">
                     <h2>// CREATE PROJECT</h2>
                     <form id="postForm">
@@ -119,25 +122,23 @@
                     </form>
                 </div>
 
-                <!-- 文章详情页：移除 Giscus，换成原生评论 -->
+                <!-- 3. 文章详情 -->
                 <div id="view-post" class="view-section" style="display:none;">
                     <button onclick="window.location.hash='#home'" class="back-btn">< BACK</button>
                     <article id="single-post-content" class="full-article"></article>
                     
-                    <!-- 原生评论区 -->
+                    <!-- 评论区 -->
                     <div class="comments-section">
                         <h3>// 评论终端 / COMMENTS</h3>
                         <div class="comment-input-box">
                             <textarea id="commentInput" class="cyber-textarea" placeholder="输入你的看法... (支持纯文本)" style="height:80px;"></textarea>
                             <button onclick="submitComment()" class="cyber-btn" style="width:auto;">发送评论 / SEND (+5 XP)</button>
                         </div>
-                        <div id="commentsList" class="comments-list">
-                            <!-- 评论列表将渲染在这里 -->
-                        </div>
+                        <div id="commentsList" class="comments-list"></div>
                     </div>
                 </div>
 
-                <!-- 新增：消息通知页 -->
+                <!-- 4. 消息通知 -->
                 <div id="view-notifications" class="view-section" style="display:none;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                         <h2>// SYSTEM LOGS</h2>
@@ -146,16 +147,15 @@
                     <div id="notifyList" class="posts-grid"></div>
                 </div>
 
+                <!-- 5. 个人设置 -->
                 <div id="view-settings" class="view-section" style="display:none;">
                     <h2>// PROFILE SETTINGS</h2>
-    
                     <div class="glass-card">
                         <h3>修改昵称</h3>
-                        <p style="color:#666; font-size:0.9rem;">昵称将显示在文章作者栏，用户名不会改变。</p>
+                        <p style="color:#666; font-size:0.9rem;">昵称将显示在文章作者栏。</p>
                         <input type="text" id="newNickname" class="cyber-input" placeholder="输入新昵称" maxlength="12">
                         <button onclick="updateProfile()" class="cyber-btn">保存更改 / SAVE</button>
                     </div>
-
                     <div class="glass-card" style="margin-top: 20px;">
                         <h3>数字形象重构</h3>
                         <p style="color:#666; font-size:0.9rem;">如果不满意当前的像素配色，可以随机重置。</p>
@@ -164,8 +164,7 @@
                             <button onclick="randomizeAvatar()" class="cyber-btn" style="margin:0; flex:1;">🎲 随机重置头像 / RANDOMIZE</button>
                         </div>
                     </div>
-
-                    <!-- 新增：账户安全/密钥查看 -->
+                    <!-- 账户安全/密钥查看 -->
                     <div class="glass-card" style="margin-top: 20px; border-color: var(--accent-blue);">
                         <h3>账户安全密钥 (RECOVERY KEY)</h3>
                         <p style="color:#666; font-size:0.9rem;">这是您找回密码的唯一凭证，请勿泄露。</p>
@@ -176,6 +175,7 @@
                     </div>
                 </div>
 
+                <!-- 6. 关于/等级表 -->
                 <div id="view-about" class="view-section" style="display:none;">
                     <h2>// SYSTEM LEVELS</h2>
                     <p>通过签到、发帖、评论积累经验值 (XP)，提升权限等级。</p>
@@ -195,10 +195,10 @@
                         </tbody>
                     </table>
                 </div>
-                                <!-- 放在 view-about 后面 -->
+
+                <!-- 7. 管理后台 (Top Secret) -->
                 <div id="view-admin" class="view-section" style="display:none;">
                     <h2 style="color:#ff3333">// ADMIN CONSOLE (TOP SECRET)</h2>
-    
                     <div class="glass-card" style="border-color:#ff3333">
                         <h3>旧账号密钥补发</h3>
                         <input type="text" id="adminTargetUser" class="cyber-input" placeholder="输入用户名">
@@ -206,18 +206,12 @@
                         <div id="adminKeyResult" style="margin-top:10px; color:#0f0; font-weight:bold;"></div>
                     </div>
                 </div>
-                <nav>
-                    <!-- ... 其他链接 ... -->
-                    <a href="#admin" class="nav-link" id="navAdmin" style="display:none; color:#ff3333">⚠️ 管理后台 / Admin</a>
-                </nav>
             </div>
 
             <footer><p>© 2025 1EAK.COOL | SYSTEM ONLINE</p></footer>
         </main>
     </div>
 
-    <script src="script.js?v=3.0"></script>
+    <script src="script.js?v=3.1"></script>
 </body>
 </html>
-
-
