@@ -1,59 +1,27 @@
-// 覆盖 onRequestGet
 export async function onRequestGet(context) {
   const db = context.env.DB;
-  const url = new URL(context.request.url);
-  const id = url.searchParams.get('id');
+  const cookie = context.request.headers.get('Cookie');
+  if (!cookie) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
 
-  const fields = `
-    posts.*, 
-    users.username as author_username, 
-    users.nickname as author_nickname, 
-    users.is_vip as author_vip, 
-    users.level as author_level, 
-    users.avatar_variant as author_avatar_variant,
-    users.role as author_role,
-    users.custom_title as author_title,
-    users.custom_title_color as author_title_color
-  `;
+  const match = cookie.match(/session_id=([^;]+)/);
+  const sessionId = match ? match[1] : null;
 
-  if (id) {
-    const post = await db.prepare(`
-      SELECT ${fields}
-      FROM posts 
-      JOIN users ON posts.user_id = users.id 
-      WHERE posts.id = ?
-    `).bind(id).first();
-    return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
-  } else {
-    const posts = await db.prepare(`
-      SELECT ${fields}
-      FROM posts 
-      JOIN users ON posts.user_id = users.id 
-      ORDER BY posts.created_at DESC
-    `).all();
-    return new Response(JSON.stringify(posts.results), { headers: { 'Content-Type': 'application/json' } });
-  }
+  if (!sessionId) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
+
+  // 增加 role, custom_title, custom_title_color
+  const result = await db.prepare(`
+    SELECT users.role, users.username, users.nickname, users.coins, users.id, users.xp, users.level, users.is_vip, users.avatar_variant, users.recovery_key,
+           users.custom_title, users.custom_title_color
+    FROM sessions 
+    JOIN users ON sessions.user_id = users.id 
+    WHERE sessions.session_id = ?
+  `).bind(sessionId).first();
+
+  if (!result) return new Response(JSON.stringify({ loggedIn: false }), { headers: { 'Content-Type': 'application/json' } });
+
+  return new Response(JSON.stringify({ loggedIn: true, ...result }), { headers: { 'Content-Type': 'application/json' } });
 }
 
-  if (id) {
-    const post = await db.prepare(`
-      SELECT posts.*, users.username as author_username, users.nickname as author_nickname, users.is_vip as author_vip, users.level as author_level, users.avatar_variant as author_avatar_variant
-      FROM posts 
-      JOIN users ON posts.user_id = users.id 
-      WHERE posts.id = ?
-    `).bind(id).first();
-    return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
-  } else {
-    const posts = await db.prepare(`
-      SELECT posts.*, users.nickname as author_nickname, users.username as author_username, users.is_vip as author_vip, users.level as author_level, users.avatar_variant as author_avatar_variant
-      FROM posts 
-      JOIN users ON posts.user_id = users.id 
-      ORDER BY posts.created_at DESC
-    `).all();
-    return new Response(JSON.stringify(posts.results), { headers: { 'Content-Type': 'application/json' } });
-  }
-}
-// ... Post 和 Delete 函数保持不变 ...
 export async function onRequestPost(context) {
   const db = context.env.DB;
   
@@ -110,4 +78,5 @@ export async function onRequestDelete(context) {
     return new Response(JSON.stringify({ success: false, error: '无法删除：无权操作或文章不存在' }), { status: 403 });
   }
 }
+
 
