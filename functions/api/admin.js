@@ -1,3 +1,4 @@
+// --- functions/api/admin.js ---
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -7,63 +8,102 @@ export async function onRequestPost(context) {
   
   if (!admin || admin.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
-  const { action, target_user_id, target_username, days, title, color, content, amount } = await context.request.json();
+  const req = await context.request.json();
+  const { action } = req;
 
-  if (action === 'ban_user') {
-    const banDays = parseInt(days);
-    const now = Date.now();
-    const expireTime = now + (banDays * 24 * 60 * 60 * 1000);
-    await db.prepare("UPDATE users SET status = 'banned', ban_expires_at = ? WHERE id = ?").bind(expireTime, target_user_id).run();
-    return new Response(JSON.stringify({ success: true, message: `用户已封禁 ${banDays} 天` }));
-  }
-
-  if (action === 'post_announce') {
-      // ... (保持之前的公告逻辑)
-      const adminUser = await db.prepare(`SELECT users.id, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-      await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(adminUser.id, adminUser.nickname || adminUser.username, title, content, '公告', Date.now()).run();
-      return new Response(JSON.stringify({ success: true, message: '公告发布成功' }));
-  }
-  
-  if (action === 'gen_key') {
-    // ... (保持之前的密钥逻辑)
-    const target = await db.prepare("SELECT id, recovery_key FROM users WHERE username = ?").bind(target_username).first();
-    if (!target) return new Response(JSON.stringify({ success: false, error: '用户不存在' }));
-    let key = target.recovery_key;
-    if (!key) {
-        const generateKey = () => Math.random().toString(36).substring(2, 6).toUpperCase();
-        key = `KEY-${generateKey()}-${generateKey()}-${generateKey()}`;
-        await db.prepare("UPDATE users SET recovery_key = ? WHERE id = ?").bind(key, target.id).run();
-    }
-    return new Response(JSON.stringify({ success: true, message: '密钥获取成功', key: key }));
-  }
-
-  if (action === 'grant_title') {
-    if(title && (title.length < 2 || title.length > 6)) return new Response(JSON.stringify({ success: false, error: '头衔长度限制 2-6 字符' }));
-    await db.prepare("UPDATE users SET custom_title = ?, custom_title_color = ? WHERE username = ?").bind(title, color, target_username).run();
-    return new Response(JSON.stringify({ success: true, message: '头衔设置成功' }));
-  }
-
-  // === 优化：批量生成邀请码 ===
-  if (action === 'gen_invite') {
-      let count = parseInt(amount) || 1;
-      if (count > 15) count = 15;
+  // 1. 获取统计数据
+  if (action === 'get_stats') {
+      const total = await db.prepare('SELECT COUNT(*) as c FROM users').first();
+      // 活跃定义：最近3天有登录或注册
+      const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
+      const active = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(threeDaysAgo).first();
       
-      const codes = [];
-      const now = Date.now();
-      const expire = now + (3 * 24 * 60 * 60 * 1000); // 3天有效期
+      // 获取邀请码开关状态
+      const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'invite_required'").first();
+      const inviteRequired = setting ? setting.value === 'true' : true;
 
+      return new Response(JSON.stringify({ 
+          success: true, 
+          totalUsers: total.c, 
+          activeUsers: active.c,
+          inviteRequired: inviteRequired 
+      }));
+  }
+
+  // 2. 切换邀请码开关
+  if (action === 'toggle_invite_system') {
+      const { enabled } = req; // true or false
+      const val = enabled ? 'true' : 'false';
+      // 写入或更新设置
+      await db.prepare("INSERT INTO system_settings (key, value) VALUES ('invite_required', ?) ON CONFLICT(key) DO UPDATE SET value = ?")
+        .bind(val, val).run();
+      return new Response(JSON.stringify({ success: true, message: `邀请注册已${enabled?'开启':'关闭'}` }));
+  }
+
+  // 3. 获取邀请码列表
+  if (action === 'get_invites') {
+      const codes = await db.prepare('SELECT * FROM invites ORDER BY is_used ASC, created_at DESC LIMIT 50').all();
+      return new Response(JSON.stringify({ success: true, list: codes.results }));
+  }
+
+  // 4. 补全邀请码 (补满10个)
+  if (action === 'refill_invites') {
+      const validCount = await db.prepare('SELECT COUNT(*) as c FROM invites WHERE is_used = 0 AND expires_at > ?').bind(Date.now()).first();
+      const currentValid = validCount.c;
+      let need = 10 - currentValid;
+      
+      if (need <= 0) return new Response(JSON.stringify({ success: false, error: '当前已有足够可用邀请码' }));
+      if (need > 10) need = 10;
+
+      const now = Date.now();
+      const expire = now + (7 * 24 * 60 * 60 * 1000); // 7天有效期
       const stmt = db.prepare('INSERT INTO invites (code, created_at, expires_at) VALUES (?, ?, ?)');
       const batch = [];
-
-      for(let i=0; i<count; i++) {
+      
+      for(let i=0; i<need; i++) {
           const code = 'INV-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-          codes.push(code);
           batch.push(stmt.bind(code, now, expire));
       }
-      
       await db.batch(batch);
-      return new Response(JSON.stringify({ success: true, codes: codes }));
+      return new Response(JSON.stringify({ success: true, message: `已补充 ${need} 个邀请码` }));
+  }
+
+  // 5. 删除邀请码
+  if (action === 'delete_invite') {
+      await db.prepare('DELETE FROM invites WHERE id = ?').bind(req.id).run();
+      return new Response(JSON.stringify({ success: true }));
+  }
+
+  // 6. 获取反馈列表
+  if (action === 'get_feedbacks') {
+      const list = await db.prepare(`
+        SELECT feedbacks.*, users.username, users.nickname 
+        FROM feedbacks 
+        JOIN users ON feedbacks.user_id = users.id 
+        ORDER BY feedbacks.created_at DESC LIMIT 30
+      `).all();
+      return new Response(JSON.stringify({ success: true, list: list.results }));
+  }
+
+  // ... 保留原有的其他 admin action (ban_user, gen_key, grant_title, post_announce) ...
+  if (action === 'ban_user') {
+      const expireTime = Date.now() + (parseInt(req.days) * 86400000);
+      await db.prepare("UPDATE users SET status = 'banned', ban_expires_at = ? WHERE id = ?").bind(expireTime, req.target_user_id).run();
+      return new Response(JSON.stringify({ success: true, message: '已封禁' }));
+  }
+  if (action === 'post_announce') {
+      const adminUser = await db.prepare(`SELECT users.id, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
+      await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(adminUser.id, adminUser.nickname || adminUser.username, req.title, req.content, '公告', Date.now(), Date.now()).run();
+      return new Response(JSON.stringify({ success: true, message: '公告已发布' }));
+  }
+  if (action === 'grant_title') {
+      await db.prepare("UPDATE users SET custom_title = ?, custom_title_color = ? WHERE username = ?").bind(req.title, req.color, req.target_username).run();
+      return new Response(JSON.stringify({ success: true, message: '头衔已发放' }));
+  }
+  if (action === 'gen_key') {
+      const target = await db.prepare("SELECT recovery_key FROM users WHERE username = ?").bind(req.target_username).first();
+      return new Response(JSON.stringify({ success: true, key: target ? target.recovery_key : '用户不存在' }));
   }
 
   return new Response(JSON.stringify({ success: false, error: '未知指令' }));
