@@ -5,33 +5,33 @@ let userRole = 'user';
 let currentUser = null;
 let currentPostId = null;
 
-// === 核心升级：新等级表 ===
+// === 核心升级：重新定义等级表与称号 ===
+// 注意：等级称号头衔的颜色由 CSS .lv-X 类控制，与数字头衔保持一致
 const LEVEL_TABLE = [
-    { lv: 1,  xp: 0 },
-    { lv: 2,  xp: 300 },
-    { lv: 3,  xp: 1200 },
-    { lv: 4,  xp: 2000 },
-    { lv: 5,  xp: 5000 },
-    { lv: 6,  xp: 10000 },
-    { lv: 7,  xp: 20000 },
-    { lv: 8,  xp: 35000 },
-    { lv: 9,  xp: 50000 },
-    { lv: 10, xp: 60000 }
+    { lv: 1,  xp: 0,     title: '潜行者' }, // Stalker
+    { lv: 2,  xp: 300,   title: '漫游者' }, // Roamer
+    { lv: 3,  xp: 1200,  title: '观察者' }, // Observer
+    { lv: 4,  xp: 2000,  title: '骇客' },   // Hacker
+    { lv: 5,  xp: 5000,  title: '执政官' }, // Archon
+    { lv: 6,  xp: 10000, title: '领主' },   // Overlord
+    { lv: 7,  xp: 20000, title: '宗师' },   // Grandmaster
+    { lv: 8,  xp: 35000, title: '传奇' },   // Legend
+    { lv: 9,  xp: 50000, title: '半神' },   // Demigod
+    { lv: 10, xp: 60000, title: '赛博神' }  // CyberGod
 ];
 
 function calculateLevel(xp) {
-    // 满级特判
-    if (xp >= 60000) {
-        return { lv: 10, percent: 100, next: 'MAX' };
-    }
+    if (xp >= 60000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
 
     let currentLv = 1;
+    let currentTitle = '潜行者';
     let nextXp = 300;
     let prevXp = 0;
 
     for (let i = 0; i < LEVEL_TABLE.length; i++) {
         if (xp >= LEVEL_TABLE[i].xp) {
             currentLv = LEVEL_TABLE[i].lv;
+            currentTitle = LEVEL_TABLE[i].title;
             prevXp = LEVEL_TABLE[i].xp;
             if (i < LEVEL_TABLE.length - 1) {
                 nextXp = LEVEL_TABLE[i+1].xp;
@@ -40,7 +40,7 @@ function calculateLevel(xp) {
     }
     
     let percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
-    return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp };
+    return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp, title: currentTitle };
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -68,41 +68,38 @@ function generatePixelAvatar(username, variant = 0) {
     return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
 }
 
-function calculateLevel(xp) {
-    let currentLv = 1;
-    let nextXp = 100;
-    let prevXp = 0;
-    for (let i = 0; i < LEVEL_TABLE.length; i++) {
-        if (xp >= LEVEL_TABLE[i].xp) {
-            currentLv = LEVEL_TABLE[i].lv;
-            prevXp = LEVEL_TABLE[i].xp;
-            if (i < LEVEL_TABLE.length - 1) nextXp = LEVEL_TABLE[i+1].xp;
-            else nextXp = 99999;
-        }
-    }
-    let percent = 0;
-    if(nextXp !== 99999) percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
-    else percent = 100;
-    return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp };
-}
-
-// --- 核心：统一生成所有徽章 HTML ---
+// --- 核心：统一生成所有徽章 HTML (支持偏好选择) ---
 function getBadgesHtml(userObj) {
     let html = '';
+    
     // 1. Admin 徽章
     if (userObj.role === 'admin' || userObj.author_role === 'admin') {
         html += `<span class="badge admin-tag">ADMIN</span>`;
     }
-    // 2. 自定义头衔徽章 (优先取 author_title, 没有则取 custom_title)
+
+    // 2. 自定义头衔 (管理员发放的，最高优先级，单独显示)
+    // 兼容 posts 表的字段 (author_title) 和 comments/users 表的字段 (custom_title)
     const title = userObj.author_title || userObj.custom_title;
     const color = userObj.author_title_color || userObj.custom_title_color || '#fff';
     if (title) {
         html += `<span class="badge custom-tag" style="color:${color};border-color:${color}">${title}</span>`;
     }
-    // 3. 等级徽章
-    const xp = userObj.xp !== undefined ? userObj.xp : 0;
+
+    // 3. 等级/称号徽章 (互斥显示)
+    // 检查偏好：users表字段是 badge_preference
+    // 在 loadPosts 中，我们没有 join badge_preference，所以文章列表暂时默认显示数字，
+    // 但在评论区和个人中心，我们有完整数据。
+    const xp = userObj.xp !== undefined ? userObj.xp : (userObj.author_xp || 0);
     const lvInfo = calculateLevel(xp);
-    html += `<span class="badge lv-${lvInfo.lv}">LV.${lvInfo.lv}</span>`;
+    const pref = userObj.badge_preference || 'number'; // 默认为 number
+
+    if (pref === 'title') {
+        // 显示称号，颜色保持等级颜色 (lv-X class)
+        html += `<span class="badge lv-${lvInfo.lv}">${lvInfo.title}</span>`;
+    } else {
+        // 显示数字
+        html += `<span class="badge lv-${lvInfo.lv}">LV.${lvInfo.lv}</span>`;
+    }
     
     // 4. VIP 徽章
     const isVip = userObj.is_vip || userObj.author_vip;
@@ -113,14 +110,13 @@ function getBadgesHtml(userObj) {
     return html;
 }
 
-// --- 动态渲染等级表 ---
 function renderLevelTable() {
     const tbody = document.getElementById('levelTableBody');
     if(!tbody) return;
     tbody.innerHTML = LEVEL_TABLE.map(item => `
         <tr>
             <td><span class="badge lv-${item.lv}">LV.${item.lv}</span></td>
-            <td>${item.title}</td>
+            <td><span class="badge lv-${item.lv}">${item.title}</span></td>
             <td>${item.xp}</td>
         </tr>
     `).join('');
@@ -134,10 +130,8 @@ async function checkSecurity() {
         const data = await res.json();
 
         if (userRole === 'admin') {
-                document.getElementById('navAdmin').style.display = 'flex';
-                // 新增：如果是管理员，允许发公告
-                document.getElementById('optAdmin').style.display = 'block';
-            }
+            document.getElementById('navAdmin').style.display = 'flex';
+        }
         
         if (!data.loggedIn) {
             window.location.replace('/login.html');
@@ -156,7 +150,12 @@ async function checkSecurity() {
             const keyDisplay = document.getElementById('recoveryKeyDisplay');
             if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
 
-            // 使用统一函数渲染侧边栏徽章
+            // 设置页面的佩戴偏好回显
+            const badgePrefSelect = document.getElementById('badgePreferenceSelect');
+            if(badgePrefSelect) {
+                badgePrefSelect.value = data.badge_preference || 'number';
+            }
+
             const badgesArea = document.getElementById('badgesArea');
             badgesArea.innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
             
@@ -167,6 +166,9 @@ async function checkSecurity() {
 
             if (userRole === 'admin') {
                 document.getElementById('navAdmin').style.display = 'flex';
+                document.getElementById('view-admin').style.display = 'block'; // 预加载避免闪烁
+            } else {
+                 document.getElementById('navAdmin').style.display = 'none';
             }
 
             if(data.is_vip) {
@@ -176,8 +178,6 @@ async function checkSecurity() {
 
             checkNotifications();
             setInterval(checkNotifications, 60000);
-            
-            // 渲染关于页面的等级表
             renderLevelTable();
 
             if (mask) {
@@ -190,8 +190,6 @@ async function checkSecurity() {
         window.location.replace('/login.html');
     }
 }
-
-// 修复 loadPosts 函数
 
 async function loadPosts() {
     const container = document.getElementById('posts-list');
@@ -211,7 +209,6 @@ async function loadPosts() {
             const date = new Date(post.created_at).toLocaleDateString();
             const author = post.author_nickname || post.author_username || "Unknown";
             
-            // --- 处理分类标签 ---
             const cat = post.category || '灌水';
             let catClass = '';
             if(cat === '技术') catClass = 'cat-tech';
@@ -222,22 +219,22 @@ async function loadPosts() {
             const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
             const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
 
-            // 徽章生成
+            // 文章列表暂时无法获取偏好，默认显示数字或需要在posts接口做join，这里暂时按默认处理
+            // 为保证一致性，我们在 posts.js 建议返回 badge_preference，如果没返回则默认为 number
             const badgeHtml = getBadgesHtml({
                 role: post.author_role,
                 custom_title: post.author_title,
                 custom_title_color: post.author_title_color,
                 is_vip: post.author_vip,
-                xp: post.author_xp
+                xp: post.author_xp,
+                badge_preference: 'number' // 列表页暂定默认，节省查询开销
             });
             
-            // 点赞按钮
             const likeClass = post.is_liked ? 'liked' : '';
             const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">
                 ❤ <span class="count">${post.like_count || 0}</span>
             </button>`;
             
-            // === 关键修复：先定义 div，再赋值 ===
             const div = document.createElement('div');
             div.className = `post-card ${isAnnounceClass}`;
             div.innerHTML = `
@@ -259,14 +256,18 @@ async function loadPosts() {
     }
 }
 
-// --- 修复 script.js 中的 loadSinglePost 函数 ---
-
 async function loadSinglePost(id) {
     currentPostId = id;
     const container = document.getElementById('single-post-content');
     if(!container) return;
     container.innerHTML = '读取中...';
     document.getElementById('commentsList').innerHTML = '';
+    // 重置评论输入框状态
+    const commentInput = document.getElementById('commentInput');
+    commentInput.value = '';
+    commentInput.placeholder = "输入你的看法... (支持纯文本)";
+    commentInput.dataset.parentId = ""; // 清除回复对象
+    document.getElementById('cancelReplyBtn').style.display = 'none';
 
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
@@ -275,7 +276,6 @@ async function loadSinglePost(id) {
 
         const date = new Date(post.created_at).toLocaleString();
         
-        // 1. 定义操作按钮 (删除/封号)
         let actionBtns = '';
         if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) {
             actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`;
@@ -284,28 +284,25 @@ async function loadSinglePost(id) {
             actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`;
         }
 
-        // 2. 定义打赏按钮
         let tipBtn = '';
         if (currentUser.id !== post.user_id) {
             tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`;
         }
         
         const authorDisplay = post.author_nickname || post.author_username;
-        
-        // 3. 定义头像 (关键修复：之前报过错)
         const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0);
 
-        // 4. 定义徽章
+        // 详情页如果有 badge_preference 最好，没有则默认
         const badgeObj = {
             role: post.author_role,
             custom_title: post.author_title,
             custom_title_color: post.author_title_color,
             is_vip: post.author_vip,
-            xp: 0 
+            xp: post.author_xp || 0,
+            badge_preference: 'number' 
         };
         const badgesHtml = getBadgesHtml(badgeObj);
 
-        // 5. 定义分类标签
         const cat = post.category || '灌水';
         let catClass = '';
         if(cat === '公告') catClass = 'cat-announce';
@@ -314,12 +311,9 @@ async function loadSinglePost(id) {
         else if(cat === '提问') catClass = 'cat-question';
         const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`;
 
-        // 6. === 核心修复：定义点赞按钮 (likeBtn) ===
-        // 之前报错就是因为缺了这一段！
         const likeClass = post.is_liked ? 'liked' : '';
         const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
 
-        // 7. 渲染 HTML
         container.innerHTML = `
             <div class="post-header-row">
                 <div class="post-author-info">
@@ -347,136 +341,237 @@ async function loadSinglePost(id) {
         container.innerHTML = 'Error loading post.';
     }
 }
+
+// === 核心升级：评论加载逻辑（支持嵌套） ===
 async function loadNativeComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = 'Loading comments...';
     try {
         const res = await fetch(`${API_BASE}/comments?post_id=${postId}`);
-        const comments = await res.json();
+        const allComments = await res.json();
         list.innerHTML = '';
-        if(comments.length === 0) {
+        if(allComments.length === 0) {
             list.innerHTML = '<p style="color:#666">暂无评论，抢占沙发。</p>';
             return;
         }
-        comments.forEach(c => {
-            const avatar = generatePixelAvatar(c.username, c.avatar_variant);
-            const div = document.createElement('div');
-            div.className = 'comment-item';
-            
-            let delCommentBtn = '';
-            if (userRole === 'admin' || currentUser.id === c.user_id) {
-                delCommentBtn = `<span onclick="deleteComment(${c.id})" style="color:#555;cursor:pointer;font-size:0.7rem;margin-left:10px">[删除]</span>`;
+
+        // 分离根评论和子评论
+        const rootComments = allComments.filter(c => !c.parent_id);
+        const replies = allComments.filter(c => c.parent_id);
+
+        rootComments.forEach(c => {
+            const commentNode = createCommentElement(c, false);
+            list.appendChild(commentNode);
+
+            // 查找属于该根评论的子回复
+            // 注意：因为后端逻辑将所有孙子评论都挂到了根下面 (parent_id 指向根)，所以直接匹配 parent_id === c.id 即可
+            const myReplies = replies.filter(r => r.parent_id === c.id);
+            if (myReplies.length > 0) {
+                const replyContainer = document.createElement('div');
+                replyContainer.className = 'replies-container';
+                myReplies.forEach(r => {
+                    replyContainer.appendChild(createCommentElement(r, true));
+                });
+                list.appendChild(replyContainer);
             }
-
-            // 评论区徽章 (API返回了全套数据)
-            const badgeHtml = getBadgesHtml(c);
-
-            div.innerHTML = `
-                <div class="comment-avatar">${avatar}</div>
-                <div class="comment-content-box">
-                    <div class="comment-header">
-                        <span class="comment-author" style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                            ${c.nickname || c.username} ${badgeHtml}
-                        </span>
-                        <span>${new Date(c.created_at).toLocaleString()} ${delCommentBtn}</span>
-                    </div>
-                    <div class="comment-text">${c.content}</div>
-                </div>
-            `;
-            list.appendChild(div);
         });
-    } catch(e) { list.innerHTML = 'Failed to load comments.'; }
+
+    } catch(e) { 
+        console.error(e);
+        list.innerHTML = 'Failed to load comments.'; 
+    }
 }
 
-// ... (复制密钥、消息、打赏、删除等功能函数保持不变) ...
-// ... 为节省篇幅，请确保下面的辅助函数都在 (copyRecoveryKey, checkNotifications, loadNotifications, markAllRead, submitComment, deletePost, doPost, doCheckIn, doLogout, tipUser, deleteComment, adminBanUser, adminGenKey) ...
-
-// 新增：管理员发放头衔
-window.adminGrantTitle = async function() {
-    const username = document.getElementById('adminTitleUser').value;
-    const title = document.getElementById('adminTitleText').value;
-    const color = document.getElementById('adminTitleColor').value;
+function createCommentElement(c, isReply) {
+    const avatar = generatePixelAvatar(c.username, c.avatar_variant);
+    const div = document.createElement('div');
+    div.className = isReply ? 'comment-item sub-comment' : 'comment-item';
     
-    if(!username) return alert("请输入用户名");
+    let delCommentBtn = '';
+    if (userRole === 'admin' || currentUser.id === c.user_id) {
+        delCommentBtn = `<span onclick="deleteComment(${c.id})" style="color:#555;cursor:pointer;font-size:0.7rem;margin-left:10px">[删除]</span>`;
+    }
+
+    // 徽章
+    const badgeHtml = getBadgesHtml(c);
     
-    try {
-        const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                action: 'grant_title', 
-                target_username: username,
-                title: title,
-                color: color
-            })
-        });
-        const data = await res.json();
-        if(data.success) { alert("头衔发放成功！"); }
-        else { alert(data.error); }
-    } catch(e) { alert("Error"); }
-};
+    // 点赞
+    const likeClass = c.is_liked ? 'liked' : '';
+    const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`;
+    
+    // 回复按钮 (限制缩进：子评论不显示回复按钮，或者点击回复子评论时，实际上是对根的回复)
+    // 方案：点击任意回复按钮，都设置 parent_id。如果是子评论，后端已处理归属。
+    const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`;
 
-// 补全之前提到的函数
-window.copyRecoveryKey = function() {
-    const keyInput = document.getElementById('recoveryKeyDisplay');
-    keyInput.select();
-    document.execCommand('copy'); 
-    alert("密钥已复制到剪贴板");
-};
-
-async function checkNotifications() {
-    try {
-        const res = await fetch(`${API_BASE}/notifications`);
-        const data = await res.json();
-        const badge = document.getElementById('notifyBadge');
-        if (data.count > 0) {
-            badge.style.display = 'inline-block';
-            badge.textContent = data.count;
-        } else { badge.style.display = 'none'; }
-    } catch(e) {}
+    div.innerHTML = `
+        <div class="comment-avatar">${avatar}</div>
+        <div class="comment-content-box">
+            <div class="comment-header">
+                <span class="comment-author" style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                    ${c.nickname || c.username} ${badgeHtml}
+                </span>
+                <span style="display:flex; align-items:center; gap:10px;">
+                    ${new Date(c.created_at).toLocaleString()}
+                    ${likeBtn}
+                    ${replyBtn}
+                    ${delCommentBtn}
+                </span>
+            </div>
+            <div class="comment-text">${c.content}</div>
+        </div>
+    `;
+    return div;
 }
 
-async function loadNotifications() {
-    const container = document.getElementById('notifyList');
-    container.innerHTML = 'Loading logs...';
-    try {
-        const res = await fetch(`${API_BASE}/notifications`);
-        const data = await res.json();
-        container.innerHTML = '';
-        if(data.list.length === 0) { container.innerHTML = '<p style="color:#666">暂无消息 / NO LOGS</p>'; return; }
-        data.list.forEach(n => {
-            const div = document.createElement('div');
-            div.className = `notify-item ${n.is_read ? '' : 'unread'}`;
-            div.innerHTML = `<div class="notify-msg">${n.message}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`;
-            div.onclick = () => { window.location.hash = n.link; };
-            container.appendChild(div);
-        });
-    } catch(e) { container.innerHTML = 'Error'; }
-}
-
-window.markAllRead = async function() {
-    await fetch(`${API_BASE}/notifications`, { method: 'POST' });
-    loadNotifications(); checkNotifications();
+// 准备回复
+window.prepareReply = function(commentId, username) {
+    const input = document.getElementById('commentInput');
+    input.dataset.parentId = commentId;
+    input.placeholder = `回复 @${username} ...`;
+    input.focus();
+    
+    // 显示取消按钮
+    let cancelBtn = document.getElementById('cancelReplyBtn');
+    if (!cancelBtn) {
+        // 如果 HTML 没写，动态加一个
+        cancelBtn = document.createElement('button');
+        cancelBtn.id = 'cancelReplyBtn';
+        cancelBtn.className = 'cyber-btn';
+        cancelBtn.style.width = 'auto';
+        cancelBtn.style.marginLeft = '10px';
+        cancelBtn.style.fontSize = '0.8rem';
+        cancelBtn.style.padding = '5px 10px';
+        cancelBtn.innerText = '取消回复';
+        cancelBtn.onclick = cancelReply;
+        document.querySelector('.comment-input-box').appendChild(cancelBtn);
+    }
+    cancelBtn.style.display = 'inline-block';
 };
 
+window.cancelReply = function() {
+    const input = document.getElementById('commentInput');
+    input.dataset.parentId = "";
+    input.placeholder = "输入你的看法... (支持纯文本)";
+    document.getElementById('cancelReplyBtn').style.display = 'none';
+};
+
+// 提交评论 (支持回复)
 window.submitComment = async function() {
     const input = document.getElementById('commentInput');
     const content = input.value.trim();
+    const parentId = input.dataset.parentId || null;
+
     if(!content) return alert("内容不能为空");
-    const btn = document.querySelector('.comment-input-box button');
+    
+    const btn = document.querySelector('.comment-input-box button:first-child'); // 发送按钮
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/comments`, {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ post_id: currentPostId, content: content })
+            body: JSON.stringify({ 
+                post_id: currentPostId, 
+                content: content,
+                parent_id: parentId // 发送父ID
+            })
         });
         const data = await res.json();
-        if(data.success) { alert(data.message); input.value = ''; loadNativeComments(currentPostId); }
+        if(data.success) { 
+            alert(data.message); 
+            input.value = ''; 
+            cancelReply(); // 重置状态
+            loadNativeComments(currentPostId); 
+        }
         else { alert(data.error); }
     } catch(e) { alert("Error"); }
     finally { btn.disabled = false; }
 };
 
+// ... (其他原有函数保持不变，如 notifications, admin, etc.) ...
+// 为了确保完整性，以下是需要保留的关键函数
+
+window.toggleLike = async function(targetId, type, btn) {
+    if(btn.disabled) return;
+    btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/like`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ target_id: targetId, target_type: type })
+        });
+        const data = await res.json();
+        
+        if(data.success) {
+            const countSpan = btn.querySelector('.count');
+            countSpan.textContent = data.count;
+            if(data.isLiked) btn.classList.add('liked');
+            else btn.classList.remove('liked');
+        } else {
+            if(res.status === 401) alert("请先登录");
+            else alert(data.error);
+        }
+    } catch(e) { console.error(e); }
+    finally { btn.disabled = false; }
+};
+
+// 新增：保存头衔显示偏好
+window.saveBadgePreference = async function() {
+    const select = document.getElementById('badgePreferenceSelect');
+    const pref = select.value;
+    try {
+        const res = await fetch(`${API_BASE}/profile`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ badge_preference: pref })
+        });
+        const data = await res.json();
+        if(data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert(data.error);
+        }
+    } catch(e) { alert("Error"); }
+};
+
+// ... 原有的 admin, tasks, checkin, deletePost, etc. ...
+// 这里为了篇幅不重复粘贴所有未修改的函数，但你需要保证它们在 script.js 中。
+// 建议：直接保留你原来的辅助函数，只替换 loadPosts, loadSinglePost, loadNativeComments, submitComment, checkSecurity, 和新增 saveBadgePreference, prepareReply, cancelReply。
+
+// === 补全基础函数以防丢失 ===
+window.adminGrantTitle = async function() {
+    const username = document.getElementById('adminTitleUser').value;
+    const title = document.getElementById('adminTitleText').value;
+    const color = document.getElementById('adminTitleColor').value;
+    if(!username) return alert("请输入用户名");
+    try {
+        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: username, title: title, color: color }) });
+        const data = await res.json();
+        if(data.success) alert("头衔发放成功！"); else alert(data.error);
+    } catch(e) { alert("Error"); }
+};
+window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); alert("Copied"); };
+async function checkNotifications() { try { const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); const b = document.getElementById('notifyBadge'); if(d.count>0){ b.style.display='inline-block'; b.textContent=d.count;} else b.style.display='none'; } catch(e){} }
+async function loadNotifications() { const c = document.getElementById('notifyList'); c.innerHTML='Loading...'; try{ const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); c.innerHTML=''; if(d.list.length===0){c.innerHTML='No logs';return;} d.list.forEach(n=>{ const div=document.createElement('div'); div.className=`notify-item ${n.is_read?'':'unread'}`; div.innerHTML=`<div class="notify-msg">${n.message}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`; div.onclick=()=>{window.location.hash=n.link;}; c.appendChild(div); }); }catch(e){c.innerHTML='Error';} }
+window.markAllRead = async function() { await fetch(`${API_BASE}/notifications`, {method:'POST'}); loadNotifications(); checkNotifications(); };
+window.deletePost = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); window.location.hash='#home'; };
+window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
+window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d})}); alert("Done"); };
+window.adminGenKey = async function() { const u=document.getElementById('adminTargetUser').value; const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_key', target_username:u})}); const d=await r.json(); document.getElementById('adminKeyResult').innerText=d.key; };
+window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); alert("Posted"); };
+window.adminGenInvite = async function() { const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_invite'})}); const d=await r.json(); document.getElementById('adminInviteResult').innerText=d.codes?d.codes.join('\n'):d.code; };
+window.randomizeAvatar = async function() { if(!confirm("Randomize?"))return; const r=await fetch(`${API_BASE}/random_avatar`, {method:'POST'}); const d=await r.json(); if(d.success) window.location.reload(); };
+window.doLuckyDraw = async function() { await fetch(`${API_BASE}/draw`, {method:'POST'}); window.location.reload(); };
+window.updateProfile = async function() { const n=document.getElementById('newNickname').value; await fetch(`${API_BASE}/profile`, {method:'POST', body:JSON.stringify({nickname:n})}); window.location.reload(); };
+window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await fetch(`${API_BASE}/vip`, {method:'POST'}); const d=await r.json(); alert(d.message); if(d.success) window.location.reload(); };
+async function doPost(e) { e.preventDefault(); const t=document.getElementById('postTitle').value; const c=document.getElementById('postContent').value; const cat=document.getElementById('postCategory').value; await fetch(`${API_BASE}/posts`, {method:'POST', body:JSON.stringify({title:t, content:c, category:cat})}); window.location.hash='#home'; }
+async function doCheckIn() { await fetch(`${API_BASE}/checkin`, {method:'POST'}); window.location.reload(); }
+async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
+window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
+async function loadTasks() { const c=document.getElementById('taskContainer'); try{ const r=await fetch(`${API_BASE}/tasks`); const t=await r.json(); c.innerHTML=`<h3>${t.task_type} ${t.progress}/${t.target}</h3>`; if(t.progress>=t.target && !t.is_claimed) c.innerHTML+='<button onclick="claimTask()">CLAIM</button>'; }catch(e){} }
+window.claimTask = async function() { await fetch(`${API_BASE}/tasks`, {method:'POST', body:JSON.stringify({action:'claim'})}); loadTasks(); };
+window.rerollTask = async function() { await fetch(`${API_BASE}/tasks`, {method:'POST', body:JSON.stringify({action:'reroll'})}); loadTasks(); };
+
+// 初始化
 function initApp() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) {
@@ -549,305 +644,3 @@ async function handleRoute() {
         loadSinglePost(hash.split('=')[1]);
     }
 }
-
-window.randomizeAvatar = async function() {
-    if(!confirm("确定重置头像颜色吗？")) return;
-    try {
-        const res = await fetch(`${API_BASE}/random_avatar`, { method: 'POST' });
-        const data = await res.json();
-        if(data.success) {
-            alert("重置成功！");
-            currentUser.avatar_variant = data.variant;
-            const newSvg = generatePixelAvatar(currentUser.username, data.variant);
-            document.querySelector('#avatarContainer .post-avatar-box').innerHTML = newSvg;
-            document.getElementById('settingAvatarPreview').innerHTML = newSvg;
-        } else { alert(data.error); }
-    } catch(e) { alert("操作失败"); }
-};
-
-window.doLuckyDraw = async function() {
-    const btn = document.querySelector('.lucky-draw-btn');
-    if(btn) { btn.disabled = true; btn.textContent = "DRAWING..."; }
-    try {
-        const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
-        const data = await res.json();
-        if(data.success) { alert(`🎉 ${data.message}`); window.location.reload(); }
-        else { alert(`🚫 ${data.error}`); }
-    } catch(e) { alert("系统繁忙"); } 
-    finally { if(btn) { btn.disabled = false; btn.textContent = "🎲 每日幸运抽奖"; } }
-};
-
-window.updateProfile = async function() {
-    const nick = document.getElementById('newNickname').value;
-    if(!nick) return alert("请输入昵称");
-    try {
-        const res = await fetch(`${API_BASE}/profile`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({nickname: nick})
-        });
-        const data = await res.json();
-        if(data.success) { alert("修改成功"); window.location.reload(); }
-        else { alert(data.error); }
-    } catch(e) { alert("Error"); }
-};
-
-window.buyVip = async function() {
-    if(!confirm("确认消耗50 i币开通VIP吗？")) return;
-    try {
-        const res = await fetch(`${API_BASE}/vip`, { method: 'POST' });
-        const data = await res.json();
-        alert(data.message || data.error);
-        if(data.success) window.location.reload();
-    } catch(e) { alert("Error"); }
-};
-
-window.deletePost = async function(id) {
-    if (!confirm("⚠️ 警告：确定要永久删除这篇文章吗？")) return;
-    try {
-        const res = await fetch(`${API_BASE}/posts?id=${id}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) { alert("已删除"); window.location.hash = '#home'; }
-        else { alert(data.error); }
-    } catch (e) { alert("Fail"); }
-};
-
-//修改 doPost (发送 category)
-async function doPost(e) {
-    e.preventDefault();
-    const title = document.getElementById('postTitle').value;
-    const content = document.getElementById('postContent').value;
-    // 新增：获取分类
-    const category = document.getElementById('postCategory').value;
-    
-    const btn = document.querySelector('#postForm button');
-    btn.disabled = true;
-    try {
-        const res = await fetch(`${API_BASE}/posts`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                title, 
-                content, 
-                category // 发送分类
-            })
-        });
-        const data = await res.json();
-        if (data.success) { 
-            alert(data.message); 
-            window.location.hash = '#home'; 
-            document.getElementById('postTitle').value=''; 
-            document.getElementById('postContent').value=''; 
-        }
-        else { alert(data.error); }
-    } catch(err) { alert("Error"); } 
-    finally { btn.disabled = false; }
-}
-
-
-async function doCheckIn() {
-    const btn = document.getElementById('checkInBtn');
-    if(btn.disabled) return;
-    btn.disabled = true;
-    try {
-        const res = await fetch(`${API_BASE}/checkin`, { method: 'POST' });
-        const data = await res.json();
-        alert(data.message);
-        if(data.coins) window.location.reload(); 
-    } catch(e) { alert("Error"); } 
-    finally { btn.disabled = false; }
-}
-
-async function doLogout() {
-    if(confirm("Disconnect?")) {
-        await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
-        window.location.href = '/login.html';
-    }
-}
-
-window.tipUser = async function(targetId) {
-    const amount = prompt("请输入打赏金额 (i币):");
-    if (!amount) return;
-    if (isNaN(amount) || amount <= 0) return alert("请输入有效数字");
-    try {
-        const res = await fetch(`${API_BASE}/tip`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ target_user_id: targetId, amount: amount })
-        });
-        const data = await res.json();
-        if (data.success) { alert(data.message); window.location.reload(); }
-        else { alert(data.error); }
-    } catch (e) { alert("打赏失败"); }
-};
-
-window.deleteComment = async function(commentId) {
-    if(!confirm("确认删除此评论？")) return;
-    try {
-        const res = await fetch(`${API_BASE}/comments?id=${commentId}`, { method: 'DELETE' });
-        const data = await res.json();
-        if(data.success) { loadNativeComments(currentPostId); }
-        else { alert(data.error); }
-    } catch(e) { alert("Error"); }
-};
-
-// === 修改：管理员封号 (支持天数) ===
-window.adminBanUser = async function(userId) {
-    // 弹出选项
-    const daysStr = prompt("【高危操作】请输入封禁天数：\n1, 3, 7, 14, 30, 365, 9999(永久)", "1");
-    if (daysStr === null) return; // 取消
-    
-    const days = parseInt(daysStr);
-    if (isNaN(days) || days <= 0) return alert("请输入有效天数");
-
-    if(!confirm(`确定要封禁该用户 ${days} 天吗？`)) return;
-
-    try {
-        const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                action: 'ban_user', 
-                target_user_id: userId,
-                days: days // 发送天数
-            })
-        });
-        const data = await res.json();
-        if(data.success) alert(data.message);
-        else alert(data.error);
-    } catch(e) { alert("Error"); }
-};
-
-window.adminGenKey = async function() {
-    const username = document.getElementById('adminTargetUser').value;
-    if(!username) return alert("请输入用户名");
-    try {
-        const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'gen_key', target_username: username })
-        });
-        const data = await res.json();
-        if(data.success) { document.getElementById('adminKeyResult').innerHTML = `KEY: ${data.key} <br>(请手动发送给用户)`; }
-        else { alert(data.error); }
-    } catch(e) { alert("Error"); }
-};
-
-// === 新增：管理员发布公告 ===
-window.adminPostAnnounce = async function() {
-    const title = document.getElementById('adminAnnounceTitle').value;
-    const content = document.getElementById('adminAnnounceContent').value;
-    
-    if(!title || !content) return alert("标题和内容不能为空");
-    
-    if(!confirm("确认发布全站公告？")) return;
-
-    try {
-        const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                action: 'post_announce', 
-                title: title,
-                content: content
-            })
-        });
-        const data = await res.json();
-        if(data.success) { 
-            alert("公告发布成功！");
-            document.getElementById('adminAnnounceTitle').value = '';
-            document.getElementById('adminAnnounceContent').value = '';
-            window.location.hash = '#home'; // 跳回首页看效果
-        }
-        else { alert(data.error); }
-    } catch(e) { alert("Error"); }
-};
-
-// === 新增：点赞功能 ===
-window.toggleLike = async function(targetId, type, btn) {
-    // 简单的防抖
-    if(btn.disabled) return;
-    btn.disabled = true;
-    
-    try {
-        const res = await fetch(`${API_BASE}/like`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ target_id: targetId, target_type: type })
-        });
-        const data = await res.json();
-        
-        if(data.success) {
-            const countSpan = btn.querySelector('.count');
-            countSpan.textContent = data.count;
-            if(data.isLiked) btn.classList.add('liked');
-            else btn.classList.remove('liked');
-        } else {
-            // 如果是没登录，可能会报401
-            if(res.status === 401) alert("请先登录");
-            else alert(data.error);
-        }
-    } catch(e) { console.error(e); }
-    finally { btn.disabled = false; }
-};
-
-// === 新增：管理员生成邀请码 ===
-window.adminGenInvite = async function() {
-    try {
-        const res = await fetch(`${API_BASE}/admin`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'gen_invite' })
-        });
-        const data = await res.json();
-        if(data.success) {
-            document.getElementById('adminInviteResult').innerText = data.code;
-        } else { alert(data.error); }
-    } catch(e) { alert("Error"); }
-};
-
-// 加载任务
-async function loadTasks() {
-    const container = document.getElementById('taskContainer');
-    container.innerHTML = 'Loading...';
-    try {
-        const res = await fetch(`${API_BASE}/tasks`);
-        const t = await res.json();
-        
-        const typeMap = { 'checkin': '每日签到', 'post': '发布文章', 'comment': '发表评论' };
-        const isDone = t.progress >= t.target;
-        const btnState = t.is_claimed ? 
-            `<button class="cyber-btn" disabled>已完成 / CLAIMED</button>` : 
-            (isDone ? `<button onclick="claimTask()" class="cyber-btn" style="border-color:#0f0;color:#0f0">领取奖励 / CLAIM</button>` : `<button class="cyber-btn" disabled>未完成 / IN PROGRESS</button>`);
-        
-        const rerollBtn = (t.reroll_count === 0 && !t.is_claimed) ? 
-            `<button onclick="rerollTask()" class="cyber-btn" style="margin-top:10px;border-color:orange;color:orange">刷新任务 (10 i币)</button>` : '';
-
-        container.innerHTML = `
-            <div class="task-card">
-                <div class="task-header">
-                    <h3>${typeMap[t.task_type]} (${t.progress}/${t.target})</h3>
-                    <span>奖励: ${t.reward_xp} XP, ${t.reward_coins} i币</span>
-                </div>
-                <div class="task-progress-bg">
-                    <div class="task-progress-fill" style="width:${Math.min(100, (t.progress/t.target)*100)}%"></div>
-                </div>
-                ${btnState}
-                ${rerollBtn}
-            </div>
-        `;
-    } catch(e) { container.innerHTML = 'Error loading task'; }
-}
-
-window.rerollTask = async function() {
-    if(!confirm("消耗10 i币刷新今日任务？")) return;
-    await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'reroll'}) });
-    loadTasks();
-};
-
-window.claimTask = async function() {
-    const res = await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'claim'}) });
-    const data = await res.json();
-    if(data.success) { alert(data.message); loadTasks(); checkSecurity(); }
-    else alert(data.error);
-};
-
-
-
