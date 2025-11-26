@@ -106,7 +106,14 @@
         <form id="authForm">
             <input type="text" id="username" placeholder="USERNAME // 用户名" required>
             <input type="password" id="password" placeholder="PASSWORD // 密码" required>
-            
+
+            <!-- 新增：邀请码输入框 (默认隐藏，注册时显示) -->
+            <input type="text" id="inviteCode" placeholder="INVITE CODE // 邀请码" style="display:none;">
+    
+            <input type="text" id="recoveryKeyInput" placeholder="RECOVERY KEY // 恢复密钥" style="display:none;">
+    
+            <div id="msgBox" class="msg-box"></div>
+            <button type="submit" id="submitBtn">SYSTEM ACCESS >></button>
             <!-- 只有重置密码时才显示恢复密钥输入框 -->
             <input type="text" id="recoveryKeyInput" placeholder="RECOVERY KEY // 恢复密钥" style="display:none;">
             
@@ -125,6 +132,7 @@
         const passInput = document.getElementById('password');
         const keyInput = document.getElementById('recoveryKeyInput');
         const recoveryBox = document.getElementById('newRecoveryKey');
+        const inviteInput = document.getElementById('inviteCode'); // 获取元素
 
         // 检查是否已登录
         fetch('/api/user').then(res => res.json()).then(data => {
@@ -145,16 +153,22 @@
                 passInput.placeholder = "PASSWORD // 密码";
                 keyInput.style.display = 'none';
                 keyInput.removeAttribute('required');
+                inviteInput.style.display = 'none';
+                inviteInput.removeAttribute('required');
             } else if (mode === 'register') {
                 submitBtn.textContent = "CREATE ACCOUNT >";
                 passInput.placeholder = "PASSWORD // 设置密码";
                 keyInput.style.display = 'none';
                 keyInput.removeAttribute('required');
+                // 注册时显示邀请码
+                inviteInput.style.display = 'block';
+                inviteInput.required = true;
             } else if (mode === 'reset') {
                 submitBtn.textContent = "RESET PASSWORD >";
                 passInput.placeholder = "NEW PASSWORD // 新密码";
                 keyInput.style.display = 'block';
                 keyInput.required = true;
+                inviteInput.style.display = 'none';
             }
         }
 
@@ -163,6 +177,7 @@
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
             const k = keyInput.value;
+            const invite = inviteInput.value; // 获取值
 
             submitBtn.disabled = true;
             submitBtn.textContent = "PROCESSING...";
@@ -173,6 +188,7 @@
 
             if (currentMode === 'register') {
                 endpoint = '/api/auth/register';
+                body.inviteCode = invite;
             } else if (currentMode === 'reset') {
                 endpoint = '/api/auth/reset';
                 body = { username: u, newPassword: p, recoveryKey: k };
@@ -220,3 +236,4 @@
     </script>
 </body>
 </html>
+
