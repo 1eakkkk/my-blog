@@ -1,3 +1,4 @@
+// 只覆盖 onRequestGet，其他部分保持不变
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
@@ -5,9 +6,9 @@ export async function onRequestGet(context) {
 
   if (!postId) return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
 
-  // 关键修改：增加了 users.xp
   const comments = await db.prepare(`
-    SELECT comments.*, users.username, users.nickname, users.avatar_variant, users.is_vip, users.level, users.xp
+    SELECT comments.*, users.username, users.nickname, users.avatar_variant, users.is_vip, users.level, users.xp,
+           users.role, users.custom_title, users.custom_title_color
     FROM comments
     JOIN users ON comments.user_id = users.id
     WHERE comments.post_id = ?
@@ -16,7 +17,7 @@ export async function onRequestGet(context) {
 
   return new Response(JSON.stringify(comments.results), { headers: { 'Content-Type': 'application/json' } });
 }
-
+// ... (保留原来的 onRequestPost 和 onRequestDelete) ...
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
