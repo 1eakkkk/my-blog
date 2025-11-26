@@ -473,3 +473,24 @@ footer {
 .post-card.is-announce {
     border: 1px solid rgba(255, 51, 51, 0.3);
 }
+
+/* 点赞按钮 */
+.like-btn {
+    background: transparent;
+    border: 1px solid #666;
+    color: #666;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.like-btn:hover { border-color: #ff3333; color: #ff3333; }
+.like-btn.liked {
+    background: rgba(255, 51, 51, 0.1);
+    border-color: #ff3333;
+    color: #ff3333;
+}
