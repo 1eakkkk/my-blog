@@ -326,7 +326,6 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
     .mobile-menu-btn { display: block; }
 }
 
-/* --- 底部版权栏样式 (添加到文件末尾) --- */
 footer {
     margin-top: 4rem;
     border-top: 1px solid var(--border-color);
@@ -340,3 +339,54 @@ footer {
     align-items: center;
 }
 
+/* 消息通知红点 */
+.notify-badge {
+    background-color: #ff3333;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(255, 51, 51, 0.5);
+}
+
+/* 评论列表样式 */
+.comment-item {
+    border-bottom: 1px solid #222;
+    padding: 15px 0;
+    display: flex;
+    gap: 15px;
+}
+.comment-item:last-child { border-bottom: none; }
+
+.comment-avatar {
+    width: 40px; height: 40px;
+    flex-shrink: 0;
+    border: 1px solid #333;
+    border-radius: 4px;
+}
+
+.comment-content-box { flex: 1; }
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+    color: #666;
+}
+.comment-author { color: var(--accent-blue); font-weight: bold; }
+.comment-text { color: #ccc; line-height: 1.5; }
+
+/* 通知列表项 */
+.notify-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid #333;
+    padding: 15px;
+    border-left: 3px solid var(--accent-blue);
+    cursor: pointer;
+    transition: 0.3s;
+}
+.notify-item:hover { background: rgba(255, 255, 255, 0.05); }
+.notify-item.unread { border-left-color: #ff3333; background: rgba(255, 51, 51, 0.05); }
+.notify-time { font-size: 0.7rem; color: #666; margin-top: 5px; }
