@@ -87,6 +87,23 @@ function getFloorName(index) {
     return `#${index}`;
 }
 
+
+// === 新增：渲染等级表函数 ===
+function renderLevelTable() {
+    const tbody = document.getElementById('levelTableBody');
+    if (!tbody || tbody.innerHTML.trim() !== '') return; // 如果已经有内容就不重复渲染
+
+    LEVEL_TABLE.forEach(l => {
+        const tr = document.createElement('tr');
+        // 使用 badge 样式让称号更好看
+        tr.innerHTML = `
+            <td>LV.${l.lv}</td>
+            <td><span class="badge lv-${l.lv}">${l.title}</span></td>
+            <td>${l.xp} XP</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
 // === 核心功能函数 (提前定义) ===
 
 async function loadTasks() { 
@@ -332,6 +349,7 @@ async function handleRoute() {
     } else if (hash === '#about') {
         if(views.about) views.about.style.display = 'block';
         const link = document.querySelector('a[href="#about"]'); if(link) link.classList.add('active');
+        renderLevelTable();
     } else if (hash === '#notifications') {
         if(views.notifications) views.notifications.style.display = 'block';
         const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
@@ -490,3 +508,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. 执行安全检查 (验证登录状态、移除加载遮罩)
     checkSecurity();
 });
+
