@@ -27,6 +27,7 @@ export async function onRequestGet(context) {
       if(u) currentUserId = u.user_id;
   }
 
+  // === 核心改动：增加 comment_count ===
   const fields = `
     posts.*, 
     users.username as author_username, 
@@ -39,7 +40,8 @@ export async function onRequestGet(context) {
     users.custom_title as author_title,
     users.custom_title_color as author_title_color,
     users.badge_preference as author_badge_preference,
-    (SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = ${currentUserId || 0}) as is_liked
+    (SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = ${currentUserId || 0}) as is_liked,
+    (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) as comment_count
   `;
 
   try {
@@ -103,26 +105,17 @@ export async function onRequestPut(context) {
 
   const { id, action, title, content, category } = await context.request.json();
 
-  // 1. 编辑帖子
   if (action === 'edit') {
       const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(id).first();
       if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
-      if (post.user_id !== user.id && user.role !== 'admin') {
-          return new Response(JSON.stringify({ success: false, error: '无权编辑他人文章' }), { status: 403 });
-      }
+      if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
+      if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
 
-      let finalCat = category;
-      if (finalCat === '公告' && user.role !== 'admin') {
-          return new Response(JSON.stringify({ success: false, error: '无权发布公告' }), { status: 403 });
-      }
-
-      // === 修改：更新 updated_at ===
       await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, updated_at = ? WHERE id = ?')
-          .bind(title, content, finalCat, Date.now(), id).run();
+          .bind(title, content, category, Date.now(), id).run();
       return new Response(JSON.stringify({ success: true, message: '文章已更新' }));
   }
 
-  // 2. 置顶操作
   if (action === 'pin') {
       if (user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
       const current = await db.prepare('SELECT is_pinned FROM posts WHERE id = ?').bind(id).first();
@@ -130,7 +123,6 @@ export async function onRequestPut(context) {
       await db.prepare('UPDATE posts SET is_pinned = ? WHERE id = ?').bind(newState, id).run();
       return new Response(JSON.stringify({ success: true, message: newState ? '已置顶' : '已取消置顶', is_pinned: newState }));
   }
-
   return new Response(JSON.stringify({ success: false, error: '未知操作' }));
 }
 
