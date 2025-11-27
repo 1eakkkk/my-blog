@@ -7,6 +7,7 @@ let currentPostId = null;
 let returnToNotifications = false;
 let isAppReady = false;
 
+// 分页 & 状态
 let currentPage = 1;
 const POSTS_PER_PAGE = 10;
 let isLoadingPosts = false;
@@ -20,7 +21,6 @@ let currentCommentPage = 1;
 const COMMENTS_PER_PAGE = 20;
 let hasMoreComments = true;
 let isLoadingComments = false;
-
 let currentPostAuthorId = null;
 
 const LEVEL_TABLE = [
@@ -36,66 +36,116 @@ const LEVEL_TABLE = [
     { lv: 10, xp: 60000, title: '赛博神' }
 ];
 
-function calculateLevel(xp) {
-    if (xp >= 60000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
-    let currentLv = 1; let currentTitle = '潜行者'; let nextXp = 300; let prevXp = 0;
-    for (let i = 0; i < LEVEL_TABLE.length; i++) {
-        if (xp >= LEVEL_TABLE[i].xp) {
-            currentLv = LEVEL_TABLE[i].lv; currentTitle = LEVEL_TABLE[i].title; prevXp = LEVEL_TABLE[i].xp;
-            if (i < LEVEL_TABLE.length - 1) nextXp = LEVEL_TABLE[i+1].xp;
-        }
+// --- 视图对象定义 ---
+const views = {
+    home: document.getElementById('view-home'),
+    write: document.getElementById('view-write'),
+    tasks: document.getElementById('view-tasks'),
+    post: document.getElementById('view-post'),
+    settings: document.getElementById('view-settings'),
+    about: document.getElementById('view-about'),
+    notifications: document.getElementById('view-notifications'),
+    feedback: document.getElementById('view-feedback'),
+    admin: document.getElementById('view-admin')
+};
+
+// ==========================================
+// 核心逻辑区 (放在顶部以防止 ReferenceError)
+// ==========================================
+
+// 1. 初始化入口
+function initApp() {
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    if (mobileMenuBtn) { 
+        mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; 
     }
-    let percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
-    return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp, title: currentTitle };
+    document.addEventListener('click', (e) => {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('mobileMenuBtn');
+        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btn) { sidebar.classList.remove('open'); }
+    });
+    
+    const checkInBtn = document.getElementById('checkInBtn'); 
+    if (checkInBtn) checkInBtn.onclick = window.doCheckIn;
+    
+    const postForm = document.getElementById('postForm'); 
+    if (postForm) postForm.onsubmit = doPost;
+    
+    window.addEventListener('hashchange', handleRoute);
+    
+    setInterval(() => { 
+        const el = document.getElementById('clock'); 
+        if(el) el.textContent = new Date().toLocaleTimeString(); 
+    }, 1000);
+    
+    // 如果此时应用已就绪，立即处理路由
+    if(isAppReady) handleRoute();
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    initApp();
-    await checkSecurity();
-});
+// 2. 路由处理函数
+async function handleRoute() {
+    const hash = window.location.hash || '#home';
+    const sidebar = document.getElementById('sidebar');
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
+    navLinks.forEach(el => el.classList.remove('active'));
+    if(sidebar) sidebar.classList.remove('open');
 
-function generatePixelAvatar(username, variant = 0) {
-    const seedStr = username + "v" + variant;
-    let hash = 0;
-    for (let i = 0; i < seedStr.length; i++) { hash = seedStr.charCodeAt(i) + ((hash << 5) - hash); }
-    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase().padStart(6, "0");
-    const color = `#${c}`;
-    let rects = '';
-    for(let i=0; i<5; i++) { for(let j=0; j<5; j++) {
-            const val = (hash >> (i * 5 + j)) & 1; 
-            if(val) rects += `<rect x="${j*10}" y="${i*10}" width="10" height="10" fill="${color}" />`;
-    }}
-    return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
+    if(!isAppReady && hash === '#admin') return;
+
+    // 退出编辑模式
+    if(hash !== '#write' && isEditingPost) {
+        isEditingPost = false; editingPostId = null;
+        const btn = document.querySelector('#postForm button');
+        if(btn) btn.textContent = "发布 / PUBLISH";
+        const t = document.getElementById('postTitle'); if(t) t.value=''; 
+        const c = document.getElementById('postContent'); if(c) c.value=''; 
+        const cancelBtn = document.getElementById('cancelEditPostBtn');
+        if(cancelBtn) cancelBtn.style.display = 'none';
+    }
+
+    if (hash === '#home') {
+        if(views.home) views.home.style.display = 'block';
+        const link = document.querySelector('a[href="#home"]'); if(link) link.classList.add('active');
+        loadPosts(true); 
+    } else if (hash === '#write') {
+        if(views.write) views.write.style.display = 'block';
+        const link = document.getElementById('navWrite'); if(link) link.classList.add('active');
+        tryRestoreDraft();
+     } else if (hash === '#tasks') {
+        if(views.tasks) views.tasks.style.display = 'block';
+        loadTasks(); // 这里调用下方的函数
+    } else if (hash === '#settings') {
+        if(views.settings) views.settings.style.display = 'block';
+        const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
+    } else if (hash === '#about') {
+        if(views.about) views.about.style.display = 'block';
+        const link = document.querySelector('a[href="#about"]'); if(link) link.classList.add('active');
+    } else if (hash === '#notifications') {
+        if(views.notifications) views.notifications.style.display = 'block';
+        const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
+        loadNotifications();
+    } else if (hash === '#feedback') {
+        if(views.feedback) views.feedback.style.display = 'block';
+        const link = document.querySelector('a[href="#feedback"]'); if(link) link.classList.add('active');
+    } else if (hash === '#admin') {
+        if(userRole !== 'admin') { alert("ACCESS DENIED"); window.location.hash='#home'; return; }
+        if(views.admin) {
+            views.admin.style.display = 'block';
+            const link = document.getElementById('navAdmin'); if(link) link.classList.add('active');
+            loadAdminStats();
+            loadAdminInvites();
+            loadAdminFeedbacks();
+            loadAdminBanList();
+        }
+    } else if (hash.startsWith('#post?id=')) {
+        if(views.post) views.post.style.display = 'block';
+        loadSinglePost(hash.split('=')[1]);
+    }
 }
 
-function getBadgesHtml(userObj) {
-    let html = '';
-    if (userObj.role === 'admin' || userObj.author_role === 'admin') html += `<span class="badge admin-tag">ADMIN</span>`;
-    const title = userObj.author_title || userObj.custom_title;
-    const color = userObj.author_title_color || userObj.custom_title_color || '#fff';
-    if (title) html += `<span class="badge custom-tag" style="color:${color};border-color:${color}">${title}</span>`;
-    const xp = userObj.xp !== undefined ? userObj.xp : (userObj.author_xp || 0);
-    const lvInfo = calculateLevel(xp);
-    const pref = userObj.badge_preference || 'number';
-    if (pref === 'title') html += `<span class="badge lv-${lvInfo.lv}">${lvInfo.title}</span>`;
-    else html += `<span class="badge lv-${lvInfo.lv}">LV.${lvInfo.lv}</span>`;
-    if (userObj.is_vip || userObj.author_vip) html += `<span class="badge vip-tag">VIP</span>`;
-    return html;
-}
-
-function getFloorName(index) {
-    if (index === 1) return '<span style="color:#FFD700">🛋️ 沙发</span>';
-    if (index === 2) return '<span style="color:#C0C0C0">🪑 板凳</span>';
-    if (index === 3) return '<span style="color:#cd7f32">🪵 地板</span>';
-    return `#${index}`;
-}
-
-function renderLevelTable() {
-    const tbody = document.getElementById('levelTableBody');
-    if(!tbody) return;
-    tbody.innerHTML = LEVEL_TABLE.map(item => `<tr><td><span class="badge lv-${item.lv}">LV.${item.lv}</span></td><td><span class="badge lv-${item.lv}">${item.title}</span></td><td>${item.xp}</td></tr>`).join('');
-}
-
+// 3. 安全检查与数据预加载
 async function checkSecurity() {
     const mask = document.getElementById('loading-mask');
     try {
@@ -110,12 +160,14 @@ async function checkSecurity() {
             userRole = data.role || 'user';
             isAppReady = true;
 
+            // 填充 UI
             const settingUser = document.getElementById('settingUsername');
             if(settingUser) settingUser.value = data.username;
 
             document.getElementById('username').textContent = data.nickname || data.username;
             document.getElementById('coinCount').textContent = data.coins;
             document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
+            
             const settingPreview = document.getElementById('settingAvatarPreview');
             if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
             const keyDisplay = document.getElementById('recoveryKeyDisplay');
@@ -128,6 +180,7 @@ async function checkSecurity() {
             document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
             document.getElementById('logoutBtn').onclick = doLogout;
 
+            // 管理员界面逻辑
             if (userRole === 'admin') {
                 document.getElementById('navAdmin').style.display = 'flex';
                 const postCat = document.getElementById('postCategory');
@@ -151,142 +204,39 @@ async function checkSecurity() {
             }
             checkNotifications();
             setInterval(checkNotifications, 60000);
-            loadTasks(); 
+            loadTasks(); // 任务侧边栏提示
+            checkForDrafts();
+            
+            // 手动触发路由
             handleRoute();
+
             if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
         }
     } catch (e) { console.error(e); window.location.replace('/login.html'); }
 }
 
-// --- 业务逻辑 ---
+// ==========================================
+// 功能模块函数
+// ==========================================
 
-window.submitFeedback = async function() {
-    const content = document.getElementById('feedbackContent').value;
-    if(!content || content.length < 5) return alert("反馈内容太短");
-    try {
-        const res = await fetch(`${API_BASE}/feedback`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({content})
-        });
-        const data = await res.json();
-        if(data.success) { alert(data.message); document.getElementById('feedbackContent').value = ''; window.location.hash='#home'; }
-        else alert(data.error);
-    } catch(e) { alert("Error"); }
-};
-
-async function checkAdminStatus() {
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) });
-        const data = await res.json();
-        if(data.success) {
-            const badge = document.getElementById('adminFeedbackBadge');
-            if(badge) {
-                if(data.unreadFeedback > 0) {
-                    badge.style.display = 'inline-block';
-                    badge.textContent = data.unreadFeedback;
-                } else {
-                    badge.style.display = 'none';
-                }
-            }
-            if(document.getElementById('view-admin').style.display === 'block') {
-                document.getElementById('statTotalUsers').innerText = data.totalUsers;
-                document.getElementById('statActiveUsers').innerText = data.activeUsers;
-                document.getElementById('inviteToggle').checked = data.inviteRequired;
-            }
-        }
-    } catch(e){}
-}
-async function loadAdminStats() { checkAdminStatus(); }
-
-window.adminBanUser = async function(uid) {
-    const days = prompt("封禁天数 (9999=永久):", "1");
-    if(!days) return;
-    const reason = prompt("封禁理由 (必填):", "违反社区规定");
-    if(!reason) return;
-    
-    await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:days, reason:reason})});
-    alert("Done");
-    if(document.getElementById('view-admin').style.display === 'block') loadAdminBanList();
-};
-
-window.adminUnbanUser = async function(uid) {
-    if(!confirm("解除封禁？")) return;
-    await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})});
-    alert("已解封");
-    loadAdminBanList();
-};
-
-async function loadAdminBanList() {
-    const tbody = document.querySelector('#adminBanTable tbody');
-    if(!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_banned_users'}) });
-        const data = await res.json();
-        tbody.innerHTML = '';
-        if(data.success && data.list.length > 0) {
-            data.list.forEach(u => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${u.nickname || u.username}</td><td>${u.ban_reason || '-'}</td><td>${new Date(u.ban_expires_at).toLocaleDateString()}</td><td><button onclick="adminUnbanUser(${u.id})" class="mini-action-btn" style="color:#0f0">解封</button></td>`;
-                tbody.appendChild(tr);
-            });
-        } else { tbody.innerHTML = '<tr><td colspan="4">无封禁用户</td></tr>'; }
-    } catch(e){ tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; }
-}
-
-window.toggleInviteSystem = async function() {
-    const enabled = document.getElementById('inviteToggle').checked;
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) });
-        const data = await res.json(); alert(data.message);
-    } catch(e){ alert("设置失败"); }
-};
-async function loadAdminInvites() {
-    const tbody = document.querySelector('#adminInviteTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_invites'}) });
-        const data = await res.json(); tbody.innerHTML = '';
-        if(data.success && data.list.length > 0) {
-            data.list.forEach(inv => {
-                const isExpired = inv.expires_at < Date.now(); let status = '<span style="color:#0f0">可用</span>'; if(inv.is_used) status = '<span style="color:#666">已用</span>'; else if(isExpired) status = '<span style="color:#f00">过期</span>';
-                const tr = document.createElement('tr'); tr.innerHTML = `<td>${inv.code}</td><td>${status}</td><td>${new Date(inv.expires_at).toLocaleDateString()}</td><td><button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button><button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button></td>`; tbody.appendChild(tr);
-            });
-        } else { tbody.innerHTML = '<tr><td colspan="4">暂无数据</td></tr>'; }
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; }
-}
-window.refillInvites = async function() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) }); const data = await res.json(); if(data.success) { alert(data.message); loadAdminInvites(); } else alert(data.error); } catch(e){ alert("Error"); } };
-window.deleteInvite = async function(code) { if(!confirm("Delete?")) return; try { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', code: code}) }); loadAdminInvites(); } catch(e){ alert("Error"); } };
-async function loadAdminFeedbacks() {
-    const tbody = document.querySelector('#adminFeedbackTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
-    try {
-        const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_feedbacks'}) });
-        const data = await res.json(); tbody.innerHTML = '';
-        if(data.success && data.list.length > 0) {
-            data.list.forEach(fb => {
-                const tr = document.createElement('tr'); if (!fb.is_read) tr.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
-                let replyHTML = ''; if (fb.reply_content) { replyHTML = `<div style="margin-top:5px;padding:5px;border-left:2px solid #0f0;font-size:0.8rem;color:#888;"><span style="color:#0f0">ADMIN:</span> ${fb.reply_content}</div>`; }
-                tr.innerHTML = `<td>${fb.nickname || fb.username}</td><td style="white-space:pre-wrap;max-width:300px;">${fb.content}${replyHTML}<div style="margin-top:8px;">${!fb.is_read ? `<button onclick="adminMarkRead(${fb.id})" class="mini-action-btn" style="color:gold">已读</button>` : ''}<button onclick="adminReplyFeedback(${fb.id}, ${fb.user_id})" class="mini-action-btn" style="color:#0070f3">回复</button><button onclick="adminDeleteFeedback(${fb.id})" class="mini-action-btn" style="color:#f33">删除</button></div></td><td>${new Date(fb.created_at).toLocaleString()}</td>`; tbody.appendChild(tr);
-            });
-        } else { tbody.innerHTML = '<tr><td colspan="3">暂无反馈</td></tr>'; }
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>'; }
-}
-window.adminMarkRead = async function(id) { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'mark_feedback_read', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
-window.adminDeleteFeedback = async function(id) { if(!confirm("Delete feedback?")) return; await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_feedback', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
-window.adminReplyFeedback = async function(id, userId) { const reply = prompt("请输入回复内容："); if(!reply) return; const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'reply_feedback', id, user_id: userId, content: reply}) }); const d = await res.json(); if(d.success) { alert(d.message); loadAdminFeedbacks(); checkAdminStatus(); } else alert(d.error); };
-window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => alert("已复制")); };
-
+// --- 任务模块 ---
 async function loadTasks() { 
     const c=document.getElementById('taskContainer'); 
     try{ 
         const res=await fetch(`${API_BASE}/tasks`); 
         const t=await res.json(); 
+        
         const navTask = document.querySelector('a[href="#tasks"]');
         if(navTask) {
             if (t.progress >= t.target && !t.is_claimed) {
                 navTask.innerHTML = `每日任务 / Daily Tasks <span style="background:#0f0;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>`;
-            } else { navTask.innerHTML = `每日任务 / Daily Tasks`; }
+            } else {
+                navTask.innerHTML = `每日任务 / Daily Tasks`;
+            }
         }
-        if(!c) return; 
+
+        if(!c) return; // 不在任务页则退出
+        
         c.innerHTML='Loading...'; 
         const m={'checkin':'每日签到','post':'发布文章','comment':'发表评论'}; 
         const done=t.progress>=t.target; 
@@ -295,12 +245,21 @@ async function loadTasks() {
         c.innerHTML=`<div class="task-card"><div class="task-header"><h3>${m[t.task_type]||t.task_type} (${t.progress}/${t.target})</h3><span>${t.reward_xp}XP, ${t.reward_coins}i</span></div><div class="task-progress-bg"><div class="task-progress-fill" style="width:${Math.min(100,(t.progress/t.target)*100)}%"></div></div>${btn}${rr}</div>`; 
     }catch(e){ if(c) c.innerHTML = 'Error loading tasks'; } 
 }
-window.claimTask = async function() { const res = await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'claim'}) }); const data = await res.json(); if(data.success) { alert(data.message); loadTasks(); checkSecurity(); } else alert(data.error); };
-window.rerollTask = async function() { if(!confirm("消耗10 i币刷新今日任务？")) return; await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'reroll'}) }); loadTasks(); };
-window.doCheckIn = async function() { const btn = document.getElementById('checkInBtn'); if(btn) btn.disabled = true; try { const res = await fetch(`${API_BASE}/checkin`, {method:'POST'}); const data = await res.json(); alert(data.message); if(data.coins) window.location.reload(); } catch(e) { alert("Error"); } finally { if(btn) btn.disabled = false; } };
-window.doLuckyDraw = async function() { const btn = document.querySelector('.lucky-draw-btn'); if(btn) { btn.disabled = true; btn.textContent = "DRAWING..."; } try { const res = await fetch(`${API_BASE}/draw`, {method:'POST'}); const data = await res.json(); if(data.success) { alert(`🎉 ${data.message}`); window.location.reload(); } else { alert(`🚫 ${data.error}`); } } catch(e) { alert("系统繁忙"); } finally { if(btn) { btn.disabled = false; btn.textContent = "🎲 每日幸运抽奖"; } } };
 
-// === 帖子列表 ===
+window.claimTask = async function() { 
+    const res = await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'claim'}) }); 
+    const data = await res.json(); 
+    if(data.success) { alert(data.message); loadTasks(); checkSecurity(); } 
+    else alert(data.error); 
+};
+
+window.rerollTask = async function() { 
+    if(!confirm("消耗10 i币刷新今日任务？")) return; 
+    await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'reroll'}) }); 
+    loadTasks(); 
+};
+
+// --- 帖子列表 ---
 async function loadPosts(reset = false) {
     const container = document.getElementById('posts-list');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -316,24 +275,43 @@ async function loadPosts(reset = false) {
         if (posts.length === 0 && currentPage === 1) { container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; } else {
             const now = Date.now();
             posts.forEach(post => {
-                const rawDate = post.updated_at || post.created_at; const dateStr = new Date(rawDate).toLocaleDateString(); const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
-                const isNew = (now - post.created_at) < (24 * 60 * 60 * 1000); const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
+                const rawDate = post.updated_at || post.created_at; 
+                const dateStr = new Date(rawDate).toLocaleDateString(); 
+                const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
+                const isNew = (now - post.created_at) < (24 * 60 * 60 * 1000);
+                const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
                 const author = post.author_nickname || post.author_username || "Unknown";
                 const cat = post.category || '灌水'; let catClass = ''; if(cat === '技术') catClass = 'cat-tech'; else if(cat === '生活') catClass = 'cat-life'; else if(cat === '提问') catClass = 'cat-question'; else if(cat === '公告') catClass = 'cat-announce';
-                const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`; const isAnnounceClass = cat === '公告' ? 'is-announce' : ''; const pinnedIcon = post.is_pinned ? '<span style="color:#0f0;margin-right:5px">📌[置顶]</span>' : '';
+                const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`; 
+                const pinnedIcon = post.is_pinned ? '<span style="color:#0f0;margin-right:5px">📌[置顶]</span>' : '';
                 const badgeHtml = getBadgesHtml({ role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp, badge_preference: post.author_badge_preference });
-                const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>`;
-                const div = document.createElement('div'); div.className = `post-card ${isAnnounceClass}`; if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
+                const likeClass = post.is_liked ? 'liked' : ''; 
+                const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>`;
+                
+                const div = document.createElement('div'); 
+                div.className = `post-card ${isAnnounceClass}`; 
+                if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
+                
                 const commentCount = post.comment_count || 0;
-                div.innerHTML = `<div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div><div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div><div class="post-snippet">${post.content.substring(0, 100)}...</div><div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; color:#666;"><div>💬 <span class="count">${commentCount}</span> 评论</div><div>${likeBtn}</div></div>`;
-                div.onclick = () => { returnToNotifications = false; window.location.hash = `#post?id=${post.id}`; }; container.appendChild(div);
+                div.innerHTML = `
+                    <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div>
+                    <div class="post-snippet">${post.content.substring(0, 100)}...</div>
+                    <div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; color:#666;">
+                        <div>💬 <span class="count">${commentCount}</span> 评论</div>
+                        <div>${likeBtn}</div>
+                    </div>
+                `;
+                div.onclick = () => { returnToNotifications = false; window.location.hash = `#post?id=${post.id}`; }; 
+                container.appendChild(div);
             });
             currentPage++;
         }
     } catch (e) { console.error(e); }
-    finally { isLoadingPosts = false; if (!document.getElementById('loadMoreBtn')) { const btn = document.createElement('button'); btn.id = 'loadMoreBtn'; btn.className = 'cyber-btn'; btn.style.marginTop = '20px'; btn.onclick = () => loadPosts(false); container.parentNode.insertBefore(btn, container.nextSibling); } const btn = document.getElementById('loadMoreBtn'); if (hasMorePosts) { btn.style.display = 'block'; btn.textContent = '加载更多 / LOAD MORE'; } else { btn.style.display = 'none'; } }
+    finally { isLoadingPosts = false; if (loadMoreBtn) { loadMoreBtn.style.display = hasMorePosts ? 'block' : 'none'; if(isLoadingPosts) loadMoreBtn.textContent = "LOADING..."; else loadMoreBtn.textContent = '加载更多 / LOAD MORE'; } }
 }
 
+// --- 帖子详情 ---
 async function loadSinglePost(id) {
     currentPostId = id; const container = document.getElementById('single-post-content'); if(!container) return; container.innerHTML = '读取中...'; document.getElementById('commentsList').innerHTML = '';
     const backBtn = document.querySelector('#view-post .back-btn'); if (backBtn) { if (returnToNotifications) { backBtn.textContent = "< 返回通知 / BACK TO LOGS"; backBtn.onclick = () => window.location.hash = '#notifications'; } else { backBtn.textContent = "< 返回 / BACK"; backBtn.onclick = () => window.location.hash = '#home'; } }
@@ -349,6 +327,7 @@ async function loadSinglePost(id) {
     } catch (e) { console.error(e); container.innerHTML = 'Error loading post.'; }
 }
 
+// --- 评论列表 ---
 async function loadNativeComments(postId, reset = false) {
     const list = document.getElementById('commentsList'); const loadBtn = document.getElementById('loadCommentsBtn');
     if (reset) { currentCommentPage = 1; hasMoreComments = true; list.innerHTML = ''; if (loadBtn) loadBtn.style.display = 'none'; }
@@ -393,7 +372,66 @@ function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId
     div.innerHTML = `<div class="comment-avatar">${avatar}</div><div class="comment-content-box"><div class="comment-header"><span class="comment-author">${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>${floorTag}</div><div class="comment-meta-row">${pinnedBadge} ${new Date(c.created_at).toLocaleString()}<div class="comment-actions">${likeBtn} ${replyBtn} ${actionLinks}</div></div><div class="comment-text">${replyIndicator}${c.content}</div></div>`; return div;
 }
 
-// --- 通用函数 ---
+// --- 辅助功能 ---
+function calculateLevel(xp) {
+    if (xp >= 60000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
+    let currentLv = 1; let currentTitle = '潜行者'; let nextXp = 300; let prevXp = 0;
+    for (let i = 0; i < LEVEL_TABLE.length; i++) {
+        if (xp >= LEVEL_TABLE[i].xp) {
+            currentLv = LEVEL_TABLE[i].lv; currentTitle = LEVEL_TABLE[i].title; prevXp = LEVEL_TABLE[i].xp;
+            if (i < LEVEL_TABLE.length - 1) nextXp = LEVEL_TABLE[i+1].xp;
+        }
+    }
+    let percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
+    return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp, title: currentTitle };
+}
+
+function generatePixelAvatar(username, variant = 0) {
+    const seedStr = username + "v" + variant;
+    let hash = 0;
+    for (let i = 0; i < seedStr.length; i++) { hash = seedStr.charCodeAt(i) + ((hash << 5) - hash); }
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase().padStart(6, "0");
+    const color = `#${c}`;
+    let rects = '';
+    for(let i=0; i<5; i++) { for(let j=0; j<5; j++) {
+            const val = (hash >> (i * 5 + j)) & 1; 
+            if(val) rects += `<rect x="${j*10}" y="${i*10}" width="10" height="10" fill="${color}" />`;
+    }}
+    return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
+}
+
+function getBadgesHtml(userObj) {
+    let html = '';
+    if (userObj.role === 'admin' || userObj.author_role === 'admin') html += `<span class="badge admin-tag">ADMIN</span>`;
+    const title = userObj.author_title || userObj.custom_title;
+    const color = userObj.author_title_color || userObj.custom_title_color || '#fff';
+    if (title) html += `<span class="badge custom-tag" style="color:${color};border-color:${color}">${title}</span>`;
+    const xp = userObj.xp !== undefined ? userObj.xp : (userObj.author_xp || 0);
+    const lvInfo = calculateLevel(xp);
+    const pref = userObj.badge_preference || 'number';
+    if (pref === 'title') html += `<span class="badge lv-${lvInfo.lv}">${lvInfo.title}</span>`;
+    else html += `<span class="badge lv-${lvInfo.lv}">LV.${lvInfo.lv}</span>`;
+    if (userObj.is_vip || userObj.author_vip) html += `<span class="badge vip-tag">VIP</span>`;
+    return html;
+}
+
+function getFloorName(index) {
+    if (index === 1) return '<span style="color:#FFD700">🛋️ 沙发</span>';
+    if (index === 2) return '<span style="color:#C0C0C0">🪑 板凳</span>';
+    if (index === 3) return '<span style="color:#cd7f32">🪵 地板</span>';
+    return `#${index}`;
+}
+
+function renderLevelTable() {
+    const tbody = document.getElementById('levelTableBody');
+    if(!tbody) return;
+    tbody.innerHTML = LEVEL_TABLE.map(item => `<tr><td><span class="badge lv-${item.lv}">LV.${item.lv}</span></td><td><span class="badge lv-${item.lv}">${item.title}</span></td><td>${item.xp}</td></tr>`).join('');
+}
+
+function checkForDrafts() { const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory'); if(pTitle && pContent) { const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } }; pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save); } }
+function tryRestoreDraft() { if(isEditingPost) return; const t = localStorage.getItem('draft_title'); const c = localStorage.getItem('draft_content'); const cat = localStorage.getItem('draft_cat'); if ((t || c) && document.getElementById('postTitle').value === '') { if(confirm("发现未发布的草稿，是否恢复？\n取消则清空草稿。")) { document.getElementById('postTitle').value = t || ''; document.getElementById('postContent').value = c || ''; if(cat) document.getElementById('postCategory').value = cat; } else { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } } }
+
+// === 所有交互函数定义 ===
 window.editPostMode = function(id, titleEncoded, contentEncoded, category) { isEditingPost = true; editingPostId = id; window.location.hash = '#write'; document.getElementById('postTitle').value = decodeURIComponent(titleEncoded); document.getElementById('postContent').value = decodeURIComponent(contentEncoded); document.getElementById('postCategory').value = category; const btn = document.querySelector('#postForm button'); btn.textContent = "保存修改 / UPDATE POST"; let cancelBtn = document.getElementById('cancelEditPostBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelEditPostBtn'; cancelBtn.type = 'button'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.marginTop = '10px'; cancelBtn.style.borderColor = '#ff3333'; cancelBtn.style.color = '#ff3333'; cancelBtn.textContent = '取消编辑 / CANCEL'; cancelBtn.onclick = cancelEditPost; btn.parentNode.insertBefore(cancelBtn, btn.nextSibling); } cancelBtn.style.display = 'block'; };
 window.cancelEditPost = function() { isEditingPost = false; editingPostId = null; document.querySelector('#postForm button').textContent = "发布 / PUBLISH"; document.getElementById('postTitle').value = ''; document.getElementById('postContent').value = ''; const cancelBtn = document.getElementById('cancelEditPostBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; window.location.hash = '#home'; };
 window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
@@ -401,8 +439,6 @@ async function doPost(e) { e.preventDefault(); const t = document.getElementById
 window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return alert("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { alert(data.message); window.location.reload(); } else alert(data.error); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { alert(data.message); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true); } else { alert(data.error); } } } catch(e) { alert("Error"); } finally { if(btn) btn.disabled = false; } };
 window.prepareReply = function(commentId, username) { const input = document.getElementById('commentInput'); input.dataset.parentId = commentId || ""; input.placeholder = username ? `回复 @${username} ...` : "输入你的看法..."; input.focus(); let cancelBtn = document.getElementById('cancelReplyBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px'; cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply; document.querySelector('.comment-input-box').appendChild(cancelBtn); } cancelBtn.style.display = 'inline-block'; };
 window.cancelReply = function() { const input = document.getElementById('commentInput'); input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)"; const cancelBtn = document.getElementById('cancelReplyBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; };
-function checkForDrafts() { const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory'); if(pTitle && pContent) { const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } }; pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save); } }
-function tryRestoreDraft() { if(isEditingPost) return; const t = localStorage.getItem('draft_title'); const c = localStorage.getItem('draft_content'); const cat = localStorage.getItem('draft_cat'); if ((t || c) && document.getElementById('postTitle').value === '') { if(confirm("发现未发布的草稿，是否恢复？\n取消则清空草稿。")) { document.getElementById('postTitle').value = t || ''; document.getElementById('postContent').value = c || ''; if(cat) document.getElementById('postCategory').value = cat; } else { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } } }
 window.pinPost = async function(id) { if(!confirm("确认更改置顶状态？")) return; await fetch(`${API_BASE}/posts`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadSinglePost(id); };
 window.pinComment = async function(id) { if(!confirm("确认更改此评论置顶状态？")) return; await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadNativeComments(currentPostId, true); };
 window.deleteNotify = async function(id) { if(!confirm("Delete this log?")) return; await fetch(`${API_BASE}/notifications?id=${id}`, {method: 'DELETE'}); loadNotifications(); };
@@ -416,7 +452,8 @@ window.saveBadgePreference = async function() { const select = document.getEleme
 window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => alert("已复制")); };
 window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); alert("Copied"); };
 window.deletePost = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); window.location.hash='#home'; };
-window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId, true); };
+window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
+window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d})}); alert("Done"); };
 window.adminGenKey = async function() { const u=document.getElementById('adminTargetUser').value; const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_key', target_username:u})}); const d=await r.json(); document.getElementById('adminKeyResult').innerText=d.key; };
 window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); alert("Posted"); };
 window.adminGenInvite = async function() { const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_invite'})}); const d=await r.json(); document.getElementById('adminInviteResult').innerText=d.codes?d.codes.join('\n'):d.code; };
@@ -426,19 +463,33 @@ window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
 window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
 window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return alert("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) alert("头衔发放成功！"); else alert(data.error); } catch(e) { alert("Error"); } };
-function initApp() {
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    if (mobileMenuBtn) { mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; }
-    document.addEventListener('click', (e) => {
-        const sidebar = document.getElementById('sidebar');
-        const btn = document.getElementById('mobileMenuBtn');
-        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btn) { sidebar.classList.remove('open'); }
-    });
-    const checkInBtn = document.getElementById('checkInBtn'); if (checkInBtn) checkInBtn.onclick = window.doCheckIn;
-    const postForm = document.getElementById('postForm'); if (postForm) postForm.onsubmit = doPost;
-    window.addEventListener('hashchange', handleRoute);
-    
-    setInterval(() => { const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString(); }, 1000);
-    
-    if(isAppReady) handleRoute();
-}
+window.submitFeedback = async function() {
+    const content = document.getElementById('feedbackContent').value;
+    if(!content || content.length < 5) return alert("反馈内容太短");
+    try {
+        const res = await fetch(`${API_BASE}/feedback`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content})
+        });
+        const data = await res.json();
+        if(data.success) { alert(data.message); document.getElementById('feedbackContent').value = ''; window.location.hash='#home'; }
+        else alert(data.error);
+    } catch(e) { alert("Error"); }
+};
+async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge'); if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
+async function loadAdminStats() { checkAdminStatus(); }
+window.toggleInviteSystem = async function() { const enabled = document.getElementById('inviteToggle').checked; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) }); const data = await res.json(); alert(data.message); } catch(e){ alert("设置失败"); } };
+async function loadAdminInvites() { const tbody = document.querySelector('#adminInviteTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_invites'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(inv => { const isExpired = inv.expires_at < Date.now(); let status = '<span style="color:#0f0">可用</span>'; if(inv.is_used) status = '<span style="color:#666">已用</span>'; else if(isExpired) status = '<span style="color:#f00">过期</span>'; const tr = document.createElement('tr'); tr.innerHTML = `<td>${inv.code}</td><td>${status}</td><td>${new Date(inv.expires_at).toLocaleDateString()}</td><td><button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button><button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">暂无数据</td></tr>'; } } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
+window.refillInvites = async function() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) }); const data = await res.json(); if(data.success) { alert(data.message); loadAdminInvites(); } else alert(data.error); } catch(e){ alert("Error"); } };
+window.deleteInvite = async function(code) { if(!confirm("Delete?")) return; try { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', code: code}) }); loadAdminInvites(); } catch(e){ alert("Error"); } };
+async function loadAdminFeedbacks() { const tbody = document.querySelector('#adminFeedbackTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_feedbacks'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(fb => { const tr = document.createElement('tr'); if (!fb.is_read) tr.style.backgroundColor = 'rgba(255, 255, 0, 0.1)'; let replyHTML = ''; if (fb.reply_content) { replyHTML = `<div style="margin-top:5px;padding:5px;border-left:2px solid #0f0;font-size:0.8rem;color:#888;"><span style="color:#0f0">ADMIN:</span> ${fb.reply_content}</div>`; } tr.innerHTML = `<td>${fb.nickname || fb.username}</td><td style="white-space:pre-wrap;max-width:300px;">${fb.content}${replyHTML}<div style="margin-top:8px;">${!fb.is_read ? `<button onclick="adminMarkRead(${fb.id})" class="mini-action-btn" style="color:gold">已读</button>` : ''}<button onclick="adminReplyFeedback(${fb.id}, ${fb.user_id})" class="mini-action-btn" style="color:#0070f3">回复</button><button onclick="adminDeleteFeedback(${fb.id})" class="mini-action-btn" style="color:#f33">删除</button></div></td><td>${new Date(fb.created_at).toLocaleString()}</td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="3">暂无反馈</td></tr>'; } } catch(e) { tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>'; } }
+window.adminMarkRead = async function(id) { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'mark_feedback_read', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
+window.adminDeleteFeedback = async function(id) { if(!confirm("Delete feedback?")) return; await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_feedback', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
+window.adminReplyFeedback = async function(id, userId) { const reply = prompt("请输入回复内容："); if(!reply) return; const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'reply_feedback', id, user_id: userId, content: reply}) }); const d = await res.json(); if(d.success) { alert(d.message); loadAdminFeedbacks(); checkAdminStatus(); } else alert(d.error); };
+window.adminUnbanUser = async function(uid) { if(!confirm("解除封禁？")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); alert("已解封"); loadAdminBanList(); };
+async function loadAdminBanList() { const tbody = document.querySelector('#adminBanTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_banned_users'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(u => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${u.nickname || u.username}</td><td>${u.ban_reason || '-'}</td><td>${new Date(u.ban_expires_at).toLocaleDateString()}</td><td><button onclick="adminUnbanUser(${u.id})" class="mini-action-btn" style="color:#0f0">解封</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">无封禁用户</td></tr>'; } } catch(e){ tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
+
+// 这是一个入口函数，确保最后运行
+document.addEventListener('DOMContentLoaded', () => {
+    // 这个监听器已经在上面有了，为了双重保险可以保留，也可以依赖顶部的入口
+});
