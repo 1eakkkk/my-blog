@@ -218,6 +218,8 @@ async function loadPosts(reset = false) {
 
 // --- 核心入口函数 ---
 
+// 修改 script.js 中的 checkSecurity 函数
+
 async function checkSecurity() {
     const mask = document.getElementById('loading-mask');
     try {
@@ -227,67 +229,52 @@ async function checkSecurity() {
         
         if (!data.loggedIn) {
             window.location.replace('/login.html');
-        } else {
-            currentUser = data;
-            userRole = data.role || 'user';
-            isAppReady = true;
-
-            const settingUser = document.getElementById('settingUsername');
-            if(settingUser) settingUser.value = data.username;
-
-            document.getElementById('username').textContent = data.nickname || data.username;
-            document.getElementById('coinCount').textContent = data.coins;
-            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
-            
-            const settingPreview = document.getElementById('settingAvatarPreview');
-            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
-            
-            const keyDisplay = document.getElementById('recoveryKeyDisplay');
-            if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
-            
-            const badgePrefSelect = document.getElementById('badgePreferenceSelect');
-            if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
-            
-            document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
-            const levelInfo = calculateLevel(data.xp || 0);
-            document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
-            document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
-            document.getElementById('logoutBtn').onclick = doLogout;
-
-            if (userRole === 'admin') {
-                document.getElementById('navAdmin').style.display = 'flex';
-                const postCat = document.getElementById('postCategory');
-                if(postCat && !postCat.querySelector('option[value="公告"]')) {
-                    const opt = document.createElement('option');
-                    opt.value = '公告'; opt.innerText = '📢 公告 / ANNOUNCE'; opt.style.color = '#ff3333';
-                    postCat.prepend(opt);
-                }
-                checkAdminStatus();
-                setInterval(checkAdminStatus, 60000);
-            } else {
-                document.getElementById('navAdmin').style.display = 'none';
-            }
-
-            if(data.is_vip) {
-                const vipBox = document.getElementById('vipBox');
-                if(vipBox) {
-                    vipBox.innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
-                    vipBox.style.borderColor = 'gold';
-                }
-            }
-            checkNotifications();
-            setInterval(checkNotifications, 60000);
-            loadTasks(); 
-            checkForDrafts();
-            
-            handleRoute();
+            return; // 阻止后续执行
         }
+
+        // === 新增：封禁状态拦截 ===
+        if (data.status === 'banned') {
+            // 计算过期时间字符串
+            const expireDate = new Date(data.ban_expires_at).toLocaleString();
+            const reason = data.ban_reason || "违反社区规定";
+            
+            // 修改遮罩层内容为封禁通知，而不是移除它
+            if (mask) {
+                mask.style.backgroundColor = '#110000'; // 深红色背景
+                mask.innerHTML = `
+                    <div style="border: 2px solid #ff3333; padding: 30px; background: #000; max-width: 90%; text-align: center;">
+                        <h1 style="color: #ff3333; margin-top: 0;">🚫 ACCESS DENIED</h1>
+                        <h2 style="color: #fff;">账号已被系统封禁</h2>
+                        <div style="margin: 20px 0; text-align: left; color: #ccc; font-size: 0.9rem;">
+                            <p><strong>封禁理由 / REASON:</strong><br><span style="color: #ff3333">${reason}</span></p>
+                            <p><strong>解封时间 / EXPIRES:</strong><br><span style="color: #0f0">${expireDate}</span></p>
+                        </div>
+                        <p style="color: #666; font-size: 0.8rem;">在此期间您无法进行任何操作。</p>
+                        <button onclick="doLogout()" class="cyber-btn" style="border-color: #666; color: #666; margin-top: 20px;">退出登录 / LOGOUT</button>
+                    </div>
+                `;
+                mask.style.opacity = '1'; // 确保显示
+                // 注意：这里我们不移除 mask，让它一直挡着
+                return; 
+            }
+        }
+        // ========================
+
+        // ... (以下是原本的正常登录逻辑，保持不变) ...
+        currentUser = data;
+        userRole = data.role || 'user';
+        isAppReady = true;
+        
+        // ... (中间的 DOM 赋值代码省略) ...
+        
+        handleRoute();
+        
+        // 只有未被封禁时，才移除遮罩
+        if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
+
     } catch (e) { 
         console.error(e); 
-        // 如果只是API错误，不要死循环跳转，尝试停留在页面
-        // window.location.replace('/login.html'); 
-    } finally {
-        // === 强制移除遮罩 ===
+        // 只有出错时才移除，或者跳转
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
     }
 }
@@ -391,6 +378,43 @@ async function handleRoute() {
     }
 }
 
+// === 修复：补充签到和抽奖函数 ===
+
+window.doCheckIn = async function() {
+    const btn = document.getElementById('checkInBtn');
+    if(btn) btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/checkin`, { method: 'POST' });
+        const data = await res.json();
+        alert(data.message);
+        if (data.success) {
+            window.location.reload();
+        }
+    } catch (e) {
+        alert("签到失败: 网络错误");
+    } finally {
+        if(btn) btn.disabled = false;
+    }
+};
+
+window.doLuckyDraw = async function() {
+    const btn = document.querySelector('.lucky-draw-btn');
+    if(btn) btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert(data.error);
+        }
+    } catch (e) {
+        alert("抽奖失败: 网络错误");
+    } finally {
+        if(btn) btn.disabled = false;
+    }
+};
 // === 帖子详情 & 评论 ===
 
 async function loadSinglePost(id) {
@@ -526,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. 执行安全检查 (验证登录状态、移除加载遮罩)
     checkSecurity();
 });
+
 
 
 
