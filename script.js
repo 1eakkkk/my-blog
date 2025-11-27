@@ -216,10 +216,6 @@ async function loadPosts(reset = false) {
     }
 }
 
-// --- 核心入口函数 ---
-
-// 修改 script.js 中的 checkSecurity 函数
-
 async function checkSecurity() {
     const mask = document.getElementById('loading-mask');
     try {
@@ -229,18 +225,16 @@ async function checkSecurity() {
         
         if (!data.loggedIn) {
             window.location.replace('/login.html');
-            return; // 阻止后续执行
+            return;
         }
 
-        // === 新增：封禁状态拦截 ===
+        // === 1. 封禁状态拦截 ===
         if (data.status === 'banned') {
-            // 计算过期时间字符串
             const expireDate = new Date(data.ban_expires_at).toLocaleString();
             const reason = data.ban_reason || "违反社区规定";
             
-            // 修改遮罩层内容为封禁通知，而不是移除它
             if (mask) {
-                mask.style.backgroundColor = '#110000'; // 深红色背景
+                mask.style.backgroundColor = '#110000';
                 mask.innerHTML = `
                     <div style="border: 2px solid #ff3333; padding: 30px; background: #000; max-width: 90%; text-align: center;">
                         <h1 style="color: #ff3333; margin-top: 0;">🚫 ACCESS DENIED</h1>
@@ -253,28 +247,87 @@ async function checkSecurity() {
                         <button onclick="doLogout()" class="cyber-btn" style="border-color: #666; color: #666; margin-top: 20px;">退出登录 / LOGOUT</button>
                     </div>
                 `;
-                mask.style.opacity = '1'; // 确保显示
-                // 注意：这里我们不移除 mask，让它一直挡着
-                return; 
+                mask.style.opacity = '1';
+                return; // 停止向下执行
             }
         }
-        // ========================
 
-        // ... (以下是原本的正常登录逻辑，保持不变) ...
+        // === 2. 正常登录逻辑 (你之前缺失的部分都在这里) ===
         currentUser = data;
         userRole = data.role || 'user';
         isAppReady = true;
+
+        // 更新侧边栏用户信息
+        const settingUser = document.getElementById('settingUsername');
+        if(settingUser) settingUser.value = data.username;
+
+        // 更新用户名和 i币
+        document.getElementById('username').textContent = data.nickname || data.username;
+        document.getElementById('coinCount').textContent = data.coins;
         
-        // ... (中间的 DOM 赋值代码省略) ...
+        // 更新头像
+        document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
+        const settingPreview = document.getElementById('settingAvatarPreview');
+        if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+        
+        // 更新密钥显示
+        const keyDisplay = document.getElementById('recoveryKeyDisplay');
+        if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
+        
+        // 更新徽章偏好设置
+        const badgePrefSelect = document.getElementById('badgePreferenceSelect');
+        if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
+        
+        // 更新徽章区域和退出按钮
+        document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
+        
+        // 更新经验条
+        const levelInfo = calculateLevel(data.xp || 0);
+        document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
+        document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
+        
+        // 绑定退出按钮事件
+        document.getElementById('logoutBtn').onclick = doLogout;
+
+        // 管理员菜单处理
+        if (userRole === 'admin') {
+            document.getElementById('navAdmin').style.display = 'flex';
+            const postCat = document.getElementById('postCategory');
+            if(postCat && !postCat.querySelector('option[value="公告"]')) {
+                const opt = document.createElement('option');
+                opt.value = '公告'; opt.innerText = '📢 公告 / ANNOUNCE'; opt.style.color = '#ff3333';
+                postCat.prepend(opt);
+            }
+            checkAdminStatus();
+            setInterval(checkAdminStatus, 60000);
+        } else {
+            const adminNav = document.getElementById('navAdmin');
+            if(adminNav) adminNav.style.display = 'none';
+        }
+
+        // VIP 状态处理
+        if(data.is_vip) {
+            const vipBox = document.getElementById('vipBox');
+            if(vipBox) {
+                vipBox.innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
+                vipBox.style.borderColor = 'gold';
+            }
+        }
+
+        // 初始化其他数据
+        checkNotifications();
+        setInterval(checkNotifications, 60000);
+        loadTasks(); 
+        checkForDrafts();
         
         handleRoute();
-        
-        // 只有未被封禁时，才移除遮罩
+
+        // 移除加载遮罩
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
 
     } catch (e) { 
-        console.error(e); 
-        // 只有出错时才移除，或者跳转
+        console.error("CheckSecurity Error:", e); 
+        // 出错时也要移除遮罩，否则用户会卡死，但通常建议检查控制台看具体是什么错
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
     }
 }
@@ -550,6 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. 执行安全检查 (验证登录状态、移除加载遮罩)
     checkSecurity();
 });
+
 
 
 
