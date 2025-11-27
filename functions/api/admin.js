@@ -4,23 +4,21 @@ export async function onRequestPost(context) {
   const cookie = context.request.headers.get('Cookie');
   if (!cookie) return new Response(JSON.stringify({ error: '无权操作' }), { status: 401 });
   const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const admin = await db.prepare(`SELECT users.role, users.nickname, users.username FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
+  const admin = await db.prepare(`SELECT users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
   
   if (!admin || admin.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
   let req = {};
-  try { req = await context.request.json(); } catch(e) { return new Response(JSON.stringify({ success: false, error: '无效请求' }), { status: 400 }); }
+  try { req = await context.request.json(); } catch(e) { return new Response(JSON.stringify({ success: false, error: '无效请求' })); }
   
   const { action } = req;
 
-  // 1. 获取统计数据 (新增反馈未读数)
   if (action === 'get_stats') {
       const total = await db.prepare('SELECT COUNT(*) as c FROM users').first();
-      const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
-      const active = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(threeDaysAgo).first();
+      // === 改动：24小时活跃 ===
+      const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+      const active = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(oneDayAgo).first();
       const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'invite_required'").first();
-      
-      // 统计未读反馈
       const unreadFb = await db.prepare('SELECT COUNT(*) as c FROM feedbacks WHERE is_read = 0').first();
 
       return new Response(JSON.stringify({ 
@@ -28,52 +26,33 @@ export async function onRequestPost(context) {
           totalUsers: total.c, 
           activeUsers: active.c,
           inviteRequired: setting ? setting.value === 'true' : true,
-          unreadFeedback: unreadFb.c // 新增字段
+          unreadFeedback: unreadFb.c
       }));
   }
 
-  // 2. 获取反馈列表 (更新排序和字段)
-  if (action === 'get_feedbacks') {
-      const list = await db.prepare(`
-        SELECT feedbacks.*, users.username, users.nickname 
-        FROM feedbacks 
-        JOIN users ON feedbacks.user_id = users.id 
-        ORDER BY feedbacks.is_read ASC, feedbacks.created_at DESC LIMIT 50
-      `).all();
+  // === 新增：获取封禁列表 ===
+  if (action === 'get_banned_users') {
+      const list = await db.prepare(`SELECT id, username, nickname, ban_expires_at, ban_reason FROM users WHERE status = 'banned' ORDER BY ban_expires_at DESC`).all();
       return new Response(JSON.stringify({ success: true, list: list.results }));
   }
 
-  // 3. 标记反馈已读
-  if (action === 'mark_feedback_read') {
-      await db.prepare('UPDATE feedbacks SET is_read = 1 WHERE id = ?').bind(req.id).run();
-      return new Response(JSON.stringify({ success: true }));
+  // === 修改：封禁用户 (增加理由) ===
+  if (action === 'ban_user') {
+      const expireTime = Date.now() + (parseInt(req.days) * 86400000);
+      const reason = req.reason || '违反社区规定';
+      await db.prepare("UPDATE users SET status = 'banned', ban_expires_at = ?, ban_reason = ? WHERE id = ?")
+        .bind(expireTime, reason, req.target_user_id).run();
+      return new Response(JSON.stringify({ success: true, message: '用户已封禁' }));
   }
 
-  // 4. 删除反馈
-  if (action === 'delete_feedback') {
-      await db.prepare('DELETE FROM feedbacks WHERE id = ?').bind(req.id).run();
-      return new Response(JSON.stringify({ success: true }));
+  // === 新增：解封用户 ===
+  if (action === 'unban_user') {
+      await db.prepare("UPDATE users SET status = 'active', ban_expires_at = 0, ban_reason = NULL WHERE id = ?")
+        .bind(req.target_user_id).run();
+      return new Response(JSON.stringify({ success: true, message: '用户已解封' }));
   }
 
-  // 5. 回复反馈
-  if (action === 'reply_feedback') {
-      const { id, user_id, content } = req;
-      if(!content) return new Response(JSON.stringify({ success: false, error: '回复内容为空' }));
-
-      // 更新反馈表
-      await db.prepare('UPDATE feedbacks SET is_read = 1, reply_content = ?, replied_at = ? WHERE id = ?')
-          .bind(content, Date.now(), id).run();
-
-      // 给用户发通知
-      const adminName = admin.nickname || admin.username;
-      const msg = `管理员回复了你的反馈: ${content}`;
-      await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
-          .bind(user_id, 'system', msg, '#feedback', Date.now()).run();
-
-      return new Response(JSON.stringify({ success: true, message: '已回复并通知用户' }));
-  }
-
-  // ... (以下保持原有逻辑不变: toggle_invite, get_invites, refill, delete_invite, ban, post_announce, grant, gen_key) ...
+  // ... (保留其他功能: toggle_invite, get_invites, refill, delete, get_feedbacks, mark_read, reply_fb, post_announce, grant, gen_key) ...
   if (action === 'toggle_invite_system') {
       const val = req.enabled ? 'true' : 'false';
       await db.prepare("INSERT INTO system_settings (key, value) VALUES ('invite_required', ?) ON CONFLICT(key) DO UPDATE SET value = ?").bind(val, val).run();
@@ -96,10 +75,25 @@ export async function onRequestPost(context) {
       await db.prepare('DELETE FROM invites WHERE code = ?').bind(req.code).run();
       return new Response(JSON.stringify({ success: true }));
   }
-  if (action === 'ban_user') {
-      const exp = Date.now() + (parseInt(req.days) * 86400000);
-      await db.prepare("UPDATE users SET status = 'banned', ban_expires_at = ? WHERE id = ?").bind(exp, req.target_user_id).run();
-      return new Response(JSON.stringify({ success: true, message: '已封禁' }));
+  if (action === 'get_feedbacks') {
+      const list = await db.prepare(`SELECT feedbacks.*, users.username, users.nickname FROM feedbacks JOIN users ON feedbacks.user_id = users.id ORDER BY feedbacks.is_read ASC, feedbacks.created_at DESC LIMIT 50`).all();
+      return new Response(JSON.stringify({ success: true, list: list.results }));
+  }
+  if (action === 'mark_feedback_read') {
+      await db.prepare('UPDATE feedbacks SET is_read = 1 WHERE id = ?').bind(req.id).run();
+      return new Response(JSON.stringify({ success: true }));
+  }
+  if (action === 'delete_feedback') {
+      await db.prepare('DELETE FROM feedbacks WHERE id = ?').bind(req.id).run();
+      return new Response(JSON.stringify({ success: true }));
+  }
+  if (action === 'reply_feedback') {
+      const { id, user_id, content } = req;
+      await db.prepare('UPDATE feedbacks SET is_read = 1, reply_content = ?, replied_at = ? WHERE id = ?').bind(content, Date.now(), id).run();
+      const u = await db.prepare('SELECT nickname, username FROM users WHERE id = (SELECT user_id FROM sessions WHERE session_id = ?)').bind(sessionId).first();
+      const msg = `管理员回复了你的反馈: ${content}`;
+      await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)').bind(user_id, 'system', msg, '#feedback', Date.now()).run();
+      return new Response(JSON.stringify({ success: true, message: '已回复' }));
   }
   if (action === 'post_announce') {
       const u = await db.prepare(`SELECT id, username, nickname FROM users WHERE id = (SELECT user_id FROM sessions WHERE session_id = ?)`).bind(sessionId).first();
