@@ -87,15 +87,15 @@ function getFloorName(index) {
     return `#${index}`;
 }
 
-
-// === 新增：渲染等级表函数 ===
+// === 新增：渲染等级表函数 (请确保加入到 script.js 中) ===
 function renderLevelTable() {
     const tbody = document.getElementById('levelTableBody');
-    if (!tbody || tbody.innerHTML.trim() !== '') return; // 如果已经有内容就不重复渲染
+    // 如果找不到表格或者表格里已经有内容，就停止，防止重复添加
+    if (!tbody || tbody.children.length > 0) return; 
 
+    // 这里的 LEVEL_TABLE 必须与 script.js 顶部定义的一致
     LEVEL_TABLE.forEach(l => {
         const tr = document.createElement('tr');
-        // 使用 badge 样式让称号更好看
         tr.innerHTML = `
             <td>LV.${l.lv}</td>
             <td><span class="badge lv-${l.lv}">${l.title}</span></td>
@@ -104,7 +104,6 @@ function renderLevelTable() {
         tbody.appendChild(tr);
     });
 }
-// === 核心功能函数 (提前定义) ===
 
 async function loadTasks() { 
     const c=document.getElementById('taskContainer'); 
@@ -508,4 +507,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. 执行安全检查 (验证登录状态、移除加载遮罩)
     checkSecurity();
 });
+
 
