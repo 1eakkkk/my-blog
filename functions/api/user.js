@@ -1,4 +1,3 @@
-// --- functions/api/user.js ---
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -10,12 +9,22 @@ export async function onRequestGet(context) {
 
   if (!user) return new Response(JSON.stringify({ loggedIn: false }));
 
+  // === 修改部分开始：自动解封并通知 ===
   if (user.status === 'banned' && user.ban_expires_at < Date.now()) {
-      await db.prepare("UPDATE users SET status = 'active', ban_expires_at = 0 WHERE id = ?").bind(user.id).run();
+      // 1. 更新状态
+      await db.prepare("UPDATE users SET status = 'active', ban_expires_at = 0, ban_reason = NULL WHERE id = ?").bind(user.id).run();
+      
+      // 2. 插入解封通知 (新增)
+      const msg = "您的账号封禁已过期，欢迎回来。请遵守社区规范。";
+      await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(user.id, 'system', msg, '#home', Date.now()).run();
+
+      // 更新内存中的对象，让本次请求立即生效
       user.status = 'active';
   }
+  // === 修改部分结束 ===
 
-  // === 新增：更新最后活跃时间 (Debounce: 每5分钟更新一次即可，避免数据库压力) ===
+  // ... (其余代码保持不变) ...
   if (!user.last_seen || (Date.now() - user.last_seen > 300000)) {
       await db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(Date.now(), user.id).run();
   }
