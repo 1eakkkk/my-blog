@@ -365,7 +365,10 @@ async function checkSecurity() {
 
         // 初始化其他数据
         checkNotifications();
-        setInterval(checkNotifications, 60000);
+        setInterval(() => {
+            checkNotifications();
+            loadTasks(); 
+        }, 60000);
         loadTasks(); 
         checkForDrafts();
         
@@ -653,6 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. 执行安全检查 (验证登录状态、移除加载遮罩)
     checkSecurity();
 });
+
 
 
 
