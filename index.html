@@ -338,14 +338,15 @@
     </div>
 
     <script>
-    // 动态创建一个带时间戳的 script 标签，确保每次都是最新的
-    var script = document.createElement('script');
-    // Date.now() 会生成毫秒级时间戳，每次刷新 URL 都不一样
-    script.src = "script.js?v=" + Date.now(); 
-    document.body.appendChild(script);
-</script>
+        // 动态创建一个带时间戳的 script 标签，确保每次都是最新的
+        var script = document.createElement('script');
+        // Date.now() 会生成毫秒级时间戳，每次刷新 URL 都不一样
+        script.src = "script.js?v=" + Date.now(); 
+        document.body.appendChild(script);
+    </script>
 </body>
 </html>
+
 
 
 
