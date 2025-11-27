@@ -668,3 +668,36 @@ input:checked + .slider:before {
     background: #333;
     color: #fff;
 }
+
+/* --- 新增：样式 (楼层 & 帖子底部) --- */
+
+.floor-tag {
+    background: rgba(255,255,255,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.post-footer {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed #222;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .post-footer {
+        flex-direction: row; /* 保持横向，或者改为 column 看个人喜好 */
+    }
+}
+
+#loadCommentsBtn {
+    margin: 20px auto;
+    display: block;
+    max-width: 300px;
+    text-align: center;
+}
