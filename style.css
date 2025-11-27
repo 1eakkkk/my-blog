@@ -701,3 +701,86 @@ input:checked + .slider:before {
     max-width: 300px;
     text-align: center;
 }
+
+/* --- Feature 6: New Post Badge --- */
+.new-badge {
+    background: #ff00de; /* 赛博粉 */
+    color: white;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-right: 5px;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+/* --- Feature 7: Author Tag --- */
+.author-tag {
+    border: 1px solid var(--accent-blue);
+    color: var(--accent-blue);
+    font-size: 0.7rem;
+    padding: 0 4px;
+    border-radius: 3px;
+    margin-right: 5px;
+    display: inline-block;
+}
+
+/* --- Feature 1: Reply Fold Button --- */
+.reply-fold-btn {
+    font-size: 0.8rem;
+    color: #888;
+    cursor: pointer;
+    margin-top: 5px;
+    padding: 5px;
+    border-top: 1px dashed #333;
+}
+.reply-fold-btn:hover {
+    color: var(--accent-blue);
+}
+
+/* --- Feature 9: Mobile Responsive Actions --- */
+.comment-meta-row {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap; /* 允许换行 */
+    gap: 5px;
+}
+
+.comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 移动端调整 */
+@media (max-width: 768px) {
+    .post-actions-mobile {
+        width: 100%;
+        justify-content: flex-start;
+        margin-top: 10px;
+    }
+    
+    .comment-meta-row {
+        align-items: flex-start;
+        flex-direction: column; /* 时间和按钮分两行 */
+    }
+    
+    .comment-actions {
+        margin-top: 2px;
+    }
+    
+    .action-link {
+        padding: 5px; /* 增加点击区域 */
+        display: inline-block;
+    }
+}
+
+.action-link {
+    cursor: pointer;
+    margin-left: 5px;
+}
