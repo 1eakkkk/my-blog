@@ -164,15 +164,26 @@
                     <div id="notifyList" class="posts-grid"></div>
                 </div>
 
-                <!-- 6. 个人设置 -->
+                <!-- 在 index.html 的 view-settings 区域，把"修改昵称"卡片上方或内部加入账号显示 -->
+                <!-- 替换 view-settings 部分 -->
                 <div id="view-settings" class="view-section" style="display:none;">
                     <h2>// PROFILE SETTINGS</h2>
+    
+                    <!-- 新增：注册账号显示 -->
+                    <div class="glass-card" style="margin-bottom:20px; border-color: #666;">
+                        <h3>账号信息 / ACCOUNT ID</h3>
+                        <p style="color:#888; font-size:0.9rem;">您的唯一登录凭证 (不可修改)。</p>
+                        <input type="text" id="settingUsername" class="cyber-input" readonly style="color:#888; cursor:not-allowed;">
+                    </div>
+
                     <div class="glass-card">
                         <h3>修改昵称</h3>
                         <p style="color:#666; font-size:0.9rem;">昵称将显示在文章作者栏。</p>
                         <input type="text" id="newNickname" class="cyber-input" placeholder="输入新昵称" maxlength="12">
                         <button onclick="updateProfile()" class="cyber-btn">保存更改 / SAVE</button>
                     </div>
+    
+                    <!-- ... (其余部分保持不变: 数字形象, 头衔偏好, 密钥) ... -->
                     <div class="glass-card" style="margin-top: 20px;">
                         <h3>数字形象重构</h3>
                         <p style="color:#666; font-size:0.9rem;">如果不满意当前的像素配色，可以随机重置。</p>
@@ -181,7 +192,6 @@
                             <button onclick="randomizeAvatar()" class="cyber-btn" style="margin:0; flex:1;">🎲 随机重置头像 / RANDOMIZE</button>
                         </div>
                     </div>
-                     <!-- 7：头衔显示偏好设置 -->
                     <div class="glass-card" style="margin-top: 20px;">
                         <h3>头衔显示偏好 / BADGE DISPLAY</h3>
                         <p style="color:#666; font-size:0.9rem;">选择在名字旁边显示等级数字还是专属称号。</p>
@@ -193,8 +203,6 @@
                             <button onclick="saveBadgePreference()" class="cyber-btn" style="margin:0; width:auto;">保存 / SAVE</button>
                         </div>
                     </div>
-                
-                    <!--8. 账户安全/密钥查看 -->
                     <div class="glass-card" style="margin-top: 20px; border-color: var(--accent-blue);">
                         <h3>账户安全密钥 (RECOVERY KEY)</h3>
                         <p style="color:#666; font-size:0.9rem;">这是您找回密码的唯一凭证，请勿泄露。</p>
@@ -280,6 +288,17 @@
                         </div>
                     </div>
 
+                    <!-- 新增封禁列表功能 -->
+                    <div class="glass-card" style="border-color:#f33; margin-bottom:20px;">
+                        <h3>封禁名单 / BAN LIST</h3>
+                        <div class="table-responsive">
+                            <table class="tech-table" id="adminBanTable">
+                                <thead><tr><th>USER</th><th>REASON</th><th>EXPIRE</th><th>ACTION</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- 5. 旧功能 (发布公告、补发密钥、发头衔) -->
                     <div class="glass-card" style="border-color:#ff3333; margin-bottom:20px; background:rgba(255,51,51,0.05);">
                         <h3>📣 发布全站公告</h3>
@@ -315,6 +334,7 @@
     <script src="script.js?v=3.1"></script>
 </body>
 </html>
+
 
 
 
