@@ -36,343 +36,8 @@ const LEVEL_TABLE = [
     { lv: 10, xp: 60000, title: '赛博神' }
 ];
 
-// --- 视图对象定义 ---
-const views = {
-    home: document.getElementById('view-home'),
-    write: document.getElementById('view-write'),
-    tasks: document.getElementById('view-tasks'),
-    post: document.getElementById('view-post'),
-    settings: document.getElementById('view-settings'),
-    about: document.getElementById('view-about'),
-    notifications: document.getElementById('view-notifications'),
-    feedback: document.getElementById('view-feedback'),
-    admin: document.getElementById('view-admin')
-};
+// --- 辅助函数 ---
 
-// ==========================================
-// 核心逻辑区 (放在顶部以防止 ReferenceError)
-// ==========================================
-
-// 1. 初始化入口
-function initApp() {
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    if (mobileMenuBtn) { 
-        mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; 
-    }
-    document.addEventListener('click', (e) => {
-        const sidebar = document.getElementById('sidebar');
-        const btn = document.getElementById('mobileMenuBtn');
-        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btn) { sidebar.classList.remove('open'); }
-    });
-    
-    const checkInBtn = document.getElementById('checkInBtn'); 
-    if (checkInBtn) checkInBtn.onclick = window.doCheckIn;
-    
-    const postForm = document.getElementById('postForm'); 
-    if (postForm) postForm.onsubmit = doPost;
-    
-    window.addEventListener('hashchange', handleRoute);
-    
-    setInterval(() => { 
-        const el = document.getElementById('clock'); 
-        if(el) el.textContent = new Date().toLocaleTimeString(); 
-    }, 1000);
-    
-    // 如果此时应用已就绪，立即处理路由
-    if(isAppReady) handleRoute();
-}
-
-// 2. 路由处理函数
-async function handleRoute() {
-    const hash = window.location.hash || '#home';
-    const sidebar = document.getElementById('sidebar');
-    const navLinks = document.querySelectorAll('.nav-link');
-    
-    Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
-    navLinks.forEach(el => el.classList.remove('active'));
-    if(sidebar) sidebar.classList.remove('open');
-
-    if(!isAppReady && hash === '#admin') return;
-
-    // 退出编辑模式
-    if(hash !== '#write' && isEditingPost) {
-        isEditingPost = false; editingPostId = null;
-        const btn = document.querySelector('#postForm button');
-        if(btn) btn.textContent = "发布 / PUBLISH";
-        const t = document.getElementById('postTitle'); if(t) t.value=''; 
-        const c = document.getElementById('postContent'); if(c) c.value=''; 
-        const cancelBtn = document.getElementById('cancelEditPostBtn');
-        if(cancelBtn) cancelBtn.style.display = 'none';
-    }
-
-    if (hash === '#home') {
-        if(views.home) views.home.style.display = 'block';
-        const link = document.querySelector('a[href="#home"]'); if(link) link.classList.add('active');
-        loadPosts(true); 
-    } else if (hash === '#write') {
-        if(views.write) views.write.style.display = 'block';
-        const link = document.getElementById('navWrite'); if(link) link.classList.add('active');
-        tryRestoreDraft();
-     } else if (hash === '#tasks') {
-        if(views.tasks) views.tasks.style.display = 'block';
-        loadTasks(); // 这里调用下方的函数
-    } else if (hash === '#settings') {
-        if(views.settings) views.settings.style.display = 'block';
-        const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
-    } else if (hash === '#about') {
-        if(views.about) views.about.style.display = 'block';
-        const link = document.querySelector('a[href="#about"]'); if(link) link.classList.add('active');
-    } else if (hash === '#notifications') {
-        if(views.notifications) views.notifications.style.display = 'block';
-        const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
-        loadNotifications();
-    } else if (hash === '#feedback') {
-        if(views.feedback) views.feedback.style.display = 'block';
-        const link = document.querySelector('a[href="#feedback"]'); if(link) link.classList.add('active');
-    } else if (hash === '#admin') {
-        if(userRole !== 'admin') { alert("ACCESS DENIED"); window.location.hash='#home'; return; }
-        if(views.admin) {
-            views.admin.style.display = 'block';
-            const link = document.getElementById('navAdmin'); if(link) link.classList.add('active');
-            loadAdminStats();
-            loadAdminInvites();
-            loadAdminFeedbacks();
-            loadAdminBanList();
-        }
-    } else if (hash.startsWith('#post?id=')) {
-        if(views.post) views.post.style.display = 'block';
-        loadSinglePost(hash.split('=')[1]);
-    }
-}
-
-// 3. 安全检查与数据预加载
-async function checkSecurity() {
-    const mask = document.getElementById('loading-mask');
-    try {
-        const res = await fetch(`${API_BASE}/user`);
-        if (!res.ok) throw new Error("API Error");
-        const data = await res.json();
-        
-        if (!data.loggedIn) {
-            window.location.replace('/login.html');
-        } else {
-            currentUser = data;
-            userRole = data.role || 'user';
-            isAppReady = true;
-
-            // 填充 UI
-            const settingUser = document.getElementById('settingUsername');
-            if(settingUser) settingUser.value = data.username;
-
-            document.getElementById('username').textContent = data.nickname || data.username;
-            document.getElementById('coinCount').textContent = data.coins;
-            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
-            
-            const settingPreview = document.getElementById('settingAvatarPreview');
-            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
-            const keyDisplay = document.getElementById('recoveryKeyDisplay');
-            if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
-            const badgePrefSelect = document.getElementById('badgePreferenceSelect');
-            if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
-            document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
-            const levelInfo = calculateLevel(data.xp || 0);
-            document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
-            document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
-            document.getElementById('logoutBtn').onclick = doLogout;
-
-            // 管理员界面逻辑
-            if (userRole === 'admin') {
-                document.getElementById('navAdmin').style.display = 'flex';
-                const postCat = document.getElementById('postCategory');
-                if(postCat && !postCat.querySelector('option[value="公告"]')) {
-                    const opt = document.createElement('option');
-                    opt.value = '公告'; opt.innerText = '📢 公告 / ANNOUNCE'; opt.style.color = '#ff3333';
-                    postCat.prepend(opt);
-                }
-                checkAdminStatus();
-                setInterval(checkAdminStatus, 60000);
-            } else {
-                document.getElementById('navAdmin').style.display = 'none';
-            }
-
-            if(data.is_vip) {
-                const vipBox = document.getElementById('vipBox');
-                if(vipBox) {
-                    vipBox.innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
-                    vipBox.style.borderColor = 'gold';
-                }
-            }
-            checkNotifications();
-            setInterval(checkNotifications, 60000);
-            loadTasks(); // 任务侧边栏提示
-            checkForDrafts();
-            
-            // 手动触发路由
-            handleRoute();
-
-            if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
-        }
-    } catch (e) { console.error(e); window.location.replace('/login.html'); }
-}
-
-// ==========================================
-// 功能模块函数
-// ==========================================
-
-// --- 任务模块 ---
-async function loadTasks() { 
-    const c=document.getElementById('taskContainer'); 
-    try{ 
-        const res=await fetch(`${API_BASE}/tasks`); 
-        const t=await res.json(); 
-        
-        const navTask = document.querySelector('a[href="#tasks"]');
-        if(navTask) {
-            if (t.progress >= t.target && !t.is_claimed) {
-                navTask.innerHTML = `每日任务 / Daily Tasks <span style="background:#0f0;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>`;
-            } else {
-                navTask.innerHTML = `每日任务 / Daily Tasks`;
-            }
-        }
-
-        if(!c) return; // 不在任务页则退出
-        
-        c.innerHTML='Loading...'; 
-        const m={'checkin':'每日签到','post':'发布文章','comment':'发表评论'}; 
-        const done=t.progress>=t.target; 
-        const btn=t.is_claimed?`<button class="cyber-btn" disabled>已完成 / CLAIMED</button>`:(done?`<button onclick="claimTask()" class="cyber-btn" style="border-color:#0f0;color:#0f0">领取奖励</button>`:`<button class="cyber-btn" disabled>进行中</button>`); 
-        const rr=(t.reroll_count===0&&!t.is_claimed)?`<button onclick="rerollTask()" class="cyber-btn" style="margin-top:10px;border-color:orange;color:orange">刷新 (10i)</button>`:''; 
-        c.innerHTML=`<div class="task-card"><div class="task-header"><h3>${m[t.task_type]||t.task_type} (${t.progress}/${t.target})</h3><span>${t.reward_xp}XP, ${t.reward_coins}i</span></div><div class="task-progress-bg"><div class="task-progress-fill" style="width:${Math.min(100,(t.progress/t.target)*100)}%"></div></div>${btn}${rr}</div>`; 
-    }catch(e){ if(c) c.innerHTML = 'Error loading tasks'; } 
-}
-
-window.claimTask = async function() { 
-    const res = await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'claim'}) }); 
-    const data = await res.json(); 
-    if(data.success) { alert(data.message); loadTasks(); checkSecurity(); } 
-    else alert(data.error); 
-};
-
-window.rerollTask = async function() { 
-    if(!confirm("消耗10 i币刷新今日任务？")) return; 
-    await fetch(`${API_BASE}/tasks`, { method: 'POST', body: JSON.stringify({action:'reroll'}) }); 
-    loadTasks(); 
-};
-
-// --- 帖子列表 ---
-async function loadPosts(reset = false) {
-    const container = document.getElementById('posts-list');
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    if (reset) { currentPage = 1; hasMorePosts = true; container.innerHTML = ''; if (loadMoreBtn) loadMoreBtn.style.display = 'none'; }
-    if (!hasMorePosts || isLoadingPosts) return;
-    isLoadingPosts = true;
-    if (reset) container.innerHTML = '<div class="loading">正在同步数据流...</div>'; else if (loadMoreBtn) loadMoreBtn.textContent = "LOADING...";
-    try {
-        const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}`);
-        const posts = await res.json();
-        if (reset) container.innerHTML = ''; 
-        if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
-        if (posts.length === 0 && currentPage === 1) { container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; } else {
-            const now = Date.now();
-            posts.forEach(post => {
-                const rawDate = post.updated_at || post.created_at; 
-                const dateStr = new Date(rawDate).toLocaleDateString(); 
-                const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
-                const isNew = (now - post.created_at) < (24 * 60 * 60 * 1000);
-                const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
-                const author = post.author_nickname || post.author_username || "Unknown";
-                const cat = post.category || '灌水'; let catClass = ''; if(cat === '技术') catClass = 'cat-tech'; else if(cat === '生活') catClass = 'cat-life'; else if(cat === '提问') catClass = 'cat-question'; else if(cat === '公告') catClass = 'cat-announce';
-                const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`; 
-                const pinnedIcon = post.is_pinned ? '<span style="color:#0f0;margin-right:5px">📌[置顶]</span>' : '';
-                const badgeHtml = getBadgesHtml({ role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp, badge_preference: post.author_badge_preference });
-                const likeClass = post.is_liked ? 'liked' : ''; 
-                const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>`;
-                
-                const div = document.createElement('div'); 
-                div.className = `post-card ${isAnnounceClass}`; 
-                if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
-                
-                const commentCount = post.comment_count || 0;
-                div.innerHTML = `
-                    <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div>
-                    <div class="post-snippet">${post.content.substring(0, 100)}...</div>
-                    <div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; color:#666;">
-                        <div>💬 <span class="count">${commentCount}</span> 评论</div>
-                        <div>${likeBtn}</div>
-                    </div>
-                `;
-                div.onclick = () => { returnToNotifications = false; window.location.hash = `#post?id=${post.id}`; }; 
-                container.appendChild(div);
-            });
-            currentPage++;
-        }
-    } catch (e) { console.error(e); }
-    finally { isLoadingPosts = false; if (loadMoreBtn) { loadMoreBtn.style.display = hasMorePosts ? 'block' : 'none'; if(isLoadingPosts) loadMoreBtn.textContent = "LOADING..."; else loadMoreBtn.textContent = '加载更多 / LOAD MORE'; } }
-}
-
-// --- 帖子详情 ---
-async function loadSinglePost(id) {
-    currentPostId = id; const container = document.getElementById('single-post-content'); if(!container) return; container.innerHTML = '读取中...'; document.getElementById('commentsList').innerHTML = '';
-    const backBtn = document.querySelector('#view-post .back-btn'); if (backBtn) { if (returnToNotifications) { backBtn.textContent = "< 返回通知 / BACK TO LOGS"; backBtn.onclick = () => window.location.hash = '#notifications'; } else { backBtn.textContent = "< 返回 / BACK"; backBtn.onclick = () => window.location.hash = '#home'; } }
-    const commentInput = document.getElementById('commentInput'); if(commentInput) { commentInput.value = ''; commentInput.placeholder = "输入你的看法... (支持纯文本)"; commentInput.dataset.parentId = ""; isEditingComment = false; editingCommentId = null; const submitBtn = document.querySelector('.comment-input-box button:first-of-type'); if(submitBtn) submitBtn.textContent = "发送评论 / SEND (+5 XP)"; } const cancelBtn = document.getElementById('cancelReplyBtn'); if (cancelBtn) cancelBtn.style.display = 'none';
-    try {
-        const res = await fetch(`${API_BASE}/posts?id=${id}`); const post = await res.json(); if (!post) { container.innerHTML = '<h1>404 - 内容可能已被删除</h1>'; return; }
-        currentPostAuthorId = post.user_id;
-        const rawDate = post.updated_at || post.created_at; const dateStr = new Date(rawDate).toLocaleString(); const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
-        let actionBtns = ''; if (userRole === 'admin') { const pinText = post.is_pinned ? "取消置顶 / UNPIN" : "置顶 / PIN"; const pinColor = post.is_pinned ? "#0f0" : "#666"; actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`; } if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { actionBtns += `<button onclick="editPostMode('${post.id}', '${encodeURIComponent(post.title)}', '${encodeURIComponent(post.content)}', '${post.category}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑 / EDIT</button>`; actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`; } if (userRole === 'admin' && post.user_id !== currentUser.id) { actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`; } let tipBtn = ''; if (currentUser.id !== post.user_id) { tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; }
-        const authorDisplay = post.author_nickname || post.author_username; const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
-        container.innerHTML = `<div class="post-header-row"><div class="post-author-info"><div class="post-avatar-box">${avatarSvg}</div><div class="post-meta-text"><span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">${authorDisplay} ${badgesHtml}</span><div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div></div></div><div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">${actionBtns}${tipBtn}</div></div><h1 style="margin-top:20px;">${post.title}</h1><div class="article-body">${post.content}</div>`;
-        currentCommentPage = 1; hasMoreComments = true; loadNativeComments(id, true);
-    } catch (e) { console.error(e); container.innerHTML = 'Error loading post.'; }
-}
-
-// --- 评论列表 ---
-async function loadNativeComments(postId, reset = false) {
-    const list = document.getElementById('commentsList'); const loadBtn = document.getElementById('loadCommentsBtn');
-    if (reset) { currentCommentPage = 1; hasMoreComments = true; list.innerHTML = ''; if (loadBtn) loadBtn.style.display = 'none'; }
-    if (!hasMoreComments || isLoadingComments) return;
-    isLoadingComments = true; if(reset) list.innerHTML = 'Loading comments...'; else if(loadBtn) loadBtn.textContent = "LOADING...";
-    try {
-        const res = await fetch(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}&limit=${COMMENTS_PER_PAGE}`); const data = await res.json();
-        if(reset) list.innerHTML = '';
-        if (data.results.length < COMMENTS_PER_PAGE) hasMoreComments = false;
-        if(data.results.length === 0 && currentCommentPage === 1) { list.innerHTML = '<p style="color:#666">暂无评论，抢占沙发。</p>'; } else {
-            const rootComments = data.results.filter(c => !c.parent_id);
-            const replies = data.results.filter(c => c.parent_id);
-            rootComments.forEach((c, index) => {
-                const globalIndex = (currentCommentPage - 1) * COMMENTS_PER_PAGE + index + 1;
-                const commentNode = createCommentElement(c, false, null, globalIndex, currentPostAuthorId);
-                list.appendChild(commentNode);
-                const myReplies = replies.filter(r => r.parent_id === c.id);
-                if (myReplies.length > 0) {
-                    const replyContainer = document.createElement('div'); replyContainer.className = 'replies-container';
-                    const visibleReplies = myReplies.slice(0, 3); const hiddenReplies = myReplies.slice(3);
-                    visibleReplies.forEach(r => { replyContainer.appendChild(createCommentElement(r, true, c.user_id, 0, currentPostAuthorId)); });
-                    if (hiddenReplies.length > 0) {
-                        const foldBtn = document.createElement('div'); foldBtn.className = 'reply-fold-btn'; foldBtn.innerText = `查看剩余 ${hiddenReplies.length} 条回复...`;
-                        foldBtn.onclick = () => { hiddenReplies.forEach(r => { replyContainer.insertBefore(createCommentElement(r, true, c.user_id, 0, currentPostAuthorId), foldBtn); }); foldBtn.remove(); };
-                        replyContainer.appendChild(foldBtn);
-                    }
-                    list.appendChild(replyContainer);
-                }
-            });
-            currentCommentPage++;
-        }
-    } catch(e) { console.error(e); } finally { isLoadingComments = false; if (!document.getElementById('loadCommentsBtn')) { const btn = document.createElement('button'); btn.id = 'loadCommentsBtn'; btn.className = 'cyber-btn'; btn.style.marginTop = '20px'; btn.onclick = () => loadNativeComments(postId, false); list.parentNode.insertBefore(btn, list.nextSibling); } const btn = document.getElementById('loadCommentsBtn'); if (hasMoreComments) { btn.style.display = 'block'; btn.textContent = '加载更多评论 / LOAD COMMENTS'; } else { btn.style.display = 'none'; } }
-}
-
-function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId) {
-    const avatar = generatePixelAvatar(c.username, c.avatar_variant); const div = document.createElement('div'); div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; if(c.is_pinned) { div.style.border = "1px solid #0f0"; div.style.background = "rgba(0,255,0,0.05)"; }
-    let actionLinks = ''; if (userRole === 'admin' || currentUser.id === c.user_id) { actionLinks += `<span onclick="deleteComment(${c.id})" class="action-link">[删除]</span>`; actionLinks += `<span onclick="editCommentMode(${c.id}, '${encodeURIComponent(c.content)}')" class="action-link" style="color:#0070f3">[编辑]</span>`; } if (userRole === 'admin' && !isReply) { const pinTxt = c.is_pinned ? "取消置顶" : "置顶"; actionLinks += `<span onclick="pinComment(${c.id})" class="action-link" style="color:#0f0">[${pinTxt}]</span>`; }
-    const badgeHtml = getBadgesHtml(c); const likeClass = c.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`; const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`; const pinnedBadge = c.is_pinned ? '<span style="color:#0f0;font-weight:bold;font-size:0.7rem;margin-right:5px">📌置顶</span>' : '';
-    let replyIndicator = ''; if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) { const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown"; replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `; }
-    let floorTag = ''; if (!isReply && floorNumber) floorTag = `<span class="floor-tag">${getFloorName(floorNumber)}</span>`;
-    let authorTag = ''; if (postAuthorId && c.user_id === postAuthorId) { authorTag = `<span class="author-tag">📝 作者</span>`; }
-    div.innerHTML = `<div class="comment-avatar">${avatar}</div><div class="comment-content-box"><div class="comment-header"><span class="comment-author">${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>${floorTag}</div><div class="comment-meta-row">${pinnedBadge} ${new Date(c.created_at).toLocaleString()}<div class="comment-actions">${likeBtn} ${replyBtn} ${actionLinks}</div></div><div class="comment-text">${replyIndicator}${c.content}</div></div>`; return div;
-}
-
-// --- 辅助功能 ---
 function calculateLevel(xp) {
     if (xp >= 60000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
     let currentLv = 1; let currentTitle = '潜行者'; let nextXp = 300; let prevXp = 0;
@@ -422,16 +87,355 @@ function getFloorName(index) {
     return `#${index}`;
 }
 
-function renderLevelTable() {
-    const tbody = document.getElementById('levelTableBody');
-    if(!tbody) return;
-    tbody.innerHTML = LEVEL_TABLE.map(item => `<tr><td><span class="badge lv-${item.lv}">LV.${item.lv}</span></td><td><span class="badge lv-${item.lv}">${item.title}</span></td><td>${item.xp}</td></tr>`).join('');
+// === 核心功能函数 (提前定义) ===
+
+async function loadTasks() { 
+    const c=document.getElementById('taskContainer'); 
+    try{ 
+        const res=await fetch(`${API_BASE}/tasks`); 
+        const t=await res.json(); 
+        
+        const navTask = document.querySelector('a[href="#tasks"]');
+        if(navTask) {
+            if (t.progress >= t.target && !t.is_claimed) {
+                navTask.innerHTML = `每日任务 / Daily Tasks <span style="background:#0f0;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>`;
+            } else {
+                navTask.innerHTML = `每日任务 / Daily Tasks`;
+            }
+        }
+
+        if(!c) return; 
+        
+        c.innerHTML='Loading...'; 
+        const m={'checkin':'每日签到','post':'发布文章','comment':'发表评论'}; 
+        const done=t.progress>=t.target; 
+        const btn=t.is_claimed?`<button class="cyber-btn" disabled>已完成 / CLAIMED</button>`:(done?`<button onclick="claimTask()" class="cyber-btn" style="border-color:#0f0;color:#0f0">领取奖励</button>`:`<button class="cyber-btn" disabled>进行中</button>`); 
+        const rr=(t.reroll_count===0&&!t.is_claimed)?`<button onclick="rerollTask()" class="cyber-btn" style="margin-top:10px;border-color:orange;color:orange">刷新 (10i)</button>`:''; 
+        c.innerHTML=`<div class="task-card"><div class="task-header"><h3>${m[t.task_type]||t.task_type} (${t.progress}/${t.target})</h3><span>${t.reward_xp}XP, ${t.reward_coins}i</span></div><div class="task-progress-bg"><div class="task-progress-fill" style="width:${Math.min(100,(t.progress/t.target)*100)}%"></div></div>${btn}${rr}</div>`; 
+    }catch(e){ if(c) c.innerHTML = 'Error loading tasks'; } 
 }
 
-function checkForDrafts() { const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory'); if(pTitle && pContent) { const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } }; pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save); } }
-function tryRestoreDraft() { if(isEditingPost) return; const t = localStorage.getItem('draft_title'); const c = localStorage.getItem('draft_content'); const cat = localStorage.getItem('draft_cat'); if ((t || c) && document.getElementById('postTitle').value === '') { if(confirm("发现未发布的草稿，是否恢复？\n取消则清空草稿。")) { document.getElementById('postTitle').value = t || ''; document.getElementById('postContent').value = c || ''; if(cat) document.getElementById('postCategory').value = cat; } else { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } } }
+// 帖子列表
+async function loadPosts(reset = false) {
+    const container = document.getElementById('posts-list');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (reset) { currentPage = 1; hasMorePosts = true; container.innerHTML = ''; if (loadMoreBtn) loadMoreBtn.style.display = 'none'; }
+    if (!hasMorePosts || isLoadingPosts) return;
+    isLoadingPosts = true;
+    if (reset) container.innerHTML = '<div class="loading">正在同步数据流...</div>'; else if (loadMoreBtn) loadMoreBtn.textContent = "LOADING...";
+    
+    try {
+        const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}`);
+        const posts = await res.json();
+        if (reset) container.innerHTML = ''; 
+        if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
+        if (posts.length === 0 && currentPage === 1) { container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; } else {
+            const now = Date.now();
+            posts.forEach(post => {
+                const rawDate = post.updated_at || post.created_at; 
+                const dateStr = new Date(rawDate).toLocaleDateString(); 
+                const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
+                const isNew = (now - post.created_at) < (24 * 60 * 60 * 1000);
+                const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
+                
+                const author = post.author_nickname || post.author_username || "Unknown";
+                const cat = post.category || '灌水'; 
+                let catClass = ''; 
+                if(cat === '技术') catClass = 'cat-tech'; else if(cat === '生活') catClass = 'cat-life'; else if(cat === '提问') catClass = 'cat-question'; else if(cat === '公告') catClass = 'cat-announce';
+                
+                const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`; 
+                // === 修复：定义 isAnnounceClass ===
+                const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
+                const pinnedIcon = post.is_pinned ? '<span style="color:#0f0;margin-right:5px">📌[置顶]</span>' : '';
+                
+                const badgeHtml = getBadgesHtml({ role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp, badge_preference: post.author_badge_preference });
+                const likeClass = post.is_liked ? 'liked' : ''; 
+                const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>`;
+                
+                const div = document.createElement('div'); 
+                div.className = `post-card ${isAnnounceClass}`; 
+                if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
+                
+                const commentCount = post.comment_count || 0;
+                div.innerHTML = `
+                    <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div>
+                    <div class="post-snippet">${post.content.substring(0, 100)}...</div>
+                    <div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; color:#666;">
+                        <div>💬 <span class="count">${commentCount}</span> 评论</div>
+                        <div>${likeBtn}</div>
+                    </div>
+                `;
+                div.onclick = () => { returnToNotifications = false; window.location.hash = `#post?id=${post.id}`; }; 
+                container.appendChild(div);
+            });
+            currentPage++;
+        }
+    } catch (e) { console.error(e); }
+    finally { 
+        isLoadingPosts = false; 
+        if (loadMoreBtn) { 
+            loadMoreBtn.style.display = hasMorePosts ? 'block' : 'none'; 
+            if(isLoadingPosts) loadMoreBtn.textContent = "LOADING..."; else loadMoreBtn.textContent = '加载更多 / LOAD MORE'; 
+        } 
+    }
+}
 
-// === 所有交互函数定义 ===
+// --- 核心入口函数 ---
+
+async function checkSecurity() {
+    const mask = document.getElementById('loading-mask');
+    try {
+        const res = await fetch(`${API_BASE}/user`);
+        if (!res.ok) throw new Error("API Error");
+        const data = await res.json();
+        
+        if (!data.loggedIn) {
+            window.location.replace('/login.html');
+        } else {
+            currentUser = data;
+            userRole = data.role || 'user';
+            isAppReady = true;
+
+            const settingUser = document.getElementById('settingUsername');
+            if(settingUser) settingUser.value = data.username;
+
+            document.getElementById('username').textContent = data.nickname || data.username;
+            document.getElementById('coinCount').textContent = data.coins;
+            document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
+            
+            const settingPreview = document.getElementById('settingAvatarPreview');
+            if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+            
+            const keyDisplay = document.getElementById('recoveryKeyDisplay');
+            if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
+            
+            const badgePrefSelect = document.getElementById('badgePreferenceSelect');
+            if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
+            
+            document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
+            const levelInfo = calculateLevel(data.xp || 0);
+            document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
+            document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
+            document.getElementById('logoutBtn').onclick = doLogout;
+
+            if (userRole === 'admin') {
+                document.getElementById('navAdmin').style.display = 'flex';
+                const postCat = document.getElementById('postCategory');
+                if(postCat && !postCat.querySelector('option[value="公告"]')) {
+                    const opt = document.createElement('option');
+                    opt.value = '公告'; opt.innerText = '📢 公告 / ANNOUNCE'; opt.style.color = '#ff3333';
+                    postCat.prepend(opt);
+                }
+                checkAdminStatus();
+                setInterval(checkAdminStatus, 60000);
+            } else {
+                document.getElementById('navAdmin').style.display = 'none';
+            }
+
+            if(data.is_vip) {
+                const vipBox = document.getElementById('vipBox');
+                if(vipBox) {
+                    vipBox.innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
+                    vipBox.style.borderColor = 'gold';
+                }
+            }
+            checkNotifications();
+            setInterval(checkNotifications, 60000);
+            loadTasks(); 
+            checkForDrafts();
+            
+            handleRoute();
+        }
+    } catch (e) { 
+        console.error(e); 
+        // 如果只是API错误，不要死循环跳转，尝试停留在页面
+        // window.location.replace('/login.html'); 
+    } finally {
+        // === 强制移除遮罩 ===
+        if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
+    }
+}
+
+function initApp() {
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    if (mobileMenuBtn) { 
+        mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; 
+    }
+    document.addEventListener('click', (e) => {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('mobileMenuBtn');
+        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btn) { sidebar.classList.remove('open'); }
+    });
+    
+    const checkInBtn = document.getElementById('checkInBtn'); 
+    if (checkInBtn) checkInBtn.onclick = window.doCheckIn;
+    
+    const postForm = document.getElementById('postForm'); 
+    if (postForm) postForm.onsubmit = doPost;
+    
+    window.addEventListener('hashchange', handleRoute);
+    
+    setInterval(() => { const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString(); }, 1000);
+    
+    if(isAppReady) handleRoute();
+}
+
+// === 路由定义 ===
+const views = {
+    home: document.getElementById('view-home'),
+    write: document.getElementById('view-write'),
+    tasks: document.getElementById('view-tasks'),
+    post: document.getElementById('view-post'),
+    settings: document.getElementById('view-settings'),
+    about: document.getElementById('view-about'),
+    notifications: document.getElementById('view-notifications'),
+    feedback: document.getElementById('view-feedback'),
+    admin: document.getElementById('view-admin')
+};
+
+async function handleRoute() {
+    const hash = window.location.hash || '#home';
+    const sidebar = document.getElementById('sidebar');
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
+    navLinks.forEach(el => el.classList.remove('active'));
+    if(sidebar) sidebar.classList.remove('open');
+
+    if(!isAppReady && hash === '#admin') return;
+
+    if(hash !== '#write' && isEditingPost) {
+        isEditingPost = false; editingPostId = null;
+        const btn = document.querySelector('#postForm button');
+        if(btn) btn.textContent = "发布 / PUBLISH";
+        const t = document.getElementById('postTitle'); if(t) t.value=''; 
+        const c = document.getElementById('postContent'); if(c) c.value=''; 
+        const cancelBtn = document.getElementById('cancelEditPostBtn');
+        if(cancelBtn) cancelBtn.style.display = 'none';
+    }
+
+    if (hash === '#home') {
+        if(views.home) views.home.style.display = 'block';
+        const link = document.querySelector('a[href="#home"]'); if(link) link.classList.add('active');
+        loadPosts(true); 
+    } else if (hash === '#write') {
+        if(views.write) views.write.style.display = 'block';
+        const link = document.getElementById('navWrite'); if(link) link.classList.add('active');
+        tryRestoreDraft();
+     } else if (hash === '#tasks') {
+        if(views.tasks) views.tasks.style.display = 'block';
+        loadTasks();
+    } else if (hash === '#settings') {
+        if(views.settings) views.settings.style.display = 'block';
+        const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
+    } else if (hash === '#about') {
+        if(views.about) views.about.style.display = 'block';
+        const link = document.querySelector('a[href="#about"]'); if(link) link.classList.add('active');
+    } else if (hash === '#notifications') {
+        if(views.notifications) views.notifications.style.display = 'block';
+        const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
+        loadNotifications();
+    } else if (hash === '#feedback') {
+        if(views.feedback) views.feedback.style.display = 'block';
+        const link = document.querySelector('a[href="#feedback"]'); if(link) link.classList.add('active');
+    } else if (hash === '#admin') {
+        if(userRole !== 'admin') { alert("ACCESS DENIED"); window.location.hash='#home'; return; }
+        if(views.admin) {
+            views.admin.style.display = 'block';
+            const link = document.getElementById('navAdmin'); if(link) link.classList.add('active');
+            loadAdminStats();
+            loadAdminInvites();
+            loadAdminFeedbacks();
+            loadAdminBanList();
+        }
+    } else if (hash.startsWith('#post?id=')) {
+        if(views.post) views.post.style.display = 'block';
+        loadSinglePost(hash.split('=')[1]);
+    }
+}
+
+// === 帖子详情 & 评论 ===
+
+async function loadSinglePost(id) {
+    currentPostId = id; const container = document.getElementById('single-post-content'); if(!container) return; container.innerHTML = '读取中...'; document.getElementById('commentsList').innerHTML = '';
+    const backBtn = document.querySelector('#view-post .back-btn'); if (backBtn) { if (returnToNotifications) { backBtn.textContent = "< 返回通知 / BACK TO LOGS"; backBtn.onclick = () => window.location.hash = '#notifications'; } else { backBtn.textContent = "< 返回 / BACK"; backBtn.onclick = () => window.location.hash = '#home'; } }
+    const commentInput = document.getElementById('commentInput'); if(commentInput) { commentInput.value = ''; commentInput.placeholder = "输入你的看法... (支持纯文本)"; commentInput.dataset.parentId = ""; isEditingComment = false; editingCommentId = null; const submitBtn = document.querySelector('.comment-input-box button:first-of-type'); if(submitBtn) submitBtn.textContent = "发送评论 / SEND (+5 XP)"; } const cancelBtn = document.getElementById('cancelReplyBtn'); if (cancelBtn) cancelBtn.style.display = 'none';
+    try {
+        const res = await fetch(`${API_BASE}/posts?id=${id}`); const post = await res.json(); if (!post) { container.innerHTML = '<h1>404 - 内容可能已被删除</h1>'; return; }
+        
+        currentPostAuthorId = post.user_id;
+
+        const rawDate = post.updated_at || post.created_at; const dateStr = new Date(rawDate).toLocaleString(); const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
+        
+        let actionBtns = ''; if (userRole === 'admin') { const pinText = post.is_pinned ? "取消置顶 / UNPIN" : "置顶 / PIN"; const pinColor = post.is_pinned ? "#0f0" : "#666"; actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`; } if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { actionBtns += `<button onclick="editPostMode('${post.id}', '${encodeURIComponent(post.title)}', '${encodeURIComponent(post.content)}', '${post.category}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑 / EDIT</button>`; actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`; } if (userRole === 'admin' && post.user_id !== currentUser.id) { actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`; } let tipBtn = ''; if (currentUser.id !== post.user_id) { tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; }
+        
+        const authorDisplay = post.author_nickname || post.author_username; const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
+        container.innerHTML = `<div class="post-header-row"><div class="post-author-info"><div class="post-avatar-box">${avatarSvg}</div><div class="post-meta-text"><span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">${authorDisplay} ${badgesHtml}</span><div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div></div></div><div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">${actionBtns}${tipBtn}</div></div><h1 style="margin-top:20px;">${post.title}</h1><div class="article-body">${post.content}</div>`;
+        currentCommentPage = 1; hasMoreComments = true; loadNativeComments(id, true);
+    } catch (e) { console.error(e); container.innerHTML = 'Error loading post.'; }
+}
+
+async function loadNativeComments(postId, reset = false) {
+    const list = document.getElementById('commentsList'); const loadBtn = document.getElementById('loadCommentsBtn');
+    if (reset) { currentCommentPage = 1; hasMoreComments = true; list.innerHTML = ''; if (loadBtn) loadBtn.style.display = 'none'; }
+    if (!hasMoreComments || isLoadingComments) return;
+    isLoadingComments = true; if(reset) list.innerHTML = 'Loading comments...'; else if(loadBtn) loadBtn.textContent = "LOADING...";
+    try {
+        const res = await fetch(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}&limit=${COMMENTS_PER_PAGE}`); const data = await res.json();
+        if(reset) list.innerHTML = '';
+        if (data.results.length < COMMENTS_PER_PAGE) hasMoreComments = false;
+        if(data.results.length === 0 && currentCommentPage === 1) { list.innerHTML = '<p style="color:#666">暂无评论，抢占沙发。</p>'; } else {
+            const rootComments = data.results.filter(c => !c.parent_id);
+            const replies = data.results.filter(c => c.parent_id);
+            rootComments.forEach((c, index) => {
+                const globalIndex = (currentCommentPage - 1) * COMMENTS_PER_PAGE + index + 1;
+                const commentNode = createCommentElement(c, false, null, globalIndex, currentPostAuthorId);
+                list.appendChild(commentNode);
+                const myReplies = replies.filter(r => r.parent_id === c.id);
+                if (myReplies.length > 0) {
+                    const replyContainer = document.createElement('div'); replyContainer.className = 'replies-container';
+                    const visibleReplies = myReplies.slice(0, 3); const hiddenReplies = myReplies.slice(3);
+                    visibleReplies.forEach(r => { replyContainer.appendChild(createCommentElement(r, true, c.user_id, 0, currentPostAuthorId)); });
+                    if (hiddenReplies.length > 0) {
+                        const foldBtn = document.createElement('div'); foldBtn.className = 'reply-fold-btn'; foldBtn.innerText = `查看剩余 ${hiddenReplies.length} 条回复...`;
+                        foldBtn.onclick = () => { hiddenReplies.forEach(r => { replyContainer.insertBefore(createCommentElement(r, true, c.user_id, 0, currentPostAuthorId), foldBtn); }); foldBtn.remove(); };
+                        replyContainer.appendChild(foldBtn);
+                    }
+                    list.appendChild(replyContainer);
+                }
+            });
+            currentCommentPage++;
+        }
+    } catch(e) { console.error(e); } finally { isLoadingComments = false; if (!document.getElementById('loadCommentsBtn')) { const btn = document.createElement('button'); btn.id = 'loadCommentsBtn'; btn.className = 'cyber-btn'; btn.style.marginTop = '20px'; btn.onclick = () => loadNativeComments(postId, false); list.parentNode.insertBefore(btn, list.nextSibling); } const btn = document.getElementById('loadCommentsBtn'); if (hasMoreComments) { btn.style.display = 'block'; btn.textContent = '加载更多评论 / LOAD COMMENTS'; } else { btn.style.display = 'none'; } }
+}
+
+function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId) {
+    const avatar = generatePixelAvatar(c.username, c.avatar_variant); const div = document.createElement('div'); div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; if(c.is_pinned) { div.style.border = "1px solid #0f0"; div.style.background = "rgba(0,255,0,0.05)"; }
+    let actionLinks = ''; if (userRole === 'admin' || currentUser.id === c.user_id) { actionLinks += `<span onclick="deleteComment(${c.id})" class="action-link">[删除]</span>`; actionLinks += `<span onclick="editCommentMode(${c.id}, '${encodeURIComponent(c.content)}')" class="action-link" style="color:#0070f3">[编辑]</span>`; } if (userRole === 'admin' && !isReply) { const pinTxt = c.is_pinned ? "取消置顶" : "置顶"; actionLinks += `<span onclick="pinComment(${c.id})" class="action-link" style="color:#0f0">[${pinTxt}]</span>`; }
+    const badgeHtml = getBadgesHtml(c); const likeClass = c.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`; const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`; const pinnedBadge = c.is_pinned ? '<span style="color:#0f0;font-weight:bold;font-size:0.7rem;margin-right:5px">📌置顶</span>' : '';
+    let replyIndicator = ''; if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) { const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown"; replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `; }
+    let floorTag = ''; if (!isReply && floorNumber) floorTag = `<span class="floor-tag">${getFloorName(floorNumber)}</span>`;
+    let authorTag = ''; if (postAuthorId && c.user_id === postAuthorId) { authorTag = `<span class="author-tag">📝 作者</span>`; }
+    div.innerHTML = `<div class="comment-avatar">${avatar}</div><div class="comment-content-box"><div class="comment-header"><span class="comment-author">${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>${floorTag}</div><div class="comment-meta-row">${pinnedBadge} ${new Date(c.created_at).toLocaleString()}<div class="comment-actions">${likeBtn} ${replyBtn} ${actionLinks}</div></div><div class="comment-text">${replyIndicator}${c.content}</div></div>`; return div;
+}
+
+// === 交互函数 ===
+
+window.submitFeedback = async function() {
+    const content = document.getElementById('feedbackContent').value;
+    if(!content || content.length < 5) return alert("反馈内容太短");
+    try {
+        const res = await fetch(`${API_BASE}/feedback`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content})
+        });
+        const data = await res.json();
+        if(data.success) { alert(data.message); document.getElementById('feedbackContent').value = ''; window.location.hash='#home'; }
+        else alert(data.error);
+    } catch(e) { alert("Error"); }
+};
+
 window.editPostMode = function(id, titleEncoded, contentEncoded, category) { isEditingPost = true; editingPostId = id; window.location.hash = '#write'; document.getElementById('postTitle').value = decodeURIComponent(titleEncoded); document.getElementById('postContent').value = decodeURIComponent(contentEncoded); document.getElementById('postCategory').value = category; const btn = document.querySelector('#postForm button'); btn.textContent = "保存修改 / UPDATE POST"; let cancelBtn = document.getElementById('cancelEditPostBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelEditPostBtn'; cancelBtn.type = 'button'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.marginTop = '10px'; cancelBtn.style.borderColor = '#ff3333'; cancelBtn.style.color = '#ff3333'; cancelBtn.textContent = '取消编辑 / CANCEL'; cancelBtn.onclick = cancelEditPost; btn.parentNode.insertBefore(cancelBtn, btn.nextSibling); } cancelBtn.style.display = 'block'; };
 window.cancelEditPost = function() { isEditingPost = false; editingPostId = null; document.querySelector('#postForm button').textContent = "发布 / PUBLISH"; document.getElementById('postTitle').value = ''; document.getElementById('postContent').value = ''; const cancelBtn = document.getElementById('cancelEditPostBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; window.location.hash = '#home'; };
 window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
@@ -439,6 +443,8 @@ async function doPost(e) { e.preventDefault(); const t = document.getElementById
 window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return alert("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { alert(data.message); window.location.reload(); } else alert(data.error); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { alert(data.message); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true); } else { alert(data.error); } } } catch(e) { alert("Error"); } finally { if(btn) btn.disabled = false; } };
 window.prepareReply = function(commentId, username) { const input = document.getElementById('commentInput'); input.dataset.parentId = commentId || ""; input.placeholder = username ? `回复 @${username} ...` : "输入你的看法..."; input.focus(); let cancelBtn = document.getElementById('cancelReplyBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px'; cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply; document.querySelector('.comment-input-box').appendChild(cancelBtn); } cancelBtn.style.display = 'inline-block'; };
 window.cancelReply = function() { const input = document.getElementById('commentInput'); input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)"; const cancelBtn = document.getElementById('cancelReplyBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; };
+function checkForDrafts() { const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory'); if(pTitle && pContent) { const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } }; pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save); } }
+function tryRestoreDraft() { if(isEditingPost) return; const t = localStorage.getItem('draft_title'); const c = localStorage.getItem('draft_content'); const cat = localStorage.getItem('draft_cat'); if ((t || c) && document.getElementById('postTitle').value === '') { if(confirm("发现未发布的草稿，是否恢复？\n取消则清空草稿。")) { document.getElementById('postTitle').value = t || ''; document.getElementById('postContent').value = c || ''; if(cat) document.getElementById('postCategory').value = cat; } else { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } } }
 window.pinPost = async function(id) { if(!confirm("确认更改置顶状态？")) return; await fetch(`${API_BASE}/posts`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadSinglePost(id); };
 window.pinComment = async function(id) { if(!confirm("确认更改此评论置顶状态？")) return; await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadNativeComments(currentPostId, true); };
 window.deleteNotify = async function(id) { if(!confirm("Delete this log?")) return; await fetch(`${API_BASE}/notifications?id=${id}`, {method: 'DELETE'}); loadNotifications(); };
@@ -453,7 +459,7 @@ window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => 
 window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); alert("Copied"); };
 window.deletePost = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); window.location.hash='#home'; };
 window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
-window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d})}); alert("Done"); };
+window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; const r=prompt("Reason?"); if(!r)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d, reason:r})}); alert("Done"); if(document.getElementById('view-admin').style.display === 'block') loadAdminBanList(); };
 window.adminGenKey = async function() { const u=document.getElementById('adminTargetUser').value; const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_key', target_username:u})}); const d=await r.json(); document.getElementById('adminKeyResult').innerText=d.key; };
 window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); alert("Posted"); };
 window.adminGenInvite = async function() { const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_invite'})}); const d=await r.json(); document.getElementById('adminInviteResult').innerText=d.codes?d.codes.join('\n'):d.code; };
@@ -463,19 +469,7 @@ window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
 window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
 window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return alert("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) alert("头衔发放成功！"); else alert(data.error); } catch(e) { alert("Error"); } };
-window.submitFeedback = async function() {
-    const content = document.getElementById('feedbackContent').value;
-    if(!content || content.length < 5) return alert("反馈内容太短");
-    try {
-        const res = await fetch(`${API_BASE}/feedback`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({content})
-        });
-        const data = await res.json();
-        if(data.success) { alert(data.message); document.getElementById('feedbackContent').value = ''; window.location.hash='#home'; }
-        else alert(data.error);
-    } catch(e) { alert("Error"); }
-};
+window.adminUnbanUser = async function(uid) { if(!confirm("Unban?")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); alert("Done"); loadAdminBanList(); };
 async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge'); if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
 async function loadAdminStats() { checkAdminStatus(); }
 window.toggleInviteSystem = async function() { const enabled = document.getElementById('inviteToggle').checked; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) }); const data = await res.json(); alert(data.message); } catch(e){ alert("设置失败"); } };
@@ -486,10 +480,4 @@ async function loadAdminFeedbacks() { const tbody = document.querySelector('#adm
 window.adminMarkRead = async function(id) { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'mark_feedback_read', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
 window.adminDeleteFeedback = async function(id) { if(!confirm("Delete feedback?")) return; await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_feedback', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
 window.adminReplyFeedback = async function(id, userId) { const reply = prompt("请输入回复内容："); if(!reply) return; const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'reply_feedback', id, user_id: userId, content: reply}) }); const d = await res.json(); if(d.success) { alert(d.message); loadAdminFeedbacks(); checkAdminStatus(); } else alert(d.error); };
-window.adminUnbanUser = async function(uid) { if(!confirm("解除封禁？")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); alert("已解封"); loadAdminBanList(); };
 async function loadAdminBanList() { const tbody = document.querySelector('#adminBanTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_banned_users'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(u => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${u.nickname || u.username}</td><td>${u.ban_reason || '-'}</td><td>${new Date(u.ban_expires_at).toLocaleDateString()}</td><td><button onclick="adminUnbanUser(${u.id})" class="mini-action-btn" style="color:#0f0">解封</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">无封禁用户</td></tr>'; } } catch(e){ tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
-
-// 这是一个入口函数，确保最后运行
-document.addEventListener('DOMContentLoaded', () => {
-    // 这个监听器已经在上面有了，为了双重保险可以保留，也可以依赖顶部的入口
-});
