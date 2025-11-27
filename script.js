@@ -151,16 +151,21 @@ async function loadPosts(reset = false) {
                 const rawDate = post.updated_at || post.created_at; 
                 const dateStr = new Date(rawDate).toLocaleDateString(); 
                 const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
-                const isNew = (now - post.created_at) < (24 * 60 * 60 * 1000);
-                const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
                 
+                // === 修改开始：NEW 标签逻辑 ===
+                const readPosts = JSON.parse(localStorage.getItem('read_posts') || '[]');
+                const isTimeNew = (now - post.created_at) < (24 * 60 * 60 * 1000);
+                // 只有时间新 且 没有读过，才显示 NEW
+                const isNew = isTimeNew && !readPosts.includes(post.id);
+                const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
+                // === 修改结束 ===
+
                 const author = post.author_nickname || post.author_username || "Unknown";
                 const cat = post.category || '灌水'; 
                 let catClass = ''; 
                 if(cat === '技术') catClass = 'cat-tech'; else if(cat === '生活') catClass = 'cat-life'; else if(cat === '提问') catClass = 'cat-question'; else if(cat === '公告') catClass = 'cat-announce';
                 
                 const catHtml = `<span class="category-tag ${catClass}">${cat}</span>`; 
-                // === 修复：定义 isAnnounceClass ===
                 const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
                 const pinnedIcon = post.is_pinned ? '<span style="color:#0f0;margin-right:5px">📌[置顶]</span>' : '';
                 
@@ -182,7 +187,21 @@ async function loadPosts(reset = false) {
                         <div>${likeBtn}</div>
                     </div>
                 `;
-                div.onclick = () => { returnToNotifications = false; window.location.hash = `#post?id=${post.id}`; }; 
+
+                // === 修改开始：点击事件 ===
+                div.onclick = () => { 
+                    // 记录已读
+                    const currentRead = JSON.parse(localStorage.getItem('read_posts') || '[]');
+                    if (!currentRead.includes(post.id)) {
+                        currentRead.push(post.id);
+                        localStorage.setItem('read_posts', JSON.stringify(currentRead));
+                    }
+
+                    returnToNotifications = false; 
+                    window.location.hash = `#post?id=${post.id}`; 
+                }; 
+                // === 修改结束 ===
+
                 container.appendChild(div);
             });
             currentPage++;
@@ -507,5 +526,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. 执行安全检查 (验证登录状态、移除加载遮罩)
     checkSecurity();
 });
+
 
 
