@@ -154,7 +154,8 @@
                         </select>
                         <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
                         <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
-                            <input type="file" id="imageUploadInput" accept="image/*" style="display: none;" onchange="uploadImage()">
+                            <!-- 修改 accept 属性，增加 video/* -->
+                            <input type="file" id="imageUploadInput" accept="image/*,video/*" style="display: none;" onchange="uploadImage()">
                             <button type="button" class="cyber-btn" style="width: auto; padding: 5px 15px; font-size: 0.8rem;" onclick="document.getElementById('imageUploadInput').click()">
                                 📷 插入图片 / UPLOAD IMG
                             </button>
@@ -428,6 +429,7 @@
     <script src="script.js?v=5.6"></script>
 </body>
 </html>
+
 
 
 
