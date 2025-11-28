@@ -288,16 +288,23 @@ async function loadPosts(reset = false) {
                     </div>
                 `;
 
-                // === 修改开始：点击事件 ===
                 // === 点击卡片 ===
                 div.onclick = () => { 
-                   // 1. 记录已读
+                   // 1. 记录已读 (存入 LocalStorage)
                     const currentRead = JSON.parse(localStorage.getItem('read_posts') || '[]');
-                    if (!currentRead.includes(post.id)) {
+                    // 兼容数字和字符串类型的 ID，防止类型不匹配导致重复添加
+                    if (!currentRead.includes(post.id) && !currentRead.includes(String(post.id))) {
                         currentRead.push(post.id);
                         localStorage.setItem('read_posts', JSON.stringify(currentRead));
                     }
                    
+                    // === 新增：点击瞬间，立即在视觉上移除 NEW 标签 ===
+                    const badge = div.querySelector('.new-badge');
+                    if (badge) {
+                        badge.style.display = 'none'; // 或者 badge.remove();
+                    }
+                    // ===========================================
+
                     returnToNotifications = false; 
                     
                     // 2. 关键：将当前滚动高度存入 sessionStorage
@@ -306,7 +313,6 @@ async function loadPosts(reset = false) {
                     // 3. 跳转
                     window.location.hash = `#post?id=${post.id}`; 
                 }; 
-                // === 修改结束 ===
 
                 container.appendChild(div);
             });
@@ -927,6 +933,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
