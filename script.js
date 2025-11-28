@@ -831,7 +831,54 @@ window.editPostMode = async function(id) {
 
 window.cancelEditPost = function() { isEditingPost = false; editingPostId = null; document.querySelector('#postForm button').textContent = "发布 / PUBLISH"; document.getElementById('postTitle').value = ''; document.getElementById('postContent').value = ''; const cancelBtn = document.getElementById('cancelEditPostBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; window.location.hash = '#home'; };
 window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
-async function doPost(e) { e.preventDefault(); const t = document.getElementById('postTitle').value; const c = document.getElementById('postContent').value; const cat = document.getElementById('postCategory').value; const btn = document.querySelector('#postForm button'); btn.disabled = true; try { let url = `${API_BASE}/posts`; let method = 'POST'; let body = { title: t, content: c, category: cat }; if (isEditingPost) { method = 'PUT'; body = { action: 'edit', id: editingPostId, title: t, content: c, category: cat }; } const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }); const data = await res.json(); if (data.success) { showToast(data.message, 'success'); if(!isEditingPost) { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } cancelEditPost(); } else { showToast(data.error, 'error'); } } catch(err) { showToast("网络连接错误", 'error'); } finally { btn.disabled = false; } }
+async function doPost(e) { 
+    e.preventDefault(); 
+    const t = document.getElementById('postTitle').value; 
+    const c = document.getElementById('postContent').value; 
+    const cat = document.getElementById('postCategory').value; 
+    const btn = document.querySelector('#postForm button'); 
+    
+    btn.disabled = true; 
+    try { 
+        let url = `${API_BASE}/posts`; 
+        let method = 'POST'; 
+        let body = { title: t, content: c, category: cat }; 
+        if (isEditingPost) { 
+            method = 'PUT'; 
+            body = { action: 'edit', id: editingPostId, title: t, content: c, category: cat }; 
+        } 
+        
+        const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }); 
+        const data = await res.json(); 
+        
+        if (data.success) { 
+            showToast(data.message, 'success'); 
+            if(!isEditingPost) { 
+                localStorage.removeItem('draft_title'); 
+                localStorage.removeItem('draft_content'); 
+                localStorage.removeItem('draft_cat'); 
+            } 
+            cancelEditPost(); 
+            
+            // === 核心修改：无刷新更新体验 ===
+            // 1. 刷新侧边栏 (因为发帖奖励了经验)
+            checkSecurity(); 
+            // 2. 刷新任务状态 (可能完成了发帖任务)
+            loadTasks();
+            // 3. 清除首页滚动记录，让用户回到顶部看新帖
+            sessionStorage.removeItem('homeScrollY');
+            // 4. 强制刷新首页帖子列表 (显示刚刚发的贴)
+            loadPosts(true);
+            
+        } else { 
+            showToast(data.error, 'error'); 
+        } 
+    } catch(err) { 
+        showToast("网络连接错误", 'error'); 
+    } finally { 
+        btn.disabled = false; 
+    } 
+}
 window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return showToast("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); window.location.reload(); } else showToast(data.error, 'error'); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true); loadTasks(); } else { showToast(data.error, 'error'); } } } catch(e) { showToast("网络连接错误", 'error'); } finally { if(btn) btn.disabled = false; } };
 window.prepareReply = function(commentId, username) { const input = document.getElementById('commentInput'); input.dataset.parentId = commentId || ""; input.placeholder = username ? `回复 @${username} ...` : "输入你的看法..."; input.focus(); let cancelBtn = document.getElementById('cancelReplyBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px'; cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply; document.querySelector('.comment-input-box').appendChild(cancelBtn); } cancelBtn.style.display = 'inline-block'; };
 window.cancelReply = function() { const input = document.getElementById('commentInput'); input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)"; const cancelBtn = document.getElementById('cancelReplyBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; };
@@ -849,7 +896,28 @@ window.toggleLike = async function(targetId, type, btn) { if(btn.disabled) retur
 window.saveBadgePreference = async function() { const select = document.getElementById('badgePreferenceSelect'); try { const res = await fetch(`${API_BASE}/profile`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ badge_preference: select.value }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); window.location.reload(); } else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error'); } };
 window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => showToast("已复制")); };
 window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); showToast("Copied"); };
-window.deletePost = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); window.location.hash='#home'; };
+window.deletePost = async function(id) { 
+    if(!confirm("确定要删除这篇文章吗？操作不可恢复。")) return; 
+    
+    try {
+        const res = await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); 
+        const data = await res.json(); // 建议后端 DELETE 也返回 JSON，如果只返回 status 200 也可以
+        
+        // 假设后端返回了 JSON，或者直接检查 res.ok
+        if (res.ok) {
+            showToast("删除成功", "success");
+            
+            // === 核心修改：无刷新更新 ===
+            window.location.hash = '#home'; // 确保回到首页
+            // 强制重新加载列表，去掉已删除的帖子
+            loadPosts(true); 
+        } else {
+            showToast("删除失败", "error");
+        }
+    } catch(e) {
+        showToast("网络错误", "error");
+    }
+};
 window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
 window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; const r=prompt("Reason?"); if(!r)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d, reason:r})}); showToast("Done"); if(document.getElementById('view-admin').style.display === 'block') loadAdminBanList(); };
 window.adminGenKey = async function() { const u=document.getElementById('adminTargetUser').value; const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_key', target_username:u})}); const d=await r.json(); document.getElementById('adminKeyResult').innerText=d.key; };
@@ -858,7 +926,7 @@ window.adminManageBalance = async function() {
     const a = document.getElementById('adminBalanceAmount').value;
     const r = document.getElementById('adminBalanceReason').value;
 
-    if (!u || !a || !r) return showToast("请填写完整信息 (用户名、金额、理由)", "error");
+    if (!u || !a || !r) return showToast("请填写完整信息", "error");
     if (!confirm(`⚠️ 确认给用户 [${u}] 进行资金变动: ${a} i币？`)) return;
 
     try {
@@ -878,6 +946,9 @@ window.adminManageBalance = async function() {
             // 清空输入框
             document.getElementById('adminBalanceAmount').value = '';
             document.getElementById('adminBalanceReason').value = '';
+            
+            // === 新增：立即刷新我的侧边栏状态 (以防是给自己操作) ===
+            checkSecurity(); 
         } else {
             showToast(data.error, "error");
         }
@@ -965,6 +1036,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
