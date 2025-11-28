@@ -256,10 +256,10 @@ async function loadPosts(reset = false) {
                 if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
                 
                 const commentCount = post.comment_count || 0;
+                const cleanText = DOMPurify.sanitize(marked.parse(post.content), {ALLOWED_TAGS: []});
                 div.innerHTML = `
                     <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div>
                     <div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div>
-                    const cleanText = DOMPurify.sanitize(marked.parse(post.content), {ALLOWED_TAGS: []});
                     <div class="post-snippet">${cleanText.substring(0, 100)}...</div>
                     <div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; color:#666;">
                         <div>💬 <span class="count">${commentCount}</span> 评论</div>
@@ -735,6 +735,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     // 否则等待加载完成事件
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
+
 
 
 
