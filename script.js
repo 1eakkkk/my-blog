@@ -1025,18 +1025,78 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
 
-// === Lightbox 图片放大 ===
+// ==========================================
+// === Lightbox 图片查看器 (含缩放 & 旋转) ===
+// ==========================================
+
+let lbScale = 1;   // 当前缩放倍率
+let lbRotate = 0;  // 当前旋转角度
+
+// 更新图片变换状态
+function updateLightboxTransform() {
+    const img = document.getElementById('lightboxImg');
+    if(img) {
+        img.style.transform = `scale(${lbScale}) rotate(${lbRotate}deg)`;
+    }
+}
+
 window.openLightbox = function(src) {
     const lightbox = document.getElementById('lightbox');
     const img = document.getElementById('lightboxImg');
+    
+    // 1. 重置状态
+    lbScale = 1;
+    lbRotate = 0;
     img.src = src;
+    updateLightboxTransform();
+    
+    // 2. 显示
     lightbox.style.display = "block";
+    
+    // 3. 绑定滚轮缩放事件
+    img.onwheel = function(e) {
+        e.preventDefault(); // 阻止页面滚动
+        
+        // 滚轮向上(deltaY < 0)放大，向下缩小
+        // 步长 0.1，最小 0.1倍，最大 5倍
+        if (e.deltaY < 0) {
+            lbScale += 0.1;
+        } else {
+            lbScale -= 0.1;
+        }
+        
+        // 限制范围
+        if (lbScale < 0.1) lbScale = 0.1;
+        if (lbScale > 5.0) lbScale = 5.0;
+        
+        updateLightboxTransform();
+    };
+
+    // 4. 绑定点击背景关闭 (因为HTML里去掉了onclick)
+    lightbox.onclick = function(e) {
+        // 只有点击背景(lightbox本身)才关闭，点击按钮或图片不关闭
+        if (e.target === lightbox) {
+            closeLightbox();
+        }
+    };
 }
 
 window.closeLightbox = function() {
-    document.getElementById('lightbox').style.display = "none";
+    const lightbox = document.getElementById('lightbox');
+    lightbox.style.display = "none";
+    // 清理事件，释放内存
+    const img = document.getElementById('lightboxImg');
+    if(img) img.onwheel = null;
 }
 
+window.rotateImage = function(e) {
+    // 阻止冒泡，防止触发背景关闭
+    if(e) e.stopPropagation();
+    
+    // 每次旋转 90 度
+    lbRotate += 90;
+    updateLightboxTransform();
+}
 
 
 
