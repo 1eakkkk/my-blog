@@ -282,8 +282,9 @@ async function loadPosts(reset = false) {
                 
                 const commentCount = post.comment_count || 0;
                 const cleanText = DOMPurify.sanitize(marked.parse(post.content), {ALLOWED_TAGS: []});
+                const authorLink = `<span class="mention-link" onclick="event.stopPropagation(); window.location.hash='#profile?u=${post.author_username}'">@${author}</span>`;
                 div.innerHTML = `
-                    <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div>
+                    <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} ${authorLink}</div>
                     <div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div>
                     ${thumbnailHtml}
                     <div class="post-snippet">${cleanText.substring(0, 100)}...</div>
@@ -638,7 +639,8 @@ async function loadSinglePost(id, targetCommentId = null) {
         let actionBtns = ''; if (userRole === 'admin') { const pinText = post.is_pinned ? "取消置顶 / UNPIN" : "置顶 / PIN"; const pinColor = post.is_pinned ? "#0f0" : "#666"; actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`; } if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { actionBtns += `<button onclick="editPostMode('${post.id}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑 / EDIT</button>`; actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`; } if (userRole === 'admin' && post.user_id !== currentUser.id) { actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`; } let tipBtn = ''; if (currentUser.id !== post.user_id) { tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; }
         
         const authorDisplay = post.author_nickname || post.author_username; const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
-        container.innerHTML = `<div class="post-header-row"><div class="post-author-info"><div class="post-avatar-box">${avatarSvg}</div><div class="post-meta-text"><span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">${authorDisplay} ${badgesHtml}</span><div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div></div></div><div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">${actionBtns}${tipBtn}</div></div><h1 style="margin-top:20px;">${post.title}</h1><div class="article-body">${parseMarkdown(post.content)}</div>`;
+        const userLinkAction = `onclick="window.location.hash='#profile?u=${post.author_username}'" style="cursor:pointer"`;
+        container.innerHTML = `<div class="post-header-row"><div class="post-author-info"><div class="post-avatar-box" ${userLinkAction}>${avatarSvg}</div><div class="post-meta-text"><span ${userLinkAction} style="color:#fff; font-size:1rem; font-weight:bold; ...">${authorDisplay} ${badgesHtml}</span><div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div></div></div><div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">${actionBtns}${tipBtn}</div></div><h1 style="margin-top:20px;">${post.title}</h1><div class="article-body">${parseMarkdown(post.content)}</div>`;
         const imgs = container.querySelectorAll('.article-body img');
         imgs.forEach(img => {
             img.onclick = function() {
@@ -701,11 +703,12 @@ function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId
     let replyIndicator = ''; if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) { const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown"; replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `; }
     let floorTag = ''; if (!isReply && floorNumber) floorTag = `<span class="floor-tag">${getFloorName(floorNumber)}</span>`;
     let authorTag = ''; if (postAuthorId && c.user_id === postAuthorId) { authorTag = `<span class="author-tag">📝 作者</span>`; }
+    const userLinkProp = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${c.username}'" style="cursor:pointer"`;
     div.innerHTML = `
-        <div class="comment-avatar">${avatar}</div>
+        <div class="comment-avatar">${userLinkProp}>${avatar}</div>
         <div class="comment-content-box">
             <div class="comment-header">
-                <span class="comment-author">${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>
+                <span class="comment-author" ${userLinkProp}>${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>
                 ${floorTag}
             </div>
             <div class="comment-meta-row">
@@ -1320,3 +1323,4 @@ window.toggleFollow = async function(targetId, btn) {
         btn.disabled = false;
     }
 };
+
