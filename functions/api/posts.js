@@ -58,8 +58,15 @@ export async function onRequestGet(context) {
 
       // 搜索逻辑
       if (search) {
-          sql += ` WHERE (posts.title LIKE ? OR posts.content LIKE ?)`;
-          params.push(`%${search}%`, `%${search}%`);
+          const term = `%${search}%`;
+          sql += ` WHERE (
+              posts.title LIKE ? OR 
+              posts.content LIKE ? OR 
+              posts.category LIKE ? OR
+              EXISTS (SELECT 1 FROM comments WHERE comments.post_id = posts.id AND comments.content LIKE ?)
+          )`;
+          // 对应4个问号
+          params.push(term, term, term, term);
       }
 
       // 排序逻辑
@@ -163,3 +170,4 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
