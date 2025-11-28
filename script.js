@@ -173,16 +173,16 @@ window.claimTask = async function() {
         });
         const data = await res.json();
         if (data.success) {
-            alert(data.message);
+            showToast(data.message, 'success');
             // 领取成功后，立即刷新状态，更新余额和经验条
             checkSecurity(); // 重新拉取用户信息(余额/XP)
             loadTasks();     // 重新拉取任务状态(红点消失)
         } else {
-            alert(data.error);
+            showToast(data.error, 'error');
             if(btn) btn.disabled = false;
         }
     } catch (e) {
-        alert("领取失败: 网络错误");
+        showToast("领取失败: 网络错误");
         if(btn) btn.disabled = false;
     }
 };
@@ -198,14 +198,14 @@ window.rerollTask = async function() {
         });
         const data = await res.json();
         if (data.success) {
-            alert("任务已刷新！");
+            showToast("任务已刷新！");
             checkSecurity(); // 更新余额
             loadTasks();     // 显示新任务
         } else {
-            alert(data.error);
+            showToast(data.error, 'error');
         }
     } catch (e) {
-        alert("刷新失败");
+        showToast("刷新失败");
     }
 };
 
@@ -498,7 +498,7 @@ async function handleRoute() {
         if(views.feedback) views.feedback.style.display = 'block';
         const link = document.querySelector('a[href="#feedback"]'); if(link) link.classList.add('active');
     } else if (hash === '#admin') {
-        if(userRole !== 'admin') { alert("ACCESS DENIED"); window.location.hash='#home'; return; }
+        if(userRole !== 'admin') { showToast("ACCESS DENIED"); window.location.hash='#home'; return; }
         if(views.admin) {
             views.admin.style.display = 'block';
             const link = document.getElementById('navAdmin'); if(link) link.classList.add('active');
@@ -521,13 +521,13 @@ window.doCheckIn = async function() {
     try {
         const res = await fetch(`${API_BASE}/checkin`, { method: 'POST' });
         const data = await res.json();
-        alert(data.message);
+        showToast(data.message, 'success');
         if (data.success) {
             checkSecurity();
             loadTasks();
         }
     } catch (e) {
-        alert("签到失败: 网络错误");
+        showToast("签到失败: 网络错误");
     } finally {
         if(btn) btn.disabled = false;
     }
@@ -540,13 +540,13 @@ window.doLuckyDraw = async function() {
         const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
-            alert(data.message);
+            showToast(data.message, 'success');
             window.location.reload();
         } else {
-            alert(data.error);
+            showToast(data.error, 'error');
         }
     } catch (e) {
-        alert("抽奖失败: 网络错误");
+        showToast("抽奖失败: 网络错误");
     } finally {
         if(btn) btn.disabled = false;
     }
@@ -620,16 +620,16 @@ function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId
 
 window.submitFeedback = async function() {
     const content = document.getElementById('feedbackContent').value;
-    if(!content || content.length < 5) return alert("反馈内容太短");
+    if(!content || content.length < 5) return showToast("反馈内容太短");
     try {
         const res = await fetch(`${API_BASE}/feedback`, {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({content})
         });
         const data = await res.json();
-        if(data.success) { alert(data.message); document.getElementById('feedbackContent').value = ''; window.location.hash='#home'; }
-        else alert(data.error);
-    } catch(e) { alert("Error"); }
+        if(data.success) { showToast(data.message, 'success'); document.getElementById('feedbackContent').value = ''; window.location.hash='#home'; }
+        else showToast(data.error, 'error');
+    } catch(e) { showToast("网络连接错误", 'error'); }
 };
 
 window.uploadImage = async function() {
@@ -678,8 +678,8 @@ window.uploadImage = async function() {
 window.editPostMode = function(id, titleEncoded, contentEncoded, category) { isEditingPost = true; editingPostId = id; window.location.hash = '#write'; document.getElementById('postTitle').value = decodeURIComponent(titleEncoded); document.getElementById('postContent').value = decodeURIComponent(contentEncoded); document.getElementById('postCategory').value = category; const btn = document.querySelector('#postForm button'); btn.textContent = "保存修改 / UPDATE POST"; let cancelBtn = document.getElementById('cancelEditPostBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelEditPostBtn'; cancelBtn.type = 'button'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.marginTop = '10px'; cancelBtn.style.borderColor = '#ff3333'; cancelBtn.style.color = '#ff3333'; cancelBtn.textContent = '取消编辑 / CANCEL'; cancelBtn.onclick = cancelEditPost; btn.parentNode.insertBefore(cancelBtn, btn.nextSibling); } cancelBtn.style.display = 'block'; };
 window.cancelEditPost = function() { isEditingPost = false; editingPostId = null; document.querySelector('#postForm button').textContent = "发布 / PUBLISH"; document.getElementById('postTitle').value = ''; document.getElementById('postContent').value = ''; const cancelBtn = document.getElementById('cancelEditPostBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; window.location.hash = '#home'; };
 window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
-async function doPost(e) { e.preventDefault(); const t = document.getElementById('postTitle').value; const c = document.getElementById('postContent').value; const cat = document.getElementById('postCategory').value; const btn = document.querySelector('#postForm button'); btn.disabled = true; try { let url = `${API_BASE}/posts`; let method = 'POST'; let body = { title: t, content: c, category: cat }; if (isEditingPost) { method = 'PUT'; body = { action: 'edit', id: editingPostId, title: t, content: c, category: cat }; } const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }); const data = await res.json(); if (data.success) { alert(data.message); if(!isEditingPost) { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } cancelEditPost(); } else { alert(data.error); } } catch(err) { alert("Error"); } finally { btn.disabled = false; } }
-window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return alert("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { alert(data.message); window.location.reload(); } else alert(data.error); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { alert(data.message); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true); loadTasks(); } else { alert(data.error); } } } catch(e) { alert("Error"); } finally { if(btn) btn.disabled = false; } };
+async function doPost(e) { e.preventDefault(); const t = document.getElementById('postTitle').value; const c = document.getElementById('postContent').value; const cat = document.getElementById('postCategory').value; const btn = document.querySelector('#postForm button'); btn.disabled = true; try { let url = `${API_BASE}/posts`; let method = 'POST'; let body = { title: t, content: c, category: cat }; if (isEditingPost) { method = 'PUT'; body = { action: 'edit', id: editingPostId, title: t, content: c, category: cat }; } const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }); const data = await res.json(); if (data.success) { showToast(data.message, 'success'); if(!isEditingPost) { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } cancelEditPost(); } else { showToast(data.error, 'error'); } } catch(err) { showToast("网络连接错误", 'error'); } finally { btn.disabled = false; } }
+window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return showToast("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); window.location.reload(); } else showToast(data.error, 'error'); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true); loadTasks(); } else { showToast(data.error, 'error'); } } } catch(e) { showToast("网络连接错误", 'error'); } finally { if(btn) btn.disabled = false; } };
 window.prepareReply = function(commentId, username) { const input = document.getElementById('commentInput'); input.dataset.parentId = commentId || ""; input.placeholder = username ? `回复 @${username} ...` : "输入你的看法..."; input.focus(); let cancelBtn = document.getElementById('cancelReplyBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px'; cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply; document.querySelector('.comment-input-box').appendChild(cancelBtn); } cancelBtn.style.display = 'inline-block'; };
 window.cancelReply = function() { const input = document.getElementById('commentInput'); input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)"; const cancelBtn = document.getElementById('cancelReplyBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; };
 function checkForDrafts() { const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory'); if(pTitle && pContent) { const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } }; pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save); } }
@@ -692,33 +692,33 @@ async function loadNotifications() { const c = document.getElementById('notifyLi
 async function checkNotifications() { try { const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); const b = document.getElementById('notifyBadge'); if(d.count>0){ b.style.display='inline-block'; b.textContent=d.count;} else b.style.display='none'; } catch(e){} }
 window.readOneNotify = async function(id, link, divElement) { if(divElement) divElement.classList.remove('unread'); returnToNotifications = true; fetch(`${API_BASE}/notifications`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: id }) }).then(() => checkNotifications()); window.location.hash = link; };
 window.markAllRead = async function() { await fetch(`${API_BASE}/notifications`, {method:'POST'}); loadNotifications(); checkNotifications(); };
-window.toggleLike = async function(targetId, type, btn) { if(btn.disabled) return; btn.disabled = true; try { const res = await fetch(`${API_BASE}/like`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ target_id: targetId, target_type: type }) }); const data = await res.json(); if(data.success) { const countSpan = btn.querySelector('.count'); countSpan.textContent = data.count; if(data.isLiked) btn.classList.add('liked'); else btn.classList.remove('liked'); } else { if(res.status === 401) alert("请先登录"); else alert(data.error); } } catch(e) { console.error(e); } finally { btn.disabled = false; } };
-window.saveBadgePreference = async function() { const select = document.getElementById('badgePreferenceSelect'); try { const res = await fetch(`${API_BASE}/profile`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ badge_preference: select.value }) }); const data = await res.json(); if(data.success) { alert(data.message); window.location.reload(); } else alert(data.error); } catch(e) { alert("Error"); } };
-window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => alert("已复制")); };
-window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); alert("Copied"); };
+window.toggleLike = async function(targetId, type, btn) { if(btn.disabled) return; btn.disabled = true; try { const res = await fetch(`${API_BASE}/like`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ target_id: targetId, target_type: type }) }); const data = await res.json(); if(data.success) { const countSpan = btn.querySelector('.count'); countSpan.textContent = data.count; if(data.isLiked) btn.classList.add('liked'); else btn.classList.remove('liked'); } else { if(res.status === 401) showToast("请先登录"); else showToast(data.error); } } catch(e) { console.error(e); } finally { btn.disabled = false; } };
+window.saveBadgePreference = async function() { const select = document.getElementById('badgePreferenceSelect'); try { const res = await fetch(`${API_BASE}/profile`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ badge_preference: select.value }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); window.location.reload(); } else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error'); } };
+window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => showToast("已复制")); };
+window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); showToast("Copied"); };
 window.deletePost = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); window.location.hash='#home'; };
 window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
-window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; const r=prompt("Reason?"); if(!r)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d, reason:r})}); alert("Done"); if(document.getElementById('view-admin').style.display === 'block') loadAdminBanList(); };
+window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; const r=prompt("Reason?"); if(!r)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d, reason:r})}); showToast("Done"); if(document.getElementById('view-admin').style.display === 'block') loadAdminBanList(); };
 window.adminGenKey = async function() { const u=document.getElementById('adminTargetUser').value; const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_key', target_username:u})}); const d=await r.json(); document.getElementById('adminKeyResult').innerText=d.key; };
-window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); alert("Posted"); };
+window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); showToast("Posted"); };
 window.adminGenInvite = async function() { const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_invite'})}); const d=await r.json(); document.getElementById('adminInviteResult').innerText=d.codes?d.codes.join('\n'):d.code; };
 window.randomizeAvatar = async function() { if(!confirm("Randomize?"))return; const r=await fetch(`${API_BASE}/random_avatar`, {method:'POST'}); const d=await r.json(); if(d.success) window.location.reload(); };
 window.updateProfile = async function() { const n=document.getElementById('newNickname').value; await fetch(`${API_BASE}/profile`, {method:'POST', body:JSON.stringify({nickname:n})}); window.location.reload(); };
-window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await fetch(`${API_BASE}/vip`, {method:'POST'}); const d=await r.json(); alert(d.message); if(d.success) window.location.reload(); };
+window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await fetch(`${API_BASE}/vip`, {method:'POST'}); const d=await r.json(); showToast(d.message, 'success'); if(d.success) window.location.reload(); };
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
 window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
-window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return alert("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) alert("头衔发放成功！"); else alert(data.error); } catch(e) { alert("Error"); } };
-window.adminUnbanUser = async function(uid) { if(!confirm("Unban?")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); alert("Done"); loadAdminBanList(); };
+window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return showToast("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) showToast("头衔发放成功！"); else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error');} };
+window.adminUnbanUser = async function(uid) { if(!confirm("Unban?")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); showToast("Done"); loadAdminBanList(); };
 async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge'); if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
 async function loadAdminStats() { checkAdminStatus(); }
-window.toggleInviteSystem = async function() { const enabled = document.getElementById('inviteToggle').checked; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) }); const data = await res.json(); alert(data.message); } catch(e){ alert("设置失败"); } };
+window.toggleInviteSystem = async function() { const enabled = document.getElementById('inviteToggle').checked; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) }); const data = await res.json(); showToast(data.message, 'success'); } catch(e){ showToast("设置失败"); } };
 async function loadAdminInvites() { const tbody = document.querySelector('#adminInviteTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_invites'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(inv => { const isExpired = inv.expires_at < Date.now(); let status = '<span style="color:#0f0">可用</span>'; if(inv.is_used) status = '<span style="color:#666">已用</span>'; else if(isExpired) status = '<span style="color:#f00">过期</span>'; const tr = document.createElement('tr'); tr.innerHTML = `<td>${inv.code}</td><td>${status}</td><td>${new Date(inv.expires_at).toLocaleDateString()}</td><td><button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button><button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">暂无数据</td></tr>'; } } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
-window.refillInvites = async function() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) }); const data = await res.json(); if(data.success) { alert(data.message); loadAdminInvites(); } else alert(data.error); } catch(e){ alert("Error"); } };
-window.deleteInvite = async function(code) { if(!confirm("Delete?")) return; try { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', code: code}) }); loadAdminInvites(); } catch(e){ alert("Error"); } };
+window.refillInvites = async function() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); loadAdminInvites(); } else showToast(data.error, 'error'); } catch(e){ showToast("网络连接错误", 'error'); } };
+window.deleteInvite = async function(code) { if(!confirm("Delete?")) return; try { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_invite', code: code}) }); loadAdminInvites(); } catch(e){ showToast("网络连接错误", 'error'); } };
 async function loadAdminFeedbacks() { const tbody = document.querySelector('#adminFeedbackTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_feedbacks'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(fb => { const tr = document.createElement('tr'); if (!fb.is_read) tr.style.backgroundColor = 'rgba(255, 255, 0, 0.1)'; let replyHTML = ''; if (fb.reply_content) { replyHTML = `<div style="margin-top:5px;padding:5px;border-left:2px solid #0f0;font-size:0.8rem;color:#888;"><span style="color:#0f0">ADMIN:</span> ${fb.reply_content}</div>`; } tr.innerHTML = `<td>${fb.nickname || fb.username}</td><td style="white-space:pre-wrap;max-width:300px;">${fb.content}${replyHTML}<div style="margin-top:8px;">${!fb.is_read ? `<button onclick="adminMarkRead(${fb.id})" class="mini-action-btn" style="color:gold">已读</button>` : ''}<button onclick="adminReplyFeedback(${fb.id}, ${fb.user_id})" class="mini-action-btn" style="color:#0070f3">回复</button><button onclick="adminDeleteFeedback(${fb.id})" class="mini-action-btn" style="color:#f33">删除</button></div></td><td>${new Date(fb.created_at).toLocaleString()}</td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="3">暂无反馈</td></tr>'; } } catch(e) { tbody.innerHTML = '<tr><td colspan="3">Error</td></tr>'; } }
 window.adminMarkRead = async function(id) { await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'mark_feedback_read', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
 window.adminDeleteFeedback = async function(id) { if(!confirm("Delete feedback?")) return; await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'delete_feedback', id}) }); loadAdminFeedbacks(); checkAdminStatus(); };
-window.adminReplyFeedback = async function(id, userId) { const reply = prompt("请输入回复内容："); if(!reply) return; const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'reply_feedback', id, user_id: userId, content: reply}) }); const d = await res.json(); if(d.success) { alert(d.message); loadAdminFeedbacks(); checkAdminStatus(); } else alert(d.error); };
+window.adminReplyFeedback = async function(id, userId) { const reply = prompt("请输入回复内容："); if(!reply) return; const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'reply_feedback', id, user_id: userId, content: reply}) }); const d = await res.json(); if(d.success) { showToast(d.message, 'success'); loadAdminFeedbacks(); checkAdminStatus(); } else showToast(d.error); };
 async function loadAdminBanList() { const tbody = document.querySelector('#adminBanTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_banned_users'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(u => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${u.nickname || u.username}</td><td>${u.ban_reason || '-'}</td><td>${new Date(u.ban_expires_at).toLocaleDateString()}</td><td><button onclick="adminUnbanUser(${u.id})" class="mini-action-btn" style="color:#0f0">解封</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">无封禁用户</td></tr>'; } } catch(e){ tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
 
 // === 更加稳健的系统启动入口 ===
@@ -735,6 +735,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     // 否则等待加载完成事件
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
+
 
 
 
