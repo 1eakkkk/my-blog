@@ -901,16 +901,21 @@ window.cancelEditPost = function() { isEditingPost = false; editingPostId = null
 window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); /*btn.textContent = "更新评论 / UPDATE";*/ prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; /*btn.textContent = "发送评论 / SEND (+5 XP)";*/ cancelReply(); }; };
 async function doPost(e) { 
     e.preventDefault(); 
-    const t = document.getElementById('postTitle').value; 
-    const c = document.getElementById('postContent').value; 
+    let t = document.getElementById('postTitle').value.trim(); 
+    let c = document.getElementById('postContent').value.trim(); 
     const cat = document.getElementById('postCategory').value; 
     const btn = document.querySelector('#postForm button'); 
+    if (!t && !c) {
+        return showToast("标题和内容不能同时为空", "error");
+    }
     
     btn.disabled = true; 
     try { 
         let url = `${API_BASE}/posts`; 
         let method = 'POST'; 
+        // 这里的 body 会把空字符串传给后端
         let body = { title: t, content: c, category: cat }; 
+        
         if (isEditingPost) { 
             method = 'PUT'; 
             body = { action: 'edit', id: editingPostId, title: t, content: c, category: cat }; 
@@ -1359,5 +1364,6 @@ window.toggleFollow = async function(targetId, btn) {
         btn.disabled = false;
     }
 };
+
 
 
