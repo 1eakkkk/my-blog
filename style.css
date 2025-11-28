@@ -257,6 +257,7 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 
 .post-header-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 20px;
@@ -974,4 +975,32 @@ input:checked + .slider:before {
 
 .lightbox-content:active {
     cursor: grabbing;
+}
+
+@media (max-width: 768px) {
+    /* 让用户信息区域独占一行，防止被按钮挤压 */
+    .post-author-info {
+        width: 100%;
+        margin-bottom: 15px; /* 给下方按钮留出空隙 */
+        overflow: visible; /* 防止内容被裁切 */
+    }
+
+    /* 确保文字部分能完整显示 */
+    .post-meta-text {
+        white-space: normal; /* 允许文字换行 */
+        width: 100%;
+    }
+
+    /* 操作按钮区域 (保持原有逻辑，但加上 flex 布局让按钮排开) */
+    .post-actions-mobile {
+        width: 100%;
+        justify-content: flex-start; /* 按钮左对齐 */
+        gap: 10px; /* 按钮间距 */
+    }
+    
+    /* 修复删除/置顶等按钮在手机上可能太宽的问题 */
+    .delete-btn {
+        padding: 5px 8px;
+        font-size: 0.75rem;
+    }
 }
