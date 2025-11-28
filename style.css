@@ -1004,3 +1004,17 @@ input:checked + .slider:before {
         font-size: 0.75rem;
     }
 }
+
+/* --- 消息筛选按钮样式 --- */
+.filter-btn {
+    font-size: 0.8rem;
+    padding: 5px 10px;
+    white-space: nowrap;
+    border-color: #333;
+    color: #888;
+}
+.filter-btn.active {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    background: rgba(0, 112, 243, 0.1);
+}
