@@ -195,7 +195,7 @@
             msgBox.textContent = "";
 
             let endpoint = '/api/auth/login';
-           let body = { username: u, password: p, turnstileToken: token }; // 加上 turnstileToken
+            let body = { username: u, password: p, turnstileToken: token }; // 加上 turnstileToken
 
             if (currentMode === 'register') {
                 endpoint = '/api/auth/register';
@@ -231,10 +231,16 @@
                     }
                 } else {
                     msgBox.textContent = "ERROR: " + (data.error || "操作失败");
+                    if (window.turnstile) {
+                        turnstile.reset(); 
+                    }
                     msgBox.classList.remove('success-msg');
                 }
             } catch (err) {
                 msgBox.textContent = "CRITICAL ERROR: 连接中断";
+                if (window.turnstile) {
+                    turnstile.reset();
+                }
             } finally {
                 submitBtn.disabled = false;
                 if (submitBtn.textContent === "PROCESSING...") {
@@ -247,6 +253,7 @@
     </script>
 </body>
 </html>
+
 
 
 
