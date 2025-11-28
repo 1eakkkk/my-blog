@@ -71,9 +71,6 @@ export async function onRequestPost(context) {
       else finalParentId = targetComment.id;
   }
 
-  await db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, reply_to_uid, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(post_id, user.id, content, finalParentId, replyToUid, Date.now()).run();
-
   const now = new Date();
   const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
