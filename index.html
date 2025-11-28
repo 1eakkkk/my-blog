@@ -328,6 +328,17 @@
                         </div>
                     </div>
 
+                    <div class="glass-card" style="border-color: gold; margin-top: 20px;">
+                        <h3>💰 资金调节 / BALANCE MANAGER</h3>
+                        <p style="font-size:0.8rem; color:#888;">用于发放补偿、活动奖励或惩罚扣款。</p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <input type="text" id="adminBalanceUser" class="cyber-input" placeholder="用户名" style="flex:1; margin:0;">
+                            <input type="number" id="adminBalanceAmount" class="cyber-input" placeholder="金额 (+/-)" style="width:100px; margin:0;">
+                            <input type="text" id="adminBalanceReason" class="cyber-input" placeholder="变动理由 (必填)" style="flex:2; margin:0;">
+                            <button onclick="adminManageBalance()" class="cyber-btn" style="width:auto; margin:0; border-color:gold; color:gold;">EXECUTE</button>
+                        </div>
+                    </div>
+
                     <!-- 5. 旧功能 (发布公告、补发密钥、发头衔) -->
                     <div class="glass-card" style="border-color:#ff3333; margin-bottom:20px; background:rgba(255,51,51,0.05);">
                         <h3>📣 发布全站公告</h3>
@@ -367,6 +378,7 @@
     <script src="script.js?v=5.1"></script>
 </body>
 </html>
+
 
 
 
