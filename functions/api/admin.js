@@ -109,5 +109,26 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, key: t ? t.recovery_key : 'Not Found' }));
   }
 
+  if (action === 'manage_balance') {
+      const { target_username, amount, reason } = req;
+      const change = parseInt(amount);
+      
+      if (isNaN(change)) return new Response(JSON.stringify({ success: false, error: '金额无效' }));
+
+      // 1. 查用户是否存在
+      const target = await db.prepare('SELECT id, coins FROM users WHERE username = ?').bind(target_username).first();
+      if (!target) return new Response(JSON.stringify({ success: false, error: '用户不存在' }));
+
+      // 2. 修改余额
+      await db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(change, target.id).run();
+
+      // 3. 发送系统通知 (告知用户理由)
+      const msg = `系统通知: 您的账户余额变动 ${change > 0 ? '+' : ''}${change} i币。原因: ${reason || '系统调整'}`;
+      await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
+          .bind(target.id, 'system', msg, '#home', Date.now()).run();
+
+      return new Response(JSON.stringify({ success: true, message: `操作成功，用户当前余额: ${target.coins + change}` }));
+  }
+
   return new Response(JSON.stringify({ success: false, error: '未知指令' }));
 }
