@@ -11,6 +11,7 @@
     <title>ACCESS CONTROL | 1eak.cool</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
         :root { --accent: #0070f3; --bg: #050505; }
         body {
@@ -121,6 +122,7 @@
             <input type="text" id="recoveryKeyInput" placeholder="RECOVERY KEY // 恢复密钥" style="display:none;">
             
             <div id="msgBox" class="msg-box"></div>
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXabTU5nWLqcq1YtYFN9BeoI" data-theme="dark" style="margin-bottom: 15px;"></div>
             <button type="submit" id="submitBtn">SYSTEM ACCESS >></button>
         </form>
 
@@ -182,12 +184,20 @@
             const k = keyInput.value;
             const invite = inviteInput.value; // 获取值
 
+            const formData = new FormData(e.target);
+            const token = formData.get('cf-turnstile-response');
+            
+            if (!token) {
+                msgBox.textContent = "请完成人机验证 / Please complete CAPTCHA";
+                return;
+            }
+
             submitBtn.disabled = true;
             submitBtn.textContent = "PROCESSING...";
             msgBox.textContent = "";
 
             let endpoint = '/api/auth/login';
-            let body = { username: u, password: p };
+           let body = { username: u, password: p, turnstileToken: token }; // 加上 turnstileToken
 
             if (currentMode === 'register') {
                 endpoint = '/api/auth/register';
@@ -239,6 +249,7 @@
     </script>
 </body>
 </html>
+
 
 
 
