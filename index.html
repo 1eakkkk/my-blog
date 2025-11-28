@@ -154,7 +154,7 @@
                             <option value="生活">☕ 生活 / LIFE</option>
                             <option value="提问">❓ 提问 / Q&A</option>
                         </select>
-                        <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title" required>
+                        <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title">
                         <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
                             <!-- 修改 accept 属性，增加 video/* -->
                             <input type="file" id="imageUploadInput" accept="image/*,video/*" style="display: none;" onchange="uploadImage()">
@@ -163,7 +163,7 @@
                             </button>
                             <span id="uploadStatus" style="font-size: 0.8rem; color: #666;"></span>
                         </div>
-                        <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content" required></textarea>
+                        <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content"></textarea>
                         <button type="submit" class="cyber-btn big-btn">发布 / PUBLISH</button>
                     </form>
                 </div>
@@ -476,9 +476,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=6.1"></script>
+    <script src="script.js?v=6.2"></script>
 </body>
 </html>
+
 
 
 
