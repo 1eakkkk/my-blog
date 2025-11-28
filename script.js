@@ -853,6 +853,38 @@ window.deletePost = async function(id) { if(!confirm("Delete?")) return; await f
 window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
 window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; const r=prompt("Reason?"); if(!r)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d, reason:r})}); showToast("Done"); if(document.getElementById('view-admin').style.display === 'block') loadAdminBanList(); };
 window.adminGenKey = async function() { const u=document.getElementById('adminTargetUser').value; const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_key', target_username:u})}); const d=await r.json(); document.getElementById('adminKeyResult').innerText=d.key; };
+window.adminManageBalance = async function() {
+    const u = document.getElementById('adminBalanceUser').value;
+    const a = document.getElementById('adminBalanceAmount').value;
+    const r = document.getElementById('adminBalanceReason').value;
+
+    if (!u || !a || !r) return showToast("请填写完整信息 (用户名、金额、理由)", "error");
+    if (!confirm(`⚠️ 确认给用户 [${u}] 进行资金变动: ${a} i币？`)) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'manage_balance',
+                target_username: u,
+                amount: a,
+                reason: r
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, "success");
+            // 清空输入框
+            document.getElementById('adminBalanceAmount').value = '';
+            document.getElementById('adminBalanceReason').value = '';
+        } else {
+            showToast(data.error, "error");
+        }
+    } catch (e) {
+        showToast("网络错误", "error");
+    }
+};
 window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); showToast("Posted"); };
 window.adminGenInvite = async function() { const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_invite'})}); const d=await r.json(); document.getElementById('adminInviteResult').innerText=d.codes?d.codes.join('\n'):d.code; };
 window.randomizeAvatar = async function() { if(!confirm("Randomize?"))return; const r=await fetch(`${API_BASE}/random_avatar`, {method:'POST'}); const d=await r.json(); if(d.success) window.location.reload(); };
@@ -933,6 +965,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
