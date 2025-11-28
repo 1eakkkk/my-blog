@@ -125,6 +125,16 @@
                         <h1>DATA STREAM</h1>
                         <p>保持极简，保持冷静。这里是 1eak 的数字思维空间。</p>
                     </div>
+                    <!-- 搜索与排序工具栏 -->
+                    <div class="toolbar" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <input type="text" id="searchInput" class="cyber-input" placeholder="搜索关键词 / SEARCH..." style="flex: 2; margin: 0;">
+                        <select id="sortSelect" class="cyber-input" style="flex: 1; margin: 0; min-width: 120px; color: var(--accent-blue);">
+                            <option value="latest">最新 / LATEST</option>
+                            <option value="hot">热度 / HOT</option>
+                            <option value="comments">热议 / DISCUSS</option>
+                        </select>
+                        <button onclick="searchPosts()" class="cyber-btn" style="width: auto; margin: 0;">GO</button>
+                    </div>
                     <div id="posts-list" class="posts-grid"></div>
                     <button id="loadMoreBtn" class="cyber-btn" onclick="loadPosts(false)" style="display:none; margin: 20px auto; max-width: 300px;">加载更多 / LOAD MORE</button>
                 </div>
@@ -349,10 +359,15 @@
             <footer><p>© 2025 1EAK.COOL | SYSTEM ONLINE</p></footer>
         </main>
     </div>
-
-    <script src="script.js?v=4.0"></script>
+    <!-- 图片查看器 (Lightbox) -->
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img class="lightbox-content" id="lightboxImg">
+    </div>
+    <script src="script.js?v=5.0"></script>
 </body>
 </html>
+
 
 
 
