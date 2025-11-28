@@ -87,6 +87,7 @@
                 <a href="#tasks" class="nav-link">每日任务 / Daily Tasks</a>
                 <a href="#write" class="nav-link" id="navWrite">项目 / Projects</a>
                 <a href="#feedback" class="nav-link">反馈中心 / Feedback</a> <!-- 新增 -->
+                <a href="#profile?u=" id="navMyProfile" class="nav-link" onclick="if(currentUser) this.href='#profile?u='+currentUser.username">我的主页 / My Profile</a> <!-- 新增：我的主页入口 -->
                 <a href="#settings" class="nav-link">个人设置 / Settings</a>
                 <a href="#about" class="nav-link">关于 / About</a>
                 <a href="#admin" class="nav-link" id="navAdmin" style="display:none; color:#ff3333; justify-content:space-between; align-items:center;">
@@ -470,4 +471,5 @@
     <script src="script.js?v=6.0"></script>
 </body>
 </html>
+
 
