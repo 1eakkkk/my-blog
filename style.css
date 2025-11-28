@@ -1025,21 +1025,14 @@ input:checked + .slider:before {
 .post-thumbnail-container {
     margin-top: 10px;
     width: 100%;
-    /* 修改：高度设为 auto，不限制高度，或者设一个较大的 max-height */
-    max-height: 500px; 
-    overflow: hidden;
-    border-radius: 4px;
-    border: 1px solid #333;
-    background: #000; /* 补黑边 */
-    display: none;
+    /* 去掉固定高度，让图片撑开 */
+    display: none; 
 }
-
 .post-thumbnail {
     width: 100%;
-    height: 100%;
-    /* 修改：改为 contain (完整显示) 或者 cover (裁剪填充) */
-    /* 建议用 contain 并配合背景色，或者直接去掉 height:100% 让它自适应 */
-    object-fit: contain; 
+    height: auto; /* 高度自适应 */
+    border-radius: 4px;
+    border: 1px solid #333;
 }
 
 /* @提及 链接样式 */
@@ -1071,4 +1064,5 @@ input:checked + .slider:before {
     color: #fff;
     content: "已关注";
 }
+
 
