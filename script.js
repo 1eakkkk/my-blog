@@ -522,12 +522,11 @@ async function handleRoute() {
         const params = new URLSearchParams(hash.split('?')[1]);
         loadSinglePost(params.get('id'), params.get('commentId')); // 传入 commentId
     }
-        loadPosts(true); 
-    } else if (hash === '#write') {
+    else if (hash === '#write') {
         if(views.write) views.write.style.display = 'block';
         const link = document.getElementById('navWrite'); if(link) link.classList.add('active');
         tryRestoreDraft();
-     } else if (hash === '#tasks') {
+    } else if (hash === '#tasks') {
         if(views.tasks) views.tasks.style.display = 'block';
         loadTasks();
     } else if (hash === '#settings') {
@@ -858,6 +857,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
