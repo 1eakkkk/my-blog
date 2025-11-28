@@ -454,15 +454,7 @@ function initApp() {
     if (mobileMenuBtn) { 
         mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; 
     }
-    const homeNavLink = document.querySelector('a[href="#home"]');
-    if (homeNavLink) {
-        homeNavLink.addEventListener('click', () => {
-            homeScrollY = 0; // 清空记忆的位置
-            window.scrollTo(0, 0);
-            // 如果你想点击首页按钮时强制刷新列表，可以加下面这行，否则保持原样
-            // loadPosts(true); 
-        });
-    }
+    
     document.addEventListener('click', (e) => {
         const sidebar = document.getElementById('sidebar');
         const btn = document.getElementById('mobileMenuBtn');
@@ -902,6 +894,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
