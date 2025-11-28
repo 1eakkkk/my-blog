@@ -398,6 +398,14 @@ async function checkSecurity() {
         // 更新徽章区域和退出按钮
         document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
         
+        // === 新增：显示个性签名 ===
+        const bioEl = document.getElementById('userBioDisplay');
+        if(bioEl) bioEl.textContent = data.bio || "暂无签名";
+
+        // === 新增：填充设置页的签名输入框 ===
+        const settingBio = document.getElementById('settingBio');
+        if(settingBio) settingBio.value = data.bio || "";
+        
         // 更新经验条
         const levelInfo = calculateLevel(data.xp || 0);
         document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
@@ -882,7 +890,30 @@ async function doPost(e) {
 window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return showToast("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); window.location.reload(); } else showToast(data.error, 'error'); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true); loadTasks(); } else { showToast(data.error, 'error'); } } } catch(e) { showToast("网络连接错误", 'error'); } finally { if(btn) btn.disabled = false; } };
 window.prepareReply = function(commentId, username) { const input = document.getElementById('commentInput'); input.dataset.parentId = commentId || ""; input.placeholder = username ? `回复 @${username} ...` : "输入你的看法..."; input.focus(); let cancelBtn = document.getElementById('cancelReplyBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px'; cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply; document.querySelector('.comment-input-box').appendChild(cancelBtn); } cancelBtn.style.display = 'inline-block'; };
 window.cancelReply = function() { const input = document.getElementById('commentInput'); input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)"; const cancelBtn = document.getElementById('cancelReplyBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; };
-function checkForDrafts() { const pTitle = document.getElementById('postTitle'); const pContent = document.getElementById('postContent'); const pCat = document.getElementById('postCategory'); if(pTitle && pContent) { const save = () => { if(!isEditingPost) { localStorage.setItem('draft_title', pTitle.value); localStorage.setItem('draft_content', pContent.value); localStorage.setItem('draft_cat', pCat.value); } }; pTitle.addEventListener('input', save); pContent.addEventListener('input', save); pCat.addEventListener('change', save); } }
+function checkForDrafts() { 
+    const pTitle = document.getElementById('postTitle'); 
+    const pContent = document.getElementById('postContent'); 
+    const pCat = document.getElementById('postCategory'); 
+    const status = document.getElementById('draftStatus'); // 获取状态栏
+
+    if(pTitle && pContent) { 
+        const save = () => { 
+            if(!isEditingPost) { 
+                localStorage.setItem('draft_title', pTitle.value); 
+                localStorage.setItem('draft_content', pContent.value); 
+                localStorage.setItem('draft_cat', pCat.value);
+                
+                // === 新增：显示保存时间 ===
+                const now = new Date();
+                const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
+                if(status) status.innerText = `草稿已保存 ${time}`;
+            } 
+        }; 
+        pTitle.addEventListener('input', save); 
+        pContent.addEventListener('input', save); 
+        pCat.addEventListener('change', save); 
+    } 
+}
 function tryRestoreDraft() { if(isEditingPost) return; const t = localStorage.getItem('draft_title'); const c = localStorage.getItem('draft_content'); const cat = localStorage.getItem('draft_cat'); if ((t || c) && document.getElementById('postTitle').value === '') { if(confirm("发现未发布的草稿，是否恢复？\n取消则清空草稿。")) { document.getElementById('postTitle').value = t || ''; document.getElementById('postContent').value = c || ''; if(cat) document.getElementById('postCategory').value = cat; } else { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } } }
 window.pinPost = async function(id) { if(!confirm("确认更改置顶状态？")) return; await fetch(`${API_BASE}/posts`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadSinglePost(id); };
 window.pinComment = async function(id) { if(!confirm("确认更改此评论置顶状态？")) return; await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadNativeComments(currentPostId, true); };
@@ -1143,6 +1174,90 @@ window.rotateImage = function(e) {
     updateLightboxTransform();
 }
 
+// === 保存个性签名 ===
+window.saveBio = async function() {
+    const bio = document.getElementById('settingBio').value;
+    try {
+        const res = await fetch(`${API_BASE}/profile`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ bio: bio })
+        });
+        const data = await res.json();
+        if(data.success) {
+            showToast(data.message, 'success');
+            checkSecurity(); // 刷新侧边栏显示
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络错误", 'error');
+    }
+};
+
+// === 消息分类筛选 ===
+// 全局变量存原始数据，用于前端筛选
+let allNotifications = []; 
+
+// 修改 loadNotifications 函数，把数据存下来
+async function loadNotifications() { 
+    const c = document.getElementById('notifyList'); 
+    c.innerHTML='Loading...'; 
+    // ... 清空按钮逻辑保持不变 ...
+    
+    try{ 
+        const r = await fetch(`${API_BASE}/notifications`); 
+        const d = await r.json(); 
+        
+        allNotifications = d.list || []; // 保存到全局变量
+        
+        // 默认显示全部
+        renderNotifications(allNotifications);
+        
+    } catch(e){
+        c.innerHTML='Error loading logs';
+    } 
+}
+
+// 新增：渲染通知列表的独立函数
+function renderNotifications(list) {
+    const c = document.getElementById('notifyList');
+    // 如果需要保留清空按钮，最好在HTML里把清空按钮移出 list 容器，或者每次在这里重新加
+    // 简单起见，先把容器清空
+    c.innerHTML = '';
+    
+    if(list.length === 0){
+        c.innerHTML = '<p style="color:#666;text-align:center;">No logs under this category.</p>';
+        return;
+    }
+    
+    list.forEach(n => { 
+        // ... (使用你原来的渲染逻辑) ...
+        const div=document.createElement('div'); 
+        div.className=`notify-item ${n.is_read?'':'unread'}`; 
+        const delSpan = `<span onclick="event.stopPropagation(); deleteNotify('${n.id}')" style="float:right;color:#666;cursor:pointer;margin-left:10px">[x]</span>`; 
+        div.innerHTML=`<div class="notify-msg">${n.message} ${delSpan}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`; 
+        div.onclick = () => readOneNotify(n.id, n.link, div); 
+        c.appendChild(div); 
+    });
+}
+
+// 新增：筛选点击事件
+window.filterNotifications = function(type, btn) {
+    // 1. 切换按钮样式
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    // 2. 筛选数据
+    if (type === 'all') {
+        renderNotifications(allNotifications);
+    } else {
+        // 后端 type 可能是 'system', 'reply', 'comment', 'tip', 'like'
+        // 注意：后端的 type 字段必须和这里的 type 匹配
+        const filtered = allNotifications.filter(n => n.type === type);
+        renderNotifications(filtered);
+    }
+};
 
 
 
