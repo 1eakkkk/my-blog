@@ -69,6 +69,12 @@
                     <div class="user-info">
                         <h3 id="username">LOADING...</h3>
                         <div id="badgesArea"></div>
+                        <div class="user-info">
+                            <h3 id="username">LOADING...</h3>
+                            <div id="badgesArea"></div>
+                            <!-- 新增：个性签名展示 -->
+                            <div id="userBioDisplay" style="font-size:0.75rem; color:#888; margin-top:8px; font-style:italic; word-break:break-all;"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="xp-container">
@@ -142,6 +148,7 @@
                 <!-- 2. 发帖 -->
                 <div id="view-write" class="view-section" style="display:none;">
                     <h2>// CREATE PROJECT</h2>
+                    <span id="draftStatus" style="font-size:0.7rem; color:#666; font-style:italic;"></span>
                     <form id="postForm">
                         <select id="postCategory" class="cyber-input" style="margin-bottom:15px; color:var(--accent-blue);">
                             <option value="灌水">🌊 灌水 / GENERAL</option>
@@ -190,6 +197,13 @@
                         <h2>// SYSTEM LOGS</h2>
                         <button onclick="markAllRead()" class="cyber-btn" style="width:auto; margin:0;">全部已读 / MARK READ</button>
                     </div>
+                    <div class="filter-bar" style="margin-bottom: 15px; display:flex; gap:10px; overflow-x:auto; padding-bottom:5px;">
+                        <button class="cyber-btn filter-btn active" onclick="filterNotifications('all', this)">全部 / ALL</button>
+                        <button class="cyber-btn filter-btn" onclick="filterNotifications('system', this)">系统 / SYS</button>
+                        <button class="cyber-btn filter-btn" onclick="filterNotifications('reply', this)">回复 / REPLY</button>
+                        <button class="cyber-btn filter-btn" onclick="filterNotifications('comment', this)">评论 / CMT</button>
+                        <button class="cyber-btn filter-btn" onclick="filterNotifications('tip', this)">打赏 / TIP</button>
+                    </div>
                     <div id="notifyList" class="posts-grid"></div>
                 </div>
 
@@ -210,6 +224,15 @@
                         <p style="color:#666; font-size:0.9rem;">昵称将显示在文章作者栏。</p>
                         <input type="text" id="newNickname" class="cyber-input" placeholder="输入新昵称" maxlength="12">
                         <button onclick="updateProfile()" class="cyber-btn">保存更改 / SAVE</button>
+                    </div>
+
+                    <div class="glass-card" style="margin-top: 20px;">
+                        <h3>个性签名 / BIO</h3>
+                        <p style="color:#666; font-size:0.9rem;">一句话介绍你自己 (限50字)。</p>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <input type="text" id="settingBio" class="cyber-input" placeholder="输入个性签名..." maxlength="50" style="margin:0; flex:1;">
+                            <button onclick="saveBio()" class="cyber-btn" style="margin:0; width:auto;">保存 / SAVE</button>
+                        </div>
                     </div>
     
                     <!-- ... (其余部分保持不变: 数字形象, 头衔偏好, 密钥) ... -->
@@ -406,9 +429,10 @@
         <!-- 图片内容 -->
         <img class="lightbox-content" id="lightboxImg" onclick="event.stopPropagation()">
     </div>
-    <script src="script.js?v=5.4"></script>
+    <script src="script.js?v=5.5"></script>
 </body>
 </html>
+
 
 
 
