@@ -1,4 +1,4 @@
-<!-- START OF FILE index.html -->
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -10,13 +10,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1eak.cool | 数字基地</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-    <link rel="stylesheet" href="style.css?v=3.1">
+    <link rel="stylesheet" href="style.css?v=6.0">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <!-- Markdown 解析库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- XSS 净化库 (安全必须) -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         #loading-mask {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -143,8 +142,10 @@
 
                 <!-- 2. 发帖 -->
                 <div id="view-write" class="view-section" style="display:none;">
-                    <h2>// CREATE PROJECT</h2>
-                    <span id="draftStatus" style="font-size:0.7rem; color:#666; font-style:italic;"></span>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h2>// CREATE PROJECT</h2>
+                        <span id="draftStatus" style="font-size:0.7rem; color:#666; font-style:italic;"></span>
+                    </div>
                     <form id="postForm">
                         <select id="postCategory" class="cyber-input" style="margin-bottom:15px; color:var(--accent-blue);">
                             <option value="灌水">🌊 灌水 / GENERAL</option>
@@ -181,7 +182,7 @@
                     <div class="comments-section">
                         <h3>// 评论终端 / COMMENTS</h3>
                         <div class="comment-input-box">
-                            <textarea id="commentInput" class="cyber-textarea" placeholder="输入你的看法... (支持纯文本)" style="height:80px;"></textarea>
+                            <textarea id="commentInput" class="cyber-textarea" placeholder="输入你的看法... (支持 Markdown & 图片)" style="height:80px;"></textarea>
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                                 <!-- 上传按钮 -->
                                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -200,6 +201,7 @@
                         </div>
                         <div id="commentsList" class="comments-list"></div>
                     </div>
+                </div>
 
                 <!-- 5. 消息通知 -->
                 <div id="view-notifications" class="view-section" style="display:none;">
@@ -439,24 +441,6 @@
         <!-- 图片内容 -->
         <img class="lightbox-content" id="lightboxImg" onclick="event.stopPropagation()">
     </div>
-    <script src="script.js?v=5.7"></script>
+    <script src="script.js?v=6.0"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
