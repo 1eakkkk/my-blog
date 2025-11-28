@@ -697,18 +697,53 @@ async function loadNativeComments(postId, reset = false, highlightId = null) {
 }
 
 function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId) {
-    const avatar = generatePixelAvatar(c.username, c.avatar_variant); const div = document.createElement('div'); div.id = `comment-${c.id}`; div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; if(c.is_pinned) { div.style.border = "1px solid #0f0"; div.style.background = "rgba(0,255,0,0.05)"; }
-    let actionLinks = ''; if (userRole === 'admin' || currentUser.id === c.user_id) { actionLinks += `<span onclick="deleteComment(${c.id})" class="action-link">[删除]</span>`; actionLinks += `<span onclick="editCommentMode(${c.id}, '${encodeURIComponent(c.content)}')" class="action-link" style="color:#0070f3">[编辑]</span>`; } if (userRole === 'admin' && !isReply) { const pinTxt = c.is_pinned ? "取消置顶" : "置顶"; actionLinks += `<span onclick="pinComment(${c.id})" class="action-link" style="color:#0f0">[${pinTxt}]</span>`; }
-    const badgeHtml = getBadgesHtml(c); const likeClass = c.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`; const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`; const pinnedBadge = c.is_pinned ? '<span style="color:#0f0;font-weight:bold;font-size:0.7rem;margin-right:5px">📌置顶</span>' : '';
-    let replyIndicator = ''; if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) { const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown"; replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `; }
-    let floorTag = ''; if (!isReply && floorNumber) floorTag = `<span class="floor-tag">${getFloorName(floorNumber)}</span>`;
-    let authorTag = ''; if (postAuthorId && c.user_id === postAuthorId) { authorTag = `<span class="author-tag">📝 作者</span>`; }
-    const userLinkProp = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${c.username}'" style="cursor:pointer"`;
+    const avatar = generatePixelAvatar(c.username, c.avatar_variant); 
+    const div = document.createElement('div'); 
+    div.id = `comment-${c.id}`; 
+    div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; 
+    
+    if(c.is_pinned) { 
+        div.style.border = "1px solid #0f0"; 
+        div.style.background = "rgba(0,255,0,0.05)"; 
+    }
+    
+    // 权限判断 (删除/编辑/置顶)
+    let actionLinks = ''; 
+    if (userRole === 'admin' || currentUser.id === c.user_id) { 
+        actionLinks += `<span onclick="deleteComment(${c.id})" class="action-link">[删除]</span>`; 
+        actionLinks += `<span onclick="editCommentMode(${c.id}, '${encodeURIComponent(c.content)}')" class="action-link" style="color:#0070f3">[编辑]</span>`; 
+    } 
+    if (userRole === 'admin' && !isReply) { 
+        const pinTxt = c.is_pinned ? "取消置顶" : "置顶"; 
+        actionLinks += `<span onclick="pinComment(${c.id})" class="action-link" style="color:#0f0">[${pinTxt}]</span>`; 
+    }
+    
+    const badgeHtml = getBadgesHtml(c); 
+    const likeClass = c.is_liked ? 'liked' : ''; 
+    const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`; 
+    const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`; 
+    const pinnedBadge = c.is_pinned ? '<span style="color:#0f0;font-weight:bold;font-size:0.7rem;margin-right:5px">📌置顶</span>' : '';
+    
+    let replyIndicator = ''; 
+    if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) { 
+        const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown"; 
+        replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `; 
+    }
+    
+    let floorTag = ''; 
+    if (!isReply && floorNumber) floorTag = `<span class="floor-tag">${getFloorName(floorNumber)}</span>`;
+    
+    let authorTag = ''; 
+    if (postAuthorId && c.user_id === postAuthorId) { authorTag = `<span class="author-tag">📝 作者</span>`; }
+
+    // === 关键修复：直接拼接 onclick 字符串，不要用变量套娃 ===
+    const clickAttr = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${c.username}'" style="cursor:pointer"`;
+
     div.innerHTML = `
-        <div class="comment-avatar">${userLinkProp}>${avatar}</div>
+        <div class="comment-avatar" ${clickAttr}>${avatar}</div>
         <div class="comment-content-box">
             <div class="comment-header">
-                <span class="comment-author" ${userLinkProp}>${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>
+                <span class="comment-author" ${clickAttr}>${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>
                 ${floorTag}
             </div>
             <div class="comment-meta-row">
@@ -717,6 +752,7 @@ function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId
             </div>
             <div class="comment-text">${replyIndicator}${parseMarkdown(c.content)}</div>
         </div>`;
+        
     return div;
 }
 
@@ -1323,4 +1359,5 @@ window.toggleFollow = async function(targetId, btn) {
         btn.disabled = false;
     }
 };
+
 
