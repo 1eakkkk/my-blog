@@ -919,41 +919,57 @@ input:checked + .slider:before {
     opacity: 0.9;
 }
 
-/* --- Lightbox 升级样式 --- */
+/* --- Lightbox 样式修复版 --- */
 
-/* 旋转按钮样式 */
+/* 旋转按钮容器 */
 .lightbox-rotate {
     position: absolute;
-    bottom: 50px; /* 放在底部中间比较顺手，或者 top: 15px; right: 80px; 放在关闭按钮旁边 */
+    /* 关键修复：位置改用百分比，防止手机底部工具栏遮挡 */
+    bottom: 10%; 
     left: 50%;
     transform: translateX(-50%);
-    color: #f1f1f1;
-    font-size: 30px;
-    font-weight: bold;
-    cursor: pointer;
-    background: rgba(0, 0, 0, 0.5);
-    width: 50px;
-    height: 50px;
+    
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 0, 0, 0.6);
     border-radius: 50%;
+    border: 2px solid var(--accent-blue);
+    
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--accent-blue);
-    transition: 0.3s;
+    
+    /* 关键修复：强制鼠标变成手型 */
+    cursor: pointer !important;
+    
+    /* 关键修复：防止文本被选中 */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
     user-select: none;
-    z-index: 100001;
+    
+    /* 关键修复：层级必须极高 */
+    z-index: 100002;
+    transition: 0.3s;
 }
 
+/* 鼠标悬停效果 */
 .lightbox-rotate:hover {
     background: var(--accent-blue);
-    color: #fff;
-    transform: translateX(-50%) rotate(180deg); /* 悬停时按钮自己转一圈 */
+    transform: translateX(-50%) scale(1.1) rotate(180deg); /* 悬停时稍微变大并旋转 */
 }
 
-/* 优化图片过渡效果 */
+/* 确保 SVG 不会拦截点击事件 */
+.lightbox-rotate svg {
+    pointer-events: none; 
+}
+
+/* 图片过渡效果 */
 .lightbox-content {
-    transition: transform 0.1s ease-out; /* 缩放时更跟手，不要太慢 */
-    cursor: grab;
+    transition: transform 0.1s ease-out;
+    cursor: grab; /* 抓手光标 */
+    max-height: 80vh; /* 防止图片太大把按钮挤出去 */
+    object-fit: contain;
 }
 
 .lightbox-content:active {
