@@ -106,6 +106,23 @@ export async function onRequestPost(context) {
     const { title, content, category } = await context.request.json();
     if (!title || !content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
 
+    let { title, content, category } = await context.request.json();
+    
+    // === 修改校验逻辑 ===
+    // 允许其中一个为空，但不能全空
+    if ((!title || !title.trim()) && (!content || !content.trim())) {
+        return new Response(JSON.stringify({ success: false, error: '标题和内容不能同时为空' }), { status: 400 });
+    }
+
+    // 为了美观，如果标题为空，自动填入 "无题 / Untitled"
+    if (!title || !title.trim()) {
+        title = "无题 / Untitled";
+    }
+    // 如果内容为空，自动填入 "（如题）"
+    if (!content || !content.trim()) {
+        content = "（如题）";
+    }
+    
     let finalCategory = category || '灌水';
     if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
@@ -138,6 +155,11 @@ export async function onRequestPut(context) {
         if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
         if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
         if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
+        if ((!title || !title.trim()) && (!content || !content.trim())) {
+            return new Response(JSON.stringify({ success: false, error: '不能全为空' }), { status: 400 });
+        }
+        if (!title || !title.trim()) title = "无题 / Untitled";
+        if (!content || !content.trim()) content = "（如题）";
 
         await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, updated_at = ? WHERE id = ?')
             .bind(title, content, category, Date.now(), id).run();
@@ -170,4 +192,5 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
 
