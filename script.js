@@ -441,9 +441,21 @@ async function checkSecurity() {
 }
 
 function initApp() {
+    if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) { 
         mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; 
+    }
+    const homeNavLink = document.querySelector('a[href="#home"]');
+    if (homeNavLink) {
+        homeNavLink.addEventListener('click', () => {
+            homeScrollY = 0; // 清空记忆的位置
+            window.scrollTo(0, 0);
+            // 如果你想点击首页按钮时强制刷新列表，可以加下面这行，否则保持原样
+            // loadPosts(true); 
+        });
     }
     document.addEventListener('click', (e) => {
         const sidebar = document.getElementById('sidebar');
@@ -502,10 +514,13 @@ async function handleRoute() {
         if(views.home) views.home.style.display = 'block';
         const link = document.querySelector('a[href="#home"]'); if(link) link.classList.add('active');
         
-        // === 恢复滚动位置 ===
+        // === 关键修复：增加延时，等待页面渲染完毕再滚动 ===
         if (homeScrollY > 0) {
-            window.scrollTo(0, homeScrollY);
+            setTimeout(() => {
+                window.scrollTo(0, homeScrollY);
+            }, 10); // 10毫秒的延迟足以解决问题
         } else {
+            // 只有列表为空时才重新加载，防止覆盖已有的内容
             const list = document.getElementById('posts-list');
             if(!list || list.children.length === 0) loadPosts(true);
         }
@@ -857,6 +872,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
