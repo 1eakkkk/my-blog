@@ -62,10 +62,13 @@ window.showToast = function(msg, type = 'info') {
 // Markdown 渲染辅助函数
 function parseMarkdown(text) {
     if (!text) return '';
-    // 1. 解析 MD 为 HTML
     const rawHtml = marked.parse(text);
-    // 2. 净化 HTML，防止恶意脚本
-    return DOMPurify.sanitize(rawHtml);
+    
+    // === 修改：配置白名单，允许 video 标签 ===
+    return DOMPurify.sanitize(rawHtml, {
+        ADD_TAGS: ['video', 'source'],     // 允许 video 和 source 标签
+        ADD_ATTR: ['controls', 'src', 'width', 'style'] // 允许这些属性
+    });
 }
 
 function calculateLevel(xp) {
@@ -771,19 +774,25 @@ window.uploadImage = async function() {
         });
         const data = await res.json();
 
+        // 找到 window.uploadImage 函数中的 if (data.success) 部分
         if (data.success) {
             status.innerText = "DONE";
             status.style.color = "#0f0";
             
-            // 自动插入 Markdown 图片语法到光标位置
-            const markdown = `\n![image](${data.url})\n`;
-            textarea.value += markdown; // 简单追加到末尾
+            // === 修改开始：判断是图片还是视频 ===
+            let insertText = '';
+            if (file.type.startsWith('video/')) {
+                // 插入 HTML 视频标签
+                insertText = `\n<video src="${data.url}" controls width="100%" style="max-height:400px; border-radius:4px; margin-top:10px;"></video>\n`;
+            } else {
+                // 插入 Markdown 图片语法
+                insertText = `\n![image](${data.url})\n`;
+            }
             
-            showToast('图片上传成功', 'success');
-        } else {
-            status.innerText = "ERROR";
-            status.style.color = "red";
-            showToast(data.error, 'error');
+            textarea.value += insertText; 
+            // =================================
+            
+            showToast('文件上传成功', 'success');
         }
     } catch (e) {
         status.innerText = "FAIL";
@@ -1258,6 +1267,7 @@ window.filterNotifications = function(type, btn) {
         renderNotifications(filtered);
     }
 };
+
 
 
 
