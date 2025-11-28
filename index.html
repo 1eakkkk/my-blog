@@ -187,12 +187,14 @@
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <input type="file" id="commentImgUpload" accept="image/*,video/*" style="display: none;" onchange="uploadCommentImage()">
                                     <button class="cyber-btn" style="width: auto; padding: 5px 10px; font-size: 0.8rem; border-color: #666; color: #aaa;" onclick="document.getElementById('commentImgUpload').click()">
-                                        📷 插入媒体
+                                        📷 插入媒体 / MEDIA
                                     </button>
                                     <span id="commentUploadStatus" style="font-size: 0.8rem; color: #666;"></span>
                                 </div>
                                 <!-- 发送按钮 -->
-                                <button onclick="submitComment()" class="cyber-btn" style="width:auto; margin:0;">发送评论 / SEND (+5 XP)</button>
+                                <button onclick="submitComment()" class="cyber-btn" style="width:auto; margin:0; border-color: var(--accent-blue); color: var(--accent-blue); font-weight: bold;">
+                                    发送评论 / SEND 🚀
+                                </button>
                             </div>
                             
                         </div>
@@ -440,6 +442,7 @@
     <script src="script.js?v=5.6"></script>
 </body>
 </html>
+
 
 
 
