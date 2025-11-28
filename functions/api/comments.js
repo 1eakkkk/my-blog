@@ -78,6 +78,9 @@ export async function onRequestPost(context) {
   const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
   const userData = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(user.id).first();
+  const insertRes = await db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, reply_to_uid, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(post_id, user.id, content, finalParentId, replyToUid, Date.now()).run();
+  const newCommentId = insertRes.meta.last_row_id; // 获取新评论ID
   let currentDailyXp = (userData.last_xp_date === today) ? (userData.daily_xp || 0) : 0;
   let xpMsg = "";
   if (currentDailyXp < 120) {
@@ -95,13 +98,13 @@ export async function onRequestPost(context) {
        const snippet = targetContent ? targetContent.content.substring(0, 20) : "";
        const msg = `${senderName} 回复了你的评论: ${snippet}...`;
        await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
-         .bind(replyToUid, 'reply', msg, `#post?id=${post_id}`, Date.now()).run();
+         .bind(replyToUid, 'reply', msg, `#post?id=${post_id}&commentId=${newCommentId}`, Date.now()).run();
   } else if (!replyToUid) {
       const post = await db.prepare('SELECT user_id, title FROM posts WHERE id = ?').bind(post_id).first();
       if (post && post.user_id !== user.id) {
         const msg = `${senderName} 评论了你的文章: ${post.title}`;
         await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
-          .bind(post.user_id, 'comment', msg, `#post?id=${post_id}`, Date.now()).run();
+          .bind(post.user_id, 'comment', msg, `#post?id=${post_id}&commentId=${newCommentId}`, Date.now()).run();
       }
   }
 
