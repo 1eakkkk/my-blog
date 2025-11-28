@@ -182,11 +182,22 @@
                         <h3>// 评论终端 / COMMENTS</h3>
                         <div class="comment-input-box">
                             <textarea id="commentInput" class="cyber-textarea" placeholder="输入你的看法... (支持纯文本)" style="height:80px;"></textarea>
-                            <button onclick="submitComment()" class="cyber-btn" style="width:auto;">发送评论 / SEND (+5 XP)</button>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                                <!-- 上传按钮 -->
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="file" id="commentImgUpload" accept="image/*,video/*" style="display: none;" onchange="uploadCommentImage()">
+                                    <button class="cyber-btn" style="width: auto; padding: 5px 10px; font-size: 0.8rem; border-color: #666; color: #aaa;" onclick="document.getElementById('commentImgUpload').click()">
+                                        📷 插入媒体
+                                    </button>
+                                    <span id="commentUploadStatus" style="font-size: 0.8rem; color: #666;"></span>
+                                </div>
+                                <!-- 发送按钮 -->
+                                <button onclick="submitComment()" class="cyber-btn" style="width:auto; margin:0;">发送评论 / SEND (+5 XP)</button>
+                            </div>
+                            
                         </div>
                         <div id="commentsList" class="comments-list"></div>
                     </div>
-                </div>
 
                 <!-- 5. 消息通知 -->
                 <div id="view-notifications" class="view-section" style="display:none;">
@@ -429,6 +440,7 @@
     <script src="script.js?v=5.6"></script>
 </body>
 </html>
+
 
 
 
