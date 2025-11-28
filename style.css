@@ -1065,4 +1065,40 @@ input:checked + .slider:before {
     content: "已关注";
 }
 
+/* --- 移动端快捷发帖按钮 --- */
+#mobile-post-btn {
+    position: fixed;
+    bottom: 30px; /* 距离底部的位置 */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--accent-blue), #00c6ff);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px var(--accent-glow);
+    z-index: 9999; /* 保证在最上层 */
+    cursor: pointer;
+    transition: 0.3s;
+    /* 默认隐藏 (电脑端不显示) */
+    display: none; 
+}
+
+#mobile-post-btn:active {
+    transform: translateX(-50%) scale(0.9);
+}
+
+/* 只在屏幕宽度小于 768px (手机/平板) 时显示 */
+@media (max-width: 768px) {
+    #mobile-post-btn {
+        display: flex;
+    }
+    
+    /* 为了防止按钮挡住列表最底部的内容，给列表加个底部内边距 */
+    #posts-list {
+        padding-bottom: 80px; 
+    }
+}
 
