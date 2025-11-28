@@ -15,17 +15,17 @@ export async function onRequestPost(context) {
   const file = formData.get('file');
 
   if (!file || !(file instanceof File)) {
-    return new Response(JSON.stringify({ error: '请选择图片文件' }), { status: 400 });
+    return new Response(JSON.stringify({ error: '请选择文件' }), { status: 400 });
   }
 
-  // 简单验证类型
-  if (!file.type.startsWith('image/')) {
-    return new Response(JSON.stringify({ error: '只能上传图片' }), { status: 400 });
+  // 简单验证类型 (修改这行)
+  if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+    return new Response(JSON.stringify({ error: '只能上传图片或视频' }), { status: 400 });
   }
 
-  // 限制大小 (例如 5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    return new Response(JSON.stringify({ error: '图片不能超过 5MB' }), { status: 400 });
+  // 限制大小 (修改为 50MB)
+  if (file.size > 50 * 1024 * 1024) {
+    return new Response(JSON.stringify({ error: '文件不能超过 50MB' }), { status: 400 });
   }
 
   // 3. 生成随机文件名 (防止覆盖)
