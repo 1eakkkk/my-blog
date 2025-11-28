@@ -64,10 +64,10 @@ function parseMarkdown(text) {
     if (!text) return '';
     const rawHtml = marked.parse(text);
     
-    // === 修改：配置白名单，允许 video 标签 ===
+    // 配置白名单，允许 video 标签
     return DOMPurify.sanitize(rawHtml, {
-        ADD_TAGS: ['video', 'source'],     // 允许 video 和 source 标签
-        ADD_ATTR: ['controls', 'src', 'width', 'style'] // 允许这些属性
+        ADD_TAGS: ['video', 'source'],     
+        ADD_ATTR: ['controls', 'src', 'width', 'style'] 
     });
 }
 
@@ -120,13 +120,9 @@ function getFloorName(index) {
     return `#${index}`;
 }
 
-// === 新增：渲染等级表函数 (请确保加入到 script.js 中) ===
 function renderLevelTable() {
     const tbody = document.getElementById('levelTableBody');
-    // 如果找不到表格或者表格里已经有内容，就停止，防止重复添加
     if (!tbody || tbody.children.length > 0) return; 
-
-    // 这里的 LEVEL_TABLE 必须与 script.js 顶部定义的一致
     LEVEL_TABLE.forEach(l => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -164,8 +160,6 @@ async function loadTasks() {
     }catch(e){ if(c) c.innerHTML = 'Error loading tasks'; } 
 }
 
-// === 修复：补充任务领取和刷新函数 ===
-
 window.claimTask = async function() {
     const btn = document.querySelector('#taskContainer button');
     if(btn) btn.disabled = true;
@@ -178,9 +172,8 @@ window.claimTask = async function() {
         const data = await res.json();
         if (data.success) {
             showToast(data.message, 'success');
-            // 领取成功后，立即刷新状态，更新余额和经验条
-            checkSecurity(); // 重新拉取用户信息(余额/XP)
-            loadTasks();     // 重新拉取任务状态(红点消失)
+            checkSecurity(); 
+            loadTasks();     
         } else {
             showToast(data.error, 'error');
             if(btn) btn.disabled = false;
@@ -193,7 +186,6 @@ window.claimTask = async function() {
 
 window.rerollTask = async function() {
     if(!confirm("确定消耗 10 i币 刷新今日任务吗？")) return;
-    
     try {
         const res = await fetch(`${API_BASE}/tasks`, { 
             method: 'POST', 
@@ -203,8 +195,8 @@ window.rerollTask = async function() {
         const data = await res.json();
         if (data.success) {
             showToast("任务已刷新！");
-            checkSecurity(); // 更新余额
-            loadTasks();     // 显示新任务
+            checkSecurity(); 
+            loadTasks();     
         } else {
             showToast(data.error, 'error');
         }
@@ -213,13 +205,10 @@ window.rerollTask = async function() {
     }
 };
 
-// 帖子列表
-// 替换原有的 loadPosts 函数
 async function loadPosts(reset = false) {
     const container = document.getElementById('posts-list');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
     
-    // 获取搜索和排序的值
     const searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
     const sortVal = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'latest';
 
@@ -228,8 +217,6 @@ async function loadPosts(reset = false) {
         hasMorePosts = true; 
         container.innerHTML = ''; 
         if (loadMoreBtn) loadMoreBtn.style.display = 'none'; 
-        // 重置时也重置滚动位置(如果是搜索触发的重置)
-        // 但如果是从文章返回触发的重置(通常不建议返回时重置)，则不重置Y
     }
     
     if (!hasMorePosts || isLoadingPosts) return;
@@ -238,7 +225,6 @@ async function loadPosts(reset = false) {
     else if (loadMoreBtn) loadMoreBtn.textContent = "LOADING...";
     
     try {
-        // === URL 增加 search 和 sort 参数 ===
         const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&sort=${sortVal}`);
         const posts = await res.json();
         
@@ -254,13 +240,10 @@ async function loadPosts(reset = false) {
                 const dateStr = new Date(rawDate).toLocaleDateString(); 
                 const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
                 
-                // === 修改开始：NEW 标签逻辑 ===
                 const readPosts = JSON.parse(localStorage.getItem('read_posts') || '[]');
                 const isTimeNew = (now - post.created_at) < (24 * 60 * 60 * 1000);
-                // 只有时间新 且 没有读过，才显示 NEW
-                const isNew = isTimeNew && !readPosts.includes(post.id);
+                const isNew = isTimeNew && !readPosts.includes(post.id) && !readPosts.includes(String(post.id));
                 const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
-                // === 修改结束 ===
 
                 const author = post.author_nickname || post.author_username || "Unknown";
                 const cat = post.category || '灌水'; 
@@ -291,29 +274,20 @@ async function loadPosts(reset = false) {
                     </div>
                 `;
 
-                // === 点击卡片 ===
                 div.onclick = () => { 
-                   // 1. 记录已读 (存入 LocalStorage)
+                    // 记录已读
                     const currentRead = JSON.parse(localStorage.getItem('read_posts') || '[]');
-                    // 兼容数字和字符串类型的 ID，防止类型不匹配导致重复添加
                     if (!currentRead.includes(post.id) && !currentRead.includes(String(post.id))) {
                         currentRead.push(post.id);
                         localStorage.setItem('read_posts', JSON.stringify(currentRead));
                     }
-                   
-                    // === 新增：点击瞬间，立即在视觉上移除 NEW 标签 ===
+                    
+                    // 视觉上移除 NEW 标签
                     const badge = div.querySelector('.new-badge');
-                    if (badge) {
-                        badge.style.display = 'none'; // 或者 badge.remove();
-                    }
-                    // ===========================================
+                    if (badge) badge.style.display = 'none';
 
                     returnToNotifications = false; 
-                    
-                    // 2. 关键：将当前滚动高度存入 sessionStorage
                     sessionStorage.setItem('homeScrollY', window.scrollY);
-                    
-                    // 3. 跳转
                     window.location.hash = `#post?id=${post.id}`; 
                 }; 
 
@@ -331,9 +305,8 @@ async function loadPosts(reset = false) {
     }
 }
 
-// === 新增：搜索按钮函数 ===
 window.searchPosts = function() {
-    loadPosts(true); // 强制重置并搜索
+    loadPosts(true); 
 }
 
 async function checkSecurity() {
@@ -348,7 +321,6 @@ async function checkSecurity() {
             return;
         }
 
-        // === 1. 封禁状态拦截 ===
         if (data.status === 'banned') {
             const expireDate = new Date(data.ban_expires_at).toLocaleString();
             const reason = data.ban_reason || "违反社区规定";
@@ -368,56 +340,44 @@ async function checkSecurity() {
                     </div>
                 `;
                 mask.style.opacity = '1';
-                return; // 停止向下执行
+                return; 
             }
         }
 
-        // === 2. 正常登录逻辑 (你之前缺失的部分都在这里) ===
         currentUser = data;
         userRole = data.role || 'user';
         isAppReady = true;
 
-        // 更新侧边栏用户信息
         const settingUser = document.getElementById('settingUsername');
         if(settingUser) settingUser.value = data.username;
 
-        // 更新用户名和 i币
         document.getElementById('username').textContent = data.nickname || data.username;
         document.getElementById('coinCount').textContent = data.coins;
         
-        // 更新头像
         document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
         const settingPreview = document.getElementById('settingAvatarPreview');
         if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
         
-        // 更新密钥显示
         const keyDisplay = document.getElementById('recoveryKeyDisplay');
         if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
         
-        // 更新徽章偏好设置
         const badgePrefSelect = document.getElementById('badgePreferenceSelect');
         if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
         
-        // 更新徽章区域和退出按钮
         document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
         
-        // === 新增：显示个性签名 ===
         const bioEl = document.getElementById('userBioDisplay');
         if(bioEl) bioEl.textContent = data.bio || "暂无签名";
 
-        // === 新增：填充设置页的签名输入框 ===
         const settingBio = document.getElementById('settingBio');
         if(settingBio) settingBio.value = data.bio || "";
         
-        // 更新经验条
         const levelInfo = calculateLevel(data.xp || 0);
         document.getElementById('xpText').textContent = `${data.xp || 0} / ${levelInfo.next}`;
         document.getElementById('xpBar').style.width = `${levelInfo.percent}%`;
         
-        // 绑定退出按钮事件
         document.getElementById('logoutBtn').onclick = doLogout;
 
-        // 管理员菜单处理
         if (userRole === 'admin') {
             document.getElementById('navAdmin').style.display = 'flex';
             const postCat = document.getElementById('postCategory');
@@ -433,7 +393,6 @@ async function checkSecurity() {
             if(adminNav) adminNav.style.display = 'none';
         }
 
-        // VIP 状态处理
         if(data.is_vip) {
             const vipBox = document.getElementById('vipBox');
             if(vipBox) {
@@ -442,7 +401,6 @@ async function checkSecurity() {
             }
         }
 
-        // 初始化其他数据
         checkNotifications();
         setInterval(() => {
             checkNotifications();
@@ -453,12 +411,10 @@ async function checkSecurity() {
         
         handleRoute();
 
-        // 移除加载遮罩
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
 
     } catch (e) { 
         console.error("CheckSecurity Error:", e); 
-        // 出错时也要移除遮罩，否则用户会卡死，但通常建议检查控制台看具体是什么错
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
     }
 }
@@ -493,11 +449,10 @@ function initApp() {
         });
     }
 
-    // 点击侧边栏"首页"时，清除记录并回顶
     const homeNavLink = document.querySelector('a[href="#home"]');
     if (homeNavLink) {
         homeNavLink.addEventListener('click', () => {
-            sessionStorage.removeItem('homeScrollY'); // 清除记忆
+            sessionStorage.removeItem('homeScrollY'); 
             window.scrollTo(0, 0);
         });
     }
@@ -509,7 +464,6 @@ function initApp() {
     if(isAppReady) handleRoute();
 }
 
-// === 路由定义 ===
 const views = {
     home: document.getElementById('view-home'),
     write: document.getElementById('view-write'),
@@ -547,43 +501,32 @@ async function handleRoute() {
         if(views.home) views.home.style.display = 'block';
         const link = document.querySelector('a[href="#home"]'); if(link) link.classList.add('active');
         
-        // === 强力修复：恢复滚动位置 ===
-        // 1. 从缓存取位置
         const savedScroll = sessionStorage.getItem('homeScrollY');
         
-        // 2. 检查列表是否有内容，如果没有内容必须先加载
         const list = document.getElementById('posts-list');
         const isEmpty = !list || list.children.length === 0;
 
         if (isEmpty) {
-            // 如果列表是空的，先加载数据，加载完后再滚动
-            // 注意：这里我们传 true 重置，但加载完后 JS 会自动留在顶部，
-            // 所以这种情况下通常是刷新网页后第一次进，不需要滚动到旧位置
             loadPosts(true); 
         } else if (savedScroll && parseInt(savedScroll) > 0) {
-            // 3. 如果有旧位置，且列表已经存在，执行“强制瞬移”
-            // 使用 double-raf (双重动画帧) 确保 DOM 确实渲染完了
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     window.scrollTo({
                         top: parseInt(savedScroll),
-                        behavior: 'auto' // 关键：使用 auto 瞬间跳过去，不要 smooth 滑动，否则容易被打断
+                        behavior: 'auto' 
                     });
                 });
             });
         }
         
     } else if (hash.startsWith('#post?id=')) {
-        // === 离开首页前记录位置 ===
-        // 如果是从 home 来的，记录一下。如果是从通知来的，可能不需要记录或者记录为0
         if (views.home.style.display === 'block') {
              homeScrollY = window.scrollY;
         }
 
         if(views.post) views.post.style.display = 'block';
-        // 解析参数：id 和 commentId
         const params = new URLSearchParams(hash.split('?')[1]);
-        loadSinglePost(params.get('id'), params.get('commentId')); // 传入 commentId
+        loadSinglePost(params.get('id'), params.get('commentId')); 
     }
     else if (hash === '#write') {
         if(views.write) views.write.style.display = 'block';
@@ -616,13 +559,8 @@ async function handleRoute() {
             loadAdminFeedbacks();
             loadAdminBanList();
         }
-    } else if (hash.startsWith('#post?id=')) {
-        if(views.post) views.post.style.display = 'block';
-        loadSinglePost(hash.split('=')[1]);
-    }
+    } 
 }
-
-// === 修复：补充签到和抽奖函数 ===
 
 window.doCheckIn = async function() {
     const btn = document.getElementById('checkInBtn');
@@ -650,7 +588,7 @@ window.doLuckyDraw = async function() {
         const data = await res.json();
         if (data.success) {
             showToast(data.message, 'success');
-            window.location.reload();
+            checkSecurity();
         } else {
             showToast(data.error, 'error');
         }
@@ -660,12 +598,11 @@ window.doLuckyDraw = async function() {
         if(btn) btn.disabled = false;
     }
 };
-// === 帖子详情 & 评论 ===
 
 async function loadSinglePost(id, targetCommentId = null) {
     currentPostId = id; const container = document.getElementById('single-post-content'); if(!container) return; container.innerHTML = '读取中...'; document.getElementById('commentsList').innerHTML = '';
     const backBtn = document.querySelector('#view-post .back-btn'); if (backBtn) { if (returnToNotifications) { backBtn.textContent = "< 返回通知 / BACK TO LOGS"; backBtn.onclick = () => window.location.hash = '#notifications'; } else { backBtn.textContent = "< 返回 / BACK"; backBtn.onclick = () => window.location.hash = '#home'; } }
-    const commentInput = document.getElementById('commentInput'); if(commentInput) { commentInput.value = ''; commentInput.placeholder = "输入你的看法... (支持纯文本)"; commentInput.dataset.parentId = ""; isEditingComment = false; editingCommentId = null; const submitBtn = document.querySelector('.comment-input-box button:first-of-type'); if(submitBtn) submitBtn.textContent = "发送评论 / SEND (+5 XP)"; } const cancelBtn = document.getElementById('cancelReplyBtn'); if (cancelBtn) cancelBtn.style.display = 'none';
+    const commentInput = document.getElementById('commentInput'); if(commentInput) { commentInput.value = ''; commentInput.placeholder = "输入你的看法... (支持纯文本)"; commentInput.dataset.parentId = ""; isEditingComment = false; editingCommentId = null; const submitBtn = document.querySelector('.comment-input-box button:first-of-type'); if(submitBtn) { /*submitBtn.textContent = "发送评论 / SEND (+5 XP)";*/ } } const cancelBtn = document.getElementById('cancelReplyBtn'); if (cancelBtn) cancelBtn.style.display = 'none';
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`); const post = await res.json(); if (!post) { container.innerHTML = '<h1>404 - 内容可能已被删除</h1>'; return; }
         
@@ -696,19 +633,15 @@ async function loadNativeComments(postId, reset = false, highlightId = null) {
         const res = await fetch(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}&limit=${COMMENTS_PER_PAGE}`); const data = await res.json();
         if (reset) list.innerHTML = '';
         if (highlightId) {
-            // 简单的处理：如果目标评论在第一页，直接跳转。
-            // 如果在后面页，复杂逻辑暂不实现（需要递归加载），通常最新评论在最后或最前
-            // 这里假设你的评论是按时间顺序，且我们只处理已加载的
             setTimeout(() => {
                 const target = document.getElementById(`comment-${highlightId}`);
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     target.classList.add('highlight-comment');
                 } else {
-                    // 如果没找到，可能在第2页，这里可以尝试自动加载更多，或者提示用户
                     showToast('评论可能在其他页', 'info');
                 }
-            }, 500); // 稍等渲染
+            }, 500); 
         }
         if(data.results.length < COMMENTS_PER_PAGE) hasMoreComments = false;
         if(data.results.length === 0 && currentCommentPage === 1) { list.innerHTML = '<p style="color:#666">暂无评论，抢占沙发。</p>'; } else {
@@ -754,13 +687,10 @@ function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId
                 ${pinnedBadge} ${new Date(c.created_at).toLocaleString()}
                 <div class="comment-actions">${likeBtn} ${replyBtn} ${actionLinks}</div>
             </div>
-            <!-- 这里修改了：使用 parseMarkdown -->
             <div class="comment-text">${replyIndicator}${parseMarkdown(c.content)}</div>
         </div>`;
     return div;
 }
-
-// === 交互函数 ===
 
 window.submitFeedback = async function() {
     const content = document.getElementById('feedbackContent').value;
@@ -797,35 +727,32 @@ window.uploadImage = async function() {
         });
         const data = await res.json();
 
-        // 找到 window.uploadImage 函数中的 if (data.success) 部分
         if (data.success) {
             status.innerText = "DONE";
             status.style.color = "#0f0";
             
-            // === 修改开始：判断是图片还是视频 ===
             let insertText = '';
             if (file.type.startsWith('video/')) {
-                // 插入 HTML 视频标签
                 insertText = `\n<video src="${data.url}" controls width="100%" style="max-height:400px; border-radius:4px; margin-top:10px;"></video>\n`;
             } else {
-                // 插入 Markdown 图片语法
                 insertText = `\n![image](${data.url})\n`;
             }
             
             textarea.value += insertText; 
-            // =================================
-            
             showToast('文件上传成功', 'success');
+        } else {
+            status.innerText = "ERROR";
+            status.style.color = "red";
+            showToast(data.error, 'error');
         }
     } catch (e) {
         status.innerText = "FAIL";
         showToast('上传失败', 'error');
     } finally {
-        input.value = ''; // 清空，允许重复上传同一张
+        input.value = ''; 
     }
 };
 
-// === 评论区图片上传 ===
 window.uploadCommentImage = async function() {
     const input = document.getElementById('commentImgUpload');
     const status = document.getElementById('commentUploadStatus');
@@ -851,12 +778,10 @@ window.uploadCommentImage = async function() {
             status.innerText = "OK";
             status.style.color = "#0f0";
             
-            // 判断是图片还是视频 (复用之前的逻辑)
             let insertText = '';
             if (file.type.startsWith('video/')) {
                 insertText = `\n<video src="${data.url}" controls width="100%" style="max-height:300px; border-radius:4px; margin-top:5px;"></video>\n`;
             } else {
-                // 评论区的图片稍微限制一下最大高度，防止刷屏
                 insertText = `\n<img src="${data.url}" style="max-height:300px; width:auto; border-radius:4px; margin-top:5px;">\n`;
             }
             
@@ -875,32 +800,19 @@ window.uploadCommentImage = async function() {
     }
 };
 
-
-
 window.editPostMode = async function(id) { 
     isEditingPost = true; 
     editingPostId = id; 
-    
-    // 尝试从当前已加载的单篇文章缓存里拿数据，或者直接从 DOM 拿，或者重新 fetch
-    // 最稳妥：重新 fetch 一次，或者如果当前就在 view-post，直接取 currentPost 对象
-    // 简单起见，我们重新 fetch 保证数据最新（或者利用 DOM 里的内容，但 DOM 里是 HTML）
-    
-    // 显示 loading
     showToast("正在加载编辑器...", "info");
-    
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`);
         const post = await res.json();
-        
         window.location.hash = '#write'; 
-        
         document.getElementById('postTitle').value = post.title; 
-        document.getElementById('postContent').value = post.content; // 这里是原始 Markdown
+        document.getElementById('postContent').value = post.content; 
         document.getElementById('postCategory').value = post.category; 
-        
         const btn = document.querySelector('#postForm button'); 
         btn.textContent = "保存修改 / UPDATE POST"; 
-        
         let cancelBtn = document.getElementById('cancelEditPostBtn'); 
         if (!cancelBtn) { 
             cancelBtn = document.createElement('button'); 
@@ -922,7 +834,7 @@ window.editPostMode = async function(id) {
 };
 
 window.cancelEditPost = function() { isEditingPost = false; editingPostId = null; document.querySelector('#postForm button').textContent = "发布 / PUBLISH"; document.getElementById('postTitle').value = ''; document.getElementById('postContent').value = ''; const cancelBtn = document.getElementById('cancelEditPostBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; window.location.hash = '#home'; };
-window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
+window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); /*btn.textContent = "更新评论 / UPDATE";*/ prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; /*btn.textContent = "发送评论 / SEND (+5 XP)";*/ cancelReply(); }; };
 async function doPost(e) { 
     e.preventDefault(); 
     const t = document.getElementById('postTitle').value; 
@@ -952,14 +864,9 @@ async function doPost(e) {
             } 
             cancelEditPost(); 
             
-            // === 核心修改：无刷新更新体验 ===
-            // 1. 刷新侧边栏 (因为发帖奖励了经验)
             checkSecurity(); 
-            // 2. 刷新任务状态 (可能完成了发帖任务)
             loadTasks();
-            // 3. 清除首页滚动记录，让用户回到顶部看新帖
             sessionStorage.removeItem('homeScrollY');
-            // 4. 强制刷新首页帖子列表 (显示刚刚发的贴)
             loadPosts(true);
             
         } else { 
@@ -978,7 +885,7 @@ function checkForDrafts() {
     const pTitle = document.getElementById('postTitle'); 
     const pContent = document.getElementById('postContent'); 
     const pCat = document.getElementById('postCategory'); 
-    const status = document.getElementById('draftStatus'); // 获取状态栏
+    const status = document.getElementById('draftStatus'); 
 
     if(pTitle && pContent) { 
         const save = () => { 
@@ -987,7 +894,6 @@ function checkForDrafts() {
                 localStorage.setItem('draft_content', pContent.value); 
                 localStorage.setItem('draft_cat', pCat.value);
                 
-                // === 新增：显示保存时间 ===
                 const now = new Date();
                 const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
                 if(status) status.innerText = `草稿已保存 ${time}`;
@@ -1003,7 +909,18 @@ window.pinPost = async function(id) { if(!confirm("确认更改置顶状态？")
 window.pinComment = async function(id) { if(!confirm("确认更改此评论置顶状态？")) return; await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadNativeComments(currentPostId, true); };
 window.deleteNotify = async function(id) { if(!confirm("Delete this log?")) return; await fetch(`${API_BASE}/notifications?id=${id}`, {method: 'DELETE'}); loadNotifications(); };
 window.clearAllNotifications = async function() { if(!confirm("Clear ALL logs?")) return; await fetch(`${API_BASE}/notifications?all=true`, {method: 'DELETE'}); loadNotifications(); };
-async function loadNotifications() { const c = document.getElementById('notifyList'); c.innerHTML='Loading...'; let clearBtn = document.getElementById('clearAllNotifyBtn'); if(!clearBtn) { clearBtn = document.createElement('button'); clearBtn.id = 'clearAllNotifyBtn'; clearBtn.className = 'cyber-btn'; clearBtn.style.marginBottom = '10px'; clearBtn.style.borderColor = '#ff3333'; clearBtn.style.color = '#ff3333'; clearBtn.textContent = '清空所有消息 / CLEAR ALL'; clearBtn.onclick = clearAllNotifications; c.parentNode.insertBefore(clearBtn, c); } try{ const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); c.innerHTML=''; if(d.list.length===0){c.innerHTML='No logs';return;} d.list.forEach(n=>{ const div=document.createElement('div'); div.className=`notify-item ${n.is_read?'':'unread'}`; const delSpan = `<span onclick="event.stopPropagation(); deleteNotify('${n.id}')" style="float:right;color:#666;cursor:pointer;margin-left:10px">[x]</span>`; div.innerHTML=`<div class="notify-msg">${n.message} ${delSpan}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`; div.onclick = () => readOneNotify(n.id, n.link, div); c.appendChild(div); }); }catch(e){c.innerHTML='Error';} }
+async function loadNotifications() { 
+    const c = document.getElementById('notifyList'); 
+    c.innerHTML='Loading...'; 
+    try{ 
+        const r = await fetch(`${API_BASE}/notifications`); 
+        const d = await r.json(); 
+        allNotifications = d.list || []; 
+        renderNotifications(allNotifications);
+    } catch(e){
+        c.innerHTML='Error loading logs';
+    } 
+}
 async function checkNotifications() { try { const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); const b = document.getElementById('notifyBadge'); if(d.count>0){ b.style.display='inline-block'; b.textContent=d.count;} else b.style.display='none'; } catch(e){} }
 window.readOneNotify = async function(id, link, divElement) { if(divElement) divElement.classList.remove('unread'); returnToNotifications = true; fetch(`${API_BASE}/notifications`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: id }) }).then(() => checkNotifications()); window.location.hash = link; };
 window.markAllRead = async function() { await fetch(`${API_BASE}/notifications`, {method:'POST'}); loadNotifications(); checkNotifications(); };
@@ -1013,18 +930,12 @@ window.copyText = function(txt) { navigator.clipboard.writeText(txt).then(() => 
 window.copyRecoveryKey = function() { const k = document.getElementById('recoveryKeyDisplay'); k.select(); document.execCommand('copy'); showToast("Copied"); };
 window.deletePost = async function(id) { 
     if(!confirm("确定要删除这篇文章吗？操作不可恢复。")) return; 
-    
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`, {method:'DELETE'}); 
-        const data = await res.json(); // 建议后端 DELETE 也返回 JSON，如果只返回 status 200 也可以
-        
-        // 假设后端返回了 JSON，或者直接检查 res.ok
+        const data = await res.json(); 
         if (res.ok) {
             showToast("删除成功", "success");
-            
-            // === 核心修改：无刷新更新 ===
-            window.location.hash = '#home'; // 确保回到首页
-            // 强制重新加载列表，去掉已删除的帖子
+            window.location.hash = '#home'; 
             loadPosts(true); 
         } else {
             showToast("删除失败", "error");
@@ -1058,11 +969,8 @@ window.adminManageBalance = async function() {
         const data = await res.json();
         if (data.success) {
             showToast(data.message, "success");
-            // 清空输入框
             document.getElementById('adminBalanceAmount').value = '';
             document.getElementById('adminBalanceReason').value = '';
-            
-            // === 新增：立即刷新我的侧边栏状态 (以防是给自己操作) ===
             checkSecurity(); 
         } else {
             showToast(data.error, "error");
@@ -1081,10 +989,7 @@ window.adminGlobalWelfare = async function() {
     if (!reason) return showToast("请输入发放理由", "error");
 
     const confirmMsg = `⚠️⚠️ 高能预警 ⚠️⚠️\n\n即将向 [全服所有用户] 发放：\nXP: +${xp}\ni币: +${coins}\n\n确定要执行吗？`;
-    
     if (!confirm(confirmMsg)) return;
-
-    // 二次确认，防止手滑
     if (!confirm("再次确认：所有用户（包括被封禁的）都会收到奖励。是否继续？")) return;
 
     try {
@@ -1101,12 +1006,9 @@ window.adminGlobalWelfare = async function() {
         const data = await res.json();
         if (data.success) {
             showToast(data.message, "success");
-            // 清空输入框
             document.getElementById('welfareXp').value = '';
             document.getElementById('welfareCoins').value = '';
             document.getElementById('welfareReason').value = '';
-            
-            // 刷新自己的状态看看
             checkSecurity();
         } else {
             showToast(data.error, "error");
@@ -1125,12 +1027,9 @@ async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST
 window.tipUser = async function(uid) {
     const amount = prompt("请输入打赏金额 (i币)：");
     if (!amount) return;
-    
-    // 简单的正整数校验
     if (!/^\d+$/.test(amount) || parseInt(amount) <= 0) {
         return showToast("请输入有效的整数金额", "error");
     }
-
     try {
         const res = await fetch(`${API_BASE}/tip`, {
             method: 'POST',
@@ -1138,25 +1037,19 @@ window.tipUser = async function(uid) {
             body: JSON.stringify({ target_user_id: uid, amount: amount })
         });
         const data = await res.json();
-
         if (data.success) {
-            // ✅ 成功提示 (绿色)
             showToast(data.message, "success");
-            
-            // 延迟 1.5 秒再刷新，让用户看清提示
             setTimeout(() => {
-                checkSecurity(); // 刷新余额显示
-                // 如果需要彻底刷新页面：
-                // window.location.reload(); 
+                checkSecurity(); 
             }, 1500);
         } else {
-            // ❌ 失败提示 (红色)
             showToast(data.error, "error");
         }
     } catch (e) {
         showToast("网络请求失败", "error");
     }
-};window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return showToast("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) showToast("头衔发放成功！"); else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error');} };
+};
+window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return showToast("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) showToast("头衔发放成功！"); else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error');} };
 window.adminUnbanUser = async function(uid) { if(!confirm("Unban?")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); showToast("Done"); loadAdminBanList(); };
 async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge'); if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
 async function loadAdminStats() { checkAdminStatus(); }
@@ -1170,29 +1063,9 @@ window.adminDeleteFeedback = async function(id) { if(!confirm("Delete feedback?"
 window.adminReplyFeedback = async function(id, userId) { const reply = prompt("请输入回复内容："); if(!reply) return; const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'reply_feedback', id, user_id: userId, content: reply}) }); const d = await res.json(); if(d.success) { showToast(d.message, 'success'); loadAdminFeedbacks(); checkAdminStatus(); } else showToast(d.error); };
 async function loadAdminBanList() { const tbody = document.querySelector('#adminBanTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_banned_users'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(u => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${u.nickname || u.username}</td><td>${u.ban_reason || '-'}</td><td>${new Date(u.ban_expires_at).toLocaleDateString()}</td><td><button onclick="adminUnbanUser(${u.id})" class="mini-action-btn" style="color:#0f0">解封</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">无封禁用户</td></tr>'; } } catch(e){ tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
 
-// === 更加稳健的系统启动入口 ===
-function bootSystem() {
-    console.log("SYSTEM BOOTING...");
-    initApp();
-    checkSecurity();
-}
+let lbScale = 1;   
+let lbRotate = 0;  
 
-// 判断页面状态：如果已经加载完成(interactive或complete)，直接运行
-if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    bootSystem();
-} else {
-    // 否则等待加载完成事件
-    document.addEventListener('DOMContentLoaded', bootSystem);
-}
-
-// ==========================================
-// === Lightbox 图片查看器 (含缩放 & 旋转) ===
-// ==========================================
-
-let lbScale = 1;   // 当前缩放倍率
-let lbRotate = 0;  // 当前旋转角度
-
-// 更新图片变换状态
 function updateLightboxTransform() {
     const img = document.getElementById('lightboxImg');
     if(img) {
@@ -1203,38 +1076,25 @@ function updateLightboxTransform() {
 window.openLightbox = function(src) {
     const lightbox = document.getElementById('lightbox');
     const img = document.getElementById('lightboxImg');
-    
-    // 1. 重置状态
     lbScale = 1;
     lbRotate = 0;
     img.src = src;
     updateLightboxTransform();
-    
-    // 2. 显示
     lightbox.style.display = "block";
     
-    // 3. 绑定滚轮缩放事件
     img.onwheel = function(e) {
-        e.preventDefault(); // 阻止页面滚动
-        
-        // 滚轮向上(deltaY < 0)放大，向下缩小
-        // 步长 0.1，最小 0.1倍，最大 5倍
+        e.preventDefault(); 
         if (e.deltaY < 0) {
             lbScale += 0.1;
         } else {
             lbScale -= 0.1;
         }
-        
-        // 限制范围
         if (lbScale < 0.1) lbScale = 0.1;
         if (lbScale > 5.0) lbScale = 5.0;
-        
         updateLightboxTransform();
     };
 
-    // 4. 绑定点击背景关闭 (因为HTML里去掉了onclick)
     lightbox.onclick = function(e) {
-        // 只有点击背景(lightbox本身)才关闭，点击按钮或图片不关闭
         if (e.target === lightbox) {
             closeLightbox();
         }
@@ -1244,21 +1104,16 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     const lightbox = document.getElementById('lightbox');
     lightbox.style.display = "none";
-    // 清理事件，释放内存
     const img = document.getElementById('lightboxImg');
     if(img) img.onwheel = null;
 }
 
 window.rotateImage = function(e) {
-    // 阻止冒泡，防止触发背景关闭
     if(e) e.stopPropagation();
-    
-    // 每次旋转 90 度
     lbRotate += 90;
     updateLightboxTransform();
 }
 
-// === 保存个性签名 ===
 window.saveBio = async function() {
     const bio = document.getElementById('settingBio').value;
     try {
@@ -1270,7 +1125,7 @@ window.saveBio = async function() {
         const data = await res.json();
         if(data.success) {
             showToast(data.message, 'success');
-            checkSecurity(); // 刷新侧边栏显示
+            checkSecurity(); 
         } else {
             showToast(data.error, 'error');
         }
@@ -1279,23 +1134,16 @@ window.saveBio = async function() {
     }
 };
 
-// === 消息分类筛选 ===
-// 全局变量存原始数据，用于前端筛选
 let allNotifications = []; 
 
-// 修改 loadNotifications 函数，把数据存下来
 async function loadNotifications() { 
     const c = document.getElementById('notifyList'); 
     c.innerHTML='Loading...'; 
-    // ... 清空按钮逻辑保持不变 ...
-    
     try{ 
         const r = await fetch(`${API_BASE}/notifications`); 
         const d = await r.json(); 
         
-        allNotifications = d.list || []; // 保存到全局变量
-        
-        // 默认显示全部
+        allNotifications = d.list || []; 
         renderNotifications(allNotifications);
         
     } catch(e){
@@ -1303,11 +1151,8 @@ async function loadNotifications() {
     } 
 }
 
-// 新增：渲染通知列表的独立函数
 function renderNotifications(list) {
     const c = document.getElementById('notifyList');
-    // 如果需要保留清空按钮，最好在HTML里把清空按钮移出 list 容器，或者每次在这里重新加
-    // 简单起见，先把容器清空
     c.innerHTML = '';
     
     if(list.length === 0){
@@ -1316,7 +1161,6 @@ function renderNotifications(list) {
     }
     
     list.forEach(n => { 
-        // ... (使用你原来的渲染逻辑) ...
         const div=document.createElement('div'); 
         div.className=`notify-item ${n.is_read?'':'unread'}`; 
         const delSpan = `<span onclick="event.stopPropagation(); deleteNotify('${n.id}')" style="float:right;color:#666;cursor:pointer;margin-left:10px">[x]</span>`; 
@@ -1326,40 +1170,27 @@ function renderNotifications(list) {
     });
 }
 
-// 新增：筛选点击事件
 window.filterNotifications = function(type, btn) {
-    // 1. 切换按钮样式
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     
-    // 2. 筛选数据
     if (type === 'all') {
         renderNotifications(allNotifications);
     } else {
-        // 后端 type 可能是 'system', 'reply', 'comment', 'tip', 'like'
-        // 注意：后端的 type 字段必须和这里的 type 匹配
         const filtered = allNotifications.filter(n => n.type === type);
         renderNotifications(filtered);
     }
 };
 
+function bootSystem() {
+    console.log("SYSTEM BOOTING...");
+    initApp();
+    checkSecurity();
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    bootSystem();
+} else {
+    document.addEventListener('DOMContentLoaded', bootSystem);
+}
 
