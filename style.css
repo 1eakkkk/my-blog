@@ -918,3 +918,44 @@ input:checked + .slider:before {
     transform: scale(1.01);
     opacity: 0.9;
 }
+
+/* --- Lightbox 升级样式 --- */
+
+/* 旋转按钮样式 */
+.lightbox-rotate {
+    position: absolute;
+    bottom: 50px; /* 放在底部中间比较顺手，或者 top: 15px; right: 80px; 放在关闭按钮旁边 */
+    left: 50%;
+    transform: translateX(-50%);
+    color: #f1f1f1;
+    font-size: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.5);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--accent-blue);
+    transition: 0.3s;
+    user-select: none;
+    z-index: 100001;
+}
+
+.lightbox-rotate:hover {
+    background: var(--accent-blue);
+    color: #fff;
+    transform: translateX(-50%) rotate(180deg); /* 悬停时按钮自己转一圈 */
+}
+
+/* 优化图片过渡效果 */
+.lightbox-content {
+    transition: transform 0.1s ease-out; /* 缩放时更跟手，不要太慢 */
+    cursor: grab;
+}
+
+.lightbox-content:active {
+    cursor: grabbing;
+}
