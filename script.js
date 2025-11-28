@@ -484,6 +484,15 @@ function initApp() {
     const postForm = document.getElementById('postForm'); 
     if (postForm) postForm.onsubmit = doPost;
 
+    const commentsList = document.getElementById('commentsList');
+    if (commentsList) {
+        commentsList.addEventListener('click', (e) => {
+            if (e.target.tagName === 'IMG' && e.target.closest('.comment-text')) {
+                openLightbox(e.target.src);
+            }
+        });
+    }
+
     // 点击侧边栏"首页"时，清除记录并回顶
     const homeNavLink = document.querySelector('a[href="#home"]');
     if (homeNavLink) {
@@ -734,7 +743,21 @@ function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId
     let replyIndicator = ''; if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) { const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown"; replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `; }
     let floorTag = ''; if (!isReply && floorNumber) floorTag = `<span class="floor-tag">${getFloorName(floorNumber)}</span>`;
     let authorTag = ''; if (postAuthorId && c.user_id === postAuthorId) { authorTag = `<span class="author-tag">📝 作者</span>`; }
-    div.innerHTML = `<div class="comment-avatar">${avatar}</div><div class="comment-content-box"><div class="comment-header"><span class="comment-author">${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>${floorTag}</div><div class="comment-meta-row">${pinnedBadge} ${new Date(c.created_at).toLocaleString()}<div class="comment-actions">${likeBtn} ${replyBtn} ${actionLinks}</div></div><div class="comment-text">${replyIndicator}${c.content}</div></div>`; return div;
+    div.innerHTML = `
+        <div class="comment-avatar">${avatar}</div>
+        <div class="comment-content-box">
+            <div class="comment-header">
+                <span class="comment-author">${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>
+                ${floorTag}
+            </div>
+            <div class="comment-meta-row">
+                ${pinnedBadge} ${new Date(c.created_at).toLocaleString()}
+                <div class="comment-actions">${likeBtn} ${replyBtn} ${actionLinks}</div>
+            </div>
+            <!-- 这里修改了：使用 parseMarkdown -->
+            <div class="comment-text">${replyIndicator}${parseMarkdown(c.content)}</div>
+        </div>`;
+    return div;
 }
 
 // === 交互函数 ===
@@ -801,6 +824,58 @@ window.uploadImage = async function() {
         input.value = ''; // 清空，允许重复上传同一张
     }
 };
+
+// === 评论区图片上传 ===
+window.uploadCommentImage = async function() {
+    const input = document.getElementById('commentImgUpload');
+    const status = document.getElementById('commentUploadStatus');
+    const textarea = document.getElementById('commentInput');
+
+    if (input.files.length === 0) return;
+
+    const file = input.files[0];
+    status.innerText = "UP...";
+    status.style.color = "yellow";
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(`${API_BASE}/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            status.innerText = "OK";
+            status.style.color = "#0f0";
+            
+            // 判断是图片还是视频 (复用之前的逻辑)
+            let insertText = '';
+            if (file.type.startsWith('video/')) {
+                insertText = `\n<video src="${data.url}" controls width="100%" style="max-height:300px; border-radius:4px; margin-top:5px;"></video>\n`;
+            } else {
+                // 评论区的图片稍微限制一下最大高度，防止刷屏
+                insertText = `\n<img src="${data.url}" style="max-height:300px; width:auto; border-radius:4px; margin-top:5px;">\n`;
+            }
+            
+            textarea.value += insertText; 
+            showToast('媒体文件已插入', 'success');
+        } else {
+            status.innerText = "ERR";
+            status.style.color = "red";
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        status.innerText = "FAIL";
+        showToast('上传失败', 'error');
+    } finally {
+        input.value = ''; 
+    }
+};
+
+
 
 window.editPostMode = async function(id) { 
     isEditingPost = true; 
@@ -1267,6 +1342,7 @@ window.filterNotifications = function(type, btn) {
         renderNotifications(filtered);
     }
 };
+
 
 
 
