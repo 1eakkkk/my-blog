@@ -22,6 +22,7 @@ const COMMENTS_PER_PAGE = 20;
 let hasMoreComments = true;
 let isLoadingComments = false;
 let currentPostAuthorId = null;
+let homeScrollY = 0; // 记录首页滚动位置
 
 const LEVEL_TABLE = [
     { lv: 1,  xp: 0,     title: '潜行者' },
@@ -210,20 +211,40 @@ window.rerollTask = async function() {
 };
 
 // 帖子列表
+// 替换原有的 loadPosts 函数
 async function loadPosts(reset = false) {
     const container = document.getElementById('posts-list');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
-    if (reset) { currentPage = 1; hasMorePosts = true; container.innerHTML = ''; if (loadMoreBtn) loadMoreBtn.style.display = 'none'; }
+    
+    // 获取搜索和排序的值
+    const searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+    const sortVal = document.getElementById('sortSelect') ? document.getElementById('sortSelect').value : 'latest';
+
+    if (reset) { 
+        currentPage = 1; 
+        hasMorePosts = true; 
+        container.innerHTML = ''; 
+        if (loadMoreBtn) loadMoreBtn.style.display = 'none'; 
+        // 重置时也重置滚动位置(如果是搜索触发的重置)
+        // 但如果是从文章返回触发的重置(通常不建议返回时重置)，则不重置Y
+    }
+    
     if (!hasMorePosts || isLoadingPosts) return;
     isLoadingPosts = true;
-    if (reset) container.innerHTML = '<div class="loading">正在同步数据流...</div>'; else if (loadMoreBtn) loadMoreBtn.textContent = "LOADING...";
+    if (reset) container.innerHTML = '<div class="loading">正在同步数据流...</div>'; 
+    else if (loadMoreBtn) loadMoreBtn.textContent = "LOADING...";
     
     try {
-        const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}`);
+        // === URL 增加 search 和 sort 参数 ===
+        const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&sort=${sortVal}`);
         const posts = await res.json();
+        
         if (reset) container.innerHTML = ''; 
         if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
-        if (posts.length === 0 && currentPage === 1) { container.innerHTML = '<p style="color:#666; text-align:center">暂无文章。</p>'; } else {
+        
+        if (posts.length === 0 && currentPage === 1) { 
+            container.innerHTML = '<p style="color:#666; text-align:center">未找到相关数据。</p>'; 
+        } else {
             const now = Date.now();
             posts.forEach(post => {
                 const rawDate = post.updated_at || post.created_at; 
@@ -293,6 +314,11 @@ async function loadPosts(reset = false) {
             if(isLoadingPosts) loadMoreBtn.textContent = "LOADING..."; else loadMoreBtn.textContent = '加载更多 / LOAD MORE'; 
         } 
     }
+}
+
+// === 新增：搜索按钮函数 ===
+window.searchPosts = function() {
+    loadPosts(true); // 强制重置并搜索
 }
 
 async function checkSecurity() {
@@ -475,6 +501,27 @@ async function handleRoute() {
     if (hash === '#home') {
         if(views.home) views.home.style.display = 'block';
         const link = document.querySelector('a[href="#home"]'); if(link) link.classList.add('active');
+        
+        // === 恢复滚动位置 ===
+        if (homeScrollY > 0) {
+            window.scrollTo(0, homeScrollY);
+        } else {
+            const list = document.getElementById('posts-list');
+            if(!list || list.children.length === 0) loadPosts(true);
+        }
+        
+    } else if (hash.startsWith('#post?id=')) {
+        // === 离开首页前记录位置 ===
+        // 如果是从 home 来的，记录一下。如果是从通知来的，可能不需要记录或者记录为0
+        if (views.home.style.display === 'block') {
+             homeScrollY = window.scrollY;
+        }
+
+        if(views.post) views.post.style.display = 'block';
+        // 解析参数：id 和 commentId
+        const params = new URLSearchParams(hash.split('?')[1]);
+        loadSinglePost(params.get('id'), params.get('commentId')); // 传入 commentId
+    }
         loadPosts(true); 
     } else if (hash === '#write') {
         if(views.write) views.write.style.display = 'block';
@@ -553,7 +600,7 @@ window.doLuckyDraw = async function() {
 };
 // === 帖子详情 & 评论 ===
 
-async function loadSinglePost(id) {
+async function loadSinglePost(id, targetCommentId = null) {
     currentPostId = id; const container = document.getElementById('single-post-content'); if(!container) return; container.innerHTML = '读取中...'; document.getElementById('commentsList').innerHTML = '';
     const backBtn = document.querySelector('#view-post .back-btn'); if (backBtn) { if (returnToNotifications) { backBtn.textContent = "< 返回通知 / BACK TO LOGS"; backBtn.onclick = () => window.location.hash = '#notifications'; } else { backBtn.textContent = "< 返回 / BACK"; backBtn.onclick = () => window.location.hash = '#home'; } }
     const commentInput = document.getElementById('commentInput'); if(commentInput) { commentInput.value = ''; commentInput.placeholder = "输入你的看法... (支持纯文本)"; commentInput.dataset.parentId = ""; isEditingComment = false; editingCommentId = null; const submitBtn = document.querySelector('.comment-input-box button:first-of-type'); if(submitBtn) submitBtn.textContent = "发送评论 / SEND (+5 XP)"; } const cancelBtn = document.getElementById('cancelReplyBtn'); if (cancelBtn) cancelBtn.style.display = 'none';
@@ -564,23 +611,44 @@ async function loadSinglePost(id) {
 
         const rawDate = post.updated_at || post.created_at; const dateStr = new Date(rawDate).toLocaleString(); const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
         
-        let actionBtns = ''; if (userRole === 'admin') { const pinText = post.is_pinned ? "取消置顶 / UNPIN" : "置顶 / PIN"; const pinColor = post.is_pinned ? "#0f0" : "#666"; actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`; } if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { actionBtns += `<button onclick="editPostMode('${post.id}', '${encodeURIComponent(post.title)}', '${encodeURIComponent(post.content)}', '${post.category}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑 / EDIT</button>`; actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`; } if (userRole === 'admin' && post.user_id !== currentUser.id) { actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`; } let tipBtn = ''; if (currentUser.id !== post.user_id) { tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; }
+        let actionBtns = ''; if (userRole === 'admin') { const pinText = post.is_pinned ? "取消置顶 / UNPIN" : "置顶 / PIN"; const pinColor = post.is_pinned ? "#0f0" : "#666"; actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`; } if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { actionBtns += `<button onclick="editPostMode('${post.id}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑 / EDIT</button>`; actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`; } if (userRole === 'admin' && post.user_id !== currentUser.id) { actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`; } let tipBtn = ''; if (currentUser.id !== post.user_id) { tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; }
         
         const authorDisplay = post.author_nickname || post.author_username; const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
         container.innerHTML = `<div class="post-header-row"><div class="post-author-info"><div class="post-avatar-box">${avatarSvg}</div><div class="post-meta-text"><span style="color:#fff; font-size:1rem; font-weight:bold; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">${authorDisplay} ${badgesHtml}</span><div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div></div></div><div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">${actionBtns}${tipBtn}</div></div><h1 style="margin-top:20px;">${post.title}</h1><div class="article-body">${parseMarkdown(post.content)}</div>`;
-        currentCommentPage = 1; hasMoreComments = true; loadNativeComments(id, true);
+        const imgs = container.querySelectorAll('.article-body img');
+        imgs.forEach(img => {
+            img.onclick = function() {
+                openLightbox(this.src);
+            };
+        });
+        currentCommentPage = 1; hasMoreComments = true; loadNativeComments(id, true, targetCommentId);
     } catch (e) { console.error(e); container.innerHTML = 'Error loading post.'; }
 }
 
-async function loadNativeComments(postId, reset = false) {
+async function loadNativeComments(postId, reset = false, highlightId = null) {
     const list = document.getElementById('commentsList'); const loadBtn = document.getElementById('loadCommentsBtn');
     if (reset) { currentCommentPage = 1; hasMoreComments = true; list.innerHTML = ''; if (loadBtn) loadBtn.style.display = 'none'; }
     if (!hasMoreComments || isLoadingComments) return;
     isLoadingComments = true; if(reset) list.innerHTML = 'Loading comments...'; else if(loadBtn) loadBtn.textContent = "LOADING...";
     try {
         const res = await fetch(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}&limit=${COMMENTS_PER_PAGE}`); const data = await res.json();
-        if(reset) list.innerHTML = '';
-        if (data.results.length < COMMENTS_PER_PAGE) hasMoreComments = false;
+        if (reset) list.innerHTML = '';
+        if (highlightId) {
+            // 简单的处理：如果目标评论在第一页，直接跳转。
+            // 如果在后面页，复杂逻辑暂不实现（需要递归加载），通常最新评论在最后或最前
+            // 这里假设你的评论是按时间顺序，且我们只处理已加载的
+            setTimeout(() => {
+                const target = document.getElementById(`comment-${highlightId}`);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    target.classList.add('highlight-comment');
+                } else {
+                    // 如果没找到，可能在第2页，这里可以尝试自动加载更多，或者提示用户
+                    showToast('评论可能在其他页', 'info');
+                }
+            }, 500); // 稍等渲染
+        }
+        if(data.results.length < COMMENTS_PER_PAGE) hasMoreComments = false;
         if(data.results.length === 0 && currentCommentPage === 1) { list.innerHTML = '<p style="color:#666">暂无评论，抢占沙发。</p>'; } else {
             const rootComments = data.results.filter(c => !c.parent_id);
             const replies = data.results.filter(c => c.parent_id);
@@ -607,7 +675,7 @@ async function loadNativeComments(postId, reset = false) {
 }
 
 function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId) {
-    const avatar = generatePixelAvatar(c.username, c.avatar_variant); const div = document.createElement('div'); div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; if(c.is_pinned) { div.style.border = "1px solid #0f0"; div.style.background = "rgba(0,255,0,0.05)"; }
+    const avatar = generatePixelAvatar(c.username, c.avatar_variant); const div = document.createElement('div'); div.id = `comment-${c.id}`; div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; if(c.is_pinned) { div.style.border = "1px solid #0f0"; div.style.background = "rgba(0,255,0,0.05)"; }
     let actionLinks = ''; if (userRole === 'admin' || currentUser.id === c.user_id) { actionLinks += `<span onclick="deleteComment(${c.id})" class="action-link">[删除]</span>`; actionLinks += `<span onclick="editCommentMode(${c.id}, '${encodeURIComponent(c.content)}')" class="action-link" style="color:#0070f3">[编辑]</span>`; } if (userRole === 'admin' && !isReply) { const pinTxt = c.is_pinned ? "取消置顶" : "置顶"; actionLinks += `<span onclick="pinComment(${c.id})" class="action-link" style="color:#0f0">[${pinTxt}]</span>`; }
     const badgeHtml = getBadgesHtml(c); const likeClass = c.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn mini ${likeClass}" onclick="event.stopPropagation(); toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count||0}</span></button>`; const replyBtn = `<span class="reply-action-btn" onclick="prepareReply(${c.id}, '${c.nickname || c.username}')">↩ 回复</span>`; const pinnedBadge = c.is_pinned ? '<span style="color:#0f0;font-weight:bold;font-size:0.7rem;margin-right:5px">📌置顶</span>' : '';
     let replyIndicator = ''; if (c.reply_to_uid && rootOwnerId && c.reply_to_uid != rootOwnerId) { const targetName = c.reply_to_nickname || c.reply_to_username || "Unknown"; replyIndicator = `<span class="reply-indicator">回复 @${targetName}</span> `; }
@@ -675,7 +743,50 @@ window.uploadImage = async function() {
     }
 };
 
-window.editPostMode = function(id, titleEncoded, contentEncoded, category) { isEditingPost = true; editingPostId = id; window.location.hash = '#write'; document.getElementById('postTitle').value = decodeURIComponent(titleEncoded); document.getElementById('postContent').value = decodeURIComponent(contentEncoded); document.getElementById('postCategory').value = category; const btn = document.querySelector('#postForm button'); btn.textContent = "保存修改 / UPDATE POST"; let cancelBtn = document.getElementById('cancelEditPostBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelEditPostBtn'; cancelBtn.type = 'button'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.marginTop = '10px'; cancelBtn.style.borderColor = '#ff3333'; cancelBtn.style.color = '#ff3333'; cancelBtn.textContent = '取消编辑 / CANCEL'; cancelBtn.onclick = cancelEditPost; btn.parentNode.insertBefore(cancelBtn, btn.nextSibling); } cancelBtn.style.display = 'block'; };
+window.editPostMode = async function(id) { 
+    isEditingPost = true; 
+    editingPostId = id; 
+    
+    // 尝试从当前已加载的单篇文章缓存里拿数据，或者直接从 DOM 拿，或者重新 fetch
+    // 最稳妥：重新 fetch 一次，或者如果当前就在 view-post，直接取 currentPost 对象
+    // 简单起见，我们重新 fetch 保证数据最新（或者利用 DOM 里的内容，但 DOM 里是 HTML）
+    
+    // 显示 loading
+    showToast("正在加载编辑器...", "info");
+    
+    try {
+        const res = await fetch(`${API_BASE}/posts?id=${id}`);
+        const post = await res.json();
+        
+        window.location.hash = '#write'; 
+        
+        document.getElementById('postTitle').value = post.title; 
+        document.getElementById('postContent').value = post.content; // 这里是原始 Markdown
+        document.getElementById('postCategory').value = post.category; 
+        
+        const btn = document.querySelector('#postForm button'); 
+        btn.textContent = "保存修改 / UPDATE POST"; 
+        
+        let cancelBtn = document.getElementById('cancelEditPostBtn'); 
+        if (!cancelBtn) { 
+            cancelBtn = document.createElement('button'); 
+            cancelBtn.id = 'cancelEditPostBtn'; 
+            cancelBtn.type = 'button'; 
+            cancelBtn.className = 'cyber-btn'; 
+            cancelBtn.style.marginTop = '10px'; 
+            cancelBtn.style.borderColor = '#ff3333'; 
+            cancelBtn.style.color = '#ff3333'; 
+            cancelBtn.textContent = '取消编辑 / CANCEL'; 
+            cancelBtn.onclick = cancelEditPost; 
+            btn.parentNode.insertBefore(cancelBtn, btn.nextSibling); 
+        } 
+        cancelBtn.style.display = 'block';
+    } catch(e) {
+        showToast("加载失败", "error");
+        isEditingPost = false;
+    }
+};
+
 window.cancelEditPost = function() { isEditingPost = false; editingPostId = null; document.querySelector('#postForm button').textContent = "发布 / PUBLISH"; document.getElementById('postTitle').value = ''; document.getElementById('postContent').value = ''; const cancelBtn = document.getElementById('cancelEditPostBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; window.location.hash = '#home'; };
 window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
 async function doPost(e) { e.preventDefault(); const t = document.getElementById('postTitle').value; const c = document.getElementById('postContent').value; const cat = document.getElementById('postCategory').value; const btn = document.querySelector('#postForm button'); btn.disabled = true; try { let url = `${API_BASE}/posts`; let method = 'POST'; let body = { title: t, content: c, category: cat }; if (isEditingPost) { method = 'PUT'; body = { action: 'edit', id: editingPostId, title: t, content: c, category: cat }; } const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) }); const data = await res.json(); if (data.success) { showToast(data.message, 'success'); if(!isEditingPost) { localStorage.removeItem('draft_title'); localStorage.removeItem('draft_content'); localStorage.removeItem('draft_cat'); } cancelEditPost(); } else { showToast(data.error, 'error'); } } catch(err) { showToast("网络连接错误", 'error'); } finally { btn.disabled = false; } }
@@ -736,6 +847,17 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
 
+// === Lightbox 图片放大 ===
+window.openLightbox = function(src) {
+    const lightbox = document.getElementById('lightbox');
+    const img = document.getElementById('lightboxImg');
+    img.src = src;
+    lightbox.style.display = "block";
+}
+
+window.closeLightbox = function() {
+    document.getElementById('lightbox').style.display = "none";
+}
 
 
 
