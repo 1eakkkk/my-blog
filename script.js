@@ -632,6 +632,49 @@ window.submitFeedback = async function() {
     } catch(e) { alert("Error"); }
 };
 
+window.uploadImage = async function() {
+    const input = document.getElementById('imageUploadInput');
+    const status = document.getElementById('uploadStatus');
+    const textarea = document.getElementById('postContent');
+
+    if (input.files.length === 0) return;
+
+    const file = input.files[0];
+    status.innerText = "UPLOADING...";
+    status.style.color = "yellow";
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch(`${API_BASE}/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            status.innerText = "DONE";
+            status.style.color = "#0f0";
+            
+            // 自动插入 Markdown 图片语法到光标位置
+            const markdown = `\n![image](${data.url})\n`;
+            textarea.value += markdown; // 简单追加到末尾
+            
+            showToast('图片上传成功', 'success');
+        } else {
+            status.innerText = "ERROR";
+            status.style.color = "red";
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        status.innerText = "FAIL";
+        showToast('上传失败', 'error');
+    } finally {
+        input.value = ''; // 清空，允许重复上传同一张
+    }
+};
+
 window.editPostMode = function(id, titleEncoded, contentEncoded, category) { isEditingPost = true; editingPostId = id; window.location.hash = '#write'; document.getElementById('postTitle').value = decodeURIComponent(titleEncoded); document.getElementById('postContent').value = decodeURIComponent(contentEncoded); document.getElementById('postCategory').value = category; const btn = document.querySelector('#postForm button'); btn.textContent = "保存修改 / UPDATE POST"; let cancelBtn = document.getElementById('cancelEditPostBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelEditPostBtn'; cancelBtn.type = 'button'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.marginTop = '10px'; cancelBtn.style.borderColor = '#ff3333'; cancelBtn.style.color = '#ff3333'; cancelBtn.textContent = '取消编辑 / CANCEL'; cancelBtn.onclick = cancelEditPost; btn.parentNode.insertBefore(cancelBtn, btn.nextSibling); } cancelBtn.style.display = 'block'; };
 window.cancelEditPost = function() { isEditingPost = false; editingPostId = null; document.querySelector('#postForm button').textContent = "发布 / PUBLISH"; document.getElementById('postTitle').value = ''; document.getElementById('postContent').value = ''; const cancelBtn = document.getElementById('cancelEditPostBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; window.location.hash = '#home'; };
 window.editCommentMode = function(id, c) { isEditingComment = true; editingCommentId = id; const input = document.getElementById('commentInput'); input.value = decodeURIComponent(c); input.focus(); input.scrollIntoView(); const btn = document.querySelector('.comment-input-box button:first-of-type'); btn.textContent = "更新评论 / UPDATE"; prepareReply(null, null); const cancelBtn = document.getElementById('cancelReplyBtn'); cancelBtn.textContent = "取消编辑"; cancelBtn.onclick = () => { isEditingComment = false; editingCommentId = null; input.value = ''; btn.textContent = "发送评论 / SEND (+5 XP)"; cancelReply(); }; };
@@ -692,6 +735,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     // 否则等待加载完成事件
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
+
 
 
 
