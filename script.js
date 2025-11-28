@@ -853,8 +853,41 @@ window.randomizeAvatar = async function() { if(!confirm("Randomize?"))return; co
 window.updateProfile = async function() { const n=document.getElementById('newNickname').value; await fetch(`${API_BASE}/profile`, {method:'POST', body:JSON.stringify({nickname:n})}); window.location.reload(); };
 window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await fetch(`${API_BASE}/vip`, {method:'POST'}); const d=await r.json(); showToast(d.message, 'success'); if(d.success) window.location.reload(); };
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
-window.tipUser = async function(uid) { const a=prompt("Amount?"); if(!a)return; await fetch(`${API_BASE}/tip`, {method:'POST', body:JSON.stringify({target_user_id:uid, amount:a})}); window.location.reload(); };
-window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return showToast("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) showToast("头衔发放成功！"); else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error');} };
+window.tipUser = async function(uid) {
+    const amount = prompt("请输入打赏金额 (i币)：");
+    if (!amount) return;
+    
+    // 简单的正整数校验
+    if (!/^\d+$/.test(amount) || parseInt(amount) <= 0) {
+        return showToast("请输入有效的整数金额", "error");
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/tip`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_user_id: uid, amount: amount })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            // ✅ 成功提示 (绿色)
+            showToast(data.message, "success");
+            
+            // 延迟 1.5 秒再刷新，让用户看清提示
+            setTimeout(() => {
+                checkSecurity(); // 刷新余额显示
+                // 如果需要彻底刷新页面：
+                // window.location.reload(); 
+            }, 1500);
+        } else {
+            // ❌ 失败提示 (红色)
+            showToast(data.error, "error");
+        }
+    } catch (e) {
+        showToast("网络请求失败", "error");
+    }
+};window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return showToast("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) showToast("头衔发放成功！"); else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error');} };
 window.adminUnbanUser = async function(uid) { if(!confirm("Unban?")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); showToast("Done"); loadAdminBanList(); };
 async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge'); if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
 async function loadAdminStats() { checkAdminStatus(); }
@@ -894,6 +927,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
