@@ -38,6 +38,26 @@ const LEVEL_TABLE = [
 
 // --- 辅助函数 ---
 
+window.showToast = function(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if(!container) return alert(msg); // 降级处理
+
+    const div = document.createElement('div');
+    div.className = `cyber-toast ${type}`;
+    // 图标
+    let icon = 'ℹ️';
+    if(type === 'success') icon = '✅';
+    if(type === 'error') icon = '❌';
+    
+    div.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+    container.appendChild(div);
+
+    // 3秒后移除 DOM
+    setTimeout(() => {
+        div.remove();
+    }, 3100);
+};
+
 // Markdown 渲染辅助函数
 function parseMarkdown(text) {
     if (!text) return '';
@@ -672,6 +692,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     // 否则等待加载完成事件
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
+
 
 
 
