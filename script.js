@@ -289,15 +289,21 @@ async function loadPosts(reset = false) {
                 `;
 
                 // === 修改开始：点击事件 ===
+                // === 点击卡片 ===
                 div.onclick = () => { 
-                    // 记录已读
+                   // 1. 记录已读
                     const currentRead = JSON.parse(localStorage.getItem('read_posts') || '[]');
                     if (!currentRead.includes(post.id)) {
                         currentRead.push(post.id);
                         localStorage.setItem('read_posts', JSON.stringify(currentRead));
                     }
-
+                   
                     returnToNotifications = false; 
+                    
+                    // 2. 关键：将当前滚动高度存入 sessionStorage
+                    sessionStorage.setItem('homeScrollY', window.scrollY);
+                    
+                    // 3. 跳转
                     window.location.hash = `#post?id=${post.id}`; 
                 }; 
                 // === 修改结束 ===
@@ -468,6 +474,15 @@ function initApp() {
     
     const postForm = document.getElementById('postForm'); 
     if (postForm) postForm.onsubmit = doPost;
+
+    // 点击侧边栏"首页"时，清除记录并回顶
+    const homeNavLink = document.querySelector('a[href="#home"]');
+    if (homeNavLink) {
+        homeNavLink.addEventListener('click', () => {
+            sessionStorage.removeItem('homeScrollY'); // 清除记忆
+            window.scrollTo(0, 0);
+        });
+    }
     
     window.addEventListener('hashchange', handleRoute);
     
@@ -514,15 +529,30 @@ async function handleRoute() {
         if(views.home) views.home.style.display = 'block';
         const link = document.querySelector('a[href="#home"]'); if(link) link.classList.add('active');
         
-        // === 关键修复：增加延时，等待页面渲染完毕再滚动 ===
-        if (homeScrollY > 0) {
-            setTimeout(() => {
-                window.scrollTo(0, homeScrollY);
-            }, 10); // 10毫秒的延迟足以解决问题
-        } else {
-            // 只有列表为空时才重新加载，防止覆盖已有的内容
-            const list = document.getElementById('posts-list');
-            if(!list || list.children.length === 0) loadPosts(true);
+        // === 强力修复：恢复滚动位置 ===
+        // 1. 从缓存取位置
+        const savedScroll = sessionStorage.getItem('homeScrollY');
+        
+        // 2. 检查列表是否有内容，如果没有内容必须先加载
+        const list = document.getElementById('posts-list');
+        const isEmpty = !list || list.children.length === 0;
+
+        if (isEmpty) {
+            // 如果列表是空的，先加载数据，加载完后再滚动
+            // 注意：这里我们传 true 重置，但加载完后 JS 会自动留在顶部，
+            // 所以这种情况下通常是刷新网页后第一次进，不需要滚动到旧位置
+            loadPosts(true); 
+        } else if (savedScroll && parseInt(savedScroll) > 0) {
+            // 3. 如果有旧位置，且列表已经存在，执行“强制瞬移”
+            // 使用 double-raf (双重动画帧) 确保 DOM 确实渲染完了
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    window.scrollTo({
+                        top: parseInt(savedScroll),
+                        behavior: 'auto' // 关键：使用 auto 瞬间跳过去，不要 smooth 滑动，否则容易被打断
+                    });
+                });
+            });
         }
         
     } else if (hash.startsWith('#post?id=')) {
@@ -872,6 +902,7 @@ window.openLightbox = function(src) {
 window.closeLightbox = function() {
     document.getElementById('lightbox').style.display = "none";
 }
+
 
 
 
