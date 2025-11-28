@@ -956,6 +956,51 @@ window.adminManageBalance = async function() {
         showToast("网络错误", "error");
     }
 };
+
+window.adminGlobalWelfare = async function() {
+    const xp = document.getElementById('welfareXp').value || 0;
+    const coins = document.getElementById('welfareCoins').value || 0;
+    const reason = document.getElementById('welfareReason').value;
+
+    if (xp == 0 && coins == 0) return showToast("经验和i币至少填一项", "error");
+    if (!reason) return showToast("请输入发放理由", "error");
+
+    const confirmMsg = `⚠️⚠️ 高能预警 ⚠️⚠️\n\n即将向 [全服所有用户] 发放：\nXP: +${xp}\ni币: +${coins}\n\n确定要执行吗？`;
+    
+    if (!confirm(confirmMsg)) return;
+
+    // 二次确认，防止手滑
+    if (!confirm("再次确认：所有用户（包括被封禁的）都会收到奖励。是否继续？")) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'global_welfare',
+                xp: xp,
+                coins: coins,
+                reason: reason
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, "success");
+            // 清空输入框
+            document.getElementById('welfareXp').value = '';
+            document.getElementById('welfareCoins').value = '';
+            document.getElementById('welfareReason').value = '';
+            
+            // 刷新自己的状态看看
+            checkSecurity();
+        } else {
+            showToast(data.error, "error");
+        }
+    } catch (e) {
+        showToast("网络错误", "error");
+    }
+};
+
 window.adminPostAnnounce = async function() { const t=document.getElementById('adminAnnounceTitle').value; const c=document.getElementById('adminAnnounceContent').value; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'post_announce', title:t, content:c})}); showToast("Posted"); };
 window.adminGenInvite = async function() { const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_invite'})}); const d=await r.json(); document.getElementById('adminInviteResult').innerText=d.codes?d.codes.join('\n'):d.code; };
 window.randomizeAvatar = async function() { if(!confirm("Randomize?"))return; const r=await fetch(`${API_BASE}/random_avatar`, {method:'POST'}); const d=await r.json(); if(d.success) window.location.reload(); };
@@ -1097,6 +1142,7 @@ window.rotateImage = function(e) {
     lbRotate += 90;
     updateLightboxTransform();
 }
+
 
 
 
