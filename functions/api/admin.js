@@ -130,5 +130,38 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, message: `操作成功！已给用户 [${target_username}] ${change > 0 ? '增加' : '扣除'} ${Math.abs(change)} i币。` }));
   }
 
+  // ... (在 manage_balance 代码块之后) ...
+
+  // === 新增：全服福利发放 (包含封禁用户) ===
+  if (action === 'global_welfare') {
+      const { xp, coins, reason } = req;
+      const addXp = parseInt(xp) || 0;
+      const addCoins = parseInt(coins) || 0;
+      
+      if (addXp === 0 && addCoins === 0) {
+          return new Response(JSON.stringify({ success: false, error: '经验和i币不能同时为0' }));
+      }
+      
+      const now = Date.now();
+      const msg = `🎁 [全服福利] 系统发放: ${addXp} XP, ${addCoins} i币。备注: ${reason || '节日快乐'}`;
+
+      try {
+          await db.batch([
+              // 1. 更新所有用户 (不加 WHERE 条件即为全员，包括封禁用户)
+              db.prepare('UPDATE users SET xp = xp + ?, coins = coins + ?').bind(addXp, addCoins),
+              
+              // 2. 给所有用户插入通知 (利用 SQL 批量插入，效率极高)
+              db.prepare(`
+                  INSERT INTO notifications (user_id, type, message, link, created_at)
+                  SELECT id, 'system', ?, '#home', ? FROM users
+              `).bind(msg, now)
+          ]);
+          
+          return new Response(JSON.stringify({ success: true, message: '全服福利已发放，所有人均已收到通知。' }));
+      } catch (e) {
+          return new Response(JSON.stringify({ success: false, error: '发放失败: ' + e.message }));
+      }
+  }
+
   return new Response(JSON.stringify({ success: false, error: '未知指令' }));
 }
