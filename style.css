@@ -822,3 +822,41 @@ input:checked + .slider:before {
     color: var(--accent-blue);
     text-decoration: underline;
 }
+
+/* Toast 容器 */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+/* Toast 消息卡片 */
+.cyber-toast {
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid var(--accent-blue);
+    color: #fff;
+    padding: 12px 24px;
+    min-width: 300px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(0, 112, 243, 0.3);
+    font-family: var(--font-tech);
+    animation: slideDown 0.3s ease, fadeOut 0.5s ease 2.5s forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.cyber-toast.error {
+    border-color: #ff3333;
+    box-shadow: 0 0 15px rgba(255, 51, 51, 0.3);
+}
+.cyber-toast.success {
+    border-color: #00ff00;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+}
+@keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; pointer-events: none; } }
