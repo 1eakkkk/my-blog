@@ -15,8 +15,8 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
   
-  // === 新增：排序和搜索参数 ===
-  const sort = url.searchParams.get('sort') || 'latest'; // latest, hot, comments
+  // 排序和搜索参数
+  const sort = url.searchParams.get('sort') || 'latest'; 
   const search = url.searchParams.get('search') || '';
   
   const page = parseInt(url.searchParams.get('page')) || 1;
@@ -52,11 +52,9 @@ export async function onRequestGet(context) {
       const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(id).first();
       return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
     } else {
-      // === 构建查询语句 ===
       let sql = `SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id`;
       const params = [];
 
-      // 搜索逻辑
       if (search) {
           const term = `%${search}%`;
           sql += ` WHERE (
@@ -65,19 +63,17 @@ export async function onRequestGet(context) {
               posts.category LIKE ? OR
               EXISTS (SELECT 1 FROM comments WHERE comments.post_id = posts.id AND comments.content LIKE ?)
           )`;
-          // 对应4个问号
           params.push(term, term, term, term);
       }
 
-      // 排序逻辑
-      sql += ` ORDER BY (posts.category = '公告') DESC, posts.is_pinned DESC`; // 公告和置顶永远最前
+      sql += ` ORDER BY (posts.category = '公告') DESC, posts.is_pinned DESC`; 
       
       if (sort === 'hot') {
           sql += `, posts.like_count DESC, posts.created_at DESC`;
       } else if (sort === 'comments') {
-          sql += `, comment_count DESC, posts.created_at DESC`; // 使用 alias
+          sql += `, comment_count DESC, posts.created_at DESC`; 
       } else {
-          sql += `, posts.created_at DESC`; // 默认按时间
+          sql += `, posts.created_at DESC`; 
       }
 
       sql += ` LIMIT ? OFFSET ?`;
@@ -92,92 +88,82 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-    // ... (保持原有的发帖逻辑不变，请直接保留你现有的代码或参考之前提供的) ...
-    // 为了节省篇幅，这里略过未修改的 POST/PUT/DELETE 部分，请确保不要删除它们
-    // 如果需要完整代码请告诉我，否则只替换 onRequestGet 即可
-    const db = context.env.DB;
-    const cookie = context.request.headers.get('Cookie');
-    if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
-    const sessionId = cookie.split('session_id=')[1].split(';')[0];
-    const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-    if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
-    if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号封禁' }), { status: 403 });
+  const db = context.env.DB;
+  const cookie = context.request.headers.get('Cookie');
+  if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
+  const sessionId = cookie.split('session_id=')[1].split(';')[0];
+  const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
+  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+  if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号封禁' }), { status: 403 });
 
-    const { title, content, category } = await context.request.json();
-    if (!title || !content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
+  // === 关键修改：把 const 改成 let ===
+  let { title, content, category } = await context.request.json();
+  
+  // 校验逻辑
+  if ((!title || !title.trim()) && (!content || !content.trim())) {
+      return new Response(JSON.stringify({ success: false, error: '标题和内容不能同时为空' }), { status: 400 });
+  }
 
-    let { title, content, category } = await context.request.json();
-    
-    // === 修改校验逻辑 ===
-    // 允许其中一个为空，但不能全空
-    if ((!title || !title.trim()) && (!content || !content.trim())) {
-        return new Response(JSON.stringify({ success: false, error: '标题和内容不能同时为空' }), { status: 400 });
-    }
+  // 自动填充空缺字段
+  if (!title || !title.trim()) title = "无题 / Untitled";
+  if (!content || !content.trim()) content = "（如题）";
 
-    // 为了美观，如果标题为空，自动填入 "无题 / Untitled"
-    if (!title || !title.trim()) {
-        title = "无题 / Untitled";
-    }
-    // 如果内容为空，自动填入 "（如题）"
-    if (!content || !content.trim()) {
-        content = "（如题）";
-    }
-    
-    let finalCategory = category || '灌水';
-    if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
+  let finalCategory = category || '灌水';
+  if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
-    await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(user.id, user.nickname || user.username, title, content, finalCategory, Date.now()).run();
+  await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(user.id, user.nickname || user.username, title, content, finalCategory, Date.now()).run();
 
-    const now = new Date();
-    const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
-    const today = utc8.toISOString().split('T')[0];
-    const xpBase = user.is_vip ? 20 : 10;
-    const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
+  const now = new Date();
+  const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  const today = utc8.toISOString().split('T')[0];
+  const xpBase = user.is_vip ? 20 : 10;
+  const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
 
-    await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 WHERE user_id = ? AND task_type = 'post' AND is_claimed = 0 AND last_update_date = ?`).bind(user.id, today).run();
-    return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }));
+  await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 WHERE user_id = ? AND task_type = 'post' AND is_claimed = 0 AND last_update_date = ?`).bind(user.id, today).run();
+  return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }));
 }
 
 export async function onRequestPut(context) {
-    // ... (保持原有的 PUT 逻辑不变) ...
-    const db = context.env.DB;
-    const cookie = context.request.headers.get('Cookie');
-    if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
-    const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-    const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-    if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+  const db = context.env.DB;
+  const cookie = context.request.headers.get('Cookie');
+  if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
+  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
+  const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
+  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
 
-    const { id, action, title, content, category } = await context.request.json();
+  // === 关键修改：把 const 改成 let ===
+  let { id, action, title, content, category } = await context.request.json();
 
-    if (action === 'edit') {
-        const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(id).first();
-        if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
-        if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
-        if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
-        if ((!title || !title.trim()) && (!content || !content.trim())) {
-            return new Response(JSON.stringify({ success: false, error: '不能全为空' }), { status: 400 });
-        }
-        if (!title || !title.trim()) title = "无题 / Untitled";
-        if (!content || !content.trim()) content = "（如题）";
+  if (action === 'edit') {
+      const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(id).first();
+      if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
+      if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
+      if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
 
-        await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, updated_at = ? WHERE id = ?')
-            .bind(title, content, category, Date.now(), id).run();
-        return new Response(JSON.stringify({ success: true, message: '文章已更新' }));
-    }
+      // 校验逻辑
+      if ((!title || !title.trim()) && (!content || !content.trim())) {
+          return new Response(JSON.stringify({ success: false, error: '不能全为空' }), { status: 400 });
+      }
+      if (!title || !title.trim()) title = "无题 / Untitled";
+      if (!content || !content.trim()) content = "（如题）";
 
-    if (action === 'pin') {
-        if (user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
-        const current = await db.prepare('SELECT is_pinned FROM posts WHERE id = ?').bind(id).first();
-        const newState = current.is_pinned ? 0 : 1;
-        await db.prepare('UPDATE posts SET is_pinned = ? WHERE id = ?').bind(newState, id).run();
-        return new Response(JSON.stringify({ success: true, message: newState ? '已置顶' : '已取消置顶', is_pinned: newState }));
-    }
-    return new Response(JSON.stringify({ success: false, error: '未知操作' }));
+      await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, updated_at = ? WHERE id = ?')
+          .bind(title, content, category, Date.now(), id).run();
+      return new Response(JSON.stringify({ success: true, message: '文章已更新' }));
+  }
+
+  if (action === 'pin') {
+      if (user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
+      const current = await db.prepare('SELECT is_pinned FROM posts WHERE id = ?').bind(id).first();
+      const newState = current.is_pinned ? 0 : 1;
+      await db.prepare('UPDATE posts SET is_pinned = ? WHERE id = ?').bind(newState, id).run();
+      return new Response(JSON.stringify({ success: true, message: newState ? '已置顶' : '已取消置顶', is_pinned: newState }));
+  }
+  return new Response(JSON.stringify({ success: false, error: '未知操作' }));
 }
 
 export async function onRequestDelete(context) {
-    // ... (保持原有的 DELETE 逻辑不变) ...
     const db = context.env.DB;
     const cookie = context.request.headers.get('Cookie');
     if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
@@ -192,5 +178,3 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
-
-
