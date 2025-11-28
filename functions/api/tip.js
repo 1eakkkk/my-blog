@@ -16,10 +16,17 @@ export async function onRequestPost(context) {
   if (sender.id === target_user_id) return new Response(JSON.stringify({ success: false, error: '不能给自己打赏' }), { status: 400 });
   if (sender.coins < payAmount) return new Response(JSON.stringify({ success: false, error: '余额不足' }), { status: 400 });
 
-  // 1. 扣除打赏者金币，增加经验 (1币=5经验)
-  const senderXpAdd = payAmount * 5;
+  // === 修复逻辑：区分扣款金额和经验获取 ===
   
-  // 2. 增加接收者金币，增加经验 (5币=1经验)
+  // 1. 基础经验 (1币 = 5经验)
+  let senderXpBase = payAmount * 5;
+  
+  // 2. 如果是 VIP，经验获取翻倍 (扣款金额不变)
+  if (sender.is_vip) {
+      senderXpBase = senderXpBase * 2;
+  }
+  
+  // 3. 接收者获得的经验 (保持不变，5币=1经验)
   const receiverXpAdd = Math.floor(payAmount / 5); 
 
   const now = new Date();
@@ -35,30 +42,22 @@ export async function onRequestPost(context) {
       if (receiverDailyXp + receiverXpAdd > 120) actualReceiverAdd = 120 - receiverDailyXp;
   }
 
-  // 执行数据库事务
-  await db.batch([
-      // 打赏者：扣钱，加全额经验
-      db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ? WHERE id = ?').bind(payAmount, senderXpAdd, sender.id),
-    
-      // 接收者：加钱，加受限经验，更新 daily_xp
+  try {
+    await db.batch([
+      // 打赏者：扣除原始金额(payAmount)，增加计算后的经验(senderXpBase)
+      db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ? WHERE id = ?').bind(payAmount, senderXpBase, sender.id),
+      
+      // 接收者：增加原始金额(payAmount)，增加受限经验
       db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ?, daily_xp = daily_xp + ?, last_xp_date = ? WHERE id = ?')
         .bind(payAmount, actualReceiverAdd, actualReceiverAdd, today, target_user_id),
       
-      // ... (通知逻辑) ...
-  ]);
-  
-  try {
-    await db.batch([
-      // 扣款
-      db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ? WHERE id = ?').bind(payAmount, senderXpAdd, sender.id),
-      // 入账
-      db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id = ?').bind(payAmount, receiverXpAdd, target_user_id),
       // 发通知
       db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
         .bind(target_user_id, 'tip', `${sender.nickname||sender.username} 打赏了你 ${payAmount} i币`, '#home', Date.now())
     ]);
-    return new Response(JSON.stringify({ success: true, message: `打赏成功！你获得了 ${senderXpAdd} 经验` }));
+    
+    return new Response(JSON.stringify({ success: true, message: `打赏成功！消耗 ${payAmount} i币，获得 ${senderXpBase} 经验` }));
   } catch (e) {
-    return new Response(JSON.stringify({ success: false, error: '交易失败' }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: '交易失败: ' + e.message }), { status: 500 });
   }
 }
