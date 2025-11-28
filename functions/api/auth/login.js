@@ -1,16 +1,32 @@
 // --- functions/api/auth/login.js ---
 
 export async function onRequestPost(context) {
-  const db = context.env.DB;
-  const { username, password } = await context.request.json();
+  const { request, env } = context;
+  const db = env.DB;
+  const { username, password, turnstileToken } = await request.json();
 
-  // 1. 密码哈希
+  // 1. 验证 Turnstile (人机验证)
+  const ip = request.headers.get('CF-Connecting-IP');
+  const formData = new FormData();
+  formData.append('secret', env.TURNSTILE_SECRET);
+  formData.append('response', turnstileToken);
+  formData.append('remoteip', ip);
+
+  const url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+  const result = await fetch(url, { body: formData, method: 'POST' });
+  const outcome = await result.json();
+
+  if (!outcome.success) {
+    return new Response(JSON.stringify({ success: false, error: '人机验证失败，请刷新重试' }), { status: 403 });
+  }
+
+  // 2. 密码哈希
   const myText = new TextEncoder().encode(password);
   const myDigest = await crypto.subtle.digest({ name: 'SHA-256' }, myText);
   const hashArray = Array.from(new Uint8Array(myDigest));
   const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-  // 2. 查用户
+  // 3. 查用户
   const user = await db.prepare('SELECT * FROM users WHERE username = ? AND password = ?')
     .bind(username, passwordHash)
     .first();
@@ -18,18 +34,19 @@ export async function onRequestPost(context) {
   if (!user) {
     return new Response(JSON.stringify({ success: false, error: '账号或密码错误' }), { status: 401 });
   }
-
-  // 3. 生成 Session ID
-  const sessionId = crypto.randomUUID();
   
-  // 4. 存入数据库 (如果这一步报错，前端会提示错误)
+  // 检查封禁
+  if (user.status === 'banned' && user.ban_expires_at > Date.now()) {
+      return new Response(JSON.stringify({ success: false, error: '账号已被封禁' }), { status: 403 });
+  }
+
+  // 4. 生成 Session
+  const sessionId = crypto.randomUUID();
   await db.prepare('INSERT INTO sessions (session_id, user_id, created_at) VALUES (?, ?, ?)')
     .bind(sessionId, user.id, Date.now())
     .run();
 
-  // 5. 设置 Cookie (关键修复：增加 Secure; SameSite=None)
   const headers = new Headers();
-  // 注意：Max-Age=86400 是一天
   headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; Secure; HttpOnly; SameSite=None; Max-Age=86400`);
   headers.append('Content-Type', 'application/json');
 
