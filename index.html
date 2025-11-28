@@ -371,13 +371,15 @@
         </main>
     </div>
     <!-- 图片查看器 (Lightbox) -->
-    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-        <span class="lightbox-close">&times;</span>
-        <img class="lightbox-content" id="lightboxImg">
+    <div id="lightbox" class="lightbox">
+        <span class="lightbox-close" onclick="closeLightbox()">×</span>
+        <span class="lightbox-rotate" onclick="rotateImage(event)">↻</span>
+        <img class="lightbox-content" id="lightboxImg" onclick="event.stopPropagation()">
     </div>
-    <script src="script.js?v=5.2"></script>
+    <script src="script.js?v=5.3"></script>
 </body>
 </html>
+
 
 
 
