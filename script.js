@@ -60,14 +60,21 @@ window.showToast = function(msg, type = 'info') {
 };
 
 // Markdown 渲染辅助函数
+// 修改 parseMarkdown 函数
 function parseMarkdown(text) {
     if (!text) return '';
-    const rawHtml = marked.parse(text);
     
-    // 配置白名单，允许 video 标签
+    // 1. 先解析 @username (在 MD 解析前处理，避免破坏 HTML)
+    // 假设用户名只包含字母数字下划线
+    let processedText = text.replace(/@(\w+)/g, '<a href="#profile?u=$1" class="mention-link">@$1</a>');
+
+    // 2. 解析 MD
+    const rawHtml = marked.parse(processedText);
+    
+    // 3. 净化 (允许 class 属性)
     return DOMPurify.sanitize(rawHtml, {
         ADD_TAGS: ['video', 'source'],     
-        ADD_ATTR: ['controls', 'src', 'width', 'style'] 
+        ADD_ATTR: ['controls', 'src', 'width', 'style', 'class', 'href', 'target'] 
     });
 }
 
@@ -261,12 +268,24 @@ async function loadPosts(reset = false) {
                 const div = document.createElement('div'); 
                 div.className = `post-card ${isAnnounceClass}`; 
                 if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
+
+                const imgMatch = post.content.match(/!\[.*?\]\((.*?)\)/) || post.content.match(/<img.*?src=["'](.*?)["']/);
+                let thumbnailHtml = '';
+                if (imgMatch) {
+                    // 如果有图，生成 HTML
+                    thumbnailHtml = `
+                        <div class="post-thumbnail-container" style="display:block">
+                            <img src="${imgMatch[1]}" class="post-thumbnail" loading="lazy">
+                        </div>
+                    `;
+                }
                 
                 const commentCount = post.comment_count || 0;
                 const cleanText = DOMPurify.sanitize(marked.parse(post.content), {ALLOWED_TAGS: []});
                 div.innerHTML = `
                     <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} @${author}</div>
                     <div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div>
+                    ${thumbnailHtml}
                     <div class="post-snippet">${cleanText.substring(0, 100)}...</div>
                     <div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; color:#666;">
                         <div>💬 <span class="count">${commentCount}</span> 评论</div>
@@ -473,7 +492,8 @@ const views = {
     about: document.getElementById('view-about'),
     notifications: document.getElementById('view-notifications'),
     feedback: document.getElementById('view-feedback'),
-    admin: document.getElementById('view-admin')
+    admin: document.getElementById('view-admin'),
+    profile: document.getElementById('view-profile')
 };
 
 async function handleRoute() {
@@ -546,6 +566,11 @@ async function handleRoute() {
         if(views.notifications) views.notifications.style.display = 'block';
         const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
         loadNotifications();
+        // ... 在 handleRoute 内部 ...
+    } else if (hash.startsWith('#profile?u=')) {
+        if(views.profile) document.getElementById('view-profile').style.display = 'block'; // 注意这里 HTML ID 是 view-profile
+        const u = hash.split('=')[1];
+        loadUserProfile(u);
     } else if (hash === '#feedback') {
         if(views.feedback) views.feedback.style.display = 'block';
         const link = document.querySelector('a[href="#feedback"]'); if(link) link.classList.add('active');
@@ -1194,3 +1219,104 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
 
+// === 加载个人主页 ===
+async function loadUserProfile(username) {
+    const container = document.getElementById('view-profile');
+    if(!container) return;
+    
+    // UI重置
+    document.getElementById('profileName').textContent = "LOADING...";
+    document.getElementById('profileAvatar').innerHTML = "";
+    document.getElementById('profileRecentPosts').innerHTML = "";
+    document.getElementById('profileActions').innerHTML = "";
+
+    try {
+        const res = await fetch(`${API_BASE}/profile_public?u=${username}`);
+        const data = await res.json();
+
+        if (!data.success) {
+            showToast("用户不存在", "error");
+            return;
+        }
+
+        const u = data.user;
+        const s = data.stats;
+
+        // 填充信息
+        document.getElementById('profileName').textContent = u.nickname || u.username;
+        document.getElementById('profileAvatar').innerHTML = generatePixelAvatar(u.username, u.avatar_variant);
+        document.getElementById('profileBio').textContent = u.bio || "这个人很懒，什么也没写。";
+        document.getElementById('profileBadges').innerHTML = getBadgesHtml(u); // 复用之前的徽章函数
+
+        // 填充数据
+        document.getElementById('statPosts').innerText = s.posts;
+        document.getElementById('statLikes').innerText = s.likes;
+        document.getElementById('statFollowing').innerText = s.following;
+        document.getElementById('statFollowers').innerText = s.followers;
+
+        // 关注按钮逻辑
+        const actionBox = document.getElementById('profileActions');
+        if (currentUser && currentUser.username !== u.username) {
+            const btnText = s.isFollowing ? "已关注 / UNFOLLOW" : "关注 / FOLLOW";
+            const btnStyle = s.isFollowing ? "background:var(--accent-blue);color:#fff;" : "";
+            actionBox.innerHTML = `<button onclick="toggleFollow(${u.id}, this)" class="follow-btn" style="${btnStyle}">${btnText}</button>`;
+        } else if (currentUser && currentUser.username === u.username) {
+            actionBox.innerHTML = `<button onclick="window.location.hash='#settings'" class="cyber-btn" style="width:auto">编辑资料</button>`;
+        }
+
+        // 最近动态
+        const list = document.getElementById('profileRecentPosts');
+        if (data.recentPosts.length === 0) {
+            list.innerHTML = '<p style="color:#666;text-align:center">暂无动态</p>';
+        } else {
+            data.recentPosts.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'post-card';
+                div.innerHTML = `<div style="font-size:0.8rem;color:#666">${new Date(p.created_at).toLocaleDateString()}</div><h3>${p.title}</h3>`;
+                div.onclick = () => window.location.hash = `#post?id=${p.id}`;
+                list.appendChild(div);
+            });
+        }
+
+    } catch(e) {
+        showToast("加载失败", "error");
+    }
+}
+
+// === 关注/取关 ===
+window.toggleFollow = async function(targetId, btn) {
+    btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/follow`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ target_id: targetId })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            if (data.status === 'followed') {
+                btn.textContent = "已关注 / UNFOLLOW";
+                btn.style.background = "var(--accent-blue)";
+                btn.style.color = "#fff";
+                // 粉丝数+1视觉更新
+                const el = document.getElementById('statFollowers');
+                el.innerText = parseInt(el.innerText) + 1;
+            } else {
+                btn.textContent = "关注 / FOLLOW";
+                btn.style.background = "transparent";
+                btn.style.color = "var(--accent-blue)";
+                // 粉丝数-1
+                const el = document.getElementById('statFollowers');
+                el.innerText = Math.max(0, parseInt(el.innerText) - 1);
+            }
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络错误", "error");
+    } finally {
+        btn.disabled = false;
+    }
+};
