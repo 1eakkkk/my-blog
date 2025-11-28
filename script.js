@@ -38,6 +38,15 @@ const LEVEL_TABLE = [
 
 // --- 辅助函数 ---
 
+// Markdown 渲染辅助函数
+function parseMarkdown(text) {
+    if (!text) return '';
+    // 1. 解析 MD 为 HTML
+    const rawHtml = marked.parse(text);
+    // 2. 净化 HTML，防止恶意脚本
+    return DOMPurify.sanitize(rawHtml);
+}
+
 function calculateLevel(xp) {
     if (xp >= 60000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
     let currentLv = 1; let currentTitle = '潜行者'; let nextXp = 300; let prevXp = 0;
@@ -662,6 +671,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     // 否则等待加载完成事件
     document.addEventListener('DOMContentLoaded', bootSystem);
 }
+
 
 
 
