@@ -495,9 +495,24 @@ async function checkSecurity() {
 
         if(data.is_vip) {
             const vipBox = document.getElementById('vipBox');
+            // 计算剩余天数
+            const daysLeft = Math.ceil((data.vip_expires_at - Date.now()) / (1000 * 60 * 60 * 24));
+            
             if(vipBox) {
-                vipBox.innerHTML = `<h4>VIP MEMBER</h4><p style="color:gold">尊贵身份已激活</p><p style="font-size:0.7rem;color:#666">经验获取 +100%</p>`;
+                vipBox.innerHTML = `
+                    <h4 style="color:#FFD700">VIP MEMBER</h4>
+                    <p style="color:#fff; font-size:0.8rem;">剩余有效期: ${daysLeft} 天</p>
+                    <p style="font-size:0.7rem;color:#666">经验加成 +45%</p>
+                    <button onclick="window.location.hash='#shop'" class="vip-mini-btn">续费 / RENEW</button>
+                `;
                 vipBox.style.borderColor = 'gold';
+            }
+        } else {
+            // 如果不是VIP，显示广告
+            const vipBox = document.getElementById('vipBox');
+            if(vipBox) {
+                vipBox.innerHTML = `<h4>商城 / SHOP</h4><p>购买 VIP 解锁特权</p><button onclick="window.location.hash='#shop'" class="vip-mini-btn">GO >></button>`;
+                vipBox.style.borderColor = '#333';
             }
         }
 
@@ -570,6 +585,7 @@ const views = {
     tasks: document.getElementById('view-tasks'),
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
+    shop: document.getElementById('view-shop'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
     notifications: document.getElementById('view-notifications'),
@@ -641,6 +657,9 @@ async function handleRoute() {
         if(views.leaderboard) views.leaderboard.style.display = 'block';
         const link = document.querySelector('a[href="#leaderboard"]'); if(link) link.classList.add('active');
         loadLeaderboard();
+    } else if (hash === '#shop') {
+        if(views.shop) views.shop.style.display = 'block';
+        const link = document.querySelector('a[href="#shop"]'); if(link) link.classList.add('active');
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
         const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
@@ -1520,6 +1539,27 @@ async function loadLeaderboard() {
     }
 }
 
+window.buyItem = async function(itemId) {
+    if(!confirm("确定购买此商品吗？")) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/shop`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'buy_vip', itemId: itemId })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            checkSecurity(); // 刷新状态
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("购买失败", 'error');
+    }
+};
 
 
 
