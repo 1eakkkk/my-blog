@@ -141,31 +141,106 @@ function renderLevelTable() {
     });
 }
 
+// === 任务中心加载逻辑 (新版) ===
 async function loadTasks() { 
-    const c=document.getElementById('taskContainer'); 
+    // 1. 获取容器，如果页面没渲染完就跳过
+    const dailyContainer = document.getElementById('dailyTaskList');
+    const weeklyContainer = document.getElementById('weeklyTaskList');
+    
+    // 侧边栏小红点逻辑
+    const navTask = document.querySelector('a[href="#tasks"]');
+    
     try{ 
-        const res=await fetch(`${API_BASE}/tasks`); 
-        const t=await res.json(); 
+        const res = await fetch(`${API_BASE}/tasks`); 
+        const data = await res.json(); 
         
-        const navTask = document.querySelector('a[href="#tasks"]');
+        // 计算是否有可领取的奖励 (status === 0 是进行中，status === 2 是已领，我们需要找 进度>=目标 且 status !== 2 的)
+        // 实际上后端 status 0 代表未领。我们通过 progress >= target 来判断可领
+        // 简单逻辑：遍历所有任务，看有没有 (progress >= target && status === 0)
+        
+        let hasClaimable = false;
+        const checkClaim = (t) => { if(t.progress >= t.target && t.status === 0) hasClaimable = true; };
+        
+        if (data.daily) data.daily.forEach(checkClaim);
+        if (data.weekly) data.weekly.forEach(checkClaim);
+
         if(navTask) {
-            if (t.progress >= t.target && !t.is_claimed) {
-                navTask.innerHTML = `每日任务 / Daily Tasks <span style="background:#0f0;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>`;
+            if (hasClaimable) {
+                navTask.innerHTML = `任务中心 <span style="background:#0f0;width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 5px #0f0;"></span>`;
             } else {
-                navTask.innerHTML = `每日任务 / Daily Tasks`;
+                navTask.innerHTML = `任务中心`;
             }
         }
 
-        if(!c) return; 
+        // 只有当前在任务页面才渲染 DOM
+        if(!dailyContainer) return; 
         
-        c.innerHTML='Loading...'; 
-        const m={'checkin':'每日签到','post':'发布文章','comment':'发表评论'}; 
-        const done=t.progress>=t.target; 
-        const btn=t.is_claimed?`<button class="cyber-btn" disabled>已完成 / CLAIMED</button>`:(done?`<button onclick="claimTask()" class="cyber-btn" style="border-color:#0f0;color:#0f0">领取奖励</button>`:`<button class="cyber-btn" disabled>进行中</button>`); 
-        const rr=(t.reroll_count===0&&!t.is_claimed)?`<button onclick="rerollTask()" class="cyber-btn" style="margin-top:10px;border-color:orange;color:orange">刷新 (10i)</button>`:''; 
-        c.innerHTML=`<div class="task-card"><div class="task-header"><h3>${m[t.task_type]||t.task_type} (${t.progress}/${t.target})</h3><span>${t.reward_xp}XP, ${t.reward_coins}i</span></div><div class="task-progress-bg"><div class="task-progress-fill" style="width:${Math.min(100,(t.progress/t.target)*100)}%"></div></div>${btn}${rr}</div>`; 
-    }catch(e){ if(c) c.innerHTML = 'Error loading tasks'; } 
+        dailyContainer.innerHTML = '';
+        weeklyContainer.innerHTML = '';
+
+        const renderTask = (t, container) => {
+            const isDone = t.progress >= t.target;
+            const isClaimed = t.status === 2;
+            
+            let btnHtml = '';
+            if (isClaimed) {
+                btnHtml = `<button class="cyber-btn" disabled style="opacity:0.5; font-size:0.7rem; padding:5px;">已完成</button>`;
+            } else if (isDone) {
+                btnHtml = `<button onclick="claimTaskNew(${t.id})" class="cyber-btn" style="border-color:#0f0; color:#0f0; font-size:0.7rem; padding:5px;">领取奖励</button>`;
+            } else {
+                btnHtml = `<div style="font-size:0.8rem; color:#666;">${t.progress} / ${t.target}</div>`;
+            }
+
+            const percent = Math.min(100, (t.progress / t.target) * 100);
+            
+            const div = document.createElement('div');
+            div.className = 'glass-card';
+            div.style.marginBottom = '10px';
+            div.style.padding = '10px';
+            if(isClaimed) div.style.opacity = '0.6';
+
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <div style="font-weight:bold; font-size:0.9rem;">${t.description}</div>
+                    ${btnHtml}
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#888; margin-bottom:5px;">
+                    <span>奖励: ${t.reward_xp} XP, ${t.reward_coins} i</span>
+                </div>
+                <div class="xp-bar-bg" style="height:4px;"><div class="xp-bar-fill" style="width:${percent}%; background:${isDone ? '#0f0' : 'var(--accent-blue)'}"></div></div>
+            `;
+            container.appendChild(div);
+        };
+
+        if(data.daily.length === 0) dailyContainer.innerHTML = '暂无任务';
+        else data.daily.forEach(t => renderTask(t, dailyContainer));
+
+        if(data.weekly.length === 0) weeklyContainer.innerHTML = '暂无任务';
+        else data.weekly.forEach(t => renderTask(t, weeklyContainer));
+
+    } catch(e){ console.error(e); } 
 }
+
+// === 新的领取函数 (Claim Task) ===
+window.claimTaskNew = async function(taskId) {
+    try {
+        const res = await fetch(`${API_BASE}/tasks`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'claim', taskId: taskId }) // 注意这里传 taskId
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            checkSecurity(); // 刷新钱
+            loadTasks();     // 刷新列表状态
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        showToast("领取失败", "error");
+    }
+};
 
 window.claimTask = async function() {
     const btn = document.querySelector('#taskContainer button');
@@ -1437,6 +1512,7 @@ async function loadLeaderboard() {
         showToast("排行榜加载失败", "error");
     }
 }
+
 
 
 
