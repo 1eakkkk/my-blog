@@ -1154,7 +1154,7 @@ async function handleRoute() {
 
         if(views.post) views.post.style.display = 'block';
         const params = new URLSearchParams(hash.split('?')[1]);
-        loadSinglePost(params.get('id'), params.get('commentId')); 
+        (params.get('id'), params.get('commentId')); 
     }
     else if (hash === '#write') {
         if(views.write) views.write.style.display = 'block';
@@ -1259,67 +1259,128 @@ window.doLuckyDraw = async function() {
     }
 };
 
+// === 修复版：帖子详情页加载 ===
 async function loadSinglePost(id, targetCommentId = null) {
-    currentPostId = id; const container = document.getElementById('single-post-content'); if(!container) return; container.innerHTML = '读取中...'; document.getElementById('commentsList').innerHTML = '';
-    const backBtn = document.querySelector('#view-post .back-btn'); if (backBtn) { if (returnToNotifications) { backBtn.textContent = "< 返回通知 / BACK TO LOGS"; backBtn.onclick = () => window.location.hash = '#notifications'; } else { backBtn.textContent = "< 返回 / BACK"; backBtn.onclick = () => window.location.hash = '#home'; } }
-    const commentInput = document.getElementById('commentInput'); if(commentInput) { commentInput.value = ''; commentInput.placeholder = "输入你的看法... (支持纯文本)"; commentInput.dataset.parentId = ""; isEditingComment = false; editingCommentId = null; const submitBtn = document.querySelector('.comment-input-box button:first-of-type'); if(submitBtn) { /*submitBtn.textContent = "发送评论 / SEND (+5 XP)";*/ } } const cancelBtn = document.getElementById('cancelReplyBtn'); if (cancelBtn) cancelBtn.style.display = 'none';
+    currentPostId = id; 
+    const container = document.getElementById('single-post-content'); 
+    if(!container) return; 
+    container.innerHTML = '<div class="loading">读取数据流...</div>'; 
+    document.getElementById('commentsList').innerHTML = '';
+
+    // 返回按钮逻辑
+    const backBtn = document.querySelector('#view-post .back-btn'); 
+    if (backBtn) { 
+        if (returnToNotifications) { 
+            backBtn.textContent = "< 返回通知 / BACK TO LOGS"; 
+            backBtn.onclick = () => window.location.hash = '#notifications'; 
+        } else { 
+            backBtn.textContent = "< 返回 / BACK"; 
+            backBtn.onclick = () => window.location.hash = '#home'; 
+        } 
+    }
+    
+    // 重置评论框
+    const commentInput = document.getElementById('commentInput'); 
+    if(commentInput) { 
+        commentInput.value = ''; 
+        commentInput.placeholder = "输入你的看法... (支持 Markdown & 图片)"; 
+        commentInput.dataset.parentId = ""; 
+        isEditingComment = false; 
+        editingCommentId = null; 
+    } 
+    const cancelBtn = document.getElementById('cancelReplyBtn'); 
+    if (cancelBtn) cancelBtn.style.display = 'none';
+
     try {
-        const res = await fetch(`${API_BASE}/posts?id=${id}`); const post = await res.json(); if (!post) { container.innerHTML = '<h1>404 - 内容可能已被删除</h1>'; return; }
+        const res = await fetch(`${API_BASE}/posts?id=${id}`); 
+        const post = await res.json(); 
+        if (!post) { container.innerHTML = '<h1>404 - 内容可能已被删除</h1>'; return; }
         
         currentPostAuthorId = post.user_id;
 
-        const rawDate = post.updated_at || post.created_at; const dateStr = new Date(rawDate).toLocaleString(); const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
+        const rawDate = post.updated_at || post.created_at; 
+        const dateStr = new Date(rawDate).toLocaleString(); 
+        const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
         
-        let actionBtns = ''; 
+        // === 1. 获取帖子边框特效 ===
+        const styleId = post.author_equipped_post_style; 
+        const styleItem = SHOP_CATALOG.find(i => i.id === styleId);
+        const postStyleClass = styleItem ? styleItem.css : ''; 
+        
+        // === 2. 获取作者名字颜色特效 ===
+        const nameColorId = post.author_name_color;
+        const ncItem = SHOP_CATALOG.find(i => i.id === nameColorId);
+        const nameColorClass = ncItem ? ncItem.css : '';
 
-        // === 1. 置顶按钮逻辑 ===
+        // 操作按钮生成
+        let actionBtns = ''; 
         if (userRole === 'admin' || (currentUser && currentUser.id === post.user_id)) {
-            let pinText = '';
-            let pinColor = '';
-            
-            if (post.is_pinned) {
-                pinText = "取消置顶";
-                pinColor = "#666";
-            } else {
-                if (userRole === 'admin') {
-                    pinText = "管理员置顶";
-                    pinColor = "#0f0";
-                } else {
-                    pinText = "使用置顶卡";
-                    pinColor = "gold"; 
-                }
-            }
+            let pinText = post.is_pinned ? "取消置顶" : (userRole === 'admin' ? "管理员置顶" : "使用置顶卡");
+            let pinColor = post.is_pinned ? "#666" : (userRole === 'admin' ? "#0f0" : "gold");
             actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`;
         }
-
-        // === 2. 编辑/删除按钮 ===
         if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { 
             actionBtns += `<button onclick="editPostMode('${post.id}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑</button>`; 
             actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除</button>`; 
         } 
-        
-        // === 3. 封号按钮 ===
         if (userRole === 'admin' && post.user_id !== currentUser.id) { 
             actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号</button>`; 
         }
         
-        // === 4. 打赏按钮 (修复这一块) ===
         let tipBtn = ''; 
         if (currentUser && currentUser.id !== post.user_id) { 
             tipBtn = `<button onclick="tipUser(${post.user_id}, ${post.id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; 
         }
         
-        const authorDisplay = post.author_nickname || post.author_username; const uObj = { username: post.author_username, avatar_variant: post.author_avatar_variant, avatar_url: post.author_avatar_url };const avatarSvg = renderUserAvatar(uObj); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
+        const authorDisplay = post.author_nickname || post.author_username; 
+        const uObj = { username: post.author_username, avatar_variant: post.author_avatar_variant, avatar_url: post.author_avatar_url };
+        const avatarSvg = renderUserAvatar(uObj); 
+        const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; 
+        const badgesHtml = getBadgesHtml(badgeObj); 
+        const cat = post.category || '灌水'; 
+        const catHtml = `<span class="category-tag">${cat}</span>`; 
+        const likeClass = post.is_liked ? 'liked' : ''; 
+        const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
         const userLinkAction = `onclick="window.location.hash='#profile?u=${post.author_username}'" style="cursor:pointer"`;
-        container.innerHTML = `<div class="post-header-row"><div class="post-author-info"><div class="post-avatar-box" ${userLinkAction}>${avatarSvg}</div><div class="post-meta-text"><span ${userLinkAction} style="color:#fff; font-size:1rem; font-weight:bold; ...">${authorDisplay} ${badgesHtml}</span><div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div></div></div><div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">${actionBtns}${tipBtn}</div></div><h1 style="margin-top:20px;">${post.title}</h1><div class="article-body">${parseMarkdown(post.content)}</div>`;
+
+        // === 3. 组装 HTML ===
+        // 注意：最外层包裹一个 div 并赋予 postStyleClass，这样详情页也能显示边框
+        // 名字 span 加入 nameColorClass
+        container.innerHTML = `
+            <div class="post-card full-view ${postStyleClass}" style="border:none; background:transparent; padding:0;">
+                <div class="post-header-row">
+                    <div class="post-author-info">
+                        <div class="post-avatar-box" ${userLinkAction}>${avatarSvg}</div>
+                        <div class="post-meta-text">
+                            <span class="${nameColorClass}" ${userLinkAction} style="font-size:1.1rem; font-weight:bold;">${authorDisplay}</span> 
+                            ${badgesHtml}
+                            <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
+                                <span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>
+                                ${likeBtn}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">
+                        ${actionBtns}${tipBtn}
+                    </div>
+                </div>
+                <h1 style="margin-top:20px; font-size:1.8rem;">${post.title}</h1>
+                <div class="article-body">${parseMarkdown(post.content)}</div>
+            </div>
+        `;
+        
+        // 绑定图片点击事件
         const imgs = container.querySelectorAll('.article-body img');
         imgs.forEach(img => {
-            img.onclick = function() {
-                openLightbox(this.src);
-            };
+            img.onclick = function() { openLightbox(this.src); };
         });
-        currentCommentPage = 1; hasMoreComments = true; loadNativeComments(id, true, targetCommentId);
-    } catch (e) { console.error(e); container.innerHTML = 'Error loading post.'; }
+
+        currentCommentPage = 1; hasMoreComments = true; 
+        loadNativeComments(id, true, targetCommentId);
+    } catch (e) { 
+        console.error(e); 
+        container.innerHTML = 'Error loading post.'; 
+    }
 }
 
 async function loadNativeComments(postId, reset = false, highlightId = null) {
@@ -2567,6 +2628,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
