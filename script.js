@@ -112,20 +112,43 @@ window.handleFriend = async function(uid, action) {
 window.loadConversations = async function() {
     const c = document.getElementById('chatList');
     c.innerHTML = 'Loading...';
+    
+    // 切换按钮样式 (可选优化)
+    const btns = document.querySelectorAll('.chat-sidebar button');
+    btns[0].classList.remove('active'); // 好友按钮
+    btns[1].classList.add('active');    // 消息按钮
+
     try {
         const res = await fetch(`${API_BASE}/messages`);
         const data = await res.json();
         c.innerHTML = '';
+        
+        if (data.list.length === 0) {
+            c.innerHTML = '<div style="padding:20px;text-align:center;color:#666">暂无消息</div>';
+            return;
+        }
+
         data.list.forEach(u => {
             const avatar = renderUserAvatar(u);
+            // 如果有未读数 (unread_count > 0)，显示红点
+            const redDotHtml = (u.unread_count && u.unread_count > 0) 
+                ? `<div class="chat-unread-dot"></div>` 
+                : '';
+            
+            // 高亮当前正在聊的人
+            const isActive = (currentChatTargetId == u.uid) ? 'background:rgba(255,255,255,0.05);' : '';
+
             const div = document.createElement('div');
             div.className = 'chat-item';
+            div.style.cssText = isActive;
+            
             div.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;">${avatar}</div>
-                <div style="flex:1;">
-                    <div style="font-weight:bold;">${u.nickname||u.username}</div>
-                    <div style="font-size:0.7rem;color:#666;">点击继续聊天</div>
+                <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;">${avatar}</div>
+                <div style="flex:1; margin-left:10px;">
+                    <div style="font-weight:bold; font-size:0.9rem;">${u.nickname||u.username}</div>
+                    <div style="font-size:0.7rem;color:#666;">点击查看消息</div>
                 </div>
+                ${redDotHtml}
             `;
             div.onclick = () => openChat(u.uid, u.nickname||u.username);
             c.appendChild(div);
@@ -2020,6 +2043,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
