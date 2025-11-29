@@ -1280,3 +1280,43 @@ input:checked + .slider:before {
         font-size: 1.2rem;
     }
 }
+
+/* --- 聊天模块样式 --- */
+.chat-item {
+    padding: 10px;
+    border-bottom: 1px dashed #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.chat-item:hover { background: rgba(255,255,255,0.05); }
+
+/* 聊天气泡 */
+.msg-bubble {
+    max-width: 70%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    word-break: break-word;
+    line-height: 1.4;
+}
+.msg-left {
+    align-self: flex-start;
+    background: #222;
+    border: 1px solid #444;
+    color: #eee;
+    border-top-left-radius: 0;
+}
+.msg-right {
+    align-self: flex-end;
+    background: var(--accent-blue);
+    color: #fff;
+    border-top-right-radius: 0;
+    box-shadow: 0 0 10px rgba(0,112,243,0.3);
+}
+
+@media (max-width: 768px) {
+    .chat-layout { flex-direction: column; height: auto; }
+    #chatBox { position: fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:#000; }
+}
