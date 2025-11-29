@@ -1,16 +1,26 @@
 // --- functions/api/notifications.js ---
 export async function onRequestGet(context) {
-  // ... (保留原有的 GET 逻辑)
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
-  if (!cookie) return new Response(JSON.stringify({ count: 0, list: [] }));
+  if (!cookie) return new Response(JSON.stringify({ count: 0, chatCount: 0, list: [] }));
   const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  if (!sessionId) return new Response(JSON.stringify({ count: 0, list: [] }));
+  if (!sessionId) return new Response(JSON.stringify({ count: 0, chatCount: 0, list: [] }));
   const user = await db.prepare(`SELECT users.id FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ count: 0, list: [] }));
+  if (!user) return new Response(JSON.stringify({ count: 0, chatCount: 0, list: [] }));
+  
+  // 1. 系统/互动通知未读数
   const countResult = await db.prepare('SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0').bind(user.id).first();
+  
+  // 2. === 新增：私信未读数 ===
+  const chatCountResult = await db.prepare('SELECT COUNT(*) as count FROM messages WHERE receiver_id = ? AND is_read = 0').bind(user.id).first();
+
   const listResult = await db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20').bind(user.id).all();
-  return new Response(JSON.stringify({ count: countResult.count, list: listResult.results }), { headers: { 'Content-Type': 'application/json' } });
+  
+  return new Response(JSON.stringify({ 
+      count: countResult.count, 
+      chatCount: chatCountResult.count, // 返回私信未读数
+      list: listResult.results 
+  }), { headers: { 'Content-Type': 'application/json' } });
 }
 
 export async function onRequestPost(context) {
