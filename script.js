@@ -283,14 +283,34 @@ window.sendPrivateMessage = async function() {
     }
 };
 
-window.blockUser = async function(uid) {
-    if(!confirm("确定要拉黑该用户吗？你们将解除好友关系且无法互发消息。")) return;
-    const res = await fetch(`${API_BASE}/block`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: 'block', target_id: uid })
-    });
-    const d = await res.json();
-    if(d.success) showToast("已拉黑", "success");
+window.blockUser = async function(uid, actionType) {
+    // 默认为 'block' 以兼容旧代码
+    const act = actionType || 'block';
+    
+    const confirmMsg = act === 'block' 
+        ? "确定要拉黑该用户吗？你们将解除好友关系且无法互发消息。" 
+        : "确定要将该用户移出黑名单吗？";
+
+    if(!confirm(confirmMsg)) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/block`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: act, target_id: uid })
+        });
+        const d = await res.json();
+        
+        if(d.success) {
+            showToast(d.message, "success");
+            // 刷新当前页面以更新按钮状态
+            const u = window.location.hash.split('=')[1];
+            if(u) loadUserProfile(u);
+        } else {
+            showToast(d.error, "error");
+        }
+    } catch(e) {
+        showToast("操作失败", "error");
+    }
 };
 
 // --- 辅助函数 ---
@@ -1951,6 +1971,14 @@ async function loadUserProfile(username) {
             const followText = s.isFollowing ? "已关注" : "关注";
             // 已关注用实心样式(filled)，未关注用默认样式
             const followClass = s.isFollowing ? "cyber-btn filled" : "cyber-btn";
+            let blockBtnHtml = '';
+            if (s.hasBlocked) {
+                // 如果已拉黑，显示灰色“解除”按钮，点击触发 unblock
+                blockBtnHtml = `<button onclick="blockUser('${u.id}', 'unblock')" class="cyber-btn" style="flex:1; margin:0; border-color:#666; color:#888;">解除</button>`;
+            } else {
+                // 如果未拉黑，显示红色“拉黑”按钮，点击触发 block
+                blockBtnHtml = `<button onclick="blockUser('${u.id}', 'block')" class="cyber-btn danger" style="flex:1; margin:0;">拉黑</button>`;
+            }
             
             actionBox.innerHTML = `
                 <div style="display:flex; gap:10px; justify-content:center; width:100%; max-width:500px; margin:0 auto;">
@@ -2112,6 +2140,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
