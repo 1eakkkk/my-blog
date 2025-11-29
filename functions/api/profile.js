@@ -25,6 +25,12 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, message: `修改成功，扣除 ${cost} i币` }));
   }
 
+  const { avatar_url } = reqBody;
+  if (avatar_url !== undefined) {
+      await db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').bind(avatar_url, user.id).run();
+      return new Response(JSON.stringify({ success: true, message: '头像已更新' }));
+  }
+
   // 2. 修改偏好
   if (badge_preference !== undefined) {
       await db.prepare('UPDATE users SET badge_preference = ? WHERE id = ?').bind(badge_preference, user.id).run();
