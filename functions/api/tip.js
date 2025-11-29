@@ -43,19 +43,14 @@ export async function onRequestPost(context) {
   }
 
   try {
-    await db.batch([
-      // 1. 打赏者：扣余额，加经验，【新增】累加打赏支出(tips_sent)
-      db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ?, tips_sent = tips_sent + ? WHERE id = ?')
-        .bind(payAmount, senderXpBase, payAmount, sender.id),
-      
-      // 2. 接收者：加余额，加受限经验，【新增】累加打赏收入(tips_received)
-      db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ?, daily_xp = daily_xp + ?, last_xp_date = ?, tips_received = tips_received + ? WHERE id = ?')
-        .bind(payAmount, actualReceiverAdd, actualReceiverAdd, today, payAmount, target_user_id),
-      
-      // 3. 发通知
-      db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(target_user_id, 'tip', `${sender.nickname||sender.username} 打赏了你 ${payAmount} i币`, '#home', Date.now())
-    ]);
+    // ...
+  // 更新打赏者的任务 (次数任务 tip_1 和 金额任务 tip_total_50)
+  await db.batch([
+      // 更新次数类任务
+      db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code LIKE 'tip_%' AND task_code NOT LIKE 'tip_total_%' AND status = 0`).bind(sender.id),
+      // 更新金额类任务
+      db.prepare(`UPDATE user_tasks SET progress = progress + ? WHERE user_id = ? AND task_code LIKE 'tip_total_%' AND status = 0`).bind(payAmount, sender.id)
+  ]);
     
     return new Response(JSON.stringify({ success: true, message: `打赏成功！消耗 ${payAmount} i币，获得 ${senderXpBase} 经验` }));
   } catch (e) {
