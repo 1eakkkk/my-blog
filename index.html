@@ -380,9 +380,19 @@
                     </div>
                 </div>
 
-                <!-- 10. 个人背包视图 -->
+                <!-- 10. 个人背包视图 (优化版：带分类) -->
                 <div id="view-inventory" class="view-section" style="display:none;">
                     <h2>// MY INVENTORY</h2>
+
+                    <!-- 新增：背包分类导航 -->
+                    <div class="shop-tabs-container">
+                        <button class="inv-tab-btn active" onclick="switchInventoryTab('all')">全部</button>
+                        <button class="inv-tab-btn" onclick="switchInventoryTab('background')">🌌 背景</button>
+                        <button class="inv-tab-btn" onclick="switchInventoryTab('post_style')">🖼️ 边框</button>
+                        <button class="inv-tab-btn" onclick="switchInventoryTab('bubble')">💬 气泡</button>
+                        <button class="inv-tab-btn" onclick="switchInventoryTab('consumable')">📦 消耗品</button>
+                    </div>
+
                     <div id="inventoryList" class="shop-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:15px;">
                         Loading...
                     </div>
@@ -651,9 +661,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=7.7"></script>
+    <script src="script.js?v=7.8"></script>
 </body>
 </html>
+
 
 
 
