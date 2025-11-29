@@ -211,7 +211,8 @@
                         <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题">
                         <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
                             <!-- 修改 accept 属性，增加 video/* -->
-                            <input type="file" id="imageUploadInput" accept="image/*,video/*" style="display: none;" onchange="uploadImage()">
+                            <!-- 添加 multiple 属性以支持批量选择 -->
+                            <input type="file" id="imageUploadInput" accept="image/*,video/*" multiple style="display: none;" onchange="uploadImage()">
                             <button type="button" class="cyber-btn" style="width: auto; padding: 5px 15px; font-size: 0.8rem;" onclick="document.getElementById('imageUploadInput').click()">
                                 📷 插入图片
                             </button>
@@ -388,7 +389,25 @@
                             <button onclick="saveBio()" class="cyber-btn" style="margin:0; width:auto;">保存</button>
                         </div>
                     </div>
-    
+
+
+                    <!-- 新增：自定义头像上传 -->
+                    <div class="glass-card" style="margin-top: 20px;">
+                        <h3>自定义头像 / CUSTOM AVATAR</h3>
+                        <p style="color:#666; font-size:0.9rem;">上传一张图片作为你的头像 (建议正方形)。</p>
+                        <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
+                            <!-- 预览区域 -->
+                            <div id="settingCustomAvatarPreview" style="width:60px; height:60px; border-radius:8px; overflow:hidden; border:1px solid #333; background:#000;">
+                                <!-- 默认空占位 -->
+                            </div>
+        
+                            <label class="cyber-btn" style="margin:0; flex:1; text-align:center; cursor:pointer;">
+                                📤 上传图片
+                                <input type="file" id="avatarUploadInput" accept="image/*" style="display:none;" onchange="uploadUserAvatar()">
+                            </label>
+                        </div>
+                    </div>
+                    
                     <!-- ... (其余部分保持不变: 数字形象, 头衔偏好, 密钥) ... -->
                     <div class="glass-card" style="margin-top: 20px;">
                         <h3>数字形象重构</h3>
@@ -591,9 +610,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=6.7"></script>
+    <script src="script.js?v=6.8"></script>
 </body>
 </html>
+
 
 
 
