@@ -1423,15 +1423,25 @@ input:checked + .slider:before {
     }
 }
 
-/* 5. 气泡通用样式 */
+/* 5. 气泡通用样式 (修复版) */
 .msg-bubble {
+    /* 限制最大宽度，防止占满整行 */
     max-width: 70%;
+    /* 最小宽度，防止只有一个字时缩成一团不好看 */
+    min-width: 20px;
+    /* 让宽度根据内容自适应 */
+    width: fit-content; 
+    
     padding: 10px 14px;
     border-radius: 12px;
     font-size: 0.95rem;
-    word-break: break-word;
+    word-break: break-word; /* 强制换行，防止长单词撑破 */
+    white-space: pre-wrap;  /* 保留换行符 */
     line-height: 1.5;
     position: relative;
+    
+    /* 关键：防止 Flex 容器把它挤扁 */
+    flex-shrink: 0; 
 }
 
 /* 左边气泡配色 */
@@ -1805,4 +1815,5 @@ body.bg-fire {
     font-weight: 900;
     text-transform: uppercase;
 }
+
 
