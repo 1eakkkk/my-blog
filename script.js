@@ -59,6 +59,25 @@ window.showToast = function(msg, type = 'info') {
     }, 3100);
 };
 
+async function fetchWithRetry(url, options, retries = 2) {
+    try {
+        const response = await fetch(url, options);
+        // 如果是 5xx 错误 (服务器内部错误/超时)，也进行重试
+        if (!response.ok && response.status >= 500) {
+            throw new Error(`Server Error: ${response.status}`);
+        }
+        return response;
+    } catch (err) {
+        if (retries > 0) {
+            console.log(`上传失败，正在重试... 剩余次数: ${retries}`);
+            // 等待 1 秒后重试，给 Worker 一点缓冲时间
+            await new Promise(r => setTimeout(r, 1000));
+            return fetchWithRetry(url, options, retries - 1);
+        }
+        throw err;
+    }
+}
+
 // Markdown 渲染辅助函数
 // 修改 parseMarkdown 函数
 function parseMarkdown(text) {
@@ -959,10 +978,10 @@ window.uploadImage = async function() {
         formData.append('file', file);
 
         try {
-            const res = await fetch(`${API_BASE}/upload`, {
+            const res = await fetchWithRetry(`${API_BASE}/upload`, {
                 method: 'POST',
                 body: formData
-            });
+            }, 2);// 重试 2 次
             const data = await res.json();
 
             if (data.success) {
@@ -1064,10 +1083,10 @@ window.uploadCommentImage = async function() {
     formData.append('file', file);
 
     try {
-        const res = await fetch(`${API_BASE}/upload`, {
+        const res = await fetchWithRetry(`${API_BASE}/upload`, {
             method: 'POST',
             body: formData
-        });
+        }, 2);
         const data = await res.json();
 
         if (data.success) {
@@ -1688,6 +1707,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
