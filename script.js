@@ -157,18 +157,37 @@ window.loadConversations = async function() {
 };
 
 // 4. 打开聊天窗口
+// === 修复版：打开聊天窗口 (自动切换视图) ===
 window.openChat = async function(uid, name) {
-    currentChatTargetId = uid;
-    document.getElementById('chatBox').style.display = 'flex';
-    document.getElementById('chatTargetName').innerText = name;
+    // 1. 强制切换到聊天视图容器
+    // 这一步最关键：把其他页面隐藏，显示聊天页面
+    Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
+    if(views.chat) views.chat.style.display = 'block';
     
-    // 轮询消息 (简单实现，每3秒刷一次)
+    // 2. 更新侧边栏导航选中状态
+    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+    const chatLink = document.getElementById('navChat');
+    if(chatLink) chatLink.classList.add('active');
+
+    // 3. 初始化聊天状态
+    currentChatTargetId = uid;
+    const chatBox = document.getElementById('chatBox');
+    const targetNameEl = document.getElementById('chatTargetName');
+    
+    if(chatBox) chatBox.style.display = 'flex';
+    // 防止名字包含特殊字符导致显示错误，使用 textContent
+    if(targetNameEl) targetNameEl.textContent = name; 
+    
+    // 4. 启动消息轮询
     if(chatPollInterval) clearInterval(chatPollInterval);
-    loadChatHistory();
+    loadChatHistory(); // 立即加载一次
     chatPollInterval = setInterval(loadChatHistory, 3000);
     
-    // 移动端优化：全屏显示
-    if(window.innerWidth < 768) document.querySelector('.chat-sidebar').style.display = 'none';
+    // 5. 移动端适配：如果是手机，隐藏左侧列表，全屏显示对话框
+    if(window.innerWidth < 768) {
+        const sidebar = document.querySelector('.chat-sidebar');
+        if(sidebar) sidebar.style.display = 'none';
+    }
 };
 
 window.closeChatBox = function() {
@@ -2043,6 +2062,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
