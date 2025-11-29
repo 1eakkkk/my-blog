@@ -43,7 +43,9 @@ export async function onRequestGet(context) {
       // 有多少粉丝
       db.prepare('SELECT COUNT(*) as c FROM follows WHERE following_id = ?').bind(user.id),
       // 当前用户是否关注了TA
-      db.prepare('SELECT COUNT(*) as c FROM follows WHERE follower_id = ? AND following_id = ?').bind(currentUserId, user.id)
+      db.prepare('SELECT COUNT(*) as c FROM follows WHERE follower_id = ? AND following_id = ?').bind(currentUserId, user.id),
+      // 查询我是否拉黑了TA 
+      db.prepare('SELECT COUNT(*) as c FROM blocks WHERE blocker_id = ? AND blocked_id = ?').bind(currentUserId, user.id)
   ]);
 
   // 3. 获取最近动态 (最近发布的5个帖子)
@@ -59,7 +61,8 @@ export async function onRequestGet(context) {
           likes: stats[1].results[0].c,
           following: stats[2].results[0].c,
           followers: stats[3].results[0].c,
-          isFollowing: stats[4].results[0].c > 0
+          isFollowing: stats[4].results[0].c > 0,
+          hasBlocked: stats[5].results[0].c > 0 
       },
       recentPosts: recentPosts.results
   }));
