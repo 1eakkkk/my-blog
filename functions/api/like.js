@@ -64,6 +64,17 @@ export async function onRequestPost(context) {
       await db.prepare('UPDATE users SET likes_received = likes_received + ? WHERE id = ?').bind(change, authorObj.user_id).run();
   }
 
+  // ...
+  if (change === 1) { // 只有点赞才算，取消点赞不算
+      await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND (task_code LIKE 'like_%') AND status = 0`).bind(user.id).run();
+      
+      // 更新被点赞人的 "get_like_10" 任务
+      // 需先查出 authorObj.user_id (你原代码里应该已经查了)
+      if (authorObj) {
+          await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code = 'get_like_10' AND status = 0`).bind(authorObj.user_id).run();
+      }
+  }
+
   const count = await db.prepare(`SELECT like_count FROM ${table} WHERE id = ?`).bind(target_id).first();
 
   return new Response(JSON.stringify({ success: true, isLiked, count: count.like_count }));
