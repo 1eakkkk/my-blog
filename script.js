@@ -248,18 +248,22 @@ async function loadChatHistory() {
         const div = document.createElement('div');
         div.className = `msg-row ${isMe ? 'right' : 'left'}`;
         
-        // === 核心修复：物理交换 HTML 顺序 ===
-        // 自己发的：气泡在前，头像在后
-        // 对方发的：头像在前，气泡在后
+        // === 修复：气泡样式渲染 ===
+        // 1. 获取用户装备的气泡 ID (后端 messages.js 已返回 equipped_bubble_style)
+        const bubbleId = m.equipped_bubble_style;
+        // 2. 查表获取 CSS 类名
+        const bubbleItem = SHOP_CATALOG.find(i => i.id === bubbleId);
+        const bubbleClass = bubbleItem ? bubbleItem.css : '';
+
         if (isMe) {
             div.innerHTML = `
-                <div class="msg-bubble">${contentHtml}</div>
+                <div class="msg-bubble ${bubbleClass}">${contentHtml}</div>
                 <div class="msg-avatar">${avatarHtml}</div>
             `;
         } else {
             div.innerHTML = `
                 <div class="msg-avatar">${avatarHtml}</div>
-                <div class="msg-bubble">${contentHtml}</div>
+                <div class="msg-bubble ${bubbleClass}">${contentHtml}</div>
             `;
         }
         
@@ -737,8 +741,14 @@ async function loadPosts(reset = false) {
                 const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>`;
                 
                 const div = document.createElement('div'); 
-                const postStyle = post.author_equipped_post_style || ''; 
-                div.className = `post-card ${isAnnounceClass} ${postStyle}`;
+                
+                // === 修复：从 ID 查找对应的 CSS 类名 ===
+                const styleId = post.author_equipped_post_style;
+                // 在商品目录中查找对应的 css 字段，如果没找到则为空
+                const styleItem = SHOP_CATALOG.find(i => i.id === styleId);
+                const postStyleClass = styleItem ? styleItem.css : ''; 
+                
+                div.className = `post-card ${isAnnounceClass} ${postStyleClass}`;
                 if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
 
                 // 缩略图逻辑
@@ -2409,7 +2419,7 @@ window.toggleEquip = async function(id, cat, action) {
     }
 };
 
-// === 前端商品数据 (完整版) ===
+// === 前端商品数据 (完整映射版) ===
 const SHOP_CATALOG = [
     // === 💎 VIP 会员 ===
     { id: 'vip_7', cost: 70, name: 'VIP 周卡', type: 'vip', icon: '🎫', rarity: 'common', desc: '经验+45% / 7天' },
@@ -2417,36 +2427,35 @@ const SHOP_CATALOG = [
     { id: 'vip_30', cost: 210, name: 'VIP 尊享月卡', type: 'vip', icon: '👑', rarity: 'epic', desc: '经验+45% / 30天' },
 
     // === 💳 道具 ===
-    { id: 'rename_card', cost: 100, name: '改名卡', type: 'consumable', icon: '💳', rarity: 'common', desc: '修改一次昵称' },
-    { id: 'top_card', cost: 500, name: '置顶卡 (24h)', type: 'consumable', icon: '📌', rarity: 'rare', desc: '将你的帖子置顶一天' },
+    { id: 'rename_card', cost: 100, name: '改名卡', type: 'consumable', category: 'consumable', icon: '💳', rarity: 'common', desc: '修改一次昵称' },
+    { id: 'top_card', cost: 500, name: '置顶卡 (24h)', type: 'consumable', category: 'consumable', icon: '📌', rarity: 'rare', desc: '将你的帖子置顶一天' },
     
     // === 🌌 网页背景 (Backgrounds) ===
-    { id: 'bg_matrix', cost: 500, name: '矩阵数据流', type: 'decoration', sub: 'background', icon: '👾', rarity: 'rare', desc: '黑客帝国动态背景' },
-    { id: 'bg_space', cost: 900, name: '深空星系', type: 'decoration', sub: 'background', icon: '🌌', rarity: 'epic', desc: '深邃星空背景' },
-    { id: 'bg_cyber', cost: 800, name: '赛博都市', type: 'decoration', sub: 'background', icon: '🏙️', rarity: 'epic', desc: 'Synthwave 霓虹夜景' },
-    { id: 'bg_sakura', cost: 600, name: '落樱缤纷', type: 'decoration', sub: 'background', icon: '🌸', rarity: 'rare', desc: '护眼夜樱模式' },
-    { id: 'bg_fire', cost: 1200, name: '地狱烈焰', type: 'decoration', sub: 'background', icon: '🔥', rarity: 'legendary', desc: '动态岩浆粒子' },
-    // ✅ 新增：深渊幽蓝
-    { id: 'bg_abyss', cost: 1000, name: '深渊幽蓝', type: 'decoration', sub: 'background', icon: '🐋', rarity: 'epic', desc: '深海荧光与气泡' },
+    { id: 'bg_matrix', cost: 500, name: '矩阵数据流', type: 'decoration', category: 'background', icon: '👾', rarity: 'rare', desc: '黑客潜行风格' },
+    { id: 'bg_space', cost: 900, name: '深空星系', type: 'decoration', category: 'background', icon: '🌌', rarity: 'epic', desc: '深邃星空视差' },
+    { id: 'bg_cyber', cost: 800, name: '视界线', type: 'decoration', category: 'background', icon: '🏙️', rarity: 'epic', desc: 'Synthwave 视界线' },
+    { id: 'bg_sakura', cost: 600, name: '幽夜樱花', type: 'decoration', category: 'background', icon: '🌸', rarity: 'rare', desc: '暗黑护眼夜樱' },
+    { id: 'bg_fire', cost: 1200, name: '地狱烈焰', type: 'decoration', category: 'background', icon: '🔥', rarity: 'legendary', desc: '动态岩浆粒子' },
+    { id: 'bg_abyss', cost: 1000, name: '深渊幽蓝', type: 'decoration', category: 'background', icon: '🐋', rarity: 'epic', desc: '深海荧光与气泡' },
     
-    // === 🖼️ 帖子边框 (Post Styles) ===
-    { id: 'post_neon', cost: 200, name: '霓虹边框', type: 'decoration', sub: 'post_style', icon: '🟦', rarity: 'common', desc: '蓝色发光边框' },
-    { id: 'post_glitch', cost: 300, name: '故障艺术', type: 'decoration', sub: 'post_style', icon: '📺', rarity: 'rare', desc: '赛博故障风' },
-    { id: 'post_pixel', cost: 250, name: '复古像素', type: 'decoration', sub: 'post_style', icon: '👾', rarity: 'common', desc: '黑白像素风格' },
-    { id: 'post_gold', cost: 500, name: '黄金传说', type: 'decoration', sub: 'post_style', icon: '🟨', rarity: 'epic', desc: '土豪专属流光金框' },
-    { id: 'post_fire', cost: 800, name: '燃烧之魂', type: 'decoration', sub: 'post_style', icon: '🔥', rarity: 'legendary', desc: '火焰动态边框' },
+    // === 🖼️ 帖子边框 (Post Styles) - 关键：必须有 css 字段 ===
+    { id: 'post_neon', cost: 200, name: '霓虹边框', type: 'decoration', category: 'post_style', css: 'style-neon', icon: '🟦', rarity: 'common', desc: '蓝色发光边框' },
+    { id: 'post_glitch', cost: 300, name: '故障艺术', type: 'decoration', category: 'post_style', css: 'style-glitch', icon: '📺', rarity: 'rare', desc: '赛博故障风' },
+    { id: 'post_pixel', cost: 250, name: '复古像素', type: 'decoration', category: 'post_style', css: 'style-pixel', icon: '👾', rarity: 'common', desc: '黑白像素风格' },
+    { id: 'post_gold', cost: 500, name: '黄金传说', type: 'decoration', category: 'post_style', css: 'style-gold', icon: '🟨', rarity: 'epic', desc: '土豪专属流光金框' },
+    { id: 'post_fire', cost: 800, name: '燃烧之魂', type: 'decoration', category: 'post_style', css: 'style-fire', icon: '🔥', rarity: 'legendary', desc: '火焰动态边框' },
     
-    // === 💬 聊天气泡 (Chat Bubbles) ===
-    { id: 'bubble_pink', cost: 150, name: '赛博粉', type: 'decoration', sub: 'bubble', icon: '💗', rarity: 'common', desc: '粉色发光气泡' },
-    { id: 'bubble_green', cost: 150, name: '黑客绿', type: 'decoration', sub: 'bubble', icon: '📟', rarity: 'common', desc: '终端风格气泡' },
-    { id: 'bubble_blue', cost: 200, name: '深海蓝', type: 'decoration', sub: 'bubble', icon: '🌊', rarity: 'rare', desc: '深蓝渐变气泡' },
-    { id: 'bubble_gold', cost: 400, name: '土豪金', type: 'decoration', sub: 'bubble', icon: '💰', rarity: 'epic', desc: '金色渐变气泡' },
+    // === 💬 聊天气泡 (Chat Bubbles) - 关键：必须有 css 字段 ===
+    { id: 'bubble_pink', cost: 150, name: '赛博粉', type: 'decoration', category: 'bubble', css: 'bubble-pink', icon: '💗', rarity: 'common', desc: '粉色发光气泡' },
+    { id: 'bubble_green', cost: 150, name: '黑客绿', type: 'decoration', category: 'bubble', css: 'bubble-hacker', icon: '📟', rarity: 'common', desc: '终端风格气泡' },
+    { id: 'bubble_blue', cost: 200, name: '深海蓝', type: 'decoration', category: 'bubble', css: 'bubble-sea', icon: '🌊', rarity: 'rare', desc: '深蓝渐变气泡' },
+    { id: 'bubble_gold', cost: 400, name: '土豪金', type: 'decoration', category: 'bubble', css: 'bubble-gold', icon: '💰', rarity: 'epic', desc: '金色渐变气泡' },
     
     // === 🌈 名字颜色 (Name Colors) ===
-    { id: 'color_fire', cost: 200, name: '火焰昵称', type: 'timed', icon: '🔥', rarity: 'rare', desc: '30天火焰特效' },
-    { id: 'color_ice', cost: 200, name: '冰霜昵称', type: 'timed', icon: '❄️', rarity: 'rare', desc: '30天冰蓝特效' },
-    { id: 'color_rainbow', cost: 300, name: '彩虹昵称', type: 'timed', icon: '🌈', rarity: 'epic', desc: '30天七彩流光' },
-    { id: 'color_gold', cost: 500, name: '至尊金名', type: 'timed', icon: '👑', rarity: 'legendary', desc: '30天土豪金名' },
+    { id: 'color_fire', cost: 200, name: '火焰昵称', type: 'timed', category: 'name_color', days: 30, css: 'color-fire', icon: '🔥', rarity: 'rare', desc: '30天火焰特效' },
+    { id: 'color_ice', cost: 200, name: '冰霜昵称', type: 'timed', category: 'name_color', days: 30, css: 'color-ice', icon: '❄️', rarity: 'rare', desc: '30天冰蓝特效' },
+    { id: 'color_rainbow', cost: 300, name: '彩虹昵称', type: 'timed', category: 'name_color', days: 30, css: 'color-rainbow', icon: '🌈', rarity: 'epic', desc: '30天七彩流光' },
+    { id: 'color_gold', cost: 500, name: '至尊金名', type: 'timed', category: 'name_color', days: 30, css: 'color-gold', icon: '👑', rarity: 'legendary', desc: '30天土豪金名' },
 ];
 
 // === 渲染商城函数 (优化版：显示已购买状态) ===
@@ -2539,5 +2548,6 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
