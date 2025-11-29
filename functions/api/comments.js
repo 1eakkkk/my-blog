@@ -59,6 +59,18 @@ export async function onRequestPost(context) {
 
   const { post_id, content, parent_id } = await context.request.json();
   if (!content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
+  // === 1. 查出帖子的作者是谁 ===
+  const postOwner = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(post_id).first();
+  if (!postOwner) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }), { status: 404 });
+
+  // === 2. 【新增】黑名单拦截逻辑 ===
+  // 检查：帖子作者(blocker) 是否拉黑了 当前评论者(blocked/me)
+  const isBlocked = await db.prepare('SELECT 1 FROM blocks WHERE blocker_id = ? AND blocked_id = ?')
+      .bind(postOwner.user_id, user.id).first();
+  
+  if (isBlocked) {
+      return new Response(JSON.stringify({ success: false, error: '无法评论：你已被作者加入黑名单' }), { status: 403 });
+  }
 
   let finalParentId = null;
   let replyToUid = null;
