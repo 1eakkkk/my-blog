@@ -724,6 +724,13 @@ async function loadPosts(reset = false) {
 
                 const author = post.author_nickname || post.author_username || "Unknown";
                 
+                // === 修复名字颜色 ===
+                // 1. 获取 ID (例如 'color_fire')
+                const nameColorId = post.author_name_color;
+                // 2. 查表获取 CSS 类 (例如 'color-fire')
+                const nameColorItem = SHOP_CATALOG.find(i => i.id === nameColorId);
+                const nameColorClass = nameColorItem ? nameColorItem.css : '';
+                
                 // 分类样式
                 const cat = post.category || '灌水'; 
                 let catClass = ''; 
@@ -780,7 +787,7 @@ async function loadPosts(reset = false) {
                         ${avatarHtml}
                         <div style="display:flex; flex-direction:column; justify-content:center;">
                             <div style="display:flex; align-items:center;">
-                                <span class="post-author-name-large mention-link" ${authorAction}>${author}</span>
+                                <span class="post-author-name-large mention-link ${nameColorClass}" ${authorAction}>${author}</span>
                                 ${badgeHtml}
                             </div>
                         </div>
@@ -1361,7 +1368,11 @@ async function loadNativeComments(postId, reset = false, highlightId = null) {
 }
 
 function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId) {
-    const avatar = renderUserAvatar(c); // c 是评论对象，后端需包含 avatar_url
+    const avatar = renderUserAvatar(c); 
+    // === 修复名字颜色 ===
+    const ncId = c.name_color;
+    const ncItem = SHOP_CATALOG.find(i => i.id === ncId);
+    const ncClass = ncItem ? ncItem.css : ''; // c 是评论对象，后端需包含 avatar_url
     const div = document.createElement('div'); 
     div.id = `comment-${c.id}`; 
     div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; 
@@ -1407,7 +1418,7 @@ function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId
         <div class="comment-avatar" ${clickAttr}>${avatar}</div>
         <div class="comment-content-box">
             <div class="comment-header">
-                <span class="comment-author" ${clickAttr}>${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>
+                <span class="comment-author ${ncClass}" ${clickAttr}>${c.nickname || c.username} ${authorTag} ${badgeHtml}</span>
                 ${floorTag}
             </div>
             <div class="comment-meta-row">
@@ -2096,7 +2107,15 @@ async function loadUserProfile(username) {
         const s = data.stats;
 
         // 填充信息
-        document.getElementById('profileName').textContent = u.nickname || u.username;
+        const pName = document.getElementById('profileName');
+        pName.textContent = u.nickname || u.username;
+        
+        // === 修复个人主页名字颜色 ===
+        pName.className = ''; // 重置
+        if (u.name_color) {
+             const ncItem = SHOP_CATALOG.find(i => i.id === u.name_color);
+             if (ncItem) pName.classList.add(ncItem.css);
+        }
         document.getElementById('profileAvatar').innerHTML = renderUserAvatar(u); 
         document.getElementById('profileBio').textContent = u.bio || "这个人很懒，什么也没写。";
         document.getElementById('profileBadges').innerHTML = getBadgesHtml(u); // 复用之前的徽章函数
@@ -2548,6 +2567,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
