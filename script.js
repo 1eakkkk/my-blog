@@ -253,10 +253,11 @@ async function loadChatHistory() {
         // 注意：私信暂时不建议支持太多 markdown，防止样式崩坏，或者只支持简单的
         // 这里简单处理换行
         const contentHtml = m.content.replace(/\n/g, '<br>');
+        const bubbleStyle = userObj.equipped_bubble_style || '';
 
         div.innerHTML = `
             <div class="msg-avatar">${avatarHtml}</div>
-            <div class="msg-bubble">${contentHtml}</div>
+            <div class="msg-bubble ${bubbleStyle}"></div>
         `;
         
         container.appendChild(div);
@@ -733,7 +734,8 @@ async function loadPosts(reset = false) {
                 const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>`;
                 
                 const div = document.createElement('div'); 
-                div.className = `post-card ${isAnnounceClass}`; 
+                const postStyle = post.author_equipped_post_style || ''; 
+                div.className = `post-card ${isAnnounceClass} ${postStyle}`;
                 if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
 
                 // 缩略图逻辑
@@ -922,6 +924,13 @@ async function checkSecurity() {
             if(adminNav) adminNav.style.display = 'none';
         }
 
+        // 在 checkSecurity 成功获取 user 后:
+        if (data.equipped_bg) {
+            document.body.className = data.equipped_bg; // 比如 'bg-matrix'
+        } else {
+            document.body.className = 'bg-default';
+        }
+        
         if(data.is_vip) {
             const vipBox = document.getElementById('vipBox');
             // 计算剩余天数
@@ -2217,6 +2226,62 @@ window.loadBlockedUsers = async function() {
     }
 };
 
+// === 加载背包 ===
+async function loadInventory() {
+    const c = document.getElementById('inventoryList');
+    c.innerHTML = 'Loading...';
+    try {
+        const res = await fetch(`${API_BASE}/inventory`);
+        const data = await res.json();
+        
+        if (data.list.length === 0) {
+            c.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#666">空空如也</div>';
+            return;
+        }
+        
+        c.innerHTML = '';
+        data.list.forEach(item => {
+            let actionBtn = '';
+            
+            if (item.category === 'consumable') {
+                // 消耗品显示数量
+                actionBtn = `<div style="color:#aaa;font-size:0.8rem">数量: ${item.quantity}</div>`;
+            } else {
+                // 装备/卸下
+                if (item.is_equipped) {
+                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0">已装备 / UNSET</button>`;
+                } else {
+                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn">使用 / EQUIP</button>`;
+                }
+            }
+            
+            // 道具名称映射 (建议后端返回 name，或者前端搞个字典)
+            const itemName = item.item_id; // 简略
+
+            const div = document.createElement('div');
+            div.className = `glass-card item-card ${item.is_equipped?'equipped':''}`;
+            div.innerHTML = `
+                <h4>${itemName}</h4>
+                ${actionBtn}
+            `;
+            c.appendChild(div);
+        });
+    } catch(e) { c.innerHTML = 'Error'; }
+}
+
+// === 装备/卸下 ===
+window.toggleEquip = async function(id, cat, action) {
+    const res = await fetch(`${API_BASE}/inventory`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action, itemId: id, category: cat })
+    });
+    const d = await res.json();
+    if(d.success) {
+        showToast(d.message, 'success');
+        loadInventory(); // 刷新背包状态
+        checkSecurity(); // 刷新自身状态(背景等)
+    }
+};
 
 
 
