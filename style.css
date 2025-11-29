@@ -1343,176 +1343,116 @@ input:checked + .slider:before {
     box-shadow: 0 0 10px #ff3333;
 }
 
-/* --- 聊天界面升级版 (修复对齐与移动端) --- */
+/* --- 聊天界面最终修复版 --- */
 
 /* 1. 消息行容器 */
 .msg-row {
-    display: flex !important; /* 强制 Flex */
-    align-items: flex-end;
+    display: flex !important;
+    align-items: flex-start; /* 顶部对齐，防止气泡字多时头像跑到底部 */
     gap: 10px;
     margin-bottom: 15px;
     width: 100%;
 }
 
-/* 2. 对方消息 (左边) */
+/* 2. 对方消息 (左对齐) */
 .msg-row.left {
-    flex-direction: row; /* 正常顺序：头像 -> 气泡 */
     justify-content: flex-start;
 }
-
-/* 3. 我的消息 (右边) - 核心修复 */
-.msg-row.right {
-    flex-direction: row-reverse; /* 反转顺序：头像 <- 气泡 */
-    justify-content: flex-start; /* 注意：row-reverse 后，start 就是右边 */
-}
-
-
-/* 4. 头像容器 (PC端) */
-.msg-avatar {
-    /* 核心修复：锁死宽高，不许 Flex 伸缩 */
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important; /* 防止被压扁 */
-    max-width: 40px !important; /* 防止撑大 (关键!) */
-    flex: 0 0 40px;             /* Flex 简写：不放大、不缩小、基准40 */
-    
-    border-radius: 6px;
-    overflow: hidden;           /* 必须隐藏溢出 */
-    border: 1px solid #444;
-    background: #000;
-    margin: 0;                  /* 去掉外边距 */
-}
-
-/* 限制内部图片/SVG 必须乖乖呆在盒子里 */
-.msg-avatar img, 
-.msg-avatar svg {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover;
-    display: block;
-    max-width: 100%;
-    max-height: 100%;
-}
-
-/* ... (气泡样式 .msg-bubble 保持不变) ... */
-
-/* === 移动端专项优化 (放在文件最底部) === */
-@media (max-width: 768px) {
-    /* ... (chat-layout 和 chatBox 样式保持不变) ... */
-
-    /* 手机端头像 (强制缩小并锁死) */
-    .msg-avatar {
-        width: 30px !important;      /* 宽度 */
-        height: 30px !important;     /* 高度 */
-        min-width: 30px !important;  /* 锁死最小宽 */
-        max-width: 30px !important;  /* 锁死最大宽 (防炸屏核心) */
-        flex: 0 0 30px;              /* Flex 锁死 */
-        margin-bottom: 2px;          /* 对齐底部微调 */
-    }
-    
-    /* 气泡样式微调 */
-    .msg-bubble {
-        max-width: 80%;   /* 给头像留出空间 */
-        font-size: 0.9rem;
-        padding: 8px 12px;
-    }
-    
-    /* 确保 Flex 容器不许换行 */
-    .msg-row {
-        flex-wrap: nowrap !important; 
-    }
-}
-
-/* 5. 气泡通用样式 (修复版) */
-.msg-bubble {
-    /* 限制最大宽度，防止占满整行 */
-    max-width: 70%;
-    /* 最小宽度，防止只有一个字时缩成一团不好看 */
-    min-width: 20px;
-    /* 让宽度根据内容自适应 */
-    width: fit-content; 
-    
-    padding: 10px 14px;
-    border-radius: 12px;
-    font-size: 0.95rem;
-    word-break: break-word; /* 强制换行，防止长单词撑破 */
-    white-space: pre-wrap;  /* 保留换行符 */
-    line-height: 1.5;
-    position: relative;
-    
-    /* 关键：防止 Flex 容器把它挤扁 */
-    flex-shrink: 0; 
-}
-
-/* 左边气泡配色 */
 .msg-row.left .msg-bubble {
     background: #222;
     border: 1px solid #444;
     color: #eee;
-    border-bottom-left-radius: 2px;
+    border-top-left-radius: 0; /* 左上角尖角 */
 }
 
-/* 右边气泡配色 */
+/* 3. 我的消息 (右对齐) */
+.msg-row.right {
+    justify-content: flex-end;
+}
 .msg-row.right .msg-bubble {
     background: var(--accent-blue);
     color: #fff;
-    border: none; /* 去掉边框更像气泡 */
-    border-bottom-right-radius: 2px;
-    box-shadow: 0 2px 8px rgba(0, 112, 243, 0.3);
-    text-align: left;
+    border: none;
+    border-top-right-radius: 0; /* 右上角尖角 */
+    text-align: left; /* 气泡内文字依然左对齐 */
 }
 
-/* === 移动端专项优化 === */
+/* 4. 头像容器 (锁死大小，防止变形) */
+.msg-avatar {
+    /* PC端尺寸 */
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    
+    border-radius: 4px;
+    overflow: hidden;
+    background: #000;
+    flex-shrink: 0; /* 禁止缩小 */
+}
+
+.msg-avatar img, .msg-avatar svg {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+}
+
+/* 5. 气泡容器 */
+.msg-bubble {
+    max-width: 70%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    word-break: break-all; /* 强制换行 */
+    white-space: pre-wrap; /* 保留换行符 */
+    line-height: 1.5;
+    position: relative;
+    margin-top: 0; /* 跟头像顶部对齐 */
+}
+
+/* === 移动端适配 === */
 @media (max-width: 768px) {
-    /* 布局调整 */
-    .chat-layout { 
-        flex-direction: column; 
-        height: calc(100vh - 100px); /* 减去顶部高度，防止溢出 */
-    }
-    
-    /* 聊天框全屏 */
-    #chatBox { 
-        position: fixed; 
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100%; 
-        z-index: 9999; 
-        background: #000;
-        border: none;
-    }
-    
-    /* 缩小头像 */
+    /* 强制缩小头像 */
     .msg-avatar {
-        width: 28px;  /* 缩小到 28px */
-        height: 28px;
-        border-radius: 4px;
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        max-width: 32px !important;
     }
-    
-    /* 气泡变宽，利用屏幕空间 */
+
+    /* 气泡变宽 */
     .msg-bubble {
-        max-width: 85%;
+        max-width: 75%;
         font-size: 0.9rem;
         padding: 8px 12px;
     }
     
-    /* 输入框区域吸底 */
+    /* 布局防溢出 */
+    .chat-layout {
+        height: calc(100vh - 110px); /* 减去顶部导航高度 */
+    }
+    
+    /* 聊天框全屏 */
+    #chatBox {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 9999;
+        background: #050505;
+    }
+    
+    /* 调整输入框位置 */
     .chat-input-area {
         position: absolute;
         bottom: 0;
         left: 0;
         width: 100%;
         background: #111;
-        border-top: 1px solid #333;
         padding: 10px;
     }
-    
-    /* 消息列表区域让出底部空间 */
     #chatMessages {
-        padding-bottom: 70px; /* 防止被输入框挡住 */
+        padding-bottom: 60px; /* 让出底部空间 */
     }
 }
-
 /* --- 聊天列表与按钮修复 --- */
 
 /* 1. 修复按钮对齐与样式 */
@@ -1815,5 +1755,6 @@ body.bg-fire {
     font-weight: 900;
     text-transform: uppercase;
 }
+
 
 
