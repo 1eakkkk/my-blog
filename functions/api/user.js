@@ -1,3 +1,4 @@
+// --- functions/api/user.js ---
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const cookie = context.request.headers.get('Cookie');
@@ -9,26 +10,35 @@ export async function onRequestGet(context) {
 
   if (!user) return new Response(JSON.stringify({ loggedIn: false }));
 
-  // === 修改部分开始：自动解封并通知 ===
-  if (user.status === 'banned' && user.ban_expires_at < Date.now()) {
-      // 1. 更新状态
-      await db.prepare("UPDATE users SET status = 'active', ban_expires_at = 0, ban_reason = NULL WHERE id = ?").bind(user.id).run();
-      
-      // 2. 插入解封通知 (新增)
-      const msg = "您的账号封禁已过期，欢迎回来。请遵守社区规范。";
-      await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(user.id, 'system', msg, '#home', Date.now()).run();
+  // === 核心逻辑：VIP 状态校验 ===
+  const now = Date.now();
+  let isVip = false;
+  
+  if (user.vip_expires_at > now) {
+      isVip = true;
+  } else if (user.is_vip === 1 && user.vip_expires_at === 0) {
+      // 兼容旧数据：如果是旧的永久VIP且没设置过过期时间，暂时算作VIP，或者在这里强制让它过期
+      // 为了系统转型，建议视作过期，或者在数据库迁移时已处理
+      isVip = false; 
+  }
 
-      // 更新内存中的对象，让本次请求立即生效
+  // 封禁自动解封逻辑
+  if (user.status === 'banned' && user.ban_expires_at < now) {
+      await db.prepare("UPDATE users SET status = 'active', ban_expires_at = 0, ban_reason = NULL WHERE id = ?").bind(user.id).run();
       user.status = 'active';
   }
-  // === 修改部分结束 ===
 
-  // ... (其余代码保持不变) ...
-  if (!user.last_seen || (Date.now() - user.last_seen > 300000)) {
-      await db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(Date.now(), user.id).run();
+  // 更新最后活跃
+  if (!user.last_seen || (now - user.last_seen > 300000)) {
+      await db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(now, user.id).run();
   }
 
   delete user.password;
-  return new Response(JSON.stringify({ loggedIn: true, ...user }), { headers: { 'Content-Type': 'application/json' } });
+  
+  // 返回给前端的数据，覆盖数据库里的 is_vip 字段，以时间判断为准
+  return new Response(JSON.stringify({ 
+      loggedIn: true, 
+      ...user, 
+      is_vip: isVip // 覆盖为动态计算结果
+  }), { headers: { 'Content-Type': 'application/json' } });
 }
