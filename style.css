@@ -1498,114 +1498,225 @@ input:checked + .slider:before {
 /* ===========================
    === 道具商城样式系统 ===
    =========================== */
-
 /* --- 1. 全局大背景 (Body Backgrounds) --- */
 
+/* 通用背景层设置 (减少重复代码，提升性能) */
+body[class^="bg-"] {
+    background-color: #050505; /* 所有主题默认深色底 */
+    position: relative;
+    overflow-x: hidden;
+    transition: background-color 0.5s ease;
+}
+body[class^="bg-"]::before,
+body[class^="bg-"]::after {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; /* 确保不阻挡点击 */
+}
+
 /* =========================================
-   1. 矩阵数据流 (Matrix Data Stream) - 重构版
-   效果：绿色代码雨下坠 + CRT 扫描线特效 + 忽明忽暗
+   1. 矩阵数据流 (Matrix Data Stream) - 终极版
+   优化：真正的“数字雨”抽象感，多层下坠，更有黑客帝国的景深感
    ========================================= */
 body.bg-matrix {
     background-color: #000;
-    /* 基础背景：黑色 */
-    position: relative;
-    overflow-x: hidden; 
 }
 
-/* 第一层：下坠的数字流 (模拟) */
+/* 第一层：深绿色的代码流基底 */
 body.bg-matrix::before {
-    content: "";
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
     z-index: -2;
-    background-image: 
-        linear-gradient(rgba(0, 255, 70, 0) 50%, rgba(0, 255, 70, 0.2) 50%), 
-        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    background-size: 100% 2px, 6px 100%;
-    animation: matrix-scan 5s linear infinite;
-}
-
-/* 第二层：CRT 扫描线与闪烁代码块 */
-body.bg-matrix::after {
-    content: "";
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    z-index: -1;
     background: 
-        repeating-linear-gradient(0deg, transparent, transparent 1px, #001100 2px, #003300 3px),
-        repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(0, 255, 0, 0.05) 50px, rgba(0, 255, 0, 0.05) 51px);
-    background-size: 100% 100%, 100% 100%;
-    opacity: 0.6;
-    animation: matrix-flicker 0.1s infinite;
-    pointer-events: none;
+        linear-gradient(180deg, rgba(0, 255, 70, 0) 0%, rgba(0, 255, 70, 0.1) 50%, rgba(0, 255, 70, 0) 100%);
+    background-size: 100% 50vh;
+    animation: matrix-flow 10s linear infinite;
+    opacity: 0.5;
 }
 
-@keyframes matrix-scan {
-    0% { background-position: 0 0, 0 0; }
-    100% { background-position: 0 100%, 0 0; } /* 垂直下坠动画 */
+/* 第二层：高亮的垂直数据条，模拟前景代码 */
+body.bg-matrix::after {
+    z-index: -1;
+    background-image: 
+        linear-gradient(0deg, transparent 24%, rgba(0, 255, 0, .3) 25%, rgba(0, 255, 0, .3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .3) 75%, rgba(0, 255, 0, .3) 76%, transparent 77%, transparent),
+        linear-gradient(90deg, transparent 24%, rgba(0, 255, 0, .3) 25%, rgba(0, 255, 0, .3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .3) 75%, rgba(0, 255, 0, .3) 76%, transparent 77%, transparent);
+    background-size: 50px 50px;
+    background-position: 0 0;
+    /* 核心特效：故障闪烁滤镜 */
+    filter: drop-shadow(0 0 5px #0f0); 
+    animation: matrix-glitch 2s infinite linear alternate-reverse;
 }
 
-@keyframes matrix-flicker {
-    0% { opacity: 0.5; }
-    50% { opacity: 0.6; }
-    100% { opacity: 0.55; }
+@keyframes matrix-flow {
+    0% { background-position: 0 -100vh; }
+    100% { background-position: 0 100vh; }
+}
+
+@keyframes matrix-glitch {
+    0% { transform: translate(0,0); opacity: 0.8; }
+    20% { transform: translate(-2px, 1px); opacity: 0.9; }
+    40% { transform: translate(2px, -1px); opacity: 0.8; }
+    60% { transform: translate(0, 2px); opacity: 0.2; } /* 偶尔闪断 */
+    100% { transform: translate(0,0); opacity: 0.8; }
 }
 
 
 /* =========================================
-   2. 深空星系 (Deep Space Galaxy) - 重构版
-   效果：绚丽的彩色星云缓慢旋转 + 也就是所谓的"五彩斑斓的黑"
+   2. 深空星系 (Deep Space) - 保持高质量
    ========================================= */
 body.bg-space {
     background-color: #050505;
-    /* 基础深色背景 */
-    position: relative;
-    overflow-x: hidden;
 }
-
-/* 第一层：深邃的紫色/蓝色星云基底 */
 body.bg-space::before {
-    content: "";
-    position: fixed;
-    top: -50%; left: -50%; width: 200%; height: 200%;
     z-index: -2;
     background: 
-        radial-gradient(circle at 50% 50%, rgba(76, 29, 149, 0.4), transparent 60%), /* 紫色 */
-        radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.3), transparent 50%), /* 亮蓝 */
-        radial-gradient(circle at 20% 80%, rgba(236, 72, 153, 0.3), transparent 50%); /* 粉红 */
+        radial-gradient(circle at 50% 50%, rgba(76, 29, 149, 0.4), transparent 60%),
+        radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.3), transparent 50%),
+        radial-gradient(circle at 20% 80%, rgba(236, 72, 153, 0.3), transparent 50%);
     filter: blur(40px);
     animation: nebula-rotate 60s linear infinite;
 }
-
-/* 第二层：流动的极光/星尘 */
 body.bg-space::after {
-    content: "";
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
     z-index: -1;
     background-image: 
-        radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
-        radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0));
-    background-repeat: repeat;
+        radial-gradient(1px 1px at 20px 30px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 90px 40px, #fff, rgba(0,0,0,0));
     background-size: 200px 200px;
     animation: stars-move 100s linear infinite;
     opacity: 0.8;
 }
+@keyframes nebula-rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes stars-move { from { transform: translateY(0); } to { transform: translateY(-1000px); } }
 
-@keyframes nebula-rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+
+/* =========================================
+   3. 赛博都市 (Cyber City) - 重构版
+   优化：Synthwave 风格，地平线霓虹网格 + 顶部迷幻光晕
+   ========================================= */
+body.bg-cyber {
+    background-color: #0d0221; /* 深紫黑底 */
 }
 
-@keyframes stars-move {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(-1000px); }
+/* 上层：城市霓虹光晕 */
+body.bg-cyber::before {
+    z-index: -2;
+    background: 
+        linear-gradient(to bottom, #0d0221 0%, transparent 80%),
+        radial-gradient(circle at 50% 0%, rgba(0, 243, 255, 0.4) 0%, transparent 50%), /* 青色顶光 */
+        radial-gradient(circle at 90% 30%, rgba(255, 0, 222, 0.3) 0%, transparent 40%); /* 粉色侧光 */
+    animation: cyber-glow 10s ease-in-out infinite alternate;
 }
 
-/* 原有的其他背景保持不变 (bg-cyber, bg-sakura, bg-fire) ... */
+/* 下层：透视网格地板 (Synthwave Grid) */
+body.bg-cyber::after {
+    z-index: -1;
+    height: 50%; /* 只占下半部分 */
+    top: auto; bottom: 0;
+    background-image: 
+        linear-gradient(0deg, transparent 24%, rgba(255, 0, 222, .5) 25%, rgba(255, 0, 222, .5) 26%, transparent 27%, transparent 74%, rgba(255, 0, 222, .5) 75%, rgba(255, 0, 222, .5) 76%, transparent 77%, transparent),
+        linear-gradient(90deg, transparent 24%, rgba(0, 243, 255, .5) 25%, rgba(0, 243, 255, .5) 26%, transparent 27%, transparent 74%, rgba(0, 243, 255, .5) 75%, rgba(0, 243, 255, .5) 76%, transparent 77%, transparent);
+    background-size: 40px 40px;
+    transform: perspective(300px) rotateX(60deg) scale(2); /* 3D透视效果 */
+    transform-origin: bottom center;
+    animation: cyber-grid-move 20s linear infinite;
+    mask-image: linear-gradient(to bottom, transparent, black); /* 远端渐隐 */
+}
+
+@keyframes cyber-glow { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+@keyframes cyber-grid-move { 0% { background-position: 0 0; } 100% { background-position: 0 40px; } }
+
+
+/* =========================================
+   4. 落樱缤纷 (Night Sakura) - 暗黑护眼重构版
+   优化：改为“夜樱”模式，深色背景，粉色花瓣飘落，绝不刺眼
+   ========================================= */
+body.bg-sakura {
+    background-color: #1a1a2e; /* 深蓝灰夜色 */
+}
+
+/* 背景：柔和的月光/灯光氛围 */
+body.bg-sakura::before {
+    z-index: -2;
+    background: 
+        radial-gradient(circle at 10% 20%, rgba(255, 183, 178, 0.15), transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(255, 153, 204, 0.1), transparent 40%);
+    filter: blur(20px);
+}
+
+/* 前景：飘落的花瓣 (使用渐变模拟形状) */
+body.bg-sakura::after {
+    z-index: -1;
+    background-image: 
+        radial-gradient(circle, #ffb7b2 20%, transparent 20%),
+        radial-gradient(circle, #ffdac1 20%, transparent 20%);
+    background-size: 60px 60px;
+    background-position: 0 0, 30px 30px;
+    opacity: 0.6;
+    animation: sakura-fall 20s linear infinite, sakura-sway 5s ease-in-out infinite alternate;
+}
+
+@keyframes sakura-fall { from { background-position: 0 0, 30px 30px; } to { background-position: 0 600px, 30px 630px; } }
+@keyframes sakura-sway { from { transform: translateX(0); } to { transform: translateX(20px); } }
+
+
+/* =========================================
+   5. 地狱烈焰 (Hellfire) - 重构版
+   优化：底部升起的粒子火星 + 呼吸感红光，压迫感强
+   ========================================= */
+body.bg-fire {
+    background-color: #0a0000;
+}
+
+/* 背景：流动的岩浆光效 */
+body.bg-fire::before {
+    z-index: -2;
+    background: radial-gradient(circle at 50% 120%, #4a0000 0%, #200000 40%, #000 80%);
+    animation: fire-pulse 4s ease-in-out infinite alternate;
+}
+
+/* 前景：向上升起的火星粒子 */
+body.bg-fire::after {
+    z-index: -1;
+    background-image: 
+        radial-gradient(circle, rgba(255, 69, 0, 0.8) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255, 215, 0, 0.6) 1px, transparent 1px);
+    background-size: 40px 60px, 70px 90px;
+    animation: fire-rise 5s linear infinite;
+    mask-image: linear-gradient(to top, black, transparent 80%); /* 顶部渐隐 */
+}
+
+@keyframes fire-pulse { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 1; transform: scale(1.1); } }
+@keyframes fire-rise { 0% { background-position: 0 0, 0 0; } 100% { background-position: 0 -100px, 20px -200px; } }
+
+
+/* =========================================
+   6. [新赠送] 深渊幽蓝 (Abyss)
+   风格：深海/生物荧光，冷静、神秘、高级感
+   ========================================= */
+body.bg-abyss {
+    background-color: #001f24;
+}
+
+/* 背景：流动的水波纹光影 */
+body.bg-abyss::before {
+    z-index: -2;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(0, 255, 200, 0.15), transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 100, 255, 0.2), transparent 50%);
+    filter: blur(30px);
+    animation: abyss-shift 15s ease-in-out infinite alternate;
+}
+
+/* 前景：上升的气泡 */
+body.bg-abyss::after {
+    z-index: -1;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+    background-size: 30px 30px;
+    animation: abyss-bubble 10s linear infinite;
+}
+
+@keyframes abyss-shift { 0% { opacity: 0.5; } 100% { opacity: 0.8; } }
+@keyframes abyss-bubble { 0% { transform: translateY(0) scale(1); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(-200px) scale(0.5); opacity: 0; } }
 
 /* --- 2. 帖子装饰 (Post Styles) --- */
 /* 霓虹边框 (售价 200) */
@@ -1846,6 +1957,7 @@ body.bg-fire {
     font-weight: 900;
     text-transform: uppercase;
 }
+
 
 
 
