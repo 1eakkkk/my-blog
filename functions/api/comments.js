@@ -1,5 +1,5 @@
 // --- functions/api/comments.js ---
-// --- functions/api/comments.js ---
+
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
@@ -16,13 +16,14 @@ export async function onRequestGet(context) {
       const u = await db.prepare('SELECT user_id FROM sessions WHERE session_id = ?').bind(sessionId).first();
       if(u) currentUserId = u.user_id;
   }
+
   if (!postId) return new Response(JSON.stringify({ results: [] }), { headers: { 'Content-Type': 'application/json' } });
 
-  // 获取总数
+  // 1. 获取总数
   const countRes = await db.prepare('SELECT COUNT(*) as total FROM comments WHERE post_id = ?').bind(postId).first();
   const total = countRes.total;
 
-  // === 关键修复：确保 SQL 语法正确且包含 avatar_url ===
+  // 2. 获取评论列表 (包含头像URL、VIP信息、回复对象信息)
   const comments = await db.prepare(`
     SELECT comments.*, 
            users.username, users.nickname, users.avatar_variant, users.avatar_url,
@@ -47,7 +48,6 @@ export async function onRequestGet(context) {
       results: comments.results
   }), { headers: { 'Content-Type': 'application/json' } });
 }
-// onRequestPost/Put/Delete 保持不变...
 
 export async function onRequestPost(context) {
   const db = context.env.DB;
@@ -60,18 +60,20 @@ export async function onRequestPost(context) {
 
   const { post_id, content, parent_id } = await context.request.json();
   if (!content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
-  // === 1. 查出帖子的作者是谁 ===
-  const postOwner = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(post_id).first();
+
+  // === 1. 拉黑检查 ===
+  // 查出帖子作者
+  const postOwner = await db.prepare('SELECT user_id, title FROM posts WHERE id = ?').bind(post_id).first();
   if (!postOwner) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }), { status: 404 });
 
-  // === 2. 【新增】黑名单拦截逻辑 ===
-  // 检查：帖子作者(blocker) 是否拉黑了 当前评论者(blocked/me)
+  // 检查帖子作者是否拉黑了当前用户
   const isBlocked = await db.prepare('SELECT 1 FROM blocks WHERE blocker_id = ? AND blocked_id = ?')
       .bind(postOwner.user_id, user.id).first();
   
   if (isBlocked) {
       return new Response(JSON.stringify({ success: false, error: '无法评论：你已被作者加入黑名单' }), { status: 403 });
   }
+  // ===================
 
   let finalParentId = null;
   let replyToUid = null;
@@ -84,23 +86,41 @@ export async function onRequestPost(context) {
       else finalParentId = targetComment.id;
   }
 
+  // === 2. 插入评论 ===
+  const insertRes = await db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, reply_to_uid, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(post_id, user.id, content, finalParentId, replyToUid, Date.now()).run();
+  
+  const newCommentId = insertRes.meta.last_row_id;
+
+  // === 3. 计算经验 (含VIP加成 & 每日上限) ===
   const now = new Date();
   const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
-  const userData = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(user.id).first();
-  const insertRes = await db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, reply_to_uid, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(post_id, user.id, content, finalParentId, replyToUid, Date.now()).run();
-  const newCommentId = insertRes.meta.last_row_id; // 获取新评论ID
+  
+  const userData = await db.prepare('SELECT daily_xp, last_xp_date, vip_expires_at FROM users WHERE id = ?').bind(user.id).first();
   let currentDailyXp = (userData.last_xp_date === today) ? (userData.daily_xp || 0) : 0;
   let xpMsg = "";
+  
   if (currentDailyXp < 120) {
-      let add = 5;
-      if (currentDailyXp + 5 > 120) add = 120 - currentDailyXp;
-      await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?')
-        .bind(add, currentDailyXp + add, today, user.id).run();
-      xpMsg = ` +${add} XP`;
-  } else { xpMsg = " (今日满)"; }
+      let baseAdd = 5;
+      
+      // VIP 加成逻辑
+      const isVip = userData.vip_expires_at > Date.now();
+      if (isVip) {
+          baseAdd = Math.floor(baseAdd * 1.45); // 1.45倍
+      }
 
+      let actualAdd = baseAdd;
+      if (currentDailyXp + baseAdd > 120) actualAdd = 120 - currentDailyXp;
+      
+      await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?')
+        .bind(actualAdd, currentDailyXp + actualAdd, today, user.id).run();
+      xpMsg = ` +${actualAdd} XP`;
+  } else { 
+      xpMsg = " (今日满)"; 
+  }
+
+  // === 4. 发送通知 ===
   const senderName = user.nickname || user.username;
   
   if (replyToUid && replyToUid !== user.id) {
@@ -110,15 +130,17 @@ export async function onRequestPost(context) {
        await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
          .bind(replyToUid, 'reply', msg, `#post?id=${post_id}&commentId=${newCommentId}`, Date.now()).run();
   } else if (!replyToUid) {
-      const post = await db.prepare('SELECT user_id, title FROM posts WHERE id = ?').bind(post_id).first();
-      if (post && post.user_id !== user.id) {
-        const msg = `${senderName} 评论了你的文章: ${post.title}`;
+      // 如果是直接评论帖子，给帖子作者发通知
+      if (postOwner.user_id !== user.id) {
+        const msg = `${senderName} 评论了你的文章: ${postOwner.title}`;
         await db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
-          .bind(post.user_id, 'comment', msg, `#post?id=${post_id}&commentId=${newCommentId}`, Date.now()).run();
+          .bind(postOwner.user_id, 'comment', msg, `#post?id=${post_id}&commentId=${newCommentId}`, Date.now()).run();
       }
   }
 
+  // === 5. 更新任务进度 ===
   await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code LIKE 'comment_%' AND status = 0`).bind(user.id).run();
+
   return new Response(JSON.stringify({ success: true, message: `发布成功${xpMsg}` }));
 }
 
@@ -152,6 +174,8 @@ export async function onRequestPut(context) {
         await db.prepare('UPDATE comments SET is_pinned = ? WHERE id = ?').bind(newState, id).run();
         return new Response(JSON.stringify({ success: true, message: newState ? '评论已置顶' : '已取消置顶' }));
     }
+    
+    return new Response(JSON.stringify({ success: false, error: '未知操作' }));
 }
 
 export async function onRequestDelete(context) {
