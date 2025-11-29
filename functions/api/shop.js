@@ -17,6 +17,7 @@ const CATALOG = {
     'bg_cyber':    { cost: 800, name: '赛博都市', type: 'decoration', category: 'background', icon: '🏙️', rarity: 'epic' },
     'bg_sakura':   { cost: 600, name: '落樱缤纷', type: 'decoration', category: 'background', icon: '🌸', rarity: 'rare' },
     'bg_fire':     { cost: 1200,name: '地狱烈焰', type: 'decoration', category: 'background', icon: '🔥', rarity: 'legendary' },
+    'bg_abyss':    { cost: 1000, name: '深渊幽蓝', type: 'decoration', category: 'background', icon: '🐋', rarity: 'epic' },
 
     // === 🖼️ 帖子边框 (Post Styles) ===
     'post_neon':   { cost: 200, name: '霓虹边框', type: 'decoration', category: 'post_style', css: 'style-neon', icon: '🟦', rarity: 'common' },
