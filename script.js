@@ -184,11 +184,14 @@ async function loadTasks() {
             
             let btnHtml = '';
             if (isClaimed) {
-                btnHtml = `<button class="cyber-btn" disabled style="opacity:0.5; font-size:0.7rem; padding:5px;">已完成</button>`;
+                // 已领取：显示一个半透明的绿色勾勾徽章，而不是按钮
+                btnHtml = `<div class="task-status-badge claimed">✓ 已领取 / CLAIMED</div>`;
             } else if (isDone) {
-                btnHtml = `<button onclick="claimTaskNew(${t.id})" class="cyber-btn" style="border-color:#0f0; color:#0f0; font-size:0.7rem; padding:5px;">领取奖励</button>`;
+                // 可领取：显示一个闪烁的霓虹按钮
+                btnHtml = `<button onclick="claimTaskNew(${t.id})" class="cyber-btn task-claim-btn">领取奖励 / CLAIM</button>`;
             } else {
-                btnHtml = `<div style="font-size:0.8rem; color:#666;">${t.progress} / ${t.target}</div>`;
+                // 进行中：显示进度数字
+                btnHtml = `<div class="task-status-text">${t.progress} / ${t.target}</div>`;
             }
 
             const percent = Math.min(100, (t.progress / t.target) * 100);
@@ -1514,6 +1517,7 @@ async function loadLeaderboard() {
         showToast("排行榜加载失败", "error");
     }
 }
+
 
 
 
