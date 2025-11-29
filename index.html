@@ -124,6 +124,9 @@
                     道具商城
                 </a>
 
+                <!-- 个人背包 -->
+                <a href="#inventory" class="nav-link">🎒 个人背包</a>
+
                 <!-- 反馈中心 -->
                 <a href="#feedback" class="nav-link">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
@@ -335,8 +338,26 @@
     
                     <div class="shop-tabs" style="margin-bottom:20px; display:flex; gap:15px; border-bottom:1px solid #333; padding-bottom:10px;">
                         <span class="shop-tab active" style="color:#fff; cursor:pointer;">💎 会员特权</span>
-                        <span class="shop-tab" style="color:#666; cursor:not-allowed;">🎨 个性装扮 (装修中)</span>
-                        <span class="shop-tab" style="color:#666; cursor:not-allowed;">🆔 改名/特效 (装修中)</span>
+                    </div>
+                    <!-- 更新 #view-shop 内容 -->
+                    <div class="shop-section">
+                        <h3>🎨 个性装饰</h3>
+                        <div class="shop-grid">
+                            <!-- 举例 -->
+                            <div class="glass-card shop-item">
+                                <div class="item-icon">🌌</div>
+                                <h4>矩阵数据流 (背景)</h4>
+                                <div class="price">500 i</div>
+                                <button onclick="buyItem('bg_matrix')" class="cyber-btn">购买</button>
+                            </div>
+                            <div class="glass-card shop-item">
+                                <div class="item-icon">💳</div>
+                                <h4>改名卡</h4>
+                                <div class="price">100 i</div>
+                                <button onclick="buyItem('rename_card')" class="cyber-btn">购买</button>
+                            </div>
+                            <!-- 其他商品请自行添加... -->
+                        </div>
                     </div>
 
                     <div class="shop-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
@@ -393,6 +414,14 @@
                                 <button onclick="sendPrivateMessage()" class="cyber-btn" style="width:auto; margin:0;">SEND</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 10. 个人背包视图 -->
+                <div id="view-inventory" class="view-section" style="display:none;">
+                    <h2>// MY INVENTORY</h2>
+                    <div id="inventoryList" class="shop-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:15px;">
+                        Loading...
                     </div>
                 </div>
 
@@ -659,9 +688,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=7.3"></script>
+    <script src="script.js?v=7.4"></script>
 </body>
 </html>
+
 
 
 
