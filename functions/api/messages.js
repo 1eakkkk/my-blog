@@ -20,7 +20,7 @@ export async function onRequest(context) {
           // === 修改：关联查询用户头像信息 ===
           const msgs = await db.prepare(`
               SELECT m.*, 
-                     u.username, u.nickname, u.avatar_url, u.avatar_variant
+                     u.username, u.nickname, u.avatar_url, u.avatar_variant, equipped_bubble_style
               FROM messages m
               JOIN users u ON m.sender_id = u.id
               WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)
