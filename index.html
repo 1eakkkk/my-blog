@@ -171,9 +171,20 @@
 
                 <!-- 3. 任务页面 -->
                 <div id="view-tasks" class="view-section" style="display:none;">
-                    <h2>// DAILY MISSIONS</h2>
-                    <!-- 👇 这个 div 必须存在且 ID 必须叫 taskContainer 👇 -->
-                    <div id="taskContainer">Loading...</div>
+                    <h2>// MISSION CENTER</h2>
+                    <div style="display:flex; flex-wrap:wrap; gap:20px;">
+                        <!-- 左边：日常任务 -->
+                        <div style="flex:1; min-width:300px;">
+                            <h3 style="color:var(--accent-blue); border-bottom:1px solid #333; padding-bottom:10px;">📅 日常任务</h3>
+                            <div id="dailyTaskList">Loading...</div>
+                        </div>
+        
+                        <!-- 右边：周常任务 -->
+                        <div style="flex:1; min-width:300px;">
+                            <h3 style="color:#ff00de; border-bottom:1px solid #333; padding-bottom:10px;">⚔️ 周常任务</h3>
+                            <div id="weeklyTaskList">Loading...</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 4. 文章详情 -->
@@ -490,6 +501,7 @@
     <script src="script.js?v=6.5"></script>
 </body>
 </html>
+
 
 
 
