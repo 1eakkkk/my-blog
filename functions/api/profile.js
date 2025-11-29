@@ -14,15 +14,25 @@ export async function onRequestPost(context) {
   // 1. 修改昵称
   if (nickname !== undefined) {
       if (!nickname || nickname.length > 12) return new Response(JSON.stringify({ success: false, error: '昵称无效' }), { status: 400 });
-      const count = user.nickname_change_count || 0;
-      let cost = 0;
-      if (count === 1) cost = 10; else if (count > 1) cost = 50;
-      if (user.coins < cost) return new Response(JSON.stringify({ success: false, error: `余额不足，需 ${cost} i币` }), { status: 400 });
+      
+      // === 修改：检查是否有改名卡 ===
+      const card = await db.prepare("SELECT id, quantity FROM user_items WHERE user_id = ? AND item_id = 'rename_card' AND quantity > 0").bind(user.id).first();
+      
+      if (!card) {
+          return new Response(JSON.stringify({ success: false, error: '未找到改名卡，请先去商城购买' }), { status: 400 });
+      }
 
       await db.batch([
-          db.prepare('UPDATE users SET nickname = ?, nickname_change_count = nickname_change_count + 1, coins = coins - ? WHERE id = ?').bind(nickname, cost, user.id)
+          // 修改名字
+          db.prepare('UPDATE users SET nickname = ?, nickname_change_count = nickname_change_count + 1 WHERE id = ?').bind(nickname, user.id),
+          // 扣除改名卡
+          db.prepare('UPDATE user_items SET quantity = quantity - 1 WHERE id = ?').bind(card.id)
       ]);
-      return new Response(JSON.stringify({ success: true, message: `修改成功，扣除 ${cost} i币` }));
+      
+      // 清理数量为0的卡 (可选)
+      // await db.prepare('DELETE FROM user_items WHERE quantity <= 0').run();
+
+      return new Response(JSON.stringify({ success: true, message: '改名成功，消耗 1 张改名卡' }));
   }
 
   const { avatar_url } = reqBody;
