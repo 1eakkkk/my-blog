@@ -899,6 +899,13 @@ async function checkSecurity() {
         if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
         
         document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
+        document.body.classList.remove('bg-default', 'bg-matrix', 'bg-space', 'bg-cyber', 'bg-sakura', 'bg-fire');
+        if (data.equipped_bg) {
+            const bgClass = data.equipped_bg.replace('_', '-'); 
+            document.body.classList.add(bgClass);
+        } else {
+            document.body.classList.add('bg-default');
+        }
         
         const bioEl = document.getElementById('userBioDisplay');
         if(bioEl) bioEl.textContent = data.bio || "暂无签名";
@@ -2300,42 +2307,50 @@ window.loadBlockedUsers = async function() {
     }
 };
 
-// === 加载背包 ===
+// === 加载背包 (修复版：显示图标和中文名) ===
 async function loadInventory() {
     const c = document.getElementById('inventoryList');
-    c.innerHTML = 'Loading...';
+    c.innerHTML = '<div class="loading">Loading...</div>';
     try {
         const res = await fetch(`${API_BASE}/inventory`);
         const data = await res.json();
         
         if (data.list.length === 0) {
-            c.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#666">空空如也</div>';
+            c.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#666;padding:20px;">背包空空如也<br>去商城看看吧</div>';
             return;
         }
         
         c.innerHTML = '';
         data.list.forEach(item => {
+            // 1. 从本地目录查找商品详情
+            const catalogItem = SHOP_CATALOG.find(i => i.id === item.item_id);
+            
+            // 如果找不到（可能是旧商品或改名卡），提供默认值
+            const itemName = catalogItem ? catalogItem.name : item.item_id;
+            const itemIcon = catalogItem ? catalogItem.icon : '📦';
+            const itemRarity = catalogItem ? catalogItem.rarity : 'common';
+
             let actionBtn = '';
             
             if (item.category === 'consumable') {
-                // 消耗品显示数量
-                actionBtn = `<div style="color:#aaa;font-size:0.8rem">数量: ${item.quantity}</div>`;
+                // 消耗品
+                actionBtn = `<div style="color:#aaa;font-size:0.8rem;margin-top:5px;">拥有数量: <span style="color:#fff">${item.quantity}</span></div>`;
             } else {
                 // 装备/卸下
                 if (item.is_equipped) {
-                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0">已装备 / UNSET</button>`;
+                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0;width:100%;margin-top:10px;">已装备 / UNSET</button>`;
                 } else {
-                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn">使用 / EQUIP</button>`;
+                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / EQUIP</button>`;
                 }
             }
-            
-            // 道具名称映射 (建议后端返回 name，或者前端搞个字典)
-            const itemName = item.item_id; // 简略
 
             const div = document.createElement('div');
-            div.className = `glass-card item-card ${item.is_equipped?'equipped':''}`;
+            // 复用商城的卡片样式
+            div.className = `glass-card shop-item ${itemRarity} ${item.is_equipped?'equipped':''}`;
+            
             div.innerHTML = `
-                <h4>${itemName}</h4>
+                <div class="item-icon">${itemIcon}</div>
+                <h3 style="margin:5px 0; font-size:1rem;">${itemName}</h3>
                 ${actionBtn}
             `;
             c.appendChild(div);
@@ -2431,6 +2446,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
