@@ -105,6 +105,18 @@ function generatePixelAvatar(username, variant = 0) {
     return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
 }
 
+// === 全能头像渲染函数 ===
+// 如果用户有 avatar_url，显示图片；否则显示像素画
+function renderUserAvatar(userObj) {
+    if (userObj.avatar_url) {
+        return `<img src="${userObj.avatar_url}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">` + 
+               `<div style="display:none;width:100%;height:100%">${generatePixelAvatar(userObj.username, userObj.avatar_variant)}</div>`; 
+               //以此作为一个容错：如果图片加载失败(onerror)，自动回退到像素画
+    }
+    // 没有自定义头像，使用像素画
+    return generatePixelAvatar(userObj.username, userObj.avatar_variant);
+}
+
 function getBadgesHtml(userObj) {
     let html = '';
     if (userObj.role === 'admin' || userObj.author_role === 'admin') html += `<span class="badge admin-tag">ADMIN</span>`;
@@ -375,8 +387,8 @@ async function loadPosts(reset = false) {
                 // 作者点击跳转
                 const authorAction = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${post.author_username}'"`;
                 // 头像
-                const avatarHtml = `<div style="width:35px;height:35px;border-radius:4px;overflow:hidden;cursor:pointer;border:1px solid #333;" ${authorAction}>${generatePixelAvatar(post.author_username, post.author_avatar_variant)}</div>`;
-
+                const uObj = { username: post.author_username, avatar_variant: post.author_avatar_variant, avatar_url: post.author_avatar_url }; // 注意后端 posts.js 需返回 avatar_url (稍后补后端)
+                const avatarHtml = `<div style="width:35px;height:35px;border-radius:4px;overflow:hidden;cursor:pointer;border:1px solid #333;" ${authorAction}>${renderUserAvatar(uObj)}</div>`;
                 // === 核心修改：HTML 结构重组 ===
                 div.innerHTML = `
                     <!-- 1. 顶部：头像 + 作者名 + 徽章 -->
@@ -502,9 +514,9 @@ async function checkSecurity() {
         document.getElementById('username').textContent = data.nickname || data.username;
         document.getElementById('coinCount').textContent = data.coins;
         
-        document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${generatePixelAvatar(data.username, data.avatar_variant)}</div>`;
-        const settingPreview = document.getElementById('settingAvatarPreview');
-        if(settingPreview) settingPreview.innerHTML = generatePixelAvatar(data.username, data.avatar_variant);
+        document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${renderUserAvatar(data)}</div>`;
+        const settingPreview = document.getElementById('settingCustomAvatarPreview'); // 注意ID变了，对应新卡片
+        if(settingPreview) settingPreview.innerHTML = renderUserAvatar(data);
         
         const keyDisplay = document.getElementById('recoveryKeyDisplay');
         if(keyDisplay) keyDisplay.value = data.recovery_key || "未生成";
@@ -790,7 +802,7 @@ async function loadSinglePost(id, targetCommentId = null) {
         
         let actionBtns = ''; if (userRole === 'admin') { const pinText = post.is_pinned ? "取消置顶 / UNPIN" : "置顶 / PIN"; const pinColor = post.is_pinned ? "#0f0" : "#666"; actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`; } if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { actionBtns += `<button onclick="editPostMode('${post.id}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑 / EDIT</button>`; actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除 / DELETE</button>`; } if (userRole === 'admin' && post.user_id !== currentUser.id) { actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号 / BAN</button>`; } let tipBtn = ''; if (currentUser.id !== post.user_id) { tipBtn = `<button onclick="tipUser(${post.user_id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; }
         
-        const authorDisplay = post.author_nickname || post.author_username; const avatarSvg = generatePixelAvatar(post.author_username || "default", post.author_avatar_variant || 0); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
+        const authorDisplay = post.author_nickname || post.author_username; const uObj = { username: post.author_username, avatar_variant: post.author_avatar_variant, avatar_url: post.author_avatar_url };const avatarSvg = renderUserAvatar(uObj); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
         const userLinkAction = `onclick="window.location.hash='#profile?u=${post.author_username}'" style="cursor:pointer"`;
         container.innerHTML = `<div class="post-header-row"><div class="post-author-info"><div class="post-avatar-box" ${userLinkAction}>${avatarSvg}</div><div class="post-meta-text"><span ${userLinkAction} style="color:#fff; font-size:1rem; font-weight:bold; ...">${authorDisplay} ${badgesHtml}</span><div style="display:flex; align-items:center; gap:10px; margin-top:5px;"><span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>${likeBtn}</div></div></div><div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px;">${actionBtns}${tipBtn}</div></div><h1 style="margin-top:20px;">${post.title}</h1><div class="article-body">${parseMarkdown(post.content)}</div>`;
         const imgs = container.querySelectorAll('.article-body img');
@@ -849,7 +861,7 @@ async function loadNativeComments(postId, reset = false, highlightId = null) {
 }
 
 function createCommentElement(c, isReply, rootOwnerId, floorNumber, postAuthorId) {
-    const avatar = generatePixelAvatar(c.username, c.avatar_variant); 
+    const avatar = renderUserAvatar(c); // c 是评论对象，后端需包含 avatar_url
     const div = document.createElement('div'); 
     div.id = `comment-${c.id}`; 
     div.className = isReply ? 'comment-item sub-comment' : 'comment-item'; 
@@ -1440,7 +1452,7 @@ async function loadUserProfile(username) {
 
         // 填充信息
         document.getElementById('profileName').textContent = u.nickname || u.username;
-        document.getElementById('profileAvatar').innerHTML = generatePixelAvatar(u.username, u.avatar_variant);
+        document.getElementById('profileAvatar').innerHTML = renderUserAvatar(u); 
         document.getElementById('profileBio').textContent = u.bio || "这个人很懒，什么也没写。";
         document.getElementById('profileBadges').innerHTML = getBadgesHtml(u); // 复用之前的徽章函数
 
@@ -1550,7 +1562,7 @@ async function loadLeaderboard() {
                 listHtml = '<li style="padding:10px;text-align:center;color:#666">虚位以待 / EMPTY</li>';
             } else {
                 board.data.forEach((u, index) => {
-                    const avatar = generatePixelAvatar(u.username, u.avatar_variant);
+                    const avatar = renderUserAvatar(u);
                     // 复用徽章逻辑
                     const badges = getBadgesHtml({ 
                         role: 'user', // 排行榜暂时不显示管理标，防乱
@@ -1608,6 +1620,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
