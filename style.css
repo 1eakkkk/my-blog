@@ -1749,4 +1749,60 @@ body.bg-space {
     100% { box-shadow: 0 0 5px #FFD700; }
 }
 
+/* === 补充缺失的商城道具样式 === */
+
+/* 背景：赛博都市 */
+body.bg-cyber {
+    background: #0f0c29;
+    background: -webkit-linear-gradient(to right, #24243e, #302b63, #0f0c29);
+    background: linear-gradient(to right, #24243e, #302b63, #0f0c29);
+}
+/* 背景：落樱缤纷 */
+body.bg-sakura {
+    background-color: #fad0c4;
+    background-image: linear-gradient(315deg, #fad0c4 0%, #ffd1ff 74%);
+}
+/* 背景：地狱烈焰 */
+body.bg-fire {
+    background-color: #000;
+    background-image: radial-gradient(circle at 50% 50%, #4a0000 0%, #000 70%);
+    animation: bg-pulse 5s infinite alternate;
+}
+@keyframes bg-pulse { from {background-size:100% 100%} to {background-size:110% 110%} }
+
+/* 帖子：复古像素 */
+.post-card.style-pixel {
+    border: 4px solid #fff;
+    border-image: linear-gradient(to right, #fff 25%, #000 25%, #000 50%, #fff 50%, #fff 75%, #000 75%) 4;
+    font-family: 'Courier New', monospace;
+}
+/* 帖子：燃烧之魂 */
+.post-card.style-fire {
+    border: 2px solid #ff4500;
+    box-shadow: 0 0 15px #ff4500, inset 0 0 20px #ff4500;
+    animation: burn 1s infinite alternate;
+}
+@keyframes burn { from {box-shadow:0 0 10px #ff4500} to {box-shadow:0 0 20px #ff4500} }
+
+/* 气泡：土豪金 */
+.msg-bubble.bubble-gold {
+    background: linear-gradient(45deg, #FFD700, #FDB931) !important;
+    color: #000 !important;
+    border: 1px solid #fff !important;
+}
+/* 气泡：深海蓝 */
+.msg-bubble.bubble-sea {
+    background: linear-gradient(180deg, #000046, #1CB5E0) !important;
+    border: 1px solid #1CB5E0 !important;
+}
+
+/* 名字：至尊金名 */
+.color-gold {
+    background: linear-gradient(to bottom, #cfc09f 22%,#634f2c 24%, #cfc09f 26%, #cfc09f 27%,#ffecb3 40%,#3a2c0f 78%); 
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: #fff;
+    font-weight: 900;
+    text-transform: uppercase;
+}
 
