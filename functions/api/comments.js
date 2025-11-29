@@ -105,7 +105,7 @@ export async function onRequestPost(context) {
       }
   }
 
-  await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 WHERE user_id = ? AND task_type = 'comment' AND is_claimed = 0 AND last_update_date = ?`).bind(user.id, today).run();
+  await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code LIKE 'comment_%' AND status = 0`).bind(user.id).run();
   return new Response(JSON.stringify({ success: true, message: `发布成功${xpMsg}` }));
 }
 
