@@ -1759,15 +1759,23 @@ async function loadUserProfile(username) {
 
         // 关注按钮逻辑
         const actionBox = document.getElementById('profileActions');
+        
         if (currentUser && currentUser.username !== u.username) {
-            const btnText = s.isFollowing ? "已关注 / UNFOLLOW" : "关注 / FOLLOW";
-            const btnStyle = s.isFollowing ? "background:var(--accent-blue);color:#fff;" : "";
-            actionBox.innerHTML = `<button onclick="toggleFollow(${u.id}, this)" class="follow-btn" style="${btnStyle}">${btnText}</button>
-                                   <button onclick="handleFriend('${u.id}', 'add')" class="cyber-btn" style="width:auto; margin-left:10px;">加好友</button>
-                                   <button onclick="openChat('${u.id}', '${u.nickname||u.username}')" class="cyber-btn" style="width:auto; margin-left:10px;">私信</button>
-                                   <button onclick="blockUser('${u.id}')" class="cyber-btn" style="width:auto; margin-left:10px; border-color:red; color:red;">拉黑</button>`;
+            // 判断关注状态
+            const followText = s.isFollowing ? "已关注" : "关注";
+            // 已关注用实心样式(filled)，未关注用默认样式
+            const followClass = s.isFollowing ? "cyber-btn filled" : "cyber-btn";
+            
+            actionBox.innerHTML = `
+                <div style="display:flex; gap:10px; justify-content:center; width:100%; max-width:500px; margin:0 auto;">
+                    <button onclick="toggleFollow(${u.id}, this)" class="${followClass}" style="flex:1; margin:0;">${followText}</button>
+                    <button onclick="handleFriend('${u.id}', 'add')" class="cyber-btn" style="flex:1; margin:0;">加好友</button>
+                    <button onclick="openChat('${u.id}', '${u.nickname||u.username}')" class="cyber-btn" style="flex:1; margin:0;">私信</button>
+                    <button onclick="blockUser('${u.id}')" class="cyber-btn danger" style="flex:1; margin:0;">拉黑</button>
+                </div>
+            `;
         } else if (currentUser && currentUser.username === u.username) {
-            actionBox.innerHTML = `<button onclick="window.location.hash='#settings'" class="cyber-btn" style="width:auto">编辑资料</button>`;
+            actionBox.innerHTML = `<button onclick="window.location.hash='#settings'" class="cyber-btn" style="width:auto; padding:5px 30px;">编辑资料</button>`;
         }
 
         // 最近动态
@@ -1804,16 +1812,16 @@ window.toggleFollow = async function(targetId, btn) {
         if (data.success) {
             showToast(data.message, 'success');
             if (data.status === 'followed') {
-                btn.textContent = "已关注 / UNFOLLOW";
-                btn.style.background = "var(--accent-blue)";
-                btn.style.color = "#fff";
-                // 粉丝数+1视觉更新
+                // 变成已关注状态 (实心蓝)
+                btn.textContent = "已关注";
+                btn.classList.add('filled');
+                // 粉丝数+1
                 const el = document.getElementById('statFollowers');
                 el.innerText = parseInt(el.innerText) + 1;
             } else {
-                btn.textContent = "关注 / FOLLOW";
-                btn.style.background = "transparent";
-                btn.style.color = "var(--accent-blue)";
+                // 变成未关注状态 (空心)
+                btn.textContent = "关注";
+                btn.classList.remove('filled');
                 // 粉丝数-1
                 const el = document.getElementById('statFollowers');
                 el.innerText = Math.max(0, parseInt(el.innerText) - 1);
@@ -1918,6 +1926,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
