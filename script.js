@@ -49,34 +49,58 @@ window.loadFriendList = async function() {
         const data = await res.json();
         
         let html = '';
-        // 申请列表
+        
+        // === 第一部分：渲染好友申请 (如果有的话) ===
         if (data.requests && data.requests.length > 0) {
             html += `<div style="font-size:0.8rem; color:#ff00de; margin-bottom:5px;">新请求</div>`;
             data.requests.forEach(r => {
                 const avatar = renderUserAvatar(r);
+                // 点击头像跳转主页
+                const profileAction = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${r.username}'"`;
+                
                 html += `
-                <div class="chat-item">
-                    <div style="width:30px;height:30px;">${avatar}</div>
-                    <div style="flex:1; font-size:0.8rem;">${r.nickname||r.username}</div>
-                    <button onclick="handleFriend('${r.id}', 'accept')" class="mini-action-btn" style="color:#0f0">同意</button>
+                <div class="chat-item" style="cursor:default">
+                    <div style="width:30px;height:30px; border-radius:50%; overflow:hidden; cursor:pointer;" ${profileAction}>${avatar}</div>
+                    <div style="flex:1; font-size:0.8rem; margin-left:10px;">${r.nickname||r.username}</div>
+                    <button onclick="handleFriend('${r.id}', 'accept')" class="cyber-btn" style="width:auto;font-size:0.7rem;padding:2px 8px;border-color:#0f0;color:#0f0;">同意</button>
                 </div>`;
             });
         }
         
-        // 好友列表
+        // === 第二部分：渲染好友列表 (必须独立于 requests 判断之外) ===
         html += `<div style="font-size:0.8rem; color:var(--accent-blue); margin:10px 0 5px;">我的好友</div>`;
-        if (data.friends.length === 0) html += '<div style="color:#666;font-size:0.8rem">暂无好友</div>';
         
-        data.friends.forEach(f => {
-            const avatar = renderUserAvatar(f);
-            html += `
-            <div class="chat-item" onclick="openChat(${f.id}, '${f.nickname||f.username}')">
-                <div style="width:30px;height:30px; border-radius:50%; overflow:hidden;">${avatar}</div>
-                <div>${f.nickname||f.username}</div>
-            </div>`;
-        });
+        if (data.friends.length === 0) {
+            html += '<div style="color:#666;font-size:0.8rem;text-align:center;padding:10px;">暂无好友</div>';
+        } else {
+            data.friends.forEach(f => {
+                const avatar = renderUserAvatar(f);
+                // 点击头像跳转主页
+                const profileAction = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${f.username}'"`;
+                
+                html += `
+                <div class="chat-item" onclick="openChat(${f.id}, '${f.nickname||f.username}')">
+                    <!-- 头像 -->
+                    <div style="width:30px;height:30px; border-radius:50%; overflow:hidden; cursor:pointer;" ${profileAction}>
+                        ${avatar}
+                    </div>
+                    
+                    <!-- 名字 -->
+                    <div style="flex:1; margin-left:10px;">
+                        <span class="mention-link" style="color:inherit;background:none;padding:0;" ${profileAction}>
+                            ${f.nickname||f.username}
+                        </span>
+                    </div>
+                </div>`;
+            });
+        }
+        
         c.innerHTML = html;
-    } catch(e) { c.innerHTML = 'Error'; }
+        
+    } catch(e) { 
+        console.error(e);
+        c.innerHTML = '<div style="color:red;text-align:center">加载失败</div>'; 
+    }
 };
 
 // === 2. 处理好友请求 (添加/同意/删除) ===
@@ -1119,6 +1143,7 @@ async function handleRoute() {
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
         const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
+        loadBlockedUsers();
     } else if (hash === '#about') {
         if(views.about) views.about.style.display = 'block';
         const link = document.querySelector('a[href="#about"]'); if(link) link.classList.add('active');
@@ -2158,6 +2183,39 @@ window.buyItem = async function(itemId) {
     }
 };
 
+// === 加载黑名单列表 ===
+window.loadBlockedUsers = async function() {
+    const container = document.getElementById('blockedListContainer');
+    if(!container) return;
+    
+    container.innerHTML = '<div style="text-align:center;color:#666">Loading...</div>';
+    
+    try {
+        const res = await fetch(`${API_BASE}/block`);
+        const data = await res.json();
+        
+        if (data.list.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#666;padding:10px;">暂无拉黑用户</div>';
+            return;
+        }
+        
+        let html = '';
+        data.list.forEach(u => {
+            const avatar = renderUserAvatar(u); // 复用头像渲染
+            html += `
+                <div style="display:flex; align-items:center; padding:10px; border-bottom:1px dashed #333;">
+                    <div style="width:30px; height:30px; border-radius:50%; overflow:hidden; margin-right:10px;">${avatar}</div>
+                    <div style="flex:1; font-size:0.9rem;">${u.nickname || u.username}</div>
+                    <button onclick="blockUser('${u.id}', 'unblock')" class="cyber-btn" style="width:auto; font-size:0.7rem; padding:2px 8px; margin:0;">解除</button>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        
+    } catch(e) {
+        container.innerHTML = '<div style="color:red">加载失败</div>';
+    }
+};
 
 
 
