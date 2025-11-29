@@ -15,7 +15,6 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
   
-  // 排序和搜索参数
   const sort = url.searchParams.get('sort') || 'latest'; 
   const search = url.searchParams.get('search') || '';
   
@@ -39,7 +38,7 @@ export async function onRequestGet(context) {
     users.is_vip as author_vip, 
     users.level as author_level, 
     users.xp as author_xp, 
-    users.avatar_variant as author_avatar_variant,
+    users.avatar_variant as author_avatar_variant, 
     users.role as author_role,
     users.custom_title as author_title,
     users.custom_title_color as author_title_color,
@@ -97,15 +96,12 @@ export async function onRequestPost(context) {
   if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
   if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号封禁' }), { status: 403 });
 
-  // === 关键修改：把 const 改成 let ===
   let { title, content, category } = await context.request.json();
   
-  // 校验逻辑
   if ((!title || !title.trim()) && (!content || !content.trim())) {
       return new Response(JSON.stringify({ success: false, error: '标题和内容不能同时为空' }), { status: 400 });
   }
 
-  // 自动填充空缺字段
   if (!title || !title.trim()) title = "字数补丁";
   if (!content || !content.trim()) content = "如题";
 
@@ -115,23 +111,23 @@ export async function onRequestPost(context) {
   await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(user.id, user.nickname || user.username, title, content, finalCategory, Date.now()).run();
 
-  const now = Date.now();
-  const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  // === 修复时间逻辑 ===
+  const now = Date.now(); // 这里 now 是一个数字
+  const utc8 = new Date(now + (8 * 60 * 60 * 1000)); // 直接加数字，不要用 .getTime()
   const today = utc8.toISOString().split('T')[0];
+  
   const isVip = user.vip_expires_at > now;
-  let xpBase = 10; // 基础 10 XP
+  let xpBase = 10; 
   if (isVip) {
-      xpBase = Math.floor(10 * 1.45); // 14 XP
+      xpBase = Math.floor(10 * 1.45); 
   }
   const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
-  const todayKey = new Date(Date.now() + 8*3600*1000).toISOString().split('T')[0];
 
+  // === 更新任务进度 (只更新 user_tasks，删除了 daily_tasks) ===
   await db.batch([
-      // 1. 尝试更新所有 code 包含 'post' 的活跃任务 (简单粗暴匹配所有发帖任务)
       db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code LIKE 'post_%' AND status = 0`).bind(user.id)
   ]);
 
-  await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 WHERE user_id = ? AND task_type = 'post' AND is_claimed = 0 AND last_update_date = ?`).bind(user.id, today).run();
   return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }));
 }
 
@@ -143,7 +139,6 @@ export async function onRequestPut(context) {
   const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
   if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
 
-  // === 关键修改：把 const 改成 let ===
   let { id, action, title, content, category } = await context.request.json();
 
   if (action === 'edit') {
@@ -152,12 +147,11 @@ export async function onRequestPut(context) {
       if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
       if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
 
-      // 校验逻辑
       if ((!title || !title.trim()) && (!content || !content.trim())) {
           return new Response(JSON.stringify({ success: false, error: '不能全为空' }), { status: 400 });
       }
-      if (!title || !title.trim()) title = "无题 / Untitled";
-      if (!content || !content.trim()) content = "（如题）";
+      if (!title || !title.trim()) title = "字数补丁";
+      if (!content || !content.trim()) content = "如题";
 
       await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, updated_at = ? WHERE id = ?')
           .bind(title, content, category, Date.now(), id).run();
@@ -189,6 +183,3 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
-
-
-
