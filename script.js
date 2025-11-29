@@ -939,45 +939,113 @@ window.uploadImage = async function() {
     const status = document.getElementById('uploadStatus');
     const textarea = document.getElementById('postContent');
 
+    // 1. 检查文件数量
     if (input.files.length === 0) return;
+    if (input.files.length > 9) {
+        showToast("一次最多上传 9 张图片", "error");
+        input.value = ''; // 清空
+        return;
+    }
 
-    const file = input.files[0];
-    status.innerText = "UPLOADING...";
+    status.innerText = `UPLOADING (${input.files.length})...`;
     status.style.color = "yellow";
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // 2. 循环上传 (并行处理)
+    const uploadPromises = Array.from(input.files).map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch(`${API_BASE}/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                successCount++;
+                let insertText = '';
+                // 视频和图片区分
+                if (file.type.startsWith('video/')) {
+                    insertText = `\n<video src="${data.url}" controls width="100%" style="max-height:400px; border-radius:4px; margin-top:10px;"></video>\n`;
+                } else {
+                    insertText = `\n![image](${data.url})\n`;
+                }
+                return insertText; // 返回 Markdown 文本
+            } else {
+                failCount++;
+                return '';
+            }
+        } catch (e) {
+            failCount++;
+            return '';
+        }
+    });
+
+    // 3. 等待所有上传完成
+    const results = await Promise.all(uploadPromises);
+    
+    // 4. 将结果插入文本框
+    const finalText = results.join('');
+    textarea.value += finalText;
+
+    // 5. 提示结果
+    if (failCount === 0) {
+        status.innerText = "DONE";
+        status.style.color = "#0f0";
+        showToast(`成功上传 ${successCount} 个文件`, 'success');
+    } else {
+        status.innerText = "PARTIAL";
+        status.style.color = "orange";
+        showToast(`上传完成：${successCount} 成功，${failCount} 失败`, 'info');
+    }
+    
+    input.value = ''; 
+};
+
+window.uploadUserAvatar = async function() {
+    const input = document.getElementById('avatarUploadInput');
+    if (input.files.length === 0) return;
+    
+    const file = input.files[0];
+    // 限制大小 2MB
+    if (file.size > 2 * 1024 * 1024) return showToast("头像图片不能超过 2MB", "error");
+
+    showToast("正在上传头像...", "info");
 
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-        const res = await fetch(`${API_BASE}/upload`, {
-            method: 'POST',
-            body: formData
-        });
+        // 1. 先上传到 R2
+        const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
         const data = await res.json();
 
         if (data.success) {
-            status.innerText = "DONE";
-            status.style.color = "#0f0";
+            // 2. 再把 URL 保存到用户资料
+            const updateRes = await fetch(`${API_BASE}/profile`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ avatar_url: data.url })
+            });
+            const updateData = await updateRes.json();
             
-            let insertText = '';
-            if (file.type.startsWith('video/')) {
-                insertText = `\n<video src="${data.url}" controls width="100%" style="max-height:400px; border-radius:4px; margin-top:10px;"></video>\n`;
+            if(updateData.success) {
+                showToast("头像修改成功！", "success");
+                checkSecurity(); // 刷新侧边栏
             } else {
-                insertText = `\n![image](${data.url})\n`;
+                showToast(updateData.error, "error");
             }
-            
-            textarea.value += insertText; 
-            showToast('文件上传成功', 'success');
         } else {
-            status.innerText = "ERROR";
-            status.style.color = "red";
-            showToast(data.error, 'error');
+            showToast(data.error, "error");
         }
     } catch (e) {
-        status.innerText = "FAIL";
-        showToast('上传失败', 'error');
+        showToast("网络错误", "error");
     } finally {
-        input.value = ''; 
+        input.value = '';
     }
 };
 
@@ -1620,6 +1688,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
