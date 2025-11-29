@@ -488,6 +488,7 @@ const views = {
     home: document.getElementById('view-home'),
     write: document.getElementById('view-write'),
     tasks: document.getElementById('view-tasks'),
+    leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
@@ -556,6 +557,10 @@ async function handleRoute() {
     } else if (hash === '#tasks') {
         if(views.tasks) views.tasks.style.display = 'block';
         loadTasks();
+    } else if (hash === '#leaderboard') {
+        if(views.leaderboard) views.leaderboard.style.display = 'block';
+        const link = document.querySelector('a[href="#leaderboard"]'); if(link) link.classList.add('active');
+        loadLeaderboard();
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
         const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
@@ -1365,5 +1370,72 @@ window.toggleFollow = async function(targetId, btn) {
     }
 };
 
+// === 加载排行榜 ===
+async function loadLeaderboard() {
+    const container = document.querySelector('.leaderboard-grid');
+    if(!container) return;
+    
+    container.innerHTML = '<div class="loading">Loading data...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/leaderboard`);
+        const data = await res.json();
+        
+        if (!data.success) throw new Error("API Error");
+
+        container.innerHTML = ''; // 清空
+
+        // 定义四个榜单的配置
+        const boards = [
+            { title: "⚡ 等级天梯 / LEVEL RANK", data: data.xp, valueKey: 'xp', format: v => `${v} XP` },
+            { title: "💸 慈善家 / TOP TIPPERS", data: data.sent, valueKey: 'tips_sent', format: v => `${v} i` },
+            { title: "💰 创作者 / TOP EARNERS", data: data.received, valueKey: 'tips_received', format: v => `${v} i` },
+            { title: "❤️ 人气王 / MOST LIKED", data: data.likes, valueKey: 'likes_received', format: v => `${v} ❤` }
+        ];
+
+        boards.forEach(board => {
+            const card = document.createElement('div');
+            card.className = 'rank-card';
+            
+            let listHtml = '';
+            if (board.data.length === 0) {
+                listHtml = '<li style="padding:10px;text-align:center;color:#666">虚位以待 / EMPTY</li>';
+            } else {
+                board.data.forEach((u, index) => {
+                    const avatar = generatePixelAvatar(u.username, u.avatar_variant);
+                    // 复用徽章逻辑
+                    const badges = getBadgesHtml({ 
+                        role: 'user', // 排行榜暂时不显示管理标，防乱
+                        is_vip: u.is_vip, 
+                        xp: u.xp, // 用XP计算等级
+                        custom_title: u.custom_title,
+                        custom_title_color: u.custom_title_color
+                    });
+                    
+                    listHtml += `
+                        <li class="rank-item">
+                            <div class="rank-num">${index + 1}</div>
+                            <div class="rank-user" onclick="window.location.hash='#profile?u=${u.username}'">
+                                <div style="width:30px;height:30px;border-radius:4px;overflow:hidden">${avatar}</div>
+                                <div>
+                                    <div style="font-size:0.9rem;font-weight:bold">${u.nickname || u.username}</div>
+                                    <div style="font-size:0.7rem">${badges}</div>
+                                </div>
+                            </div>
+                            <div class="rank-value">${board.format(u[board.valueKey])}</div>
+                        </li>
+                    `;
+                });
+            }
+
+            card.innerHTML = `<h3>${board.title}</h3><ul class="rank-list">${listHtml}</ul>`;
+            container.appendChild(card);
+        });
+
+    } catch (e) {
+        container.innerHTML = 'Error loading leaderboard.';
+        showToast("排行榜加载失败", "error");
+    }
+}
 
 
