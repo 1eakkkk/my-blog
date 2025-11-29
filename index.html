@@ -470,6 +470,21 @@
                             <button onclick="copyRecoveryKey()" class="cyber-btn" style="width:auto; margin:0; white-space:nowrap;">复制</button>
                         </div>
                     </div>
+
+                    <!-- 新增：黑名单管理 -->
+                    <div class="glass-card" style="margin-top: 20px; border-color: #ff3333;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="color:#ff3333; margin:0;">黑名单管理 / BLOCK LIST</h3>
+                            <button onclick="loadBlockedUsers()" class="mini-action-btn">刷新</button>
+                        </div>
+                        <p style="color:#666; font-size:0.9rem;">被拉黑的用户无法向您发送私信或评论。</p>
+    
+                        <div id="blockedListContainer" style="margin-top:10px; max-height:200px; overflow-y:auto;">
+                            <!-- JS 动态加载 -->
+                            <div style="text-align:center; color:#666; padding:10px;">Loading...</div>
+                        </div>
+                    </div>
+                    
                 </div>
 
                 <div id="view-about" class="view-section" style="display:none;">
@@ -644,9 +659,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=7.2"></script>
+    <script src="script.js?v=7.3"></script>
 </body>
 </html>
+
 
 
 
