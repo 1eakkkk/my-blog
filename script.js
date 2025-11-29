@@ -920,26 +920,32 @@ async function checkSecurity() {
 }
 
 function initApp() {
+    // 1. 禁用浏览器自动滚动恢复
     if ('scrollRestoration' in history) {
         history.scrollRestoration = 'manual';
     }
+
+    // 2. 侧边栏开关 (点击按钮)
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     if (mobileMenuBtn) { 
         mobileMenuBtn.onclick = (e) => { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }; 
     }
     
+    // 3. 点击外部关闭侧边栏
     document.addEventListener('click', (e) => {
         const sidebar = document.getElementById('sidebar');
         const btn = document.getElementById('mobileMenuBtn');
         if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btn) { sidebar.classList.remove('open'); }
     });
     
+    // 4. 按钮绑定
     const checkInBtn = document.getElementById('checkInBtn'); 
     if (checkInBtn) checkInBtn.onclick = window.doCheckIn;
     
     const postForm = document.getElementById('postForm'); 
     if (postForm) postForm.onsubmit = doPost;
 
+    // 5. 评论区图片点击放大 (事件委托)
     const commentsList = document.getElementById('commentsList');
     if (commentsList) {
         commentsList.addEventListener('click', (e) => {
@@ -949,6 +955,7 @@ function initApp() {
         });
     }
 
+    // 6. 首页链接重置滚动
     const homeNavLink = document.querySelector('a[href="#home"]');
     if (homeNavLink) {
         homeNavLink.addEventListener('click', () => {
@@ -957,8 +964,51 @@ function initApp() {
         });
     }
     
+    // === 新增功能 1：PC端私信回车发送 (Enter) ===
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('keydown', (e) => {
+            // 只有按下 Enter 且没有按 Shift (防止误触，虽Input不支持换行但保持习惯)
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // 阻止默认行为
+                sendPrivateMessage(); // 调用发送函数
+            }
+        });
+    }
+
+    // === 新增功能 2：移动端右滑打开侧边栏 (防误触) ===
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, {passive: true});
+
+    document.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+        
+        const sidebar = document.getElementById('sidebar');
+
+        // 逻辑判断：
+        // 1. 起始点 x > 50px：避开屏幕最左侧边缘，防止触发浏览器"返回上一页"
+        // 2. 水平滑动距离 > 80px：动作幅度足够大才算
+        // 3. 垂直滑动距离 < 60px：防止用户是在上下浏览网页
+        if (touchStartX > 50 && (touchEndX - touchStartX > 80) && Math.abs(touchEndY - touchStartY) < 60) {
+            if (sidebar && !sidebar.classList.contains('open')) {
+                sidebar.classList.add('open');
+            }
+        }
+        
+        // (可选) 左滑关闭：如果在侧边栏打开时左滑，则关闭
+        if (sidebar && sidebar.classList.contains('open') && (touchStartX - touchEndX > 80)) {
+            sidebar.classList.remove('open');
+        }
+    }, {passive: true});
+
+    // 7. 启动核心
     window.addEventListener('hashchange', handleRoute);
-    
     setInterval(() => { const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString(); }, 1000);
     
     if(isAppReady) handleRoute();
@@ -2062,6 +2112,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
