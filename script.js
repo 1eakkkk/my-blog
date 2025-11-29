@@ -24,6 +24,9 @@ let isLoadingComments = false;
 let currentPostAuthorId = null;
 let homeScrollY = 0; // 记录首页滚动位置
 
+let currentChatTargetId = null; // === 社交与私信模块 ===
+let chatPollInterval = null;
+
 const LEVEL_TABLE = [
     { lv: 1,  xp: 0,     title: '潜行者' },
     { lv: 2,  xp: 300,   title: '漫游者' },
@@ -36,6 +39,158 @@ const LEVEL_TABLE = [
     { lv: 9,  xp: 50000, title: '半神' },
     { lv: 10, xp: 60000, title: '赛博神' }
 ];
+
+// 1. 加载好友列表
+window.loadFriendList = async function() {
+    const c = document.getElementById('chatList');
+    c.innerHTML = 'Loading...';
+    try {
+        const res = await fetch(`${API_BASE}/friends`);
+        const data = await res.json();
+        
+        let html = '';
+        // 申请列表
+        if (data.requests && data.requests.length > 0) {
+            html += `<div style="font-size:0.8rem; color:#ff00de; margin-bottom:5px;">新请求</div>`;
+            data.requests.forEach(r => {
+                const avatar = renderUserAvatar(r);
+                html += `
+                <div class="chat-item">
+                    <div style="width:30px;height:30px;">${avatar}</div>
+                    <div style="flex:1; font-size:0.8rem;">${r.nickname||r.username}</div>
+                    <button onclick="handleFriend('${r.id}', 'accept')" class="mini-action-btn" style="color:#0f0">同意</button>
+                </div>`;
+            });
+        }
+        
+        // 好友列表
+        html += `<div style="font-size:0.8rem; color:var(--accent-blue); margin:10px 0 5px;">我的好友</div>`;
+        if (data.friends.length === 0) html += '<div style="color:#666;font-size:0.8rem">暂无好友</div>';
+        
+        data.friends.forEach(f => {
+            const avatar = renderUserAvatar(f);
+            html += `
+            <div class="chat-item" onclick="openChat(${f.id}, '${f.nickname||f.username}')">
+                <div style="width:30px;height:30px; border-radius:50%; overflow:hidden;">${avatar}</div>
+                <div>${f.nickname||f.username}</div>
+            </div>`;
+        });
+        c.innerHTML = html;
+    } catch(e) { c.innerHTML = 'Error'; }
+};
+
+// 2. 处理好友请求 (同意/删除)
+window.handleFriend = async function(uid, action) {
+    await fetch(`${API_BASE}/friends`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: action, target_id: uid })
+    });
+    loadFriendList();
+};
+
+// 3. 加载会话列表
+window.loadConversations = async function() {
+    const c = document.getElementById('chatList');
+    c.innerHTML = 'Loading...';
+    try {
+        const res = await fetch(`${API_BASE}/messages`);
+        const data = await res.json();
+        c.innerHTML = '';
+        data.list.forEach(u => {
+            const avatar = renderUserAvatar(u);
+            const div = document.createElement('div');
+            div.className = 'chat-item';
+            div.innerHTML = `
+                <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;">${avatar}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:bold;">${u.nickname||u.username}</div>
+                    <div style="font-size:0.7rem;color:#666;">点击继续聊天</div>
+                </div>
+            `;
+            div.onclick = () => openChat(u.uid, u.nickname||u.username);
+            c.appendChild(div);
+        });
+    } catch(e) { c.innerHTML = 'Error'; }
+};
+
+// 4. 打开聊天窗口
+window.openChat = async function(uid, name) {
+    currentChatTargetId = uid;
+    document.getElementById('chatBox').style.display = 'flex';
+    document.getElementById('chatTargetName').innerText = name;
+    
+    // 轮询消息 (简单实现，每3秒刷一次)
+    if(chatPollInterval) clearInterval(chatPollInterval);
+    loadChatHistory();
+    chatPollInterval = setInterval(loadChatHistory, 3000);
+    
+    // 移动端优化：全屏显示
+    if(window.innerWidth < 768) document.querySelector('.chat-sidebar').style.display = 'none';
+};
+
+window.closeChatBox = function() {
+    document.getElementById('chatBox').style.display = 'none';
+    if(chatPollInterval) clearInterval(chatPollInterval);
+    currentChatTargetId = null;
+    if(window.innerWidth < 768) document.querySelector('.chat-sidebar').style.display = 'flex';
+};
+
+async function loadChatHistory() {
+    if(!currentChatTargetId) return;
+    const container = document.getElementById('chatMessages');
+    
+    const res = await fetch(`${API_BASE}/messages?target_id=${currentChatTargetId}`);
+    const data = await res.json();
+    
+    // 简单暴力重绘 (优化方案是比对增量)
+    container.innerHTML = '';
+    data.list.forEach(m => {
+        const div = document.createElement('div');
+        div.className = `msg-bubble ${m.sender_id == currentUser.id ? 'msg-right' : 'msg-left'}`;
+        div.innerText = m.content;
+        container.appendChild(div);
+    });
+    // 滚动到底部
+    container.scrollTop = container.scrollHeight;
+}
+
+window.sendPrivateMessage = async function() {
+    const input = document.getElementById('chatInput');
+    const content = input.value.trim();
+    if(!content || !currentChatTargetId) return;
+    
+    // 乐观更新 UI
+    const container = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'msg-bubble msg-right';
+    div.style.opacity = '0.5'; // 发送中状态
+    div.innerText = content;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    input.value = '';
+
+    const res = await fetch(`${API_BASE}/messages`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ target_id: currentChatTargetId, content: content })
+    });
+    const d = await res.json();
+    if(d.success) {
+        div.style.opacity = '1';
+    } else {
+        div.style.border = '1px solid red';
+        showToast(d.error, 'error');
+    }
+};
+
+window.blockUser = async function(uid) {
+    if(!confirm("确定要拉黑该用户吗？你们将解除好友关系且无法互发消息。")) return;
+    const res = await fetch(`${API_BASE}/block`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'block', target_id: uid })
+    });
+    const d = await res.json();
+    if(d.success) showToast("已拉黑", "success");
+};
 
 // --- 辅助函数 ---
 
@@ -715,6 +870,7 @@ const views = {
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     shop: document.getElementById('view-shop'),
+    chat: document.getElementById('view-chat'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
     notifications: document.getElementById('view-notifications'),
@@ -1606,7 +1762,10 @@ async function loadUserProfile(username) {
         if (currentUser && currentUser.username !== u.username) {
             const btnText = s.isFollowing ? "已关注 / UNFOLLOW" : "关注 / FOLLOW";
             const btnStyle = s.isFollowing ? "background:var(--accent-blue);color:#fff;" : "";
-            actionBox.innerHTML = `<button onclick="toggleFollow(${u.id}, this)" class="follow-btn" style="${btnStyle}">${btnText}</button>`;
+            actionBox.innerHTML = `<button onclick="toggleFollow(${u.id}, this)" class="follow-btn" style="${btnStyle}">${btnText}</button>
+                                   <button onclick="handleFriend('${u.id}', 'add')" class="cyber-btn" style="width:auto; margin-left:10px;">加好友</button>
+                                   <button onclick="openChat('${u.id}', '${u.nickname||u.username}')" class="cyber-btn" style="width:auto; margin-left:10px;">私信</button>
+                                   <button onclick="blockUser('${u.id}')" class="cyber-btn" style="width:auto; margin-left:10px; border-color:red; color:red;">拉黑</button>`;
         } else if (currentUser && currentUser.username === u.username) {
             actionBox.innerHTML = `<button onclick="window.location.hash='#settings'" class="cyber-btn" style="width:auto">编辑资料</button>`;
         }
@@ -1759,6 +1918,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
