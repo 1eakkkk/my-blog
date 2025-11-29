@@ -1152,13 +1152,22 @@ async function handleRoute() {
         loadLeaderboard();
     } else if (hash === '#shop') {
         if(views.shop) views.shop.style.display = 'block';
-        renderShop('all'); // 默认加载全部
         const link = document.querySelector('a[href="#shop"]'); if(link) link.classList.add('active');
+        // === 修复 1：每次进入商城，强制重置为“全部”分类 ===
+        // 1. 重置按钮高亮
+        document.querySelectorAll('.shop-tab-btn').forEach(b => b.classList.remove('active'));
+        const allBtn = document.querySelector('.shop-tab-btn[onclick="switchShopTab(\'all\')"]');
+        if(allBtn) allBtn.classList.add('active');
+        // 2. 加载全部商品
+        renderShop('all');
     } else if (hash === '#inventory') {
         if(views.inventory) views.inventory.style.display = 'block';
-        const link = document.getElementById('navInventory'); 
-        if(link) link.classList.add('active');
-        loadInventory();
+        const link = document.getElementById('navInventory'); if(link) link.classList.add('active');
+        // === 修复 3：每次进入背包，强制重置为“全部”分类 ===
+        document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.remove('active'));
+        const allInvBtn = document.querySelector('.inv-tab-btn[onclick="switchInventoryTab(\'all\')"]');
+        if(allInvBtn) allInvBtn.classList.add('active');
+        loadInventory('all');
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
         const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
@@ -2300,57 +2309,90 @@ window.loadBlockedUsers = async function() {
     }
 };
 
-// === 加载背包 (修复版：显示图标和中文名) ===
-async function loadInventory() {
+// === 切换背包标签 ===
+window.switchInventoryTab = function(type) {
+    // 1. UI 高亮切换
+    document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // 2. 重新加载并筛选
+    loadInventory(type);
+};
+
+// === 加载背包 (优化版：支持分类) ===
+async function loadInventory(filterCategory = 'all') {
     const c = document.getElementById('inventoryList');
-    c.innerHTML = '<div class="loading">Loading...</div>';
+    c.innerHTML = '<div class="loading">Loading Inventory...</div>';
+    
     try {
         const res = await fetch(`${API_BASE}/inventory`);
         const data = await res.json();
         
-        if (data.list.length === 0) {
-            // 修复：使用反引号以防换行符报错
-            c.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#666;padding:20px;">背包空空如也<br>去商城看看吧</div>`;
+        if (!data.success || data.list.length === 0) {
+            c.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#666;padding:20px;">背包空空如也<br>去商城看看吧</div>';
+            return;
+        }
+        
+        // === 核心逻辑：前端分类过滤 ===
+        // 后端的 category 字段值通常为: 'background', 'post_style', 'bubble', 'name_color', 'consumable'
+        let filteredList = data.list;
+
+        if (filterCategory !== 'all') {
+            filteredList = data.list.filter(item => item.category === filterCategory);
+        }
+        
+        if (filteredList.length === 0) {
+            c.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#666;padding:20px;">该分类下暂无物品</div>';
             return;
         }
         
         c.innerHTML = '';
-        data.list.forEach(item => {
-            // 1. 从本地目录查找商品详情
+        filteredList.forEach(item => {
+            // 从目录找详情
             const catalogItem = SHOP_CATALOG.find(i => i.id === item.item_id);
-            
-            // 如果找不到（可能是旧商品或改名卡），提供默认值
             const itemName = catalogItem ? catalogItem.name : item.item_id;
-            // 修复：使用 Unicode 转义 \uD83D\uDCE6 代替直接的 Emoji，防止编码错误导致 Unexpected token
-            const itemIcon = catalogItem ? catalogItem.icon : '\uD83D\uDCE6'; 
+            const itemIcon = catalogItem ? catalogItem.icon : '📦';
             const itemRarity = catalogItem ? catalogItem.rarity : 'common';
+            const itemDesc = catalogItem ? catalogItem.desc : '';
 
             let actionBtn = '';
             
+            // 消耗品逻辑
             if (item.category === 'consumable') {
-                // 消耗品
-                actionBtn = `<div style="color:#aaa;font-size:0.8rem;margin-top:5px;">拥有数量: <span style="color:#fff">${item.quantity}</span></div>`;
-            } else {
-                // 装备/卸下
+                actionBtn = `<div style="color:#aaa;font-size:0.8rem;margin-top:5px; border:1px solid #333; padding:5px; border-radius:4px;">拥有数量: <span style="color:#fff; font-weight:bold;">${item.quantity}</span></div>`;
+            } 
+            // 装备类逻辑
+            else {
                 if (item.is_equipped) {
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0;width:100%;margin-top:10px;">已装备 / UNSET</button>`;
                 } else {
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / EQUIP</button>`;
                 }
+                
+                // 如果是时效性道具，显示剩余时间
+                if (item.expires_at > 0) {
+                    const daysLeft = Math.ceil((item.expires_at - Date.now()) / (86400000));
+                    const expireText = daysLeft > 0 ? `剩余 ${daysLeft} 天` : `已过期`;
+                    const color = daysLeft > 0 ? '#aaa' : '#f33';
+                    actionBtn += `<div style="font-size:0.7rem; color:${color}; margin-top:5px;">${expireText}</div>`;
+                }
             }
 
             const div = document.createElement('div');
-            // 复用商城的卡片样式
             div.className = `glass-card shop-item ${itemRarity} ${item.is_equipped?'equipped':''}`;
             
             div.innerHTML = `
                 <div class="item-icon">${itemIcon}</div>
                 <h3 style="margin:5px 0; font-size:1rem;">${itemName}</h3>
+                <p style="font-size:0.7rem; color:#666; margin-bottom:5px;">${itemDesc}</p>
                 ${actionBtn}
             `;
             c.appendChild(div);
         });
-    } catch(e) { c.innerHTML = 'Error'; }
+    } catch(e) { 
+        console.error(e);
+        c.innerHTML = '<div style="color:red">加载背包失败</div>'; 
+    }
 }
 
 // === 装备/卸下 ===
@@ -2407,28 +2449,82 @@ const SHOP_CATALOG = [
     { id: 'color_gold', cost: 500, name: '至尊金名', type: 'timed', icon: '👑', rarity: 'legendary', desc: '30天土豪金名' },
 ];
 
-// === 渲染商城函数 ===
-window.renderShop = function(filterType = 'all') {
+// === 渲染商城函数 (优化版：显示已购买状态) ===
+window.renderShop = async function(filterType = 'all') {
     const container = document.getElementById('shop-list');
     if(!container) return;
     
-    container.innerHTML = '';
+    container.innerHTML = '<div class="loading">Loading Shop Data...</div>';
     
+    // 1. 先获取用户当前的背包数据，用于判断是否已购买
+    let ownedItemIds = [];
+    try {
+        const res = await fetch(`${API_BASE}/inventory`);
+        const data = await res.json();
+        if(data.success && data.list) {
+            ownedItemIds = data.list.map(item => item.item_id);
+        }
+    } catch(e) {
+        console.error("无法获取背包数据用于比对", e);
+    }
+
+    // 2. 筛选商品
+    // 注意：filterType === 'decoration' 时，我们要把 'timed' (时效性装饰如名字颜色) 也算进去，方便用户查找
     const filtered = filterType === 'all' 
         ? SHOP_CATALOG 
-        : SHOP_CATALOG.filter(i => i.type === filterType || (filterType === 'decoration' && (i.type === 'decoration' || i.type === 'timed')));
+        : SHOP_CATALOG.filter(i => {
+            if (filterType === 'vip') return i.type === 'vip';
+            if (filterType === 'consumable') return i.type === 'consumable';
+            if (filterType === 'decoration') return i.type === 'decoration' || i.type === 'timed';
+            return i.type === filterType;
+        });
+
+    container.innerHTML = '';
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:#666; width:100%;">暂无此类商品</div>';
+        return;
+    }
 
     filtered.forEach(item => {
         const div = document.createElement('div');
-        // 根据稀有度添加边框类
         div.className = `glass-card shop-item ${item.rarity || ''}`;
         
+        // === 核心逻辑：判断按钮状态 ===
+        let btnHtml = '';
+        const isOwned = ownedItemIds.includes(item.id);
+
+        if (item.type === 'vip') {
+            // VIP 始终可以购买(续费)
+            btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买 / 续费</button>`;
+        } 
+        else if (item.type === 'consumable') {
+            // 消耗品始终可以购买(叠加)
+            btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
+        } 
+        else if (item.type === 'decoration') {
+            // 永久装饰品：如果已拥有，显示“已拥有”并禁用
+            if (isOwned) {
+                btnHtml = `<button class="cyber-btn" disabled style="width:100%; border-color:#333; color:#666; cursor:not-allowed;">✓ 已拥有</button>`;
+            } else {
+                btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
+            }
+        }
+        else if (item.type === 'timed') {
+            // 时效性装饰：如果已拥有，显示“续费”
+            if (isOwned) {
+                btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%; border-color:gold; color:gold;">续费 (+${item.days}天)</button>`;
+            } else {
+                btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
+            }
+        }
+
         div.innerHTML = `
             <div class="item-icon">${item.icon}</div>
             <h3 style="margin:5px 0; font-size:1rem;">${item.name}</h3>
-            <p style="color:#888; font-size:0.8rem; height:40px; overflow:hidden;">${item.desc}</p>
+            <p style="color:#888; font-size:0.8rem; height:40px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${item.desc}</p>
             <div class="price" style="color:${item.rarity==='legendary'?'#FFD700':'#fff'}">${item.cost} i</div>
-            <button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>
+            ${btnHtml}
         `;
         container.appendChild(div);
     });
@@ -2443,4 +2539,5 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
