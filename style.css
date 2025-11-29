@@ -1638,6 +1638,46 @@ body.bg-space {
 .tag-equipped { background: #0f0; color: #000; }
 .tag-count { background: var(--accent-blue); color: #fff; }
 
+/* --- 道具商城样式统一 --- */
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+/* 统一所有商品卡片的高度和内边距 */
+.shop-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    text-align: center;
+    padding: 20px;
+    min-height: 220px; /* 固定高度，防止参差不齐 */
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #333;
+    border-radius: 8px;
+    transition: 0.3s;
+}
+.shop-item:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent-blue);
+    background: rgba(255,255,255,0.05);
+}
+
+/* 图标大小统一 */
+.item-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+/* 价格样式 */
+.price {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #fff;
+    margin: 10px 0;
+}
 
 
 
