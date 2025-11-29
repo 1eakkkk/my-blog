@@ -901,7 +901,7 @@ async function checkSecurity() {
         document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
         document.body.classList.remove('bg-default', 'bg-matrix', 'bg-space', 'bg-cyber', 'bg-sakura', 'bg-fire');
         if (data.equipped_bg) {
-            const bgClass = data.equipped_bg.replace('_', '-
+            const bgClass = data.equipped_bg.replace('_', '-'); 
             document.body.classList.add(bgClass);
         } else {
             document.body.classList.add('bg-default');
@@ -2309,7 +2309,8 @@ async function loadInventory() {
         const data = await res.json();
         
         if (data.list.length === 0) {
-            c.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#666;padding:20px;">背包空空如也<br>去商城看看吧</div>';
+            // 修复：使用反引号以防换行符报错
+            c.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:#666;padding:20px;">背包空空如也<br>去商城看看吧</div>`;
             return;
         }
         
@@ -2320,7 +2321,8 @@ async function loadInventory() {
             
             // 如果找不到（可能是旧商品或改名卡），提供默认值
             const itemName = catalogItem ? catalogItem.name : item.item_id;
-            const itemIcon = catalogItem ? catalogItem.icon : '📦';
+            // 修复：使用 Unicode 转义 \uD83D\uDCE6 代替直接的 Emoji，防止编码错误导致 Unexpected token
+            const itemIcon = catalogItem ? catalogItem.icon : '\uD83D\uDCE6'; 
             const itemRarity = catalogItem ? catalogItem.rarity : 'common';
 
             let actionBtn = '';
@@ -2439,30 +2441,3 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
