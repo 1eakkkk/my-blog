@@ -1241,7 +1241,44 @@ async function loadSinglePost(id, targetCommentId = null) {
 
         const rawDate = post.updated_at || post.created_at; const dateStr = new Date(rawDate).toLocaleString(); const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
         
-        let actionBtns = ''; if (userRole === 'admin') { const pinText = post.is_pinned ? "取消置顶" : "管理员置顶"; const pinColor = post.is_pinned ? "#0f0" : "#666"; actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`; } else if (currentUser && currentUser.id === post.user_id) {const pinText = post.is_pinned ? "取消置顶" : "使用置顶卡"; const pinColor = post.is_pinned ? "#0f0" : "gold";actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`;}if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) {actionBtns += `<button onclick="editPostMode('${post.id}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑</button>`; actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除</button>`;} if (userRole === 'admin' && post.user_id !== currentUser.id) {actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号</button>`; } let tipBtn = ''; if (currentUser.id !== post.user_id) { tipBtn = `<button onclick="tipUser(${post.user_id}, ${post.id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`;  }
+        let actionBtns = ''; 
+
+        // === 1. 置顶按钮逻辑 ===
+        if (userRole === 'admin' || (currentUser && currentUser.id === post.user_id)) {
+            let pinText = '';
+            let pinColor = '';
+            
+            if (post.is_pinned) {
+                pinText = "取消置顶";
+                pinColor = "#666";
+            } else {
+                if (userRole === 'admin') {
+                    pinText = "管理员置顶";
+                    pinColor = "#0f0";
+                } else {
+                    pinText = "使用置顶卡";
+                    pinColor = "gold"; 
+                }
+            }
+            actionBtns += `<button onclick="pinPost(${post.id})" class="delete-btn" style="border-color:${pinColor};color:${pinColor};margin-right:10px">${pinText}</button>`;
+        }
+
+        // === 2. 编辑/删除按钮 ===
+        if (userRole === 'admin' || (currentUser && (currentUser.username === post.author_username || currentUser.id === post.user_id))) { 
+            actionBtns += `<button onclick="editPostMode('${post.id}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑</button>`; 
+            actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除</button>`; 
+        } 
+        
+        // === 3. 封号按钮 ===
+        if (userRole === 'admin' && post.user_id !== currentUser.id) { 
+            actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号</button>`; 
+        }
+        
+        // === 4. 打赏按钮 (修复这一块) ===
+        let tipBtn = ''; 
+        if (currentUser && currentUser.id !== post.user_id) { 
+            tipBtn = `<button onclick="tipUser(${post.user_id}, ${post.id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; 
+        }
         
         const authorDisplay = post.author_nickname || post.author_username; const uObj = { username: post.author_username, avatar_variant: post.author_avatar_variant, avatar_url: post.author_avatar_url };const avatarSvg = renderUserAvatar(uObj); const badgeObj = { role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp || 0, badge_preference: post.author_badge_preference }; const badgesHtml = getBadgesHtml(badgeObj); const cat = post.category || '灌水'; const catHtml = `<span class="category-tag">${cat}</span>`; const likeClass = post.is_liked ? 'liked' : ''; const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
         const userLinkAction = `onclick="window.location.hash='#profile?u=${post.author_username}'" style="cursor:pointer"`;
@@ -2391,6 +2428,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
