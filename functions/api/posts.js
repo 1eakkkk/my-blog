@@ -119,6 +119,12 @@ export async function onRequestPost(context) {
   const today = utc8.toISOString().split('T')[0];
   const xpBase = user.is_vip ? 20 : 10;
   const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
+  const todayKey = new Date(Date.now() + 8*3600*1000).toISOString().split('T')[0];
+
+  await db.batch([
+      // 1. 尝试更新所有 code 包含 'post' 的活跃任务 (简单粗暴匹配所有发帖任务)
+      db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code LIKE 'post_%' AND status = 0`).bind(user.id)
+  ]);
 
   await db.prepare(`UPDATE daily_tasks SET progress = progress + 1 WHERE user_id = ? AND task_type = 'post' AND is_claimed = 0 AND last_update_date = ?`).bind(user.id, today).run();
   return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }));
@@ -178,3 +184,4 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
