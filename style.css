@@ -1747,27 +1747,45 @@ body.bg-abyss::after {
     box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
 }
 
-/* 4. 深海蓝 (Deep Sea) - 保持原样 */
-.msg-bubble.bubble-sea {
-    background: linear-gradient(180deg, #000046, #1CB5E0) !important;
-    border: 1px solid #1CB5E0 !important;
-    color: #fff !important;
-}
-
 /* --- 4. 彩色昵称 (Name Colors) --- */
+/* 使用 !important 并指定 display 确保渐变生效 */
 .color-rainbow {
     background-image: linear-gradient(to left, violet, indigo, blue, green, yellow, orange, red);
     -webkit-background-clip: text;
+    background-clip: text;
     color: transparent !important;
-    font-weight: bold;
+    font-weight: 900;
+    display: inline-block; /* 必须加上这个，否则有些浏览器渐变不显示 */
 }
+
 .color-fire {
-    color: #ff4500 !important;
-    text-shadow: 0 0 5px #ff4500;
+    background: linear-gradient(to top, #f00 0%, #ff0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    text-shadow: 0 0 2px rgba(255, 0, 0, 0.5); /* 加一点发光 */
+    font-weight: bold;
+    display: inline-block;
 }
+
 .color-ice {
-    color: #00f3ff !important;
-    text-shadow: 0 0 5px #00f3ff;
+    background: linear-gradient(to bottom, #00f3ff, #0066ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    text-shadow: 0 0 5px rgba(0, 243, 255, 0.3);
+    font-weight: bold;
+    display: inline-block;
+}
+
+.color-gold {
+    background: linear-gradient(to bottom, #cfc09f 22%,#634f2c 24%, #cfc09f 26%, #cfc09f 27%,#ffecb3 40%,#3a2c0f 78%); 
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    font-weight: 900;
+    text-transform: uppercase;
+    display: inline-block;
 }
 
 /* --- 5. 道具卡片 (Inventory Item) --- */
@@ -1976,6 +1994,7 @@ body.bg-fire {
     background: var(--accent-blue);
     box-shadow: 0 -2px 10px var(--accent-blue);
 }
+
 
 
 
