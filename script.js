@@ -324,15 +324,18 @@ async function loadPosts(reset = false) {
             const now = Date.now();
             posts.forEach(post => {
                 const rawDate = post.updated_at || post.created_at; 
-                const dateStr = new Date(rawDate).toLocaleDateString(); 
+                const dateStr = new Date(rawDate).toLocaleString(); // 使用更详细的时间格式
                 const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
                 
+                // 已读逻辑
                 const readPosts = JSON.parse(localStorage.getItem('read_posts') || '[]');
                 const isTimeNew = (now - post.created_at) < (24 * 60 * 60 * 1000);
                 const isNew = isTimeNew && !readPosts.includes(post.id) && !readPosts.includes(String(post.id));
                 const newBadge = isNew ? '<span class="new-badge">NEW</span>' : '';
 
                 const author = post.author_nickname || post.author_username || "Unknown";
+                
+                // 分类样式
                 const cat = post.category || '灌水'; 
                 let catClass = ''; 
                 if(cat === '技术') catClass = 'cat-tech'; else if(cat === '生活') catClass = 'cat-life'; else if(cat === '提问') catClass = 'cat-question'; else if(cat === '公告') catClass = 'cat-announce';
@@ -341,7 +344,10 @@ async function loadPosts(reset = false) {
                 const isAnnounceClass = cat === '公告' ? 'is-announce' : '';
                 const pinnedIcon = post.is_pinned ? '<span style="color:#0f0;margin-right:5px">📌[置顶]</span>' : '';
                 
+                // 徽章
                 const badgeHtml = getBadgesHtml({ role: post.author_role, custom_title: post.author_title, custom_title_color: post.author_title_color, is_vip: post.author_vip, xp: post.author_xp, badge_preference: post.author_badge_preference });
+                
+                // 点赞按钮
                 const likeClass = post.is_liked ? 'liked' : ''; 
                 const likeBtn = `<button class="like-btn ${likeClass}" onclick="event.stopPropagation(); toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>`;
                 
@@ -349,10 +355,10 @@ async function loadPosts(reset = false) {
                 div.className = `post-card ${isAnnounceClass}`; 
                 if(post.is_pinned) div.style.borderLeft = "3px solid #0f0";
 
+                // 缩略图逻辑
                 const imgMatch = post.content.match(/!\[.*?\]\((.*?)\)/) || post.content.match(/<img.*?src=["'](.*?)["']/);
                 let thumbnailHtml = '';
                 if (imgMatch) {
-                    // 如果有图，生成 HTML
                     thumbnailHtml = `
                         <div class="post-thumbnail-container" style="display:block">
                             <img src="${imgMatch[1]}" class="post-thumbnail" loading="lazy">
@@ -361,28 +367,70 @@ async function loadPosts(reset = false) {
                 }
                 
                 const commentCount = post.comment_count || 0;
+                // 帖子累计打赏金额 (如果数据库没这字段暂时显示0)
+                const tipAmount = post.total_coins || 0; 
+
                 const cleanText = DOMPurify.sanitize(marked.parse(post.content), {ALLOWED_TAGS: []});
-                const authorLink = `<span class="mention-link" onclick="event.stopPropagation(); window.location.hash='#profile?u=${post.author_username}'">@${author}</span>`;
+                
+                // 作者点击跳转
+                const authorAction = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${post.author_username}'"`;
+                // 头像
+                const avatarHtml = `<div style="width:35px;height:35px;border-radius:4px;overflow:hidden;cursor:pointer;border:1px solid #333;" ${authorAction}>${generatePixelAvatar(post.author_username, post.author_avatar_variant)}</div>`;
+
+                // === 核心修改：HTML 结构重组 ===
                 div.innerHTML = `
-                    <div class="post-meta">${newBadge}${pinnedIcon}${catHtml} ${dateStr} ${editedTag} | ${badgeHtml} ${authorLink}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start"><h2 style="margin:0">${post.title}</h2></div>
+                    <!-- 1. 顶部：头像 + 作者名 + 徽章 -->
+                    <div class="post-header-top">
+                        ${avatarHtml}
+                        <div style="display:flex; flex-direction:column; justify-content:center;">
+                            <div style="display:flex; align-items:center;">
+                                <span class="post-author-name-large mention-link" ${authorAction}>${author}</span>
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 标题 -->
+                    <h2 style="margin:0">${post.title}</h2>
+
+                    <!-- 3. 日期 (标题下方) -->
+                    <div class="post-date-sub">
+                        <span>${dateStr}</span>
+                        ${editedTag}
+                    </div>
+
+                    <!-- 4. 标签/分类 (正文上方) -->
+                    <div class="post-tags-mid">
+                        ${newBadge}
+                        ${pinnedIcon}
+                        ${catHtml}
+                    </div>
+                    
+                    <!-- 5. 内容摘要 & 缩略图 -->
                     ${thumbnailHtml}
                     <div class="post-snippet">${cleanText.substring(0, 100)}...</div>
-                    <div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem; color:#666;">
-                        <div>💬 <span class="count">${commentCount}</span> 评论</div>
-                        <div>${likeBtn}</div>
+                    
+                    <!-- 6. 底部数据栏 -->
+                    <div class="post-footer" style="margin-top:15px; padding-top:10px; border-top:1px dashed #222; display:flex; gap:20px; align-items:center; font-size:0.9rem; color:#666;">
+                        <div class="post-stat-item">
+                            <span>💬</span> <span>${commentCount}</span>
+                        </div>
+                        <div class="post-stat-item" style="color:#FFD700;">
+                            <span>💰</span> <span>${tipAmount}</span>
+                        </div>
+                        <div style="margin-left:auto;">
+                            ${likeBtn}
+                        </div>
                     </div>
                 `;
 
+                // 点击卡片跳转
                 div.onclick = () => { 
-                    // 记录已读
                     const currentRead = JSON.parse(localStorage.getItem('read_posts') || '[]');
                     if (!currentRead.includes(post.id) && !currentRead.includes(String(post.id))) {
                         currentRead.push(post.id);
                         localStorage.setItem('read_posts', JSON.stringify(currentRead));
                     }
-                    
-                    // 视觉上移除 NEW 标签
                     const badge = div.querySelector('.new-badge');
                     if (badge) badge.style.display = 'none';
 
@@ -1560,6 +1608,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
