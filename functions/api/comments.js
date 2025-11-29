@@ -25,7 +25,7 @@ export async function onRequestGet(context) {
   // 分页查询 (按时间顺序，这符合楼层逻辑，最早的是沙发)
   const comments = await db.prepare(`
     SELECT comments.*, 
-           users.username, users.nickname, users.avatar_variant, 
+           users.username, users.nickname, users.avatar_variant, users.avatar_url 
            users.is_vip, users.level, users.xp, users.role, 
            users.custom_title, users.custom_title_color, users.badge_preference,
            reply_users.username as reply_to_username,
