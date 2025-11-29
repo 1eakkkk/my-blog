@@ -29,6 +29,7 @@ export async function onRequestGet(context) {
            users.username, users.nickname, users.avatar_variant, users.avatar_url,
            users.is_vip, users.level, users.xp, users.role, 
            users.custom_title, users.custom_title_color, users.badge_preference,
+           users.name_color,
            reply_users.username as reply_to_username,
            reply_users.nickname as reply_to_nickname,
            (SELECT COUNT(*) FROM likes WHERE target_id = comments.id AND target_type = 'comment') as like_count,
