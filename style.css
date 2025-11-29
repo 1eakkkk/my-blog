@@ -1164,3 +1164,62 @@ input:checked + .slider:before {
     color: #fff;
     font-weight: bold;
 }
+
+/* --- 任务卡片按钮美化 --- */
+
+/* 1. 可领取按钮 (霓虹闪烁效果) */
+.task-claim-btn {
+    border-color: #0f0 !important;
+    color: #0f0 !important;
+    font-size: 0.8rem;
+    padding: 6px 15px;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+    animation: pulse-green 1.5s infinite;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.task-claim-btn:hover {
+    background: rgba(0, 255, 0, 0.1);
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.6);
+}
+
+@keyframes pulse-green {
+    0% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.3); }
+    50% { box-shadow: 0 0 15px rgba(0, 255, 0, 0.6); }
+    100% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.3); }
+}
+
+/* 2. 已领取徽章 (低调的灰色/绿色) */
+.task-status-badge.claimed {
+    font-size: 0.75rem;
+    color: #666;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid #333;
+    white-space: nowrap;
+    opacity: 0.8;
+}
+
+/* 3. 进行中文字 */
+.task-status-text {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    font-family: var(--font-tech);
+    font-weight: bold;
+}
+
+/* 4. 移动端适配 (防止按钮太小或错位) */
+@media (max-width: 768px) {
+    .task-claim-btn {
+        padding: 8px 12px; /* 增加点击区域 */
+        font-size: 0.8rem;
+    }
+    
+    .glass-card > div:first-child {
+        /* 让任务标题和按钮对齐更好 */
+        align-items: center; 
+    }
+}
