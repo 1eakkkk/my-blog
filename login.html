@@ -4,6 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <!-- 禁止浏览器缓存当前页面 -->
+    <!-- 1. 预先建立与 Cloudflare 验证服务器的连接 -->
+    <link rel="preconnect" href="https://challenges.cloudflare.com">
+    <link rel="dns-prefetch" href="https://challenges.cloudflare.com">
+    <!-- 2. 调整 JS 加载策略 (保留 async defer) -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -253,6 +258,7 @@
     </script>
 </body>
 </html>
+
 
 
 
