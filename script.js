@@ -1149,6 +1149,7 @@ async function handleRoute() {
         loadLeaderboard();
     } else if (hash === '#shop') {
         if(views.shop) views.shop.style.display = 'block';
+        renderShop('all'); // 默认加载全部
         const link = document.querySelector('a[href="#shop"]'); if(link) link.classList.add('active');
     } else if (hash === '#inventory') {
         if(views.inventory) views.inventory.style.display = 'block';
@@ -2288,6 +2289,73 @@ window.toggleEquip = async function(id, cat, action) {
         checkSecurity(); // 刷新自身状态(背景等)
     }
 };
+
+// === 前端商品数据 (需要和后端保持一致) ===
+const SHOP_CATALOG = [
+    // VIP
+    { id: 'vip_7', cost: 70, name: 'VIP 周卡', type: 'vip', icon: '🎫', rarity: 'common', desc: '经验+45% / 7天' },
+    { id: 'vip_14', cost: 120, name: 'VIP 进阶卡', type: 'vip', icon: '⚡', rarity: 'rare', desc: '经验+45% / 14天' },
+    { id: 'vip_30', cost: 210, name: 'VIP 尊享月卡', type: 'vip', icon: '👑', rarity: 'epic', desc: '经验+45% / 30天' },
+
+    // 道具
+    { id: 'rename_card', cost: 100, name: '改名卡', type: 'consumable', icon: '💳', rarity: 'common', desc: '修改一次昵称' },
+    
+    // 装饰 (背景)
+    { id: 'bg_matrix', cost: 500, name: '矩阵数据流', type: 'decoration', sub: 'background', icon: '👾', rarity: 'rare', desc: '全局动态背景' },
+    { id: 'bg_space', cost: 900, name: '深空星系', type: 'decoration', sub: 'background', icon: '🌌', rarity: 'epic', desc: '深邃星空背景' },
+    
+    // 装饰 (帖子)
+    { id: 'post_neon', cost: 200, name: '霓虹边框', type: 'decoration', sub: 'post_style', icon: '🟦', rarity: 'common', desc: '帖子发光边框' },
+    { id: 'post_gold', cost: 500, name: '黄金传说', type: 'decoration', sub: 'post_style', icon: '🟨', rarity: 'epic', desc: '土豪专属金框' },
+    { id: 'post_glitch', cost: 300, name: '故障艺术', type: 'decoration', sub: 'post_style', icon: '📺', rarity: 'rare', desc: '赛博故障风' },
+    
+    // 装饰 (气泡)
+    { id: 'bubble_pink', cost: 150, name: '赛博粉', type: 'decoration', sub: 'bubble', icon: '💗', rarity: 'common', desc: '聊天气泡皮肤' },
+    { id: 'bubble_green', cost: 150, name: '黑客绿', type: 'decoration', sub: 'bubble', icon: '📟', rarity: 'common', desc: '聊天气泡皮肤' },
+    { id: 'bubble_gold', cost: 400, name: '土豪金', type: 'decoration', sub: 'bubble', icon: '💰', rarity: 'epic', desc: '聊天气泡皮肤' },
+    
+    // 名字
+    { id: 'color_rainbow', cost: 300, name: '彩虹昵称', type: 'timed', icon: '🌈', rarity: 'epic', desc: '30天七彩名字' },
+    { id: 'color_fire', cost: 200, name: '火焰昵称', type: 'timed', icon: '🔥', rarity: 'rare', desc: '30天火焰名字' },
+];
+
+// === 渲染商城函数 ===
+window.renderShop = function(filterType = 'all') {
+    const container = document.getElementById('shop-list');
+    if(!container) return;
+    
+    container.innerHTML = '';
+    
+    const filtered = filterType === 'all' 
+        ? SHOP_CATALOG 
+        : SHOP_CATALOG.filter(i => i.type === filterType || (filterType === 'decoration' && (i.type === 'decoration' || i.type === 'timed')));
+
+    filtered.forEach(item => {
+        const div = document.createElement('div');
+        // 根据稀有度添加边框类
+        div.className = `glass-card shop-item ${item.rarity || ''}`;
+        
+        div.innerHTML = `
+            <div class="item-icon">${item.icon}</div>
+            <h3 style="margin:5px 0; font-size:1rem;">${item.name}</h3>
+            <p style="color:#888; font-size:0.8rem; height:40px; overflow:hidden;">${item.desc}</p>
+            <div class="price" style="color:${item.rarity==='legendary'?'#FFD700':'#fff'}">${item.cost} i</div>
+            <button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>
+        `;
+        container.appendChild(div);
+    });
+};
+
+// === 切换标签 ===
+window.switchShopTab = function(type) {
+    // 切换按钮高亮
+    document.querySelectorAll('.shop-tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // 重新渲染
+    renderShop(type);
+};
+
 
 
 
