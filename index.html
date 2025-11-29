@@ -130,7 +130,7 @@
                     </div>
                     <!-- 搜索与排序工具栏 -->
                     <div class="toolbar" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <input type="text" id="searchInput" class="cyber-input" placeholder="搜索关键词 / SEARCH..." style="flex: 2; margin: 0;">
+                        <input type="text" id="searchInput" class="cyber-input" placeholder="搜索关键词..." style="flex: 2; margin: 0;">
                         <select id="sortSelect" class="cyber-input" style="flex: 1; margin: 0; min-width: 120px; color: var(--accent-blue);">
                             <option value="latest">最新</option>
                             <option value="hot">热度</option>
@@ -155,7 +155,7 @@
                             <option value="生活">☕ 生活</option>
                             <option value="提问">❓ 提问Q&A</option>
                         </select>
-                        <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题 / Title">
+                        <input type="text" id="postTitle" class="cyber-input full-width" placeholder="标题">
                         <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
                             <!-- 修改 accept 属性，增加 video/* -->
                             <input type="file" id="imageUploadInput" accept="image/*,video/*" style="display: none;" onchange="uploadImage()">
@@ -164,7 +164,7 @@
                             </button>
                             <span id="uploadStatus" style="font-size: 0.8rem; color: #666;"></span>
                         </div>
-                        <textarea id="postContent" class="cyber-textarea" placeholder="内容 / Content"></textarea>
+                        <textarea id="postContent" class="cyber-textarea" placeholder="内容"></textarea>
                         <button type="submit" class="cyber-btn big-btn">发布</button>
                     </form>
                 </div>
@@ -489,6 +489,7 @@
     <script src="script.js?v=6.2"></script>
 </body>
 </html>
+
 
 
 
