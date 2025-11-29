@@ -44,14 +44,15 @@ export async function onRequestPost(context) {
 
   try {
     await db.batch([
-      // 打赏者：扣除原始金额(payAmount)，增加计算后的经验(senderXpBase)
-      db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ? WHERE id = ?').bind(payAmount, senderXpBase, sender.id),
+      // 1. 打赏者：扣余额，加经验，【新增】累加打赏支出(tips_sent)
+      db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ?, tips_sent = tips_sent + ? WHERE id = ?')
+        .bind(payAmount, senderXpBase, payAmount, sender.id),
       
-      // 接收者：增加原始金额(payAmount)，增加受限经验
-      db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ?, daily_xp = daily_xp + ?, last_xp_date = ? WHERE id = ?')
-        .bind(payAmount, actualReceiverAdd, actualReceiverAdd, today, target_user_id),
+      // 2. 接收者：加余额，加受限经验，【新增】累加打赏收入(tips_received)
+      db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ?, daily_xp = daily_xp + ?, last_xp_date = ?, tips_received = tips_received + ? WHERE id = ?')
+        .bind(payAmount, actualReceiverAdd, actualReceiverAdd, today, payAmount, target_user_id),
       
-      // 发通知
+      // 3. 发通知
       db.prepare('INSERT INTO notifications (user_id, type, message, link, created_at) VALUES (?, ?, ?, ?, ?)')
         .bind(target_user_id, 'tip', `${sender.nickname||sender.username} 打赏了你 ${payAmount} i币`, '#home', Date.now())
     ]);
