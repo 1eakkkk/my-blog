@@ -38,12 +38,16 @@ export async function onRequest(context) {
                 (SELECT nickname FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as nickname,
                 (SELECT username FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as username,
                 (SELECT avatar_url FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as avatar_url,
-                (SELECT avatar_variant FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as avatar_variant
-             FROM messages 
+                (SELECT avatar_variant FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as avatar_variant,
+                
+                -- === 新增：统计该用户的未读消息数 ===
+                (SELECT COUNT(*) FROM messages WHERE sender_id = (CASE WHEN m_outer.sender_id = ? THEN m_outer.receiver_id ELSE m_outer.sender_id END) AND receiver_id = ? AND is_read = 0) as unread_count
+
+             FROM messages m_outer
              WHERE sender_id = ? OR receiver_id = ?
              GROUP BY uid
              ORDER BY last_time DESC
-          `).bind(me.id, me.id, me.id, me.id, me.id, me.id, me.id).all();
+          `).bind(me.id, me.id, me.id, me.id, me.id, me.id, me.id, me.id, me.id).all();
           
           return new Response(JSON.stringify({ success: true, list: conversations.results }));
       }
