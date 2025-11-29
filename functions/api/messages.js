@@ -14,15 +14,19 @@ export async function onRequest(context) {
       const targetId = url.searchParams.get('target_id');
 
       if (targetId) {
-          // 获取与某人的详细聊天记录
-          // 同时标记已读
+          // 获取与某人的详细聊天记录 (标记已读)
           await db.prepare('UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ?').bind(targetId, me.id).run();
           
+          // === 修改：关联查询用户头像信息 ===
           const msgs = await db.prepare(`
-              SELECT * FROM messages 
-              WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
-              ORDER BY created_at ASC LIMIT 50
+              SELECT m.*, 
+                     u.username, u.nickname, u.avatar_url, u.avatar_variant
+              FROM messages m
+              JOIN users u ON m.sender_id = u.id
+              WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)
+              ORDER BY m.created_at ASC LIMIT 50
           `).bind(me.id, targetId, targetId, me.id).all();
+          
           return new Response(JSON.stringify({ success: true, list: msgs.results }));
       } else {
           // 获取最近对话列表 (比较复杂的SQL，找最近联系人)
