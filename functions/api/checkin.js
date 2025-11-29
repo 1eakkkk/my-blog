@@ -45,13 +45,18 @@ export async function onRequestPost(context) {
   }
 
   // 计算奖励：基础10，每天增加10，封顶50
-  let reward = 10 + (newConsecutive - 1) * 10;
-  if (reward > 50) reward = 50;
-  
-  // VIP 双倍金币? (可选，这里假设VIP只加倍基础经验，保持金币逻辑简单，或者你想要叠加后的金币也受VIP影响)
-  // 按照需求：连续签到叠加获得经验和i币。
-  let coinAdd = reward;
-  let xpAdd = reward;
+  let baseReward = 10 + (newConsecutive - 1) * 10;
+  if (baseReward > 50) baseReward = 50;
+
+  let coinAdd = baseReward;
+  let xpAdd = baseReward;
+
+  // === VIP 加成 (1.45倍) ===
+  const isVip = user.vip_expires_at > Date.now();
+  if (isVip) {
+      xpAdd = Math.floor(xpAdd * 1.45);
+      // 金币通常不加成，或者根据你需求。按题目要求只说经验加成。
+  }
 
   // 执行更新
   await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code = 'checkin' AND category = 'daily' AND status = 0 AND period_key = ?`)
@@ -68,4 +73,5 @@ export async function onRequestPost(context) {
     coins: user.coins + coinAdd 
   }));
 }
+
 
