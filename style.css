@@ -1366,22 +1366,61 @@ input:checked + .slider:before {
     justify-content: flex-start; /* 注意：row-reverse 后，start 就是右边 */
 }
 
-/* 4. 头像通用样式 */
+
+/* 4. 头像容器 (PC端) */
 .msg-avatar {
-    width: 36px;
-    height: 36px;
-    flex-shrink: 0;
+    /* 核心修复：锁死宽高，不许 Flex 伸缩 */
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important; /* 防止被压扁 */
+    max-width: 40px !important; /* 防止撑大 (关键!) */
+    flex: 0 0 40px;             /* Flex 简写：不放大、不缩小、基准40 */
+    
     border-radius: 6px;
-    overflow: hidden;
+    overflow: hidden;           /* 必须隐藏溢出 */
     border: 1px solid #444;
     background: #000;
+    margin: 0;                  /* 去掉外边距 */
 }
-/* 确保里面的 svg/img 填满 */
-.msg-avatar img, .msg-avatar svg {
-    width: 100%;
-    height: 100%;
+
+/* 限制内部图片/SVG 必须乖乖呆在盒子里 */
+.msg-avatar img, 
+.msg-avatar svg {
+    width: 100% !important;
+    height: 100% !important;
     object-fit: cover;
     display: block;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* ... (气泡样式 .msg-bubble 保持不变) ... */
+
+/* === 移动端专项优化 (放在文件最底部) === */
+@media (max-width: 768px) {
+    /* ... (chat-layout 和 chatBox 样式保持不变) ... */
+
+    /* 手机端头像 (强制缩小并锁死) */
+    .msg-avatar {
+        width: 30px !important;      /* 宽度 */
+        height: 30px !important;     /* 高度 */
+        min-width: 30px !important;  /* 锁死最小宽 */
+        max-width: 30px !important;  /* 锁死最大宽 (防炸屏核心) */
+        flex: 0 0 30px;              /* Flex 锁死 */
+        margin-bottom: 2px;          /* 对齐底部微调 */
+    }
+    
+    /* 气泡样式微调 */
+    .msg-bubble {
+        max-width: 80%;   /* 给头像留出空间 */
+        font-size: 0.9rem;
+        padding: 8px 12px;
+    }
+    
+    /* 确保 Flex 容器不许换行 */
+    .msg-row {
+        flex-wrap: nowrap !important; 
+    }
 }
 
 /* 5. 气泡通用样式 */
@@ -1463,4 +1502,5 @@ input:checked + .slider:before {
         padding-bottom: 70px; /* 防止被输入框挡住 */
     }
 }
+
 
