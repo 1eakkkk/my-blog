@@ -13,10 +13,10 @@ export async function onRequestGet(context) {
 
   // 2. 原有的查询逻辑 (保持不变)
   const results = await db.batch([
-      db.prepare('SELECT username, nickname, avatar_variant, xp, level, is_vip, custom_title, custom_title_color FROM users ORDER BY xp DESC LIMIT 10'),
-      db.prepare('SELECT username, nickname, avatar_variant, tips_sent, is_vip FROM users WHERE tips_sent > 0 ORDER BY tips_sent DESC LIMIT 10'),
-      db.prepare('SELECT username, nickname, avatar_variant, tips_received, is_vip FROM users WHERE tips_received > 0 ORDER BY tips_received DESC LIMIT 10'),
-      db.prepare('SELECT username, nickname, avatar_variant, likes_received, is_vip FROM users WHERE likes_received > 0 ORDER BY likes_received DESC LIMIT 10')
+      db.prepare('SELECT username, nickname, avatar_variant, avatar_url, xp, level, is_vip, custom_title, custom_title_color FROM users ORDER BY xp DESC LIMIT 10'),
+      db.prepare('SELECT username, nickname, avatar_variant, avatar_url, tips_sent, is_vip FROM users WHERE tips_sent > 0 ORDER BY tips_sent DESC LIMIT 10'),
+      db.prepare('SELECT username, nickname, avatar_variant, avatar_url, tips_received, is_vip FROM users WHERE tips_received > 0 ORDER BY tips_received DESC LIMIT 10'),
+      db.prepare('SELECT username, nickname, avatar_variant, avatar_url, likes_received, is_vip FROM users WHERE likes_received > 0 ORDER BY likes_received DESC LIMIT 10')
   ]);
 
   // 3. === 新增：更新任务进度 (view_rank) ===
