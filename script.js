@@ -155,23 +155,52 @@ window.closeChatBox = function() {
     if(window.innerWidth < 768) document.querySelector('.chat-sidebar').style.display = 'flex';
 };
 
+// 覆盖原有的 loadChatHistory 函数
 async function loadChatHistory() {
     if(!currentChatTargetId) return;
     const container = document.getElementById('chatMessages');
     
+    // 获取消息记录 (后端现在会返回 avatar_url 等信息)
     const res = await fetch(`${API_BASE}/messages?target_id=${currentChatTargetId}`);
     const data = await res.json();
     
-    // 简单暴力重绘 (优化方案是比对增量)
     container.innerHTML = '';
+    
     data.list.forEach(m => {
+        const isMe = m.sender_id == currentUser.id;
+        
+        // 构造用户对象用于渲染头像
+        // 如果是对方发的，用 m 里的 user 信息；如果是自己发的，用全局 currentUser
+        const userObj = isMe ? currentUser : {
+            username: m.username,
+            avatar_variant: m.avatar_variant,
+            avatar_url: m.avatar_url
+        };
+        
+        const avatarHtml = renderUserAvatar(userObj);
+        
+        // 构造 HTML 结构：Row -> Avatar + Bubble
         const div = document.createElement('div');
-        div.className = `msg-bubble ${m.sender_id == currentUser.id ? 'msg-right' : 'msg-left'}`;
-        div.innerText = m.content;
+        div.className = `msg-row ${isMe ? 'right' : 'left'}`;
+        
+        // 解析内容支持图片等
+        // 注意：私信暂时不建议支持太多 markdown，防止样式崩坏，或者只支持简单的
+        // 这里简单处理换行
+        const contentHtml = m.content.replace(/\n/g, '<br>');
+
+        div.innerHTML = `
+            <div class="msg-avatar">${avatarHtml}</div>
+            <div class="msg-bubble">${contentHtml}</div>
+        `;
+        
         container.appendChild(div);
     });
+    
     // 滚动到底部
     container.scrollTop = container.scrollHeight;
+    
+    // 读取完消息后，顺便刷新一下侧边栏红点（因为变已读了）
+    checkNotifications();
 }
 
 window.sendPrivateMessage = async function() {
@@ -179,15 +208,23 @@ window.sendPrivateMessage = async function() {
     const content = input.value.trim();
     if(!content || !currentChatTargetId) return;
     
-    // 乐观更新 UI
     const container = document.getElementById('chatMessages');
+    
+    // === 乐观更新 UI (带头像) ===
     const div = document.createElement('div');
-    div.className = 'msg-bubble msg-right';
-    div.style.opacity = '0.5'; // 发送中状态
-    div.innerText = content;
+    div.className = 'msg-row right'; // 自己发的在右边
+    div.style.opacity = '0.5';
+    
+    const avatarHtml = renderUserAvatar(currentUser);
+    
+    div.innerHTML = `
+        <div class="msg-avatar">${avatarHtml}</div>
+        <div class="msg-bubble">${content}</div>
+    `;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     input.value = '';
+    // ==========================
 
     const res = await fetch(`${API_BASE}/messages`, {
         method: 'POST', headers: {'Content-Type':'application/json'},
@@ -196,6 +233,8 @@ window.sendPrivateMessage = async function() {
     const d = await res.json();
     if(d.success) {
         div.style.opacity = '1';
+        // 刷新一下以确保数据同步
+        loadChatHistory();
     } else {
         div.style.border = '1px solid red';
         showToast(d.error, 'error');
@@ -1473,7 +1512,38 @@ async function loadNotifications() {
         c.innerHTML='Error loading logs';
     } 
 }
-async function checkNotifications() { try { const r = await fetch(`${API_BASE}/notifications`); const d = await r.json(); const b = document.getElementById('notifyBadge'); if(d.count>0){ b.style.display='inline-block'; b.textContent=d.count;} else b.style.display='none'; } catch(e){} }
+
+//  checkNotifications 函数
+async function checkNotifications() { 
+    try { 
+        const r = await fetch(`${API_BASE}/notifications`); 
+        const d = await r.json(); 
+        
+        // 1. 系统通知红点
+        const b = document.getElementById('notifyBadge'); 
+        if(d.count > 0){ 
+            b.style.display='inline-block'; 
+            b.textContent = d.count > 99 ? '99+' : d.count;
+        } else {
+            b.style.display='none';
+        }
+
+        // 2. === 新增：私信红点 ===
+        const c = document.getElementById('chatBadge');
+        if (c) {
+            if (d.chatCount > 0) {
+                c.style.display = 'inline-block';
+                c.textContent = d.chatCount > 99 ? '99+' : d.chatCount;
+                
+                // 如果侧边栏是折叠的，可以在这里做一些额外提示(可选)
+            } else {
+                c.style.display = 'none';
+            }
+        }
+
+    } catch(e){} 
+}
+
 window.readOneNotify = async function(id, link, divElement) { if(divElement) divElement.classList.remove('unread'); returnToNotifications = true; fetch(`${API_BASE}/notifications`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: id }) }).then(() => checkNotifications()); window.location.hash = link; };
 window.markAllRead = async function() { await fetch(`${API_BASE}/notifications`, {method:'POST'}); loadNotifications(); checkNotifications(); };
 window.toggleLike = async function(targetId, type, btn) { if(btn.disabled) return; btn.disabled = true; try { const res = await fetch(`${API_BASE}/like`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ target_id: targetId, target_type: type }) }); const data = await res.json(); if(data.success) { const countSpan = btn.querySelector('.count'); countSpan.textContent = data.count; if(data.isLiked) btn.classList.add('liked'); else btn.classList.remove('liked'); } else { if(res.status === 401) showToast("请先登录"); else showToast(data.error); } } catch(e) { console.error(e); } finally { btn.disabled = false; } };
@@ -1950,6 +2020,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
