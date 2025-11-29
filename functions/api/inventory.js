@@ -1,0 +1,64 @@
+// --- functions/api/inventory.js ---
+export async function onRequest(context) {
+  const { request, env } = context;
+  const db = env.DB;
+  
+  // 鉴权 (省略重复代码，请自行补全 cookie 校验)
+  const cookie = request.headers.get('Cookie');
+  const sessionId = cookie?.match(/session_id=([^;]+)/)?.[1];
+  if (!sessionId) return new Response(JSON.stringify({error:'Login'}),{status:401});
+  const user = await db.prepare('SELECT id FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+  if(!user) return new Response(JSON.stringify({error:'Invalid'}),{status:401});
+
+  // GET: 获取背包
+  if (request.method === 'GET') {
+      // 查所有道具，并按分类排序
+      const items = await db.prepare('SELECT * FROM user_items WHERE user_id = ? ORDER BY category, created_at DESC').bind(user.id).all();
+      return new Response(JSON.stringify({ success: true, list: items.results }));
+  }
+
+  // POST: 装备/卸下道具
+  if (request.method === 'POST') {
+      const { action, itemId, category } = await request.json();
+      
+      if (action === 'equip') {
+          // 1. 先把同类别的其他道具卸下 (background, post_style 等单选)
+          await db.prepare('UPDATE user_items SET is_equipped = 0 WHERE user_id = ? AND category = ?').bind(user.id, category).run();
+          
+          // 2. 装备新道具
+          // 这里的 itemId 是 user_items 表里的 id，还是道具代号？建议传 user_items 的 id (主键)
+          await db.prepare('UPDATE user_items SET is_equipped = 1 WHERE id = ? AND user_id = ?').bind(itemId, user.id).run();
+          
+          // 3. 同步到 users 表 (为了性能)
+          let column = '';
+          if (category === 'background') column = 'equipped_bg';
+          else if (category === 'post_style') column = 'equipped_post_style';
+          else if (category === 'bubble') column = 'equipped_bubble_style';
+          else if (category === 'name_color') column = 'name_color';
+          
+          // 获取道具代号
+          const itemObj = await db.prepare('SELECT item_id FROM user_items WHERE id = ?').bind(itemId).first();
+          
+          if (column && itemObj) {
+              await db.prepare(`UPDATE users SET ${column} = ? WHERE id = ?`).bind(itemObj.item_id, user.id).run();
+          }
+          
+          return new Response(JSON.stringify({ success: true, message: '装备成功' }));
+      }
+      
+      if (action === 'unequip') {
+          await db.prepare('UPDATE user_items SET is_equipped = 0 WHERE id = ? AND user_id = ?').bind(itemId, user.id).run();
+           // 清空 users 表对应字段
+           let column = '';
+           if (category === 'background') column = 'equipped_bg';
+           else if (category === 'post_style') column = 'equipped_post_style';
+           else if (category === 'bubble') column = 'equipped_bubble_style';
+           else if (category === 'name_color') column = 'name_color';
+           
+           if (column) {
+               await db.prepare(`UPDATE users SET ${column} = NULL WHERE id = ?`).bind(user.id).run();
+           }
+           return new Response(JSON.stringify({ success: true, message: '已卸下' }));
+      }
+  }
+}
