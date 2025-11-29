@@ -899,7 +899,7 @@ async function checkSecurity() {
         if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
         
         document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
-        document.body.classList.remove('bg-default', 'bg-matrix', 'bg-space', 'bg-cyber', 'bg-sakura', 'bg-fire');
+        document.body.classList.remove('bg-default', 'bg-matrix', 'bg-space', 'bg-cyber', 'bg-sakura', 'bg-fire', 'bg-abyss');
         if (data.equipped_bg) {
             const bgClass = data.equipped_bg.replace('_', '-'); 
             document.body.classList.add(bgClass);
@@ -2367,7 +2367,7 @@ window.toggleEquip = async function(id, cat, action) {
     }
 };
 
-// === 前端商品数据 (完整版 - 23个商品) ===
+// === 前端商品数据 (完整版) ===
 const SHOP_CATALOG = [
     // === 💎 VIP 会员 ===
     { id: 'vip_7', cost: 70, name: 'VIP 周卡', type: 'vip', icon: '🎫', rarity: 'common', desc: '经验+45% / 7天' },
@@ -2381,9 +2381,11 @@ const SHOP_CATALOG = [
     // === 🌌 网页背景 (Backgrounds) ===
     { id: 'bg_matrix', cost: 500, name: '矩阵数据流', type: 'decoration', sub: 'background', icon: '👾', rarity: 'rare', desc: '黑客帝国动态背景' },
     { id: 'bg_space', cost: 900, name: '深空星系', type: 'decoration', sub: 'background', icon: '🌌', rarity: 'epic', desc: '深邃星空背景' },
-    { id: 'bg_cyber', cost: 800, name: '赛博都市', type: 'decoration', sub: 'background', icon: '🏙️', rarity: 'epic', desc: '蓝紫渐变夜景' },
-    { id: 'bg_sakura', cost: 600, name: '落樱缤纷', type: 'decoration', sub: 'background', icon: '🌸', rarity: 'rare', desc: '粉色樱花氛围' },
-    { id: 'bg_fire', cost: 1200, name: '地狱烈焰', type: 'decoration', sub: 'background', icon: '🔥', rarity: 'legendary', desc: '动态燃烧背景' },
+    { id: 'bg_cyber', cost: 800, name: '赛博都市', type: 'decoration', sub: 'background', icon: '🏙️', rarity: 'epic', desc: 'Synthwave 霓虹夜景' },
+    { id: 'bg_sakura', cost: 600, name: '落樱缤纷', type: 'decoration', sub: 'background', icon: '🌸', rarity: 'rare', desc: '护眼夜樱模式' },
+    { id: 'bg_fire', cost: 1200, name: '地狱烈焰', type: 'decoration', sub: 'background', icon: '🔥', rarity: 'legendary', desc: '动态岩浆粒子' },
+    // ✅ 新增：深渊幽蓝
+    { id: 'bg_abyss', cost: 1000, name: '深渊幽蓝', type: 'decoration', sub: 'background', icon: '🐋', rarity: 'epic', desc: '深海荧光与气泡' },
     
     // === 🖼️ 帖子边框 (Post Styles) ===
     { id: 'post_neon', cost: 200, name: '霓虹边框', type: 'decoration', sub: 'post_style', icon: '🟦', rarity: 'common', desc: '蓝色发光边框' },
@@ -2441,3 +2443,4 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
