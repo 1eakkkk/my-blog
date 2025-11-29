@@ -80,29 +80,23 @@
             
                        <!-- 覆盖对应的 nav 部分 -->
             <nav>
-                <a href="#home" class="nav-link active">首页</a>
+                <a href="#home" class="nav-link active">🏛 首页 </a>
                 <a href="#notifications" class="nav-link" id="navNotify" style="display:flex; justify-content:space-between; align-items:center;">
-                    消息<span id="notifyBadge" class="notify-badge" style="display:none">0</span>
+                   ✉ 消息 <span id="notifyBadge" class="notify-badge" style="display:none">0</span>
                 </a>
-                <a href="#tasks" class="nav-link">任务中心</a>
+                <a href="#tasks" class="nav-link">🎁 任务中心 </a>
                 <a href="#leaderboard" class="nav-link">🏆 排行榜 </a>
-                <a href="#write" class="nav-link" id="navWrite">项目</a>
-                <a href="#feedback" class="nav-link">反馈中心</a> <!-- 新增 -->
-                <a href="#profile?u=" id="navMyProfile" class="nav-link" onclick="if(currentUser) this.href='#profile?u='+currentUser.username">我的主页</a> <!-- 新增：我的主页入口 -->
-                <a href="#settings" class="nav-link">个人设置</a>
-                <a href="#about" class="nav-link">关于</a>
+                <a href="#write" class="nav-link" id="navWrite">🎈 发帖入口 </a>
+                <a href="#shop" class="nav-link" style="color:#FFD700;">🛍️ 道具商城</a> <!-- 在 导航栏 中添加 -->
+                <a href="#feedback" class="nav-link">📃 反馈中心 </a> <!-- 新增 -->
+                <a href="#profile?u=" id="navMyProfile" class="nav-link" onclick="if(currentUser) this.href='#profile?u='+currentUser.username">🤴 我的主页 </a> <!-- 新增：我的主页入口 -->
+                <a href="#settings" class="nav-link">⚙ 个人设置 </a>
+                <a href="#about" class="nav-link">🖍 关于 </a>
                 <a href="#admin" class="nav-link" id="navAdmin" style="display:none; color:#ff3333; justify-content:space-between; align-items:center;">
                     <span>⚠️ 管理后台</span>
                     <span id="adminFeedbackBadge" class="notify-badge" style="display:none; background-color: gold; color: black;">0</span>
                 </a>
             </nav>
-
-
-            <div class="vip-sidebar-box" id="vipBox">
-                <h4>VIP ACCESS</h4>
-                <p>解锁经验加成 (50 i币)</p>
-                <button onclick="buyVip()" class="vip-mini-btn">UPGRADE</button>
-            </div>
 
             <div class="status-panel">
                 <div class="status-item">
@@ -265,6 +259,46 @@
                     <div class="leaderboard-grid">
                         <!-- 动态生成 -->
                         <div class="loading">Loading ranks...</div>
+                    </div>
+                </div>
+
+                <!-- 8. 商城视图 -->
+                <div id="view-shop" class="view-section" style="display:none;">
+                    <h2>// ITEM SHOP</h2>
+    
+                    <div class="shop-tabs" style="margin-bottom:20px; display:flex; gap:15px; border-bottom:1px solid #333; padding-bottom:10px;">
+                        <span class="shop-tab active" style="color:#fff; cursor:pointer;">💎 会员特权</span>
+                        <span class="shop-tab" style="color:#666; cursor:not-allowed;">🎨 个性装扮 (装修中)</span>
+                        <span class="shop-tab" style="color:#666; cursor:not-allowed;">🆔 改名/特效 (装修中)</span>
+                    </div>
+
+                    <div class="shop-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
+                        <!-- VIP 月卡 -->
+                        <div class="glass-card shop-item" style="border-color: #FFD700; text-align:center;">
+                            <div style="font-size:3rem; margin-bottom:10px;">👑</div>
+                            <h3 style="color:#FFD700; margin:0;">VIP 尊享月卡</h3>
+                            <p style="color:#888; font-size:0.8rem; height:40px;">经验获取 +45%<br>尊贵金色徽章标识</p>
+                            <div style="font-size:1.5rem; font-weight:bold; color:#fff; margin:15px 0;">210 <span style="font-size:0.8rem">i币</span></div>
+                            <button onclick="buyItem('vip_30')" class="cyber-btn" style="border-color:#FFD700; color:#FFD700;">购买 (30天)</button>
+                        </div>
+
+                        <!-- VIP 双周卡 -->
+                        <div class="glass-card shop-item" style="border-color: #C0C0C0; text-align:center;">
+                            <div style="font-size:3rem; margin-bottom:10px;">⚡</div>
+                            <h3 style="color:#fff; margin:0;">VIP 进阶卡</h3>
+                            <p style="color:#888; font-size:0.8rem; height:40px;">经验获取 +45%<br>短期冲级首选</p>
+                            <div style="font-size:1.5rem; font-weight:bold; color:#fff; margin:15px 0;">120 <span style="font-size:0.8rem">i币</span></div>
+                            <button onclick="buyItem('vip_14')" class="cyber-btn">购买 (14天)</button>
+                        </div>
+
+                        <!-- VIP 周卡 -->
+                        <div class="glass-card shop-item" style="border-color: #CD7F32; text-align:center;">
+                            <div style="font-size:3rem; margin-bottom:10px;">🎫</div>
+                            <h3 style="color:#fff; margin:0;">VIP 体验卡</h3>
+                            <p style="color:#888; font-size:0.8rem; height:40px;">经验获取 +45%<br>尝鲜体验</p>
+                            <div style="font-size:1.5rem; font-weight:bold; color:#fff; margin:15px 0;">70 <span style="font-size:0.8rem">i币</span></div>
+                            <button onclick="buyItem('vip_7')" class="cyber-btn">购买 (7天)</button>
+                        </div>
                     </div>
                 </div>
 
@@ -498,9 +532,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=6.5"></script>
+    <script src="script.js?v=6.6"></script>
 </body>
 </html>
+
 
 
 
