@@ -1343,28 +1343,48 @@ input:checked + .slider:before {
     box-shadow: 0 0 10px #ff3333;
 }
 
-/* --- 聊天界面升级版 (带头像 & 响应式) --- */
+/* --- 聊天界面升级版 (修复对齐与移动端) --- */
 
-/* 消息行容器 (包含头像和气泡) */
+/* 1. 消息行容器 */
 .msg-row {
-    display: flex;
-    align-items: flex-end; /* 头像在底部对齐 */
+    display: flex !important; /* 强制 Flex */
+    align-items: flex-end;
     gap: 10px;
     margin-bottom: 15px;
     width: 100%;
 }
 
-/* 头像样式 */
-.msg-avatar {
-    width: 35px;
-    height: 35px;
-    flex-shrink: 0;
-    border-radius: 6px; /* 方形圆角更赛博 */
-    overflow: hidden;
-    border: 1px solid #444;
+/* 2. 对方消息 (左边) */
+.msg-row.left {
+    flex-direction: row; /* 正常顺序：头像 -> 气泡 */
+    justify-content: flex-start;
 }
 
-/* 气泡基础样式 */
+/* 3. 我的消息 (右边) - 核心修复 */
+.msg-row.right {
+    flex-direction: row-reverse; /* 反转顺序：头像 <- 气泡 */
+    justify-content: flex-start; /* 注意：row-reverse 后，start 就是右边 */
+}
+
+/* 4. 头像通用样式 */
+.msg-avatar {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #444;
+    background: #000;
+}
+/* 确保里面的 svg/img 填满 */
+.msg-avatar img, .msg-avatar svg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* 5. 气泡通用样式 */
 .msg-bubble {
     max-width: 70%;
     padding: 10px 14px;
@@ -1375,61 +1395,72 @@ input:checked + .slider:before {
     position: relative;
 }
 
-/* 对方的消息 (左边) */
-.msg-row.left {
-    justify-content: flex-start;
-}
+/* 左边气泡配色 */
 .msg-row.left .msg-bubble {
     background: #222;
     border: 1px solid #444;
     color: #eee;
-    border-bottom-left-radius: 2px; /* 左下角尖角 */
+    border-bottom-left-radius: 2px;
 }
 
-/* 我的消息 (右边) */
-.msg-row.right {
-    justify-content: flex-end; /* 整体靠右 */
-    flex-direction: row-reverse; /* 头像在最右边 */
-}
+/* 右边气泡配色 */
 .msg-row.right .msg-bubble {
     background: var(--accent-blue);
     color: #fff;
-    border: none;
-    border-bottom-right-radius: 2px; /* 右下角尖角 */
-    box-shadow: 0 0 10px rgba(0, 112, 243, 0.3);
-    text-align: left; /* 文字依然左对齐 */
+    border: none; /* 去掉边框更像气泡 */
+    border-bottom-right-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0, 112, 243, 0.3);
+    text-align: left;
 }
 
-/* 移动端适配 */
+/* === 移动端专项优化 === */
 @media (max-width: 768px) {
-    .chat-layout {
-        gap: 0; /* 去掉间距 */
+    /* 布局调整 */
+    .chat-layout { 
+        flex-direction: column; 
+        height: calc(100vh - 100px); /* 减去顶部高度，防止溢出 */
     }
     
-    /* 聊天框全屏覆盖 */
-    #chatBox {
-        border-radius: 0;
+    /* 聊天框全屏 */
+    #chatBox { 
+        position: fixed; 
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100%; 
+        z-index: 9999; 
+        background: #000;
         border: none;
     }
     
-    /* 手机上气泡可以宽一点 */
+    /* 缩小头像 */
+    .msg-avatar {
+        width: 28px;  /* 缩小到 28px */
+        height: 28px;
+        border-radius: 4px;
+    }
+    
+    /* 气泡变宽，利用屏幕空间 */
     .msg-bubble {
-        max-width: 80%;
+        max-width: 85%;
         font-size: 0.9rem;
         padding: 8px 12px;
     }
     
-    /* 手机上头像稍微小一点 */
-    .msg-avatar {
-        width: 30px;
-        height: 30px;
-    }
-
-    /* 手机输入框区域固定在底部 */
+    /* 输入框区域吸底 */
     .chat-input-area {
-        position: sticky;
+        position: absolute;
         bottom: 0;
-        background: #000; /* 防止透明 */
-        z-index: 10;
+        left: 0;
+        width: 100%;
+        background: #111;
+        border-top: 1px solid #333;
+        padding: 10px;
+    }
+    
+    /* 消息列表区域让出底部空间 */
+    #chatMessages {
+        padding-bottom: 70px; /* 防止被输入框挡住 */
     }
 }
+
