@@ -182,15 +182,17 @@ async function loadTasks() {
             const isDone = t.progress >= t.target;
             const isClaimed = t.status === 2;
             
+            // 在 loadTasks 函数内部，替换 btnHtml 的赋值逻辑：
+
             let btnHtml = '';
             if (isClaimed) {
-                // 已领取：显示一个半透明的绿色勾勾徽章，而不是按钮
-                btnHtml = `<div class="task-status-badge claimed">✓ 已领取 / CLAIMED</div>`;
+                // 已领取
+                btnHtml = `<div class="task-status-badge claimed">✓ 已完成</div>`;
             } else if (isDone) {
-                // 可领取：显示一个闪烁的霓虹按钮
-                btnHtml = `<button onclick="claimTaskNew(${t.id})" class="cyber-btn task-claim-btn">领取奖励 / CLAIM</button>`;
+                // 可领取：文字改成简短的 "领取"
+                btnHtml = `<button onclick="claimTaskNew(${t.id})" class="cyber-btn task-claim-btn">领取</button>`;
             } else {
-                // 进行中：显示进度数字
+                // 进行中
                 btnHtml = `<div class="task-status-text">${t.progress} / ${t.target}</div>`;
             }
 
@@ -1517,6 +1519,7 @@ async function loadLeaderboard() {
         showToast("排行榜加载失败", "error");
     }
 }
+
 
 
 
