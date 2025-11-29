@@ -54,8 +54,8 @@ export async function onRequestPost(context) {
   let xpAdd = reward;
 
   // 执行更新
-  await db.prepare('UPDATE users SET coins = coins + ?, last_check_in = ?, consecutive_days = ? WHERE id = ?')
-    .bind(coinAdd, today, newConsecutive, user.id).run();
+  await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code = 'checkin' AND category = 'daily' AND status = 0 AND period_key = ?`)
+    .bind(user.id, today).run();
   
   const xpResult = await addXpWithCap(db, user.id, xpAdd, today);
 
@@ -68,3 +68,4 @@ export async function onRequestPost(context) {
     coins: user.coins + coinAdd 
   }));
 }
+
