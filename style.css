@@ -1500,21 +1500,112 @@ input:checked + .slider:before {
    =========================== */
 
 /* --- 1. 全局大背景 (Body Backgrounds) --- */
-/* 赛博网格 (默认) */
-body.bg-default { /* 现有的样式 */ }
 
-/* 矩阵数据流 (售价 500) */
+/* =========================================
+   1. 矩阵数据流 (Matrix Data Stream) - 重构版
+   效果：绿色代码雨下坠 + CRT 扫描线特效 + 忽明忽暗
+   ========================================= */
 body.bg-matrix {
     background-color: #000;
-    background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 0, .05) 25%, rgba(0, 255, 0, .05) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .05) 75%, rgba(0, 255, 0, .05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 0, .05) 25%, rgba(0, 255, 0, .05) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .05) 75%, rgba(0, 255, 0, .05) 76%, transparent 77%, transparent);
-    background-size: 50px 50px;
+    /* 基础背景：黑色 */
+    position: relative;
+    overflow-x: hidden; 
 }
 
-/* 深空星系 (售价 900) */
-body.bg-space {
-    background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
-    background-attachment: fixed;
+/* 第一层：下坠的数字流 (模拟) */
+body.bg-matrix::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -2;
+    background-image: 
+        linear-gradient(rgba(0, 255, 70, 0) 50%, rgba(0, 255, 70, 0.2) 50%), 
+        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 2px, 6px 100%;
+    animation: matrix-scan 5s linear infinite;
 }
+
+/* 第二层：CRT 扫描线与闪烁代码块 */
+body.bg-matrix::after {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1;
+    background: 
+        repeating-linear-gradient(0deg, transparent, transparent 1px, #001100 2px, #003300 3px),
+        repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(0, 255, 0, 0.05) 50px, rgba(0, 255, 0, 0.05) 51px);
+    background-size: 100% 100%, 100% 100%;
+    opacity: 0.6;
+    animation: matrix-flicker 0.1s infinite;
+    pointer-events: none;
+}
+
+@keyframes matrix-scan {
+    0% { background-position: 0 0, 0 0; }
+    100% { background-position: 0 100%, 0 0; } /* 垂直下坠动画 */
+}
+
+@keyframes matrix-flicker {
+    0% { opacity: 0.5; }
+    50% { opacity: 0.6; }
+    100% { opacity: 0.55; }
+}
+
+
+/* =========================================
+   2. 深空星系 (Deep Space Galaxy) - 重构版
+   效果：绚丽的彩色星云缓慢旋转 + 也就是所谓的"五彩斑斓的黑"
+   ========================================= */
+body.bg-space {
+    background-color: #050505;
+    /* 基础深色背景 */
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* 第一层：深邃的紫色/蓝色星云基底 */
+body.bg-space::before {
+    content: "";
+    position: fixed;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    z-index: -2;
+    background: 
+        radial-gradient(circle at 50% 50%, rgba(76, 29, 149, 0.4), transparent 60%), /* 紫色 */
+        radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.3), transparent 50%), /* 亮蓝 */
+        radial-gradient(circle at 20% 80%, rgba(236, 72, 153, 0.3), transparent 50%); /* 粉红 */
+    filter: blur(40px);
+    animation: nebula-rotate 60s linear infinite;
+}
+
+/* 第二层：流动的极光/星尘 */
+body.bg-space::after {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1;
+    background-image: 
+        radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0));
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    animation: stars-move 100s linear infinite;
+    opacity: 0.8;
+}
+
+@keyframes nebula-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes stars-move {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-1000px); }
+}
+
+/* 原有的其他背景保持不变 (bg-cyber, bg-sakura, bg-fire) ... */
 
 /* --- 2. 帖子装饰 (Post Styles) --- */
 /* 霓虹边框 (售价 200) */
@@ -1755,6 +1846,7 @@ body.bg-fire {
     font-weight: 900;
     text-transform: uppercase;
 }
+
 
 
 
