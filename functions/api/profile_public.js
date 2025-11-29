@@ -23,6 +23,15 @@ export async function onRequestGet(context) {
 
   if (!user) return new Response(JSON.stringify({ error: '用户不存在' }), { status: 404 });
 
+  if (currentUserId && user.id !== currentUserId) {
+      const today = new Date(new Date().getTime() + 8*3600*1000).toISOString().split('T')[0];
+      // 使用 waitUntil 异步执行，不拖慢页面加载速度
+      context.waitUntil(
+          db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code = 'profile_visit' AND category = 'daily' AND status = 0 AND period_key = ?`)
+            .bind(currentUserId, today).run()
+      );
+  }
+
   // 2. 获取统计数据
   const stats = await db.batch([
       // 发布的帖子数
