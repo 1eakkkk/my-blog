@@ -79,13 +79,33 @@ window.loadFriendList = async function() {
     } catch(e) { c.innerHTML = 'Error'; }
 };
 
-// 2. 处理好友请求 (同意/删除)
+// === 2. 处理好友请求 (添加/同意/删除) ===
 window.handleFriend = async function(uid, action) {
-    await fetch(`${API_BASE}/friends`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: action, target_id: uid })
-    });
-    loadFriendList();
+    try {
+        const res = await fetch(`${API_BASE}/friends`, {
+            method: 'POST', 
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: action, target_id: uid })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            // 成功提示
+            showToast(data.message, 'success');
+            
+            // 如果是在聊天界面操作(同意/删除)，刷新列表
+            if (document.getElementById('view-chat').style.display === 'block') {
+                loadFriendList(); 
+            }
+            // 如果是在个人主页点"加好友"，按钮变成已申请 (可选优化)
+            
+        } else {
+            // 失败提示 (如：已被屏蔽、已是好友)
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络请求失败", 'error');
+    }
 };
 
 // 3. 加载会话列表
@@ -964,6 +984,10 @@ async function handleRoute() {
     } else if (hash === '#feedback') {
         if(views.feedback) views.feedback.style.display = 'block';
         const link = document.querySelector('a[href="#feedback"]'); if(link) link.classList.add('active');
+    } else if (hash === '#chat') {
+        if(views.chat) views.chat.style.display = 'block';
+        const link = document.getElementById('navChat'); if(link) link.classList.add('active');
+        loadFriendList();
     } else if (hash === '#admin') {
         if(userRole !== 'admin') { showToast("ACCESS DENIED"); window.location.hash='#home'; return; }
         if(views.admin) {
@@ -1926,6 +1950,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
