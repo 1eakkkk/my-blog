@@ -43,6 +43,7 @@ export async function onRequestGet(context) {
     users.custom_title as author_title,
     users.custom_title_color as author_title_color,
     users.badge_preference as author_badge_preference,
+    users.avatar_url as author_avatar_url,
     (SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = ${currentUserId || 0}) as is_liked,
     (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) as comment_count
   `;
@@ -183,3 +184,4 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
