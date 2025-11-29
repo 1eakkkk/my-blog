@@ -105,8 +105,8 @@ export async function onRequestPost(context) {
   }
 
   // 自动填充空缺字段
-  if (!title || !title.trim()) title = "无题 / Untitled";
-  if (!content || !content.trim()) content = "（如题）";
+  if (!title || !title.trim()) title = "字数补丁";
+  if (!content || !content.trim()) content = "如题";
 
   let finalCategory = category || '灌水';
   if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
@@ -114,10 +114,14 @@ export async function onRequestPost(context) {
   await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(user.id, user.nickname || user.username, title, content, finalCategory, Date.now()).run();
 
-  const now = new Date();
+  const now = Date.now();
   const utc8 = new Date(now.getTime() + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
-  const xpBase = user.is_vip ? 20 : 10;
+  const isVip = user.vip_expires_at > now;
+  let xpBase = 10; // 基础 10 XP
+  if (isVip) {
+      xpBase = Math.floor(10 * 1.45); // 14 XP
+  }
   const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
   const todayKey = new Date(Date.now() + 8*3600*1000).toISOString().split('T')[0];
 
@@ -184,4 +188,5 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
 
