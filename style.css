@@ -1214,3 +1214,69 @@ input:checked + .slider:before {
     }
 }
 
+/* --- 首页帖子卡片新布局 --- */
+
+/* 1. 顶部作者行 */
+.post-header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+/* 作者名字：加大加粗，但小于标题 */
+.post-author-name-large {
+    font-size: 1.15rem; /* 比普通文字大，比标题(1.3rem)小 */
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+    margin-right: 5px;
+}
+
+/* 2. 标题微调 */
+.post-card h2 {
+    margin: 5px 0 5px 0 !important; /* 标题上下间距 */
+    font-size: 1.3rem;
+    line-height: 1.4;
+}
+
+/* 3. 日期行 (在标题下方) */
+.post-date-sub {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 4. 标签/分类行 (在正文上方) */
+.post-tags-mid {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+/* 5. 底部数据项优化 */
+.post-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stat-icon {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .post-author-name-large {
+        font-size: 1.1rem;
+    }
+    .post-card h2 {
+        font-size: 1.2rem;
+    }
+}
