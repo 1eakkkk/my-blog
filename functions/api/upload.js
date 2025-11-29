@@ -23,9 +23,9 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: '只能上传图片或视频' }), { status: 400 });
   }
 
-  // 限制大小 (修改为 50MB)
-  if (file.size > 50 * 1024 * 1024) {
-    return new Response(JSON.stringify({ error: '文件不能超过 50MB' }), { status: 400 });
+  // 限制大小 (修改为 100MB)
+  if (file.size > 100 * 1024 * 1024) {
+    return new Response(JSON.stringify({ error: '受限于 Cloudflare 平台，文件最大 100MB' }), { status: 400 });
   }
 
   // 3. 生成随机文件名 (防止覆盖)
