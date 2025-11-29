@@ -1401,6 +1401,7 @@ async function loadUserProfile(username) {
                 list.appendChild(div);
             });
         }
+        loadTasks();
 
     } catch(e) {
         showToast("加载失败", "error");
@@ -1462,10 +1463,10 @@ async function loadLeaderboard() {
 
         // 定义四个榜单的配置
         const boards = [
-            { title: "⚡ 等级天梯 / LEVEL RANK", data: data.xp, valueKey: 'xp', format: v => `${v} XP` },
-            { title: "💸 慈善家 / TOP TIPPERS", data: data.sent, valueKey: 'tips_sent', format: v => `${v} i` },
-            { title: "💰 创作者 / TOP EARNERS", data: data.received, valueKey: 'tips_received', format: v => `${v} i` },
-            { title: "❤️ 人气王 / MOST LIKED", data: data.likes, valueKey: 'likes_received', format: v => `${v} ❤` }
+            { title: "⚡ 等级天梯", data: data.xp, valueKey: 'xp', format: v => `${v} XP` },
+            { title: "💸 慈善家", data: data.sent, valueKey: 'tips_sent', format: v => `${v} i` },
+            { title: "💰 创作者", data: data.received, valueKey: 'tips_received', format: v => `${v} i` },
+            { title: "❤️ 人气王", data: data.likes, valueKey: 'likes_received', format: v => `${v} ❤` }
         ];
 
         boards.forEach(board => {
@@ -1506,12 +1507,14 @@ async function loadLeaderboard() {
             card.innerHTML = `<h3>${board.title}</h3><ul class="rank-list">${listHtml}</ul>`;
             container.appendChild(card);
         });
+        loadTasks(); 
 
     } catch (e) {
         container.innerHTML = 'Error loading leaderboard.';
         showToast("排行榜加载失败", "error");
     }
 }
+
 
 
 
