@@ -1102,3 +1102,65 @@ input:checked + .slider:before {
     }
 }
 
+/* --- 排行榜样式 --- */
+.leaderboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.rank-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid #333;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.rank-card h3 {
+    margin-top: 0;
+    border-bottom: 2px solid var(--accent-blue);
+    padding-bottom: 10px;
+    font-size: 1.1rem;
+    color: var(--accent-blue);
+}
+
+.rank-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.rank-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #222;
+}
+
+.rank-num {
+    width: 30px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #666;
+    text-align: center;
+}
+
+/* 前三名金银铜 */
+.rank-item:nth-child(1) .rank-num { color: #FFD700; text-shadow: 0 0 5px #FFD700; }
+.rank-item:nth-child(2) .rank-num { color: #C0C0C0; }
+.rank-item:nth-child(3) .rank-num { color: #CD7F32; }
+
+.rank-user {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 10px;
+    cursor: pointer;
+}
+
+.rank-value {
+    font-family: var(--font-tech);
+    color: #fff;
+    font-weight: bold;
+}
