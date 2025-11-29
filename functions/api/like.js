@@ -55,6 +55,15 @@ export async function onRequestPost(context) {
 
   const table = target_type === 'post' ? 'posts' : 'comments';
   await db.prepare(`UPDATE ${table} SET like_count = like_count + ? WHERE id = ?`).bind(change, target_id).run();
+  
+  // 2. 【新增】更新内容作者的“累计获赞数”
+  // 先查出作者ID
+  const authorObj = await db.prepare(`SELECT user_id FROM ${table} WHERE id = ?`).bind(target_id).first();
+  if (authorObj) {
+      // change 是 1 (点赞) 或 -1 (取消赞)
+      await db.prepare('UPDATE users SET likes_received = likes_received + ? WHERE id = ?').bind(change, authorObj.user_id).run();
+  }
+
   const count = await db.prepare(`SELECT like_count FROM ${table} WHERE id = ?`).bind(target_id).first();
 
   return new Response(JSON.stringify({ success: true, isLiked, count: count.like_count }));
