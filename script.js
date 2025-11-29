@@ -2440,6 +2440,7 @@ async function loadInventory(filterCategory = 'all') {
         filteredList.forEach(item => {
             // 从目录找详情
             const catalogItem = SHOP_CATALOG.find(i => i.id === item.item_id);
+            // 如果目录里找不到（比如改名了），就用默认值，防止报错
             const itemName = catalogItem ? catalogItem.name : item.item_id;
             const itemIcon = catalogItem ? catalogItem.icon : '📦';
             const itemRarity = catalogItem ? catalogItem.rarity : 'common';
@@ -2447,19 +2448,20 @@ async function loadInventory(filterCategory = 'all') {
 
             let actionBtn = '';
             
-            // 消耗品逻辑
+            // 1. 纯消耗品 (改名卡、置顶卡) -> 显示数量
             if (item.category === 'consumable') {
                 actionBtn = `<div style="color:#aaa;font-size:0.8rem;margin-top:5px; border:1px solid #333; padding:5px; border-radius:4px;">拥有数量: <span style="color:#fff; font-weight:bold;">${item.quantity}</span></div>`;
             } 
-            // 装备类逻辑
+            // 2. 可装备道具 (背景、边框、气泡、名字颜色) -> 显示装备按钮
             else {
                 if (item.is_equipped) {
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0;width:100%;margin-top:10px;">已装备 / UNSET</button>`;
                 } else {
+                    // ✅ 修复：确保传递正确的 category
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / EQUIP</button>`;
                 }
                 
-                // 如果是时效性道具，显示剩余时间
+                // 显示剩余时间
                 if (item.expires_at > 0) {
                     const daysLeft = Math.ceil((item.expires_at - Date.now()) / (86400000));
                     const expireText = daysLeft > 0 ? `剩余 ${daysLeft} 天` : `已过期`;
@@ -2467,10 +2469,10 @@ async function loadInventory(filterCategory = 'all') {
                     actionBtn += `<div style="font-size:0.7rem; color:${color}; margin-top:5px;">${expireText}</div>`;
                 }
             }
-
+            
+            // ... (后半部分 div.innerHTML 保持不变)
             const div = document.createElement('div');
             div.className = `glass-card shop-item ${itemRarity} ${item.is_equipped?'equipped':''}`;
-            
             div.innerHTML = `
                 <div class="item-icon">${itemIcon}</div>
                 <h3 style="margin:5px 0; font-size:1rem;">${itemName}</h3>
@@ -2479,6 +2481,7 @@ async function loadInventory(filterCategory = 'all') {
             `;
             c.appendChild(div);
         });
+
     } catch(e) { 
         console.error(e);
         c.innerHTML = '<div style="color:red">加载背包失败</div>'; 
@@ -2628,6 +2631,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
