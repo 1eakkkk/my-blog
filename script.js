@@ -78,6 +78,56 @@ async function fetchWithRetry(url, options, retries = 2) {
     }
 }
 
+// === 辅助函数：图片压缩引擎 ===
+async function compressImage(file, quality = 0.7, maxWidth = 1920) {
+    // 如果不是图片，或者小于 1MB，直接原样返回
+    if (!file.type.startsWith('image/') || file.size < 1024 * 1024) {
+        return file;
+    }
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                // 计算缩放比例
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+
+                // 绘图
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 导出压缩后的 Blob
+                canvas.toBlob((blob) => {
+                    // 如果压缩后反而变大了（极少情况），就用原图
+                    if (blob.size > file.size) {
+                        resolve(file);
+                    } else {
+                        // 重构 File 对象
+                        const newFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        console.log(`压缩完成: ${(file.size/1024).toFixed(2)}KB -> ${(newFile.size/1024).toFixed(2)}KB`);
+                        resolve(newFile);
+                    }
+                }, 'image/jpeg', quality); // 0.7 是压缩质量，平衡点
+            };
+        };
+    });
+}
+
+
 // Markdown 渲染辅助函数
 // 修改 parseMarkdown 函数
 function parseMarkdown(text) {
@@ -974,8 +1024,9 @@ window.uploadImage = async function() {
 
     // 2. 循环上传 (并行处理)
     const uploadPromises = Array.from(input.files).map(async (file) => {
+        const processedFile = await compressImage(file);
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', processedFile);
 
         try {
             const res = await fetchWithRetry(`${API_BASE}/upload`, {
@@ -1030,13 +1081,13 @@ window.uploadUserAvatar = async function() {
     if (input.files.length === 0) return;
     
     const file = input.files[0];
-    // 限制大小 2MB
-    if (file.size > 2 * 1024 * 1024) return showToast("头像图片不能超过 2MB", "error");
-
-    showToast("正在上传头像...", "info");
+    // 限制大小 10MB
+    if (file.size > 10 * 1024 * 1024) return showToast("图片太大", "error");
+    showToast("处理中...", "info");
+    const processedFile = await compressImage(file, 0.6, 500);
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', processedFile);
 
     try {
         // 1. 先上传到 R2
@@ -1078,9 +1129,10 @@ window.uploadCommentImage = async function() {
     const file = input.files[0];
     status.innerText = "UP...";
     status.style.color = "yellow";
+    const processedFile = await compressImage(file);
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', processedFile);
 
     try {
         const res = await fetchWithRetry(`${API_BASE}/upload`, {
@@ -1707,6 +1759,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
