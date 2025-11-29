@@ -1074,6 +1074,7 @@ const views = {
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     shop: document.getElementById('view-shop'),
+    inventory: document.getElementById('view-inventory') ,
     chat: document.getElementById('view-chat'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
@@ -1149,6 +1150,11 @@ async function handleRoute() {
     } else if (hash === '#shop') {
         if(views.shop) views.shop.style.display = 'block';
         const link = document.querySelector('a[href="#shop"]'); if(link) link.classList.add('active');
+    } else if (hash === '#inventory') {
+        if(views.inventory) views.inventory.style.display = 'block';
+        const link = document.getElementById('navInventory'); 
+        if(link) link.classList.add('active');
+        loadInventory();
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
         const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
@@ -2282,6 +2288,7 @@ window.toggleEquip = async function(id, cat, action) {
         checkSecurity(); // 刷新自身状态(背景等)
     }
 };
+
 
 
 
