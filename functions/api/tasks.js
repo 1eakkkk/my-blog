@@ -11,7 +11,7 @@ const POOL = {
         { code: 'profile_visit', target: 3, xp: 20, coin: 10, desc: '访问 3 位用户的个人主页' }
     ],
     weekly: [
-        { code: 'post_3', target: 3, xp: 200, coin: 100, desc: '【周常】发布 3 篇高质量帖子' },
+        { code: 'post_3', target: 3, xp: 200, coin: 100, desc: '【周常】发布 3 篇帖子' },
         { code: 'like_30', target: 30, xp: 150, coin: 80, desc: '【周常】累计送出 30 个爱心' },
         { code: 'get_like_10', target: 10, xp: 300, coin: 150, desc: '【周常】收到 10 个点赞' },
         { code: 'comment_20', target: 20, xp: 250, coin: 120, desc: '【周常】累计发表 20 条评论' },
