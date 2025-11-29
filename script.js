@@ -235,8 +235,7 @@ async function loadChatHistory() {
     data.list.forEach(m => {
         const isMe = m.sender_id == currentUser.id;
         
-        // 构造用户对象用于渲染头像
-        // 如果是对方发的，用 m 里的 user 信息；如果是自己发的，用全局 currentUser
+        // 构造用户对象
         const userObj = isMe ? currentUser : {
             username: m.username,
             avatar_variant: m.avatar_variant,
@@ -244,21 +243,25 @@ async function loadChatHistory() {
         };
         
         const avatarHtml = renderUserAvatar(userObj);
-        
-        // 构造 HTML 结构：Row -> Avatar + Bubble
+        const contentHtml = m.content.replace(/\n/g, '<br>');
+
         const div = document.createElement('div');
         div.className = `msg-row ${isMe ? 'right' : 'left'}`;
         
-        // 解析内容支持图片等
-        // 注意：私信暂时不建议支持太多 markdown，防止样式崩坏，或者只支持简单的
-        // 这里简单处理换行
-        const contentHtml = m.content.replace(/\n/g, '<br>');
-        const bubbleStyle = userObj.equipped_bubble_style || '';
-
-        div.innerHTML = `
-            <div class="msg-avatar">${avatarHtml}</div>
-            <div class="msg-bubble ${bubbleStyle}"></div>
-        `;
+        // === 核心修复：物理交换 HTML 顺序 ===
+        // 自己发的：气泡在前，头像在后
+        // 对方发的：头像在前，气泡在后
+        if (isMe) {
+            div.innerHTML = `
+                <div class="msg-bubble">${contentHtml}</div>
+                <div class="msg-avatar">${avatarHtml}</div>
+            `;
+        } else {
+            div.innerHTML = `
+                <div class="msg-avatar">${avatarHtml}</div>
+                <div class="msg-bubble">${contentHtml}</div>
+            `;
+        }
         
         container.appendChild(div);
     });
@@ -285,8 +288,8 @@ window.sendPrivateMessage = async function() {
     const avatarHtml = renderUserAvatar(currentUser);
     
     div.innerHTML = `
-        <div class="msg-avatar">${avatarHtml}</div>
         <div class="msg-bubble">${content}</div>
+        <div class="msg-avatar">${avatarHtml}</div>
     `;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
@@ -2428,6 +2431,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
