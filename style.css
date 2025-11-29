@@ -1503,4 +1503,45 @@ input:checked + .slider:before {
     }
 }
 
+/* --- 聊天列表与按钮修复 --- */
+
+/* 1. 修复按钮对齐与样式 */
+.chat-sidebar .cyber-btn {
+    margin: 0 !important; /* 强制去除边距 */
+    border-radius: 0;     /* 变成直角，拼接感更强 */
+    border-bottom: 2px solid transparent;
+    background: rgba(0,0,0,0.5);
+    color: #888;
+    transition: 0.3s;
+}
+
+/* 选中/悬停状态 */
+.chat-sidebar .cyber-btn:hover,
+.chat-sidebar .cyber-btn.active { /* 需要JS配合添加active类 */
+    color: #fff;
+    border-bottom-color: var(--accent-blue);
+    background: rgba(0, 112, 243, 0.1);
+    box-shadow: none; /* 去掉发光，保持扁平 */
+}
+
+/* 2. 修复头像白边/遮挡 */
+.chat-item .msg-avatar, 
+.chat-item div[style*="border-radius:50%"] {
+    background: transparent !important; /* 去掉背景色 */
+    border: none !important; /* 去掉边框 */
+    box-shadow: none;
+}
+.chat-item img, .chat-item svg {
+    display: block; /* 防止 inline 元素的间隙 */
+}
+
+/* 3. 列表项红点样式 */
+.chat-unread-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #ff00de; /* 赛博粉 */
+    border-radius: 50%;
+    box-shadow: 0 0 5px #ff00de;
+    margin-left: auto; /* 靠右对齐 */
+}
 
