@@ -1545,3 +1545,99 @@ input:checked + .slider:before {
     margin-left: auto; /* 靠右对齐 */
 }
 
+/* ===========================
+   === 道具商城样式系统 ===
+   =========================== */
+
+/* --- 1. 全局大背景 (Body Backgrounds) --- */
+/* 赛博网格 (默认) */
+body.bg-default { /* 现有的样式 */ }
+
+/* 矩阵数据流 (售价 500) */
+body.bg-matrix {
+    background-color: #000;
+    background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 0, .05) 25%, rgba(0, 255, 0, .05) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .05) 75%, rgba(0, 255, 0, .05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 0, .05) 25%, rgba(0, 255, 0, .05) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .05) 75%, rgba(0, 255, 0, .05) 76%, transparent 77%, transparent);
+    background-size: 50px 50px;
+}
+
+/* 深空星系 (售价 900) */
+body.bg-space {
+    background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+    background-attachment: fixed;
+}
+
+/* --- 2. 帖子装饰 (Post Styles) --- */
+/* 霓虹边框 (售价 200) */
+.post-card.style-neon {
+    border: 1px solid #00f3ff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2), inset 0 0 20px rgba(0, 243, 255, 0.05);
+}
+
+/* 黄金传说 (售价 500) */
+.post-card.style-gold {
+    border: 1px solid #FFD700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, rgba(0,0,0,0) 100%);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+/* 故障艺术 (售价 300) */
+.post-card.style-glitch {
+    border: 1px dashed #ff00de;
+    border-left: 3px solid #00f3ff !important;
+    border-right: 3px solid #ff00de;
+}
+
+/* --- 3. 聊天气泡 (Chat Bubbles) --- */
+/* 赛博粉 (售价 150) */
+.msg-bubble.bubble-pink {
+    background: #ff00de !important;
+    box-shadow: 0 0 10px rgba(255, 0, 222, 0.4) !important;
+    color: #fff !important;
+}
+
+/* 黑客绿 (售价 150) */
+.msg-bubble.bubble-hacker {
+    background: #000 !important;
+    border: 1px solid #0f0 !important;
+    color: #0f0 !important;
+    font-family: 'Courier New', monospace;
+}
+
+/* --- 4. 彩色昵称 (Name Colors) --- */
+.color-rainbow {
+    background-image: linear-gradient(to left, violet, indigo, blue, green, yellow, orange, red);
+    -webkit-background-clip: text;
+    color: transparent !important;
+    font-weight: bold;
+}
+.color-fire {
+    color: #ff4500 !important;
+    text-shadow: 0 0 5px #ff4500;
+}
+.color-ice {
+    color: #00f3ff !important;
+    text-shadow: 0 0 5px #00f3ff;
+}
+
+/* --- 5. 道具卡片 (Inventory Item) --- */
+.item-card {
+    position: relative;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #333;
+    padding: 10px;
+    text-align: center;
+    border-radius: 6px;
+    transition: 0.2s;
+}
+.item-card:hover { transform: translateY(-2px); border-color: #666; }
+.item-card.equipped { border-color: #0f0; box-shadow: 0 0 10px rgba(0,255,0,0.2); }
+.item-tag {
+    position: absolute; top: 5px; right: 5px;
+    font-size: 0.6rem; padding: 2px 4px; border-radius: 3px;
+}
+.tag-equipped { background: #0f0; color: #000; }
+.tag-count { background: var(--accent-blue); color: #fff; }
+
+
+
+
