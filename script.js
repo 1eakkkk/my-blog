@@ -1758,23 +1758,39 @@ window.randomizeAvatar = async function() { if(!confirm("Randomize?"))return; co
 window.updateProfile = async function() { const n=document.getElementById('newNickname').value; await fetch(`${API_BASE}/profile`, {method:'POST', body:JSON.stringify({nickname:n})}); window.location.reload(); };
 window.buyVip = async function() { if(!confirm("Buy VIP?"))return; const r=await fetch(`${API_BASE}/vip`, {method:'POST'}); const d=await r.json(); showToast(d.message, 'success'); if(d.success) window.location.reload(); };
 async function doLogout() { await fetch(`${API_BASE}/auth/logout`, {method:'POST'}); window.location.href='/login.html'; }
-window.tipUser = async function(uid) {
+// === 修改后的打赏函数 (支持传入 postId) ===
+window.tipUser = async function(uid, postId = null) {
     const amount = prompt("请输入打赏金额 (i币)：");
     if (!amount) return;
+    
     if (!/^\d+$/.test(amount) || parseInt(amount) <= 0) {
         return showToast("请输入有效的整数金额", "error");
     }
+
     try {
         const res = await fetch(`${API_BASE}/tip`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target_user_id: uid, amount: amount })
+            // === 关键：把 post_id 传给后端 ===
+            body: JSON.stringify({ target_user_id: uid, amount: amount, post_id: postId })
         });
         const data = await res.json();
+
         if (data.success) {
             showToast(data.message, "success");
             setTimeout(() => {
-                checkSecurity(); 
+                checkSecurity(); // 刷新余额
+                // 如果是在看帖子，刷新帖子列表以更新打赏数显示
+                if (postId) {
+                    // 如果在详情页，重新加载详情
+                    if (window.location.hash.startsWith('#post')) {
+                        loadSinglePost(postId);
+                    } else {
+                        // 如果在首页，刷新列表 (虽然会导致滚动重置，但能看到数据变化)
+                        // 或者你可以做一个局部更新 DOM 的逻辑，简单起见先全局刷新
+                        loadPosts(true);
+                    }
+                }
             }, 1500);
         } else {
             showToast(data.error, "error");
@@ -1783,6 +1799,7 @@ window.tipUser = async function(uid) {
         showToast("网络请求失败", "error");
     }
 };
+
 window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return showToast("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) showToast("头衔发放成功！"); else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error');} };
 window.adminUnbanUser = async function(uid) { if(!confirm("Unban?")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); showToast("Done"); loadAdminBanList(); };
 async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge'); if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
@@ -2140,6 +2157,7 @@ window.buyItem = async function(itemId) {
         showToast("购买失败", 'error');
     }
 };
+
 
 
 
