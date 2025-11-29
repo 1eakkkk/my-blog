@@ -1320,3 +1320,25 @@ input:checked + .slider:before {
     .chat-layout { flex-direction: column; height: auto; }
     #chatBox { position: fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:#000; }
 }
+
+/* --- 按钮样式扩展 --- */
+
+/* 实心蓝色按钮 (用于已关注) */
+.cyber-btn.filled {
+    background: var(--accent-blue);
+    color: #fff;
+}
+.cyber-btn.filled:hover {
+    background: #005bb5; /* 深一点的蓝 */
+    box-shadow: 0 0 15px var(--accent-blue);
+}
+
+/* 红色危险按钮 (用于拉黑) */
+.cyber-btn.danger {
+    border-color: #ff3333;
+    color: #ff3333;
+}
+.cyber-btn.danger:hover {
+    background: rgba(255, 51, 51, 0.2);
+    box-shadow: 0 0 10px #ff3333;
+}
