@@ -1,12 +1,12 @@
 // --- functions/api/comments.js ---
+// --- functions/api/comments.js ---
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
   const postId = url.searchParams.get('post_id');
   
-  // 分页参数
   const page = parseInt(url.searchParams.get('page')) || 1;
-  const limit = parseInt(url.searchParams.get('limit')) || 20; // 默认一页20条评论
+  const limit = parseInt(url.searchParams.get('limit')) || 20;
   const offset = (page - 1) * limit;
 
   const cookie = context.request.headers.get('Cookie');
@@ -16,16 +16,16 @@ export async function onRequestGet(context) {
       const u = await db.prepare('SELECT user_id FROM sessions WHERE session_id = ?').bind(sessionId).first();
       if(u) currentUserId = u.user_id;
   }
-  if (!postId) return new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } });
+  if (!postId) return new Response(JSON.stringify({ results: [] }), { headers: { 'Content-Type': 'application/json' } });
 
   // 获取总数
   const countRes = await db.prepare('SELECT COUNT(*) as total FROM comments WHERE post_id = ?').bind(postId).first();
   const total = countRes.total;
 
-  // 分页查询 (按时间顺序，这符合楼层逻辑，最早的是沙发)
+  // === 关键修复：确保 SQL 语法正确且包含 avatar_url ===
   const comments = await db.prepare(`
     SELECT comments.*, 
-           users.username, users.nickname, users.avatar_variant, users.avatar_url 
+           users.username, users.nickname, users.avatar_variant, users.avatar_url,
            users.is_vip, users.level, users.xp, users.role, 
            users.custom_title, users.custom_title_color, users.badge_preference,
            reply_users.username as reply_to_username,
@@ -47,6 +47,7 @@ export async function onRequestGet(context) {
       results: comments.results
   }), { headers: { 'Content-Type': 'application/json' } });
 }
+// onRequestPost/Put/Delete 保持不变...
 
 export async function onRequestPost(context) {
   const db = context.env.DB;
