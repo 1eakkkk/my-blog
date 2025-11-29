@@ -901,7 +901,7 @@ async function checkSecurity() {
         document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
         document.body.classList.remove('bg-default', 'bg-matrix', 'bg-space', 'bg-cyber', 'bg-sakura', 'bg-fire');
         if (data.equipped_bg) {
-            const bgClass = data.equipped_bg.replace('_', '-'); 
+            const bgClass = data.equipped_bg.replace('_', '-
             document.body.classList.add(bgClass);
         } else {
             document.body.classList.add('bg-default');
@@ -934,13 +934,6 @@ async function checkSecurity() {
             if(adminNav) adminNav.style.display = 'none';
         }
 
-        // 在 checkSecurity 成功获取 user 后:
-        if (data.equipped_bg) {
-            document.body.className = data.equipped_bg; // 比如 'bg-matrix'
-        } else {
-            document.body.className = 'bg-default';
-        }
-        
         if(data.is_vip) {
             const vipBox = document.getElementById('vipBox');
             // 计算剩余天数
@@ -2446,6 +2439,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
