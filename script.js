@@ -907,10 +907,41 @@ async function checkSecurity() {
         const settingUser = document.getElementById('settingUsername');
         if(settingUser) settingUser.value = data.username;
 
-        document.getElementById('username').textContent = data.nickname || data.username;
+        // === 1. 名字特效与点击跳转 ===
+        const nameEl = document.getElementById('username');
+        nameEl.textContent = data.nickname || data.username;
+        
+        // 重置类名，防止叠加
+        nameEl.className = ''; 
+        // 读取并应用名字特效
+        if (data.name_color) {
+            const ncItem = (typeof SHOP_CATALOG !== 'undefined') ? SHOP_CATALOG.find(i => i.id === data.name_color) : null;
+            if (ncItem) nameEl.classList.add(ncItem.css);
+        }
+        
+        // 添加点击跳转样式和事件
+        nameEl.style.cursor = 'pointer';
+        nameEl.onclick = () => {
+            // 移动端点击后收起侧边栏
+            document.getElementById('sidebar').classList.remove('open');
+            window.location.hash = `#profile?u=${data.username}`;
+        };
+
+        // === 2. i币显示 ===
         document.getElementById('coinCount').textContent = data.coins;
         
-        document.getElementById('avatarContainer').innerHTML = `<div class="post-avatar-box" style="width:50px;height:50px;border-color:#333">${renderUserAvatar(data)}</div>`;
+        // === 3. 头像点击跳转 ===
+        const avatarHtml = renderUserAvatar(data);
+        const avatarContainer = document.getElementById('avatarContainer');
+        // 包裹一层带 onclick 的 div
+        avatarContainer.innerHTML = `
+            <div class="post-avatar-box" 
+                 style="width:50px; height:50px; border-color:#333; cursor:pointer;" 
+                 onclick="document.getElementById('sidebar').classList.remove('open'); window.location.hash='#profile?u=${data.username}'">
+                ${avatarHtml}
+            </div>
+        `;
+        
         const settingPreview = document.getElementById('settingCustomAvatarPreview'); // 注意ID变了，对应新卡片
         if(settingPreview) settingPreview.innerHTML = renderUserAvatar(data);
         
@@ -2664,6 +2695,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
