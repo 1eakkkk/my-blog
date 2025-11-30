@@ -286,9 +286,17 @@
 
                 <!-- 5. 消息通知 -->
                 <div id="view-notifications" class="view-section" style="display:none;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                        <h2>// SYSTEM LOGS</h2>
-                        <button onclick="markAllRead()" class="cyber-btn" style="width:auto; margin:0;">全部已读</button>
+                    <!-- 顶部操作栏 (已适配移动端) -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                        <h2 style="margin:0;">// SYSTEM LOGS</h2>
+                        <div style="display:flex; gap:10px; flex-shrink:0;">
+                            <button onclick="clearAllNotifications()" class="cyber-btn danger" style="width:auto; margin:0; padding:5px 15px; font-size:0.8rem;">
+                                🗑️ 全部删除
+                            </button>
+                            <button onclick="markAllRead()" class="cyber-btn" style="width:auto; margin:0; padding:5px 15px; font-size:0.8rem;">
+                                ✓ 全部已读
+                            </button>
+                        </div>
                     </div>
                     <div class="filter-bar" style="margin-bottom: 15px; display:flex; gap:10px; overflow-x:auto; padding-bottom:5px;">
                         <button class="cyber-btn filter-btn active" onclick="filterNotifications('all', this)">全部</button>
@@ -662,9 +670,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=7.9"></script>
+    <script src="script.js?v=8.0"></script>
 </body>
 </html>
+
 
 
 
