@@ -2511,6 +2511,144 @@ body.bg-fire {
     100% { transform: translateX(-100%); }
 }
 
+/* --- 全服播报 HUD 特效 --- */
+
+/* 全屏遮罩层 (穿透点击，不影响用户操作) */
+.broadcast-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 99999;
+    pointer-events: none; /* 关键：不阻挡鼠标点击下面内容 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* 轻微背景变暗，聚焦视线 */
+    background: radial-gradient(circle, rgba(0,0,0,0) 30%, rgba(0,0,0,0.6) 100%);
+}
+
+/* 核心盒子动画 */
+.hud-center-box {
+    position: relative;
+    padding: 30px 60px;
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    /* 玻璃拟态 */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    /* 边框切角效果 (高级感) */
+    clip-path: polygon(
+        0 0, 100% 0, 100% 80%, 95% 100%, 5% 100%, 0 80%
+    );
+    border-top: 2px solid #fff;
+    text-align: center;
+    
+    /* 进场动画: 中心扩散 */
+    animation: hud-enter 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transform: scale(0); 
+    opacity: 0;
+}
+
+@keyframes hud-enter {
+    0% { transform: scale(0); opacity: 0; }
+    80% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* 离场动画类 (JS添加) */
+.hud-exit {
+    animation: hud-leave 0.5s ease-in forwards;
+}
+@keyframes hud-leave {
+    to { transform: scale(1.5); opacity: 0; filter: blur(20px); }
+}
+
+/* 扫描光效 */
+.hud-scan-line {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: hud-scan 2s infinite;
+    pointer-events: none;
+}
+@keyframes hud-scan {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+}
+
+/* 文本样式 */
+.hud-label {
+    font-size: 0.7rem;
+    color: #888;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+}
+.hud-content {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+}
+
+/* 底部装饰 */
+.hud-footer-deco {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    opacity: 0.5;
+}
+.hud-footer-deco .line {
+    width: 50px; height: 1px; background: #fff;
+}
+.hud-footer-deco .dot { font-size: 0.5rem; color: #fff; }
+
+/* 彩蛋模式：超载 (红色故障风) */
+.hud-overload .hud-center-box {
+    border-color: #ff3333;
+    box-shadow: 0 0 30px rgba(255, 51, 51, 0.3);
+    animation: hud-enter 0.5s ease, glitch-shake 0.2s infinite;
+}
+.hud-overload .hud-label { color: #ff3333; }
+@keyframes glitch-shake {
+    0% { transform: translate(0,0) scale(1); }
+    25% { transform: translate(-2px, 2px) scale(1); }
+    50% { transform: translate(2px, -2px) scale(1); }
+    75% { transform: translate(-2px, -2px) scale(1); }
+    100% { transform: translate(0,0) scale(1); }
+}
+
+/* --- 弹窗样式 --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.modal-card {
+    width: 90%; max-width: 400px;
+    background: #111;
+    border: 1px solid var(--accent-blue);
+    padding: 20px;
+}
+.color-picker-row {
+    display: flex; gap: 10px; margin-top: 5px;
+}
+.color-dot {
+    width: 25px; height: 25px; border-radius: 50%;
+    cursor: pointer; border: 2px solid #333;
+    display: flex; align-items: center; justify-content: center; font-size: 0.8rem;
+}
+.color-dot.selected { border-color: #fff; box-shadow: 0 0 10px #fff; }
+.rainbow-dot {
+    background: linear-gradient(135deg, red, orange, yellow, green, blue, indigo, violet);
+}
 
 
 
