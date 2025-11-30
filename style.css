@@ -2055,6 +2055,7 @@ body.bg-fire {
     /* --- 2. 聊天界面私信修复 (Chat Box) --- */
     
     /* 主容器：强制全屏、黑底白字、Flex布局 */
+    /* 1. 聊天主容器：强制覆盖全屏，不留死角 */
     #chatBox {
         position: fixed !important;
         top: 0;
@@ -2062,13 +2063,21 @@ body.bg-fire {
         right: 0;
         bottom: 0;
         width: 100vw;
-        height: 100dvh !important; /* 关键：动态高度适配地址栏 */
-        z-index: 2147483647 !important; /* 层级最高 */
+        height: 100dvh !important;
+        z-index: 2147483647 !important;
         background-color: #000000 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important; /* 容器本身不滚 */
-        color: #fff !important; /* 强制全局白字 */
+        color: #fff !important;
+        
+        /* === 关键修改：去掉 !important，允许 JS 控制显隐 === */
+        display: flex; 
+        flex-direction: column;
+        
+        overflow: hidden !important;
+    }
+    
+    /* 补充：当 JS 设置 display:none 时，确保它真的隐藏 */
+    #chatBox[style*="display: none"] {
+        display: none !important;
     }
 
     /* 顶部标题栏 */
@@ -2149,6 +2158,7 @@ body.bg-fire {
         padding: 0 15px !important;
     }
 }
+
 
 
 
