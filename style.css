@@ -2015,10 +2015,12 @@ body.bg-fire {
     box-shadow: 0 -2px 10px var(--accent-blue);
 }
 
-/*移动端滚动体验终极修复 (Mobile Scroll Fix)*/
+/* =========================================
+   === 移动端终极适配合并版 (Mobile Final Fix) ===
+   ========================================= */
 
 @media (max-width: 768px) {
-    /* 1. 强制根容器允许滚动，防止锁死 */
+    /* --- 1. 全局基础滚动修复 --- */
     html, body {
         overflow-x: hidden; /* 禁止左右晃动 */
         overflow-y: auto;   /* 允许垂直滚动 */
@@ -2027,91 +2029,49 @@ body.bg-fire {
         min-height: 100%;
     }
 
-    /* 2. 修复内容区域的触摸响应 */
+    /* 内容区域修复 */
     .content {
         height: auto;
-        overflow-y: visible; /* 让内容撑开高度 */
-        padding-bottom: 100px; /* 底部留白，防止被手机导航条遮挡 */
-        touch-action: pan-y; /* 明确告诉浏览器：这里允许垂直滑动 */
-    }
-
-    /* 3. 针对【消息/通知页面】(#view-notifications) 的列表修复 */
-    #notifyList {
-        display: block;
-        width: 100%;
-        overflow-y: visible; /* 随页面滚动 */
+        overflow-y: visible; 
+        padding-bottom: 100px; /* 防止被底部遮挡 */
         touch-action: pan-y;
     }
 
-    /* 4. 针对【私信页面】(#view-chat) 的特殊修复 */
-    /* 私信页面需要固定高度内部滚动，不能随页面滚 */
-    #chatBox {
-        position: fixed !important;
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100% !important; 
-        z-index: 9999; 
-        background: #000;
-        display: flex !important; 
-        flex-direction: column !important;
-        /* 移除任何可能导致滚动的属性 */
-        overflow: hidden !important; 
+    /* 消息通知列表修复 */
+    #notifyList {
+        display: block;
+        width: 100%;
+        overflow-y: visible;
+        touch-action: pan-y;
     }
 
-    /* 顶部标题栏 */
-    .chat-header {
-        flex-shrink: 0; /* 禁止缩小 */
-        background: #111;
-        z-index: 10;
-    }
-
-    /* 消息列表：占据中间剩余的所有空间 */
-    #chatMessages {
-        flex: 1 !important; /* 关键：自动撑开高度 */
+    /* 侧边栏修复 (防止菜单无法滑动) */
+    .sidebar {
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
-        /* 不需要巨大的 padding 了，因为输入框不再悬浮 */
-        padding-bottom: 20px !important; 
-        height: auto !important;
     }
 
-    /* 输入框区域：回归文档流，不再悬浮 */
-    .chat-input-area {
-        position: static !important; /* 关键：取消 absolute，让它占据物理空间 */
-        width: 100%;
-        background: #111;
-        padding: 10px;
-        flex-shrink: 0; /* 防止被挤压 */
-        border-top: 1px solid #333;
-        /* 适配全面屏手机底部横条 (Safe Area) */
-        padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
-        z-index: 10;
-    }
-
-/* =========================================
-   === 移动端聊天界面终极修复 (Chat Fix) ===
-   ========================================= */
-@media (max-width: 768px) {
+    /* --- 2. 聊天界面私信修复 (Chat Box) --- */
     
-    /* 1. 聊天主容器：强制覆盖全屏，不留死角 */
+    /* 主容器：强制全屏、黑底白字、Flex布局 */
     #chatBox {
-        position: fixed !important; /* 强制脱离文档流 */
+        position: fixed !important;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
         width: 100vw;
-        height: 100dvh !important; /* 关键：使用动态高度适配地址栏 */
-        z-index: 2147483647 !important; /* 层级设为最大，盖住所有导航栏 */
+        height: 100dvh !important; /* 关键：动态高度适配地址栏 */
+        z-index: 2147483647 !important; /* 层级最高 */
         background-color: #000000 !important;
         display: flex !important;
         flex-direction: column !important;
-        overflow: hidden !important; /* 禁止容器本身滚动 */
+        overflow: hidden !important; /* 容器本身不滚 */
+        color: #fff !important; /* 强制全局白字 */
     }
 
-    /* 2. 顶部标题栏 */
+    /* 顶部标题栏 */
     .chat-header {
         flex: 0 0 auto; /* 固定高度 */
         height: 60px;
@@ -2121,41 +2081,43 @@ body.bg-fire {
         align-items: center;
         justify-content: space-between;
         padding: 0 15px;
-        color: #fff !important; /* 强制白字 */
         z-index: 10;
-    }
-    .chat-header button {
         color: #fff !important;
+    }
+    .chat-header span { color: #fff !important; }
+    .chat-header button {
         border: 1px solid #666;
         background: #333;
+        color: #fff !important;
     }
 
-    /* 3. 消息列表：占据剩余空间，独立滚动 */
+    /* 消息列表：核心修复点 */
     #chatMessages {
         flex: 1 1 auto !important; /* 自动伸缩 */
-        height: 0 !important; /* 配合 flex:1 实现内部滚动 */
+        height: 0 !important;      /* 关键：必须设为0才能启用Flex内部滚动 */
         overflow-y: scroll !important;
-        -webkit-overflow-scrolling: touch; /* iOS 丝滑滚动 */
-        overscroll-behavior: contain;      /* 防止滑动穿透 */
+        -webkit-overflow-scrolling: touch; 
+        overscroll-behavior: contain;      
         padding: 15px !important;
         background-color: #000 !important;
     }
 
-    /* 4. 消息气泡文字修正 */
+    /* 气泡文字修复 */
     .msg-bubble {
-        color: #fff !important; /* 强制白字 */
+        color: #fff !important;
         max-width: 85% !important;
     }
-    /* 对方的消息气泡背景修正 */
+    /* 对方气泡颜色修正 */
     .msg-row.left .msg-bubble {
         background-color: #222 !important; 
         border: 1px solid #333 !important;
+        color: #ddd !important;
     }
 
-    /* 5. 底部输入框：固定在 Flex 底部 */
+    /* 底部输入框：固定在Flex底部 */
     .chat-input-area {
         flex: 0 0 auto; /* 固定高度 */
-        position: relative !important; /* 回归流布局 */
+        position: relative !important; 
         width: 100%;
         background: #111 !important;
         border-top: 1px solid #333;
@@ -2167,18 +2129,18 @@ body.bg-fire {
         z-index: 20;
     }
 
-    /* 6. 输入框文字颜色修复 */
+    /* 输入框样式修正 */
     #chatInput {
         background-color: #222 !important;
-        color: #fff !important; /* 关键：防止黑字 */
+        color: #fff !important;
         border: 1px solid #444 !important;
         border-radius: 4px;
         flex: 1;
         padding: 8px;
-        -webkit-appearance: none; /* 去除 iOS 默认样式 */
+        -webkit-appearance: none;
     }
     
-    /* 7. 发送按钮 */
+    /* 发送按钮 */
     .chat-input-area button {
         background: var(--accent-blue) !important;
         color: #fff !important;
@@ -2187,7 +2149,6 @@ body.bg-fire {
         padding: 0 15px !important;
     }
 }
-
 
 
 
