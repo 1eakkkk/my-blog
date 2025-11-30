@@ -987,7 +987,7 @@ async function checkSecurity() {
         loadTasks(); 
         checkForDrafts();
         
-        handleRoute();
+        ();
 
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
 
@@ -1086,10 +1086,10 @@ function initApp() {
     }, {passive: true});
 
     // 7. 启动核心
-    window.addEventListener('hashchange', handleRoute);
+    window.addEventListener('hashchange', );
     setInterval(() => { const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString(); }, 1000);
     
-    if(isAppReady) handleRoute();
+    if(isAppReady) ();
 }
 
 const views = {
@@ -1153,15 +1153,16 @@ async function handleRoute() {
         }
         
     } else if (hash.startsWith('#post?id=')) {
-        if (views.home.style.display === 'block') {
+        if (views.home && views.home.style.display === 'block') {
              homeScrollY = window.scrollY;
         }
 
         if(views.post) views.post.style.display = 'block';
         const params = new URLSearchParams(hash.split('?')[1]);
-        (params.get('id'), params.get('commentId')); 
-    }
-    else if (hash === '#write') {
+        
+        // === 修复：加上函数调用 ===
+        loadSinglePost(params.get('id'), params.get('commentId')); 
+    } else if (hash === '#write') {
         if(views.write) views.write.style.display = 'block';
         const link = document.getElementById('navWrite'); if(link) link.classList.add('active');
         tryRestoreDraft();
@@ -2667,6 +2668,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
