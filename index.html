@@ -314,28 +314,59 @@
                 
                         <!-- 顶部操作区 -->
                         <div class="duel-controls glass-card">
-                            <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
-                                <input type="number" id="duelBetAmount" class="cyber-input" placeholder="下注金额 (10-1000)" style="width:150px; margin:0;">
+                            <div style="display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap;">
+                                <input type="number" id="duelBetAmount" class="cyber-input" placeholder="金额 (10-1000)" style="width:120px; margin:0;">
                                 <select id="duelMyMove" class="cyber-input" style="width:120px; margin:0;">
                                     <option value="cube">🧊 立方体 (Rock)</option>
                                     <option value="membrane">📄 薄膜 (Paper)</option>
                                     <option value="blade">⚔️ 利刃 (Scissors)</option>
                                 </select>
                                 <button onclick="createDuel()" class="cyber-btn" style="width:auto; margin:0; border-color:#ff3333; color:#ff3333;">
-                                    INITIATE // 发起挑战
+                                    INITIATE // 发起
                                 </button>
                             </div>
                         </div>
                 
+                        <!-- 新增：切换标签 -->
+                        <div class="shop-tabs-container" style="margin-top:20px; border-color:#ff3333;">
+                            <button class="shop-tab-btn active" onclick="switchDuelTab('lobby')" id="btnDuelLobby">大厅悬赏</button>
+                            <button class="shop-tab-btn" onclick="switchDuelTab('history')" id="btnDuelHistory">我的战绩 (回放)</button>
+                        </div>
+                
                         <!-- 对局列表 -->
                         <div class="duel-list-header">
-                            <span>CHALLENGER</span>
-                            <span>STAKE</span>
-                            <span>ACTION</span>
+                            <span>INFO</span>
+                            <span>RESULT</span>
+                            <span style="text-align:right">ACTION</span>
                         </div>
                         <div id="duelList" class="duel-list-container">
                             <!-- 动态生成 -->
                         </div>
+                    </div>
+                </div>
+                
+                <!-- 遮罩层保持不变，CSS 会修复它 -->
+                <div id="duel-overlay" class="duel-overlay" style="display:none;">
+                    <!-- ... 内容不变 ... -->
+                    <div class="arena-stage">
+                        <div class="arena-player left">
+                            <div class="player-name" id="arenaP1Name">YOU</div>
+                            <div class="data-orb" id="orbP1"></div>
+                        </div>
+                        <div class="arena-center">
+                            <div class="vs-text">VS</div>
+                            <div class="collision-flash" id="collisionFlash"></div>
+                        </div>
+                        <div class="arena-player right">
+                            <div class="player-name" id="arenaP2Name">OPPONENT</div>
+                            <div class="data-orb" id="orbP2"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="duelResultPanel" class="duel-result-panel" style="display:none;">
+                        <h1 id="duelResultTitle">VICTORY</h1>
+                        <div id="duelResultDetail" style="margin-bottom:20px;">+198 iCoins</div>
+                        <button onclick="closeDuelOverlay()" class="cyber-btn">CLOSE CONNECTION</button>
                     </div>
                 </div>
                 
@@ -865,9 +896,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.5"></script>
+    <script src="script.js?v=8.6"></script>
 </body>
 </html>
+
 
 
 
