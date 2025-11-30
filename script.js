@@ -2854,8 +2854,6 @@ function addNodeLog(msg, type='') {
     }, 20); // 打字速度
 }
 
-// 在 script.js 中替换 exploreNode 函数
-
 window.exploreNode = async function() {
     const btn = document.getElementById('exploreBtn');
     const centerBtn = document.getElementById('centralNode');
@@ -2879,13 +2877,18 @@ window.exploreNode = async function() {
         centerBtn.classList.remove('scanning');
 
         if (data.success) {
+            const rarityClass = `rarity-${data.rarity}`; // 自动对应 .rarity-epic 等
             let logType = "";
             if (data.type === 'glitch') logType = "error";
             else if (data.type === 'item' || data.type === 'mission') logType = "warn";
             else if (data.type === 'reward_coin' || data.type === 'reward_xp') logType = "info";
             
-            addNodeLog("DATA RECEIVED: " + data.message, logType);
-            
+            addNodeLog(data.message, rarityClass);
+
+            if (data.rarity === 'legendary') {
+                document.body.style.animation = "shake 0.5s";
+                setTimeout(()=>document.body.style.animation="", 500);
+            }
             // === 核心修改：立即更新全局状态和UI ===
             
             // 1. 更新全局变量
@@ -2922,6 +2925,9 @@ window.exploreNode = async function() {
                      const logoutBtn = document.getElementById('logoutBtn');
                      if(logoutBtn) logoutBtn.onclick = doLogout;
                 }
+                if (data.rarity === 'epic' || data.rarity === 'legendary') {
+                    setTimeout(loadNodeBroadcast, 1000); 
+                }
             }
 
             // 4. 刷新控制台自身的按钮状态
@@ -2943,6 +2949,35 @@ window.exploreNode = async function() {
     }
 };
 
+// 拉取全服广播
+async function loadNodeBroadcast() {
+    const ticker = document.getElementById('nodeTicker');
+    if(!ticker) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/node`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'get_logs' })
+        });
+        const data = await res.json();
+        
+        if (data.logs && data.logs.length > 0) {
+            // 拼接最新的 5 条记录
+            const text = data.logs.map(log => {
+                const icon = log.event_type === 'legendary' ? '🏆' : '🟣';
+                return `${icon} [${log.username}] ${log.message}`;
+            }).join('   ///   ');
+            
+            ticker.innerText = text + "   ///   " + text; // 重复一次以便滚动连接
+        }
+    } catch(e) {}
+}
+
+// 在 loadNodeConsole 里调用一次广播
+// 也可以在 handleRoute 里调用
+// 或者直接 setInterval
+setInterval(loadNodeBroadcast, 30000); // 每30秒刷新一次广播
 
 
 
