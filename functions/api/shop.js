@@ -10,6 +10,25 @@ const CATALOG = {
     // === 💳 功能道具 ===
     'rename_card': { cost: 100, name: '改名卡', type: 'consumable', category: 'consumable', icon: '💳', desc: '修改一次昵称', rarity: 'common' },
     'top_card':    { cost: 500, name: '置顶卡(24h)', type: 'consumable', category: 'consumable', icon: '📌', desc: '将帖子置顶24小时', rarity: 'rare' },
+    // === 📢 全服播报卡 (Broadcast) ===
+    'broadcast_low': { 
+        cost: 500, 
+        name: '基础信标卡', 
+        type: 'consumable', 
+        category: 'consumable', 
+        icon: '📡', 
+        desc: '全服广播(系统预设)，持续24h，每次进站展示3秒。需审核。', 
+        rarity: 'rare' 
+    },
+    'broadcast_high': { 
+        cost: 2000, 
+        name: '骇客宣言卡', 
+        type: 'consumable', 
+        category: 'consumable', 
+        icon: '🛰️', 
+        desc: '自定义全服广播(支持幻彩)，持续24h，每次进站展示5秒。需审核。', 
+        rarity: 'legendary' 
+    },
 
     // === 🌌 网页背景 (Backgrounds) ===
     'bg_matrix':   { cost: 500, name: '矩阵数据流', type: 'decoration', category: 'background', icon: '👾', rarity: 'rare' },
