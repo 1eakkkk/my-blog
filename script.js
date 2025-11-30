@@ -1880,7 +1880,20 @@ window.pinPost = async function(id) {
 };
 window.pinComment = async function(id) { if(!confirm("确认更改此评论置顶状态？")) return; await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'pin', id: id }) }); loadNativeComments(currentPostId, true); };
 window.deleteNotify = async function(id) { if(!confirm("Delete this log?")) return; await fetch(`${API_BASE}/notifications?id=${id}`, {method: 'DELETE'}); loadNotifications(); };
-window.clearAllNotifications = async function() { if(!confirm("Clear ALL logs?")) return; await fetch(`${API_BASE}/notifications?all=true`, {method: 'DELETE'}); loadNotifications(); };
+// === 汉化版：清空所有通知 ===
+window.clearAllNotifications = async function() { 
+    if(!confirm("⚠️ 高能预警\n\n确定要 [清空] 所有消息通知吗？\n此操作不可恢复！")) return; 
+    
+    try {
+        await fetch(`${API_BASE}/notifications?all=true`, {method: 'DELETE'}); 
+        showToast("消息列表已清空", "success");
+        loadNotifications(); 
+        checkNotifications(); // 刷新红点
+    } catch(e) {
+        showToast("清空失败", "error");
+    }
+};
+
 async function loadNotifications() { 
     const c = document.getElementById('notifyList'); 
     c.innerHTML='Loading...'; 
@@ -2701,6 +2714,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
