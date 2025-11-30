@@ -2091,67 +2091,100 @@ body.bg-fire {
     }
 
 /* =========================================
-   === 移动端聊天框终极修复 ===
+   === 移动端聊天界面终极修复 (Chat Fix) ===
    ========================================= */
 @media (max-width: 768px) {
-    /* 1. 聊天主容器：强制全屏、黑底白字 */
+    
+    /* 1. 聊天主容器：强制覆盖全屏，不留死角 */
     #chatBox {
-        position: fixed !important;
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100% !important; 
-        z-index: 99999 !important; /* 层级最高 */
-        background: #000 !important;
-        color: #fff !important; /* 关键：防止黑底黑字 */
-        display: flex !important; 
+        position: fixed !important; /* 强制脱离文档流 */
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        height: 100dvh !important; /* 关键：使用动态高度适配地址栏 */
+        z-index: 2147483647 !important; /* 层级设为最大，盖住所有导航栏 */
+        background-color: #000000 !important;
+        display: flex !important;
         flex-direction: column !important;
-        overflow: hidden !important; 
+        overflow: hidden !important; /* 禁止容器本身滚动 */
     }
 
     /* 2. 顶部标题栏 */
     .chat-header {
-        flex-shrink: 0; 
+        flex: 0 0 auto; /* 固定高度 */
+        height: 60px;
         background: #111;
         border-bottom: 1px solid #333;
-        padding: 15px;
-        z-index: 10;
         display: flex;
-        justify-content: space-between;
         align-items: center;
-    }
-
-    /* 3. 消息列表区：自动撑开，允许滑动 */
-    #chatMessages {
-        flex: 1 !important; 
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch; /* iOS 惯性滚动 */
-        overscroll-behavior: contain;      /* 防止连带页面滚动 */
-        padding: 15px !important;
-        padding-bottom: 20px !important;
-        height: auto !important;
-        background-color: #000; /* 确保背景纯黑 */
-    }
-
-    /* 4. 底部输入框：固定在底部，适配 iPhone 刘海 */
-    .chat-input-area {
-        position: static !important; /* 让 Flex 布局自动推到底部 */
-        width: 100%;
-        background: #111;
-        padding: 10px;
-        flex-shrink: 0; 
-        border-top: 1px solid #333;
-        /* 适配 iPhone X+ 底部横条 */
-        padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
+        justify-content: space-between;
+        padding: 0 15px;
+        color: #fff !important; /* 强制白字 */
         z-index: 10;
+    }
+    .chat-header button {
+        color: #fff !important;
+        border: 1px solid #666;
+        background: #333;
+    }
+
+    /* 3. 消息列表：占据剩余空间，独立滚动 */
+    #chatMessages {
+        flex: 1 1 auto !important; /* 自动伸缩 */
+        height: 0 !important; /* 配合 flex:1 实现内部滚动 */
+        overflow-y: scroll !important;
+        -webkit-overflow-scrolling: touch; /* iOS 丝滑滚动 */
+        overscroll-behavior: contain;      /* 防止滑动穿透 */
+        padding: 15px !important;
+        background-color: #000 !important;
+    }
+
+    /* 4. 消息气泡文字修正 */
+    .msg-bubble {
+        color: #fff !important; /* 强制白字 */
+        max-width: 85% !important;
+    }
+    /* 对方的消息气泡背景修正 */
+    .msg-row.left .msg-bubble {
+        background-color: #222 !important; 
+        border: 1px solid #333 !important;
+    }
+
+    /* 5. 底部输入框：固定在 Flex 底部 */
+    .chat-input-area {
+        flex: 0 0 auto; /* 固定高度 */
+        position: relative !important; /* 回归流布局 */
+        width: 100%;
+        background: #111 !important;
+        border-top: 1px solid #333;
+        padding: 10px;
+        /* 适配 iPhone 底部黑条 */
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
         display: flex;
         gap: 10px;
+        z-index: 20;
+    }
+
+    /* 6. 输入框文字颜色修复 */
+    #chatInput {
+        background-color: #222 !important;
+        color: #fff !important; /* 关键：防止黑字 */
+        border: 1px solid #444 !important;
+        border-radius: 4px;
+        flex: 1;
+        padding: 8px;
+        -webkit-appearance: none; /* 去除 iOS 默认样式 */
     }
     
-    /* 修复输入框文字颜色 */
-    .chat-input-area input {
+    /* 7. 发送按钮 */
+    .chat-input-area button {
+        background: var(--accent-blue) !important;
         color: #fff !important;
-        background: #222 !important;
+        border: none !important;
+        width: auto !important;
+        padding: 0 15px !important;
     }
 }
 
