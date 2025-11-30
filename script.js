@@ -1087,7 +1087,7 @@ function initApp() {
     window.addEventListener('hashchange', );
     setInterval(() => { const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString(); }, 1000);
     
-    if(isAppReady) ();
+    if(isAppReady);
 }
 
 const views = {
@@ -2666,6 +2666,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
