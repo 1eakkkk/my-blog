@@ -304,6 +304,71 @@
                     </div>
                 </div>
 
+                <!-- 数据格斗场视图 -->
+                <div id="view-duel" class="view-section" style="display:none;">
+                    <div class="duel-wrapper">
+                        <div class="duel-header">
+                            <h2>DATA DUEL ARENA // 数据格斗</h2>
+                            <div style="font-size:0.8rem; color:#666;">WARNING: 高风险数据交换区 (TAX: 1%)</div>
+                        </div>
+                
+                        <!-- 顶部操作区 -->
+                        <div class="duel-controls glass-card">
+                            <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
+                                <input type="number" id="duelBetAmount" class="cyber-input" placeholder="下注金额 (10-1000)" style="width:150px; margin:0;">
+                                <select id="duelMyMove" class="cyber-input" style="width:120px; margin:0;">
+                                    <option value="cube">🧊 立方体 (Rock)</option>
+                                    <option value="membrane">📄 薄膜 (Paper)</option>
+                                    <option value="blade">⚔️ 利刃 (Scissors)</option>
+                                </select>
+                                <button onclick="createDuel()" class="cyber-btn" style="width:auto; margin:0; border-color:#ff3333; color:#ff3333;">
+                                    INITIATE // 发起挑战
+                                </button>
+                            </div>
+                        </div>
+                
+                        <!-- 对局列表 -->
+                        <div class="duel-list-header">
+                            <span>CHALLENGER</span>
+                            <span>STAKE</span>
+                            <span>ACTION</span>
+                        </div>
+                        <div id="duelList" class="duel-list-container">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ⚔️ 对战动画全屏遮罩 (The Arena) ⚔️ -->
+                <div id="duel-overlay" class="duel-overlay" style="display:none;">
+                    <div class="arena-stage">
+                        <!-- 左侧: 我方 -->
+                        <div class="arena-player left">
+                            <div class="player-name" id="arenaP1Name">YOU</div>
+                            <div class="data-orb" id="orbP1"></div>
+                        </div>
+                
+                        <!-- 中间: 对撞区 -->
+                        <div class="arena-center">
+                            <div class="vs-text">VS</div>
+                            <div class="collision-flash" id="collisionFlash"></div>
+                        </div>
+                
+                        <!-- 右侧: 敌方 -->
+                        <div class="arena-player right">
+                            <div class="player-name" id="arenaP2Name">OPPONENT</div>
+                            <div class="data-orb" id="orbP2"></div> <!-- 初始状态是未知的 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 结果结算面板 -->
+                    <div id="duelResultPanel" class="duel-result-panel" style="display:none;">
+                        <h1 id="duelResultTitle">VICTORY</h1>
+                        <div id="duelResultDetail">+198 iCoins</div>
+                        <button onclick="closeDuelOverlay()" class="cyber-btn" style="margin-top:20px;">CLOSE CONNECTION</button>
+                    </div>
+                </div>
+
                 <!-- 2. 发帖 -->
                 <div id="view-write" class="view-section" style="display:none;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -803,6 +868,7 @@
     <script src="script.js?v=8.4"></script>
 </body>
 </html>
+
 
 
 
