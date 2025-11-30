@@ -1264,18 +1264,17 @@ window.doLuckyDraw = async function() {
     }
 };
 
-// === 修复版：帖子详情页加载 (增加容错) ===
+// === 修复版：帖子详情页加载 (解决黑屏/无内容问题) ===
 async function loadSinglePost(id, targetCommentId = null) {
     currentPostId = id; 
     const container = document.getElementById('single-post-content'); 
     if(!container) return; 
     
-    // 1. 初始化界面
-    container.innerHTML = '<div class="loading">正在读取加密数据流...</div>'; 
+    container.innerHTML = '<div class="loading">正在解码数据流...</div>'; 
     const commentsList = document.getElementById('commentsList');
     if(commentsList) commentsList.innerHTML = '';
 
-    // 2. 返回按钮逻辑
+    // 返回按钮
     const backBtn = document.querySelector('#view-post .back-btn'); 
     if (backBtn) { 
         if (returnToNotifications) { 
@@ -1287,7 +1286,7 @@ async function loadSinglePost(id, targetCommentId = null) {
         } 
     }
     
-    // 3. 重置评论框
+    // 重置评论框
     const commentInput = document.getElementById('commentInput'); 
     if(commentInput) { 
         commentInput.value = ''; 
@@ -1301,11 +1300,11 @@ async function loadSinglePost(id, targetCommentId = null) {
 
     try {
         const res = await fetch(`${API_BASE}/posts?id=${id}`); 
-        if (!res.ok) throw new Error("Network response was not ok");
+        if (!res.ok) throw new Error("API Connection Failed");
         const post = await res.json(); 
         
         if (!post || !post.id) { 
-            container.innerHTML = '<h1 style="color:#f33">404 - 数据丢失或已被删除</h1>'; 
+            container.innerHTML = '<h1 style="color:#f33">404 - 数据丢失</h1>'; 
             return; 
         }
         
@@ -1315,20 +1314,20 @@ async function loadSinglePost(id, targetCommentId = null) {
         const dateStr = new Date(rawDate).toLocaleString(); 
         const editedTag = post.updated_at ? '<span class="edited-tag">已编辑</span>' : '';
         
-        // === 特效查找 (增加空值保护) ===
-        // 1. 帖子边框
-        const styleId = post.author_equipped_post_style; 
-        const styleItem = (typeof SHOP_CATALOG !== 'undefined') ? SHOP_CATALOG.find(i => i.id === styleId) : null;
+        // === 安全获取特效 (防止 CATALOG 未定义报错) ===
+        const getCatalogItem = (itemId) => {
+            if (typeof SHOP_CATALOG === 'undefined') return null;
+            return SHOP_CATALOG.find(i => i.id === itemId);
+        };
+
+        const styleItem = getCatalogItem(post.author_equipped_post_style);
         const postStyleClass = styleItem ? styleItem.css : ''; 
         
-        // 2. 名字颜色
-        const nameColorId = post.author_name_color;
-        const ncItem = (typeof SHOP_CATALOG !== 'undefined') ? SHOP_CATALOG.find(i => i.id === nameColorId) : null;
+        const ncItem = getCatalogItem(post.author_name_color);
         const nameColorClass = ncItem ? ncItem.css : '';
 
-        // === 操作按钮生成 ===
+        // 操作按钮
         let actionBtns = ''; 
-        // 只有管理员或作者本人显示置顶/删除/编辑
         if (userRole === 'admin' || (currentUser && currentUser.id === post.user_id)) {
             let pinText = post.is_pinned ? "取消置顶" : (userRole === 'admin' ? "管理员置顶" : "使用置顶卡");
             let pinColor = post.is_pinned ? "#666" : (userRole === 'admin' ? "#0f0" : "gold");
@@ -1337,18 +1336,16 @@ async function loadSinglePost(id, targetCommentId = null) {
             actionBtns += `<button onclick="editPostMode('${post.id}')" class="delete-btn" style="border-color:#0070f3;color:#0070f3;margin-right:10px">编辑</button>`; 
             actionBtns += `<button onclick="deletePost(${post.id})" class="delete-btn">删除</button>`; 
         } 
-        // 管理员封号按钮
         if (userRole === 'admin' && post.user_id !== (currentUser ? currentUser.id : 0)) { 
             actionBtns += `<button onclick="adminBanUser(${post.user_id})" class="delete-btn" style="border-color:yellow;color:yellow;margin-left:10px">封号</button>`; 
         }
         
-        // 打赏按钮
         let tipBtn = ''; 
         if (currentUser && currentUser.id !== post.user_id) { 
             tipBtn = `<button onclick="tipUser(${post.user_id}, ${post.id})" class="cyber-btn" style="width:auto;font-size:0.8rem;padding:5px 10px;margin-left:10px;">打赏 / TIP</button>`; 
         }
         
-        // === 元数据组装 ===
+        // 元数据
         const authorDisplay = post.author_nickname || post.author_username || "Unknown"; 
         const uObj = { username: post.author_username, avatar_variant: post.author_avatar_variant, avatar_url: post.author_avatar_url };
         const avatarSvg = renderUserAvatar(uObj); 
@@ -1360,41 +1357,47 @@ async function loadSinglePost(id, targetCommentId = null) {
         const likeBtn = `<button class="like-btn ${likeClass}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count||0}</span></button>`;
         const userLinkAction = `onclick="window.location.hash='#profile?u=${post.author_username}'" style="cursor:pointer"`;
 
-        // === 关键修复：Markdown 解析安全处理 ===
-        // 确保 content 不是 null 或 undefined，否则 marked 会报错
+        // 内容解析
         const safeContent = post.content || '';
         const parsedContent = parseMarkdown(safeContent);
 
-        // === 3. 组装 HTML ===
-        // 外层加上 postStyleClass 以显示边框
+        // === 3. 组装 HTML (移除内联样式，使用 cleaner 结构) ===
+        // 这里移除了 style="background:transparent" 这种可能导致问题的代码
+        // 并强制给 container 添加一个默认颜色，防止被主题覆盖成黑色文字
         container.innerHTML = `
-            <div class="post-card full-view ${postStyleClass}" style="min-height: 200px; padding: 20px;">
-                <div class="post-header-row">
-                    <div class="post-author-info">
+            <div class="post-card full-view ${postStyleClass}" style="min-height: 200px; padding: 25px; position:relative; overflow:hidden;">
+                
+                <div class="post-header-row" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+                    <div class="post-author-info" style="display:flex; align-items:center; gap:15px;">
                         <div class="post-avatar-box" ${userLinkAction}>${avatarSvg}</div>
                         <div class="post-meta-text">
-                            <span class="${nameColorClass}" ${userLinkAction} style="font-size:1.1rem; font-weight:bold;">${authorDisplay}</span> 
+                            <span class="${nameColorClass}" ${userLinkAction} style="font-size:1.1rem; font-weight:bold; color:#fff;">${authorDisplay}</span> 
                             <div style="margin-top:2px;">${badgesHtml}</div>
-                            <div style="display:flex; align-items:center; gap:10px; margin-top:5px; color:#666; font-size:0.8rem;">
-                                <span>${catHtml} ID: ${post.id} // ${dateStr} ${editedTag}</span>
-                                ${likeBtn}
+                            <div style="font-size:0.8rem; color:#888; margin-top:5px;">
+                                ${catHtml} ${dateStr} ${editedTag}
                             </div>
                         </div>
                     </div>
                     
-                    <div class="post-actions-mobile" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px; margin-top:5px;">
-                        ${actionBtns}${tipBtn}
+                    <div class="post-actions-mobile" style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+                        <div style="display:flex; gap:5px;">${actionBtns}</div>
+                        ${tipBtn}
                     </div>
                 </div>
 
-                <h1 style="margin:20px 0; font-size:1.8rem; line-height:1.4;">${post.title}</h1>
+                <h1 style="margin:20px 0; font-size:1.8rem; line-height:1.4; color:#fff;">${post.title}</h1>
                 
-                <!-- 帖子内容区域 -->
-                <div class="article-body" style="font-size:1rem; line-height:1.8;">${parsedContent}</div>
+                <div class="article-body" style="font-size:1rem; line-height:1.8; color:#ddd;">
+                    ${parsedContent}
+                </div>
+
+                <div class="post-footer" style="margin-top:30px; padding-top:20px; border-top:1px dashed #333; display:flex; justify-content:flex-end;">
+                    ${likeBtn}
+                </div>
             </div>
         `;
         
-        // 绑定图片点击事件 (Lightbox)
+        // Lightbox 绑定
         const imgs = container.querySelectorAll('.article-body img');
         imgs.forEach(img => {
             img.style.cursor = 'zoom-in';
@@ -1408,13 +1411,14 @@ async function loadSinglePost(id, targetCommentId = null) {
 
     } catch (e) { 
         console.error("LoadPost Error:", e); 
-        container.innerHTML = `<div style="color:red; text-align:center; padding:20px;">
-            <h3>SYSTEM ERROR</h3>
-            <p>无法加载数据流</p>
-            <p style="font-size:0.8rem; color:#666;">${e.message}</p>
+        container.innerHTML = `<div style="color:red; text-align:center; padding:20px; border:1px solid #f00;">
+            <h3>显示错误</h3>
+            <p>无法渲染帖子内容，请检查网络或联系管理员。</p>
+            <p style="font-size:0.8rem; color:#666;">Debug: ${e.message}</p>
         </div>`; 
     }
 }
+
 async function loadNativeComments(postId, reset = false, highlightId = null) {
     const list = document.getElementById('commentsList'); const loadBtn = document.getElementById('loadCommentsBtn');
     if (reset) { currentCommentPage = 1; hasMoreComments = true; list.innerHTML = ''; if (loadBtn) loadBtn.style.display = 'none'; }
@@ -2663,6 +2667,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
