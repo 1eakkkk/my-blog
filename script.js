@@ -2857,7 +2857,7 @@ window.exploreNode = async function() {
     if(btn.disabled) return;
     
     btn.disabled = true;
-    centerBtn.style.animation = "radar-spin 0.5s infinite linear"; // 快速旋转特效
+    centerBtn.classList.add('scanning');
     addNodeLog("CONNECTING TO NODE...", "info");
 
     try {
@@ -2870,7 +2870,7 @@ window.exploreNode = async function() {
         });
         const data = await res.json();
         
-        centerBtn.style.animation = ""; // 停止旋转
+        centerBtn.classList.add('scanning'); // 停止旋转
 
         if (data.success) {
             let logType = "";
@@ -2893,12 +2893,13 @@ window.exploreNode = async function() {
             showToast(data.error, 'error');
         }
     } catch (e) {
-        centerBtn.style.animation = "";
+        centerBtn.classList.add('scanning');
         addNodeLog("CRITICAL FAILURE: NETWORK LOST", "error");
     } finally {
         btn.disabled = false;
     }
 };
+
 
 
 
