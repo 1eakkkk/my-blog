@@ -214,21 +214,25 @@
                     <button id="loadMoreBtn" class="cyber-btn" onclick="loadPosts(false)" style="display:none; margin: 20px auto; max-width: 300px;">加载更多</button>
                 </div>
 
-                <!-- N.O.D.E 控制台视图 -->
+                <!-- N.O.D.E 控制台视图 (Void Theme) -->
                 <div id="view-node" class="view-section" style="display:none;">
                     <div class="node-console-wrapper">
                         <div class="node-header">
-                            <h2>N.O.D.E // NETWORK OPERATIONS</h2>
-                            <div class="node-status">LINKED: <span id="nodeUser">UNKNOWN</span></div>
+                            <h2>N.O.D.E // SYSTEM</h2>
+                            <div class="node-status">LINK: <span id="nodeUser">...</span></div>
                         </div>
                 
-                        <!-- 雷达/地图可视化区域 -->
+                        <!-- 雷达可视区域 -->
                         <div class="node-visualizer">
                             <div class="radar-circle"></div>
                             <div class="radar-line"></div>
-                            <div class="node-point" style="top:20%; left:30%"></div>
-                            <div class="node-point" style="top:70%; left:60%"></div>
-                            <div class="node-point" style="top:40%; left:80%"></div>
+                            
+                            <!-- 装饰点 -->
+                            <div class="node-point" style="top:25%; left:25%"></div>
+                            <div class="node-point" style="top:75%; left:65%"></div>
+                            <div class="node-point" style="top:35%; left:80%"></div>
+                
+                            <!-- 核心交互按钮 -->
                             <div id="centralNode" class="central-node" onclick="exploreNode()">
                                 SCAN
                             </div>
@@ -236,16 +240,16 @@
                 
                         <!-- 控制面板 -->
                         <div class="node-controls">
-                            <p id="nodeCostDisplay">正在校准...</p>
-                            <button id="exploreBtn" class="cyber-btn glitch-effect" onclick="exploreNode()">
-                                INITIATE SCAN // 启动扫描
+                            <p id="nodeCostDisplay">CALIBRATING...</p>
+                            <button id="exploreBtn" onclick="exploreNode()">
+                                START SEQUENCE
                             </button>
                         </div>
                 
                         <!-- 日志终端 -->
                         <div class="console-log" id="nodeLog">
-                            <div class="log-line">> SYSTEM READY...</div>
-                            <div class="log-line">> WAITING FOR INPUT...</div>
+                            <div class="log-line">> SYSTEM INITIALIZED...</div>
+                            <div class="log-line">> AWAITING COMMAND...</div>
                         </div>
                     </div>
                 </div>
@@ -741,9 +745,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.2"></script>
+    <script src="script.js?v=8.3"></script>
 </body>
 </html>
+
 
 
 
