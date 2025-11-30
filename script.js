@@ -2854,6 +2854,8 @@ function addNodeLog(msg, type='') {
     }, 20); // 打字速度
 }
 
+// 在 script.js 中替换 exploreNode 函数
+
 window.exploreNode = async function() {
     const btn = document.getElementById('exploreBtn');
     const centerBtn = document.getElementById('centralNode');
@@ -2861,11 +2863,11 @@ window.exploreNode = async function() {
     if(btn.disabled) return;
     
     btn.disabled = true;
-    centerBtn.classList.add('scanning');
+    centerBtn.classList.add('scanning'); // 触发CSS旋转/发光动画
     addNodeLog("CONNECTING TO NODE...", "info");
 
     try {
-        // 模拟一点延迟，增加紧张感
+        // 模拟扫描延迟
         await new Promise(r => setTimeout(r, 800));
 
         const res = await fetch(`${API_BASE}/node`, {
@@ -2874,22 +2876,58 @@ window.exploreNode = async function() {
         });
         const data = await res.json();
         
-        centerBtn.classList.add('scanning'); // 停止旋转
+        centerBtn.classList.remove('scanning');
 
         if (data.success) {
             let logType = "";
             if (data.type === 'glitch') logType = "error";
-            else if (data.type === 'item' || data.type === 'mission') logType = "warn"; // 金色/警告色
+            else if (data.type === 'item' || data.type === 'mission') logType = "warn";
+            else if (data.type === 'reward_coin' || data.type === 'reward_xp') logType = "info";
             
             addNodeLog("DATA RECEIVED: " + data.message, logType);
             
-            // 刷新状态
-            if (data.remaining_coins !== undefined) {
-                document.getElementById('coinCount').innerText = data.remaining_coins;
-            }
-            loadNodeConsole(); // 刷新按钮状态
+            // === 核心修改：立即更新全局状态和UI ===
             
-            // 如果触发了任务，刷新任务列表
+            // 1. 更新全局变量
+            if (currentUser) {
+                if (data.new_coins !== undefined) currentUser.coins = data.new_coins;
+                if (data.new_xp !== undefined) currentUser.xp = data.new_xp;
+            }
+
+            // 2. 更新侧边栏：金币
+            const coinEl = document.getElementById('coinCount');
+            if (coinEl && data.new_coins !== undefined) {
+                // 做一个简单的数字跳动效果（可选）
+                coinEl.innerText = data.new_coins;
+                coinEl.style.color = '#00ff00';
+                setTimeout(() => coinEl.style.color = '', 500); // 闪一下绿色
+            }
+
+            // 3. 更新侧边栏：经验条和等级
+            if (data.new_xp !== undefined) {
+                const xpText = document.getElementById('xpText');
+                const xpBar = document.getElementById('xpBar');
+                const badgesArea = document.getElementById('badgesArea');
+                
+                // 重新计算等级
+                const levelInfo = calculateLevel(data.new_xp);
+                
+                if (xpText) xpText.textContent = `${data.new_xp} / ${levelInfo.next}`;
+                if (xpBar) xpBar.style.width = `${levelInfo.percent}%`;
+
+                // 如果升级了，刷新徽章区域
+                if (badgesArea && currentUser) {
+                     badgesArea.innerHTML = getBadgesHtml(currentUser) + `<div id="logoutBtn">EXIT</div>`;
+                     // 因为 innerHTML 覆盖了 DOM，需要重新绑定退出按钮事件
+                     const logoutBtn = document.getElementById('logoutBtn');
+                     if(logoutBtn) logoutBtn.onclick = doLogout;
+                }
+            }
+
+            // 4. 刷新控制台自身的按钮状态
+            loadNodeConsole(); 
+            
+            // 5. 如果触发了任务，刷新任务列表
             if (data.type === 'mission') loadTasks();
 
         } else {
@@ -2897,12 +2935,14 @@ window.exploreNode = async function() {
             showToast(data.error, 'error');
         }
     } catch (e) {
-        centerBtn.classList.add('scanning');
+        centerBtn.classList.remove('scanning');
         addNodeLog("CRITICAL FAILURE: NETWORK LOST", "error");
+        console.error(e);
     } finally {
         btn.disabled = false;
     }
 };
+
 
 
 
