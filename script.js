@@ -995,6 +995,7 @@ async function checkSecurity() {
     }
 }
 
+// === 修复版 initApp (解决 addEventListener 报错) ===
 function initApp() {
     // 1. 禁用浏览器自动滚动恢复
     if ('scrollRestoration' in history) {
@@ -1021,7 +1022,7 @@ function initApp() {
     const postForm = document.getElementById('postForm'); 
     if (postForm) postForm.onsubmit = doPost;
 
-    // 5. 评论区图片点击放大 (事件委托)
+    // 5. 评论区图片点击放大
     const commentsList = document.getElementById('commentsList');
     if (commentsList) {
         commentsList.addEventListener('click', (e) => {
@@ -1040,19 +1041,18 @@ function initApp() {
         });
     }
     
-    // === 新增功能 1：PC端私信回车发送 (Enter) ===
+    // 7. PC端私信回车发送
     const chatInput = document.getElementById('chatInput');
     if (chatInput) {
         chatInput.addEventListener('keydown', (e) => {
-            // 只有按下 Enter 且没有按 Shift (防止误触，虽Input不支持换行但保持习惯)
             if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault(); // 阻止默认行为
-                sendPrivateMessage(); // 调用发送函数
+                e.preventDefault(); 
+                sendPrivateMessage(); 
             }
         });
     }
 
-    // === 新增功能 2：移动端右滑打开侧边栏 (防误触) ===
+    // 8. 移动端右滑打开侧边栏
     let touchStartX = 0;
     let touchStartY = 0;
 
@@ -1066,28 +1066,26 @@ function initApp() {
         const touchEndY = e.changedTouches[0].screenY;
         
         const sidebar = document.getElementById('sidebar');
-
-        // 逻辑判断：
-        // 1. 起始点 x > 50px：避开屏幕最左侧边缘，防止触发浏览器"返回上一页"
-        // 2. 水平滑动距离 > 80px：动作幅度足够大才算
-        // 3. 垂直滑动距离 < 60px：防止用户是在上下浏览网页
         if (touchStartX > 50 && (touchEndX - touchStartX > 80) && Math.abs(touchEndY - touchStartY) < 60) {
             if (sidebar && !sidebar.classList.contains('open')) {
                 sidebar.classList.add('open');
             }
         }
-        
-        // (可选) 左滑关闭：如果在侧边栏打开时左滑，则关闭
         if (sidebar && sidebar.classList.contains('open') && (touchStartX - touchEndX > 80)) {
             sidebar.classList.remove('open');
         }
     }, {passive: true});
 
-    // 7. 启动核心
-    window.addEventListener('hashchange', );
+    // 9. 启动核心 (确保 handleRoute 存在才绑定)
+    if (typeof handleRoute === 'function') {
+        window.addEventListener('hashchange', handleRoute);
+    }
+    
+    // 时钟
     setInterval(() => { const el = document.getElementById('clock'); if(el) el.textContent = new Date().toLocaleTimeString(); }, 1000);
     
-    if(isAppReady);
+    // 启动路由
+    if(isAppReady) handleRoute();
 }
 
 const views = {
@@ -2666,6 +2664,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
