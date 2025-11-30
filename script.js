@@ -23,6 +23,7 @@ let hasMoreComments = true;
 let isLoadingComments = false;
 let currentPostAuthorId = null;
 let homeScrollY = 0; // 记录首页滚动位置
+let selectedBroadcastColor = '#ffffff';// === 📡 全服播报系统逻辑 ===
 
 let currentChatTargetId = null; // === 社交与私信模块 ===
 let chatPollInterval = null;
@@ -39,6 +40,188 @@ const LEVEL_TABLE = [
     { lv: 9,  xp: 50000, title: '半神' },
     { lv: 10, xp: 60000, title: '赛博神' }
 ];
+
+// 1. 检查并播放
+async function checkBroadcasts() {
+    try {
+        const res = await fetch(`${API_BASE}/broadcast`);
+        const data = await res.json();
+        
+        if (data.success && data.list && data.list.length > 0) {
+            // 彩蛋：如果同一时间生效的播报超过 3 个，触发“系统超载”红色特效
+            const isOverload = data.list.length >= 3;
+            
+            // 依次播放队列
+            playBroadcastQueue(data.list, isOverload);
+        }
+    } catch(e) {}
+}
+
+async function playBroadcastQueue(queue, isOverload) {
+    if (queue.length === 0) return;
+    
+    const item = queue.shift(); // 取出第一个
+    showHud(item, isOverload);
+    
+    // 根据档次决定持续时间
+    const duration = item.tier === 'high' ? 5000 : 3000;
+    
+    // 等待播放完毕后，递归播放下一个
+    setTimeout(() => {
+        hideHud();
+        setTimeout(() => {
+            playBroadcastQueue(queue, isOverload);
+        }, 500); // 间隔0.5秒
+    }, duration);
+}
+
+function showHud(item, isOverload) {
+    const hud = document.getElementById('broadcast-hud');
+    const box = document.getElementById('hudBox');
+    const userEl = document.getElementById('hudUser');
+    const contentEl = document.getElementById('hudContent');
+    
+    // 设置内容
+    userEl.innerText = item.nickname || "SYSTEM";
+    contentEl.innerText = item.content;
+    
+    // 设置颜色
+    if (item.style_color === 'rainbow') {
+        contentEl.className = 'hud-content color-rainbow'; // 复用之前的彩虹类
+        contentEl.style.color = 'transparent'; // 必须设为透明才能透出背景渐变
+    } else {
+        contentEl.className = 'hud-content';
+        contentEl.style.color = item.style_color || '#fff';
+    }
+    
+    // 彩蛋模式
+    if (isOverload) {
+        box.parentElement.classList.add('hud-overload');
+        userEl.innerText += " [OVERLOAD]";
+    } else {
+        box.parentElement.classList.remove('hud-overload');
+    }
+    
+    hud.style.display = 'flex';
+    // 移除之前的退出动画类（如果有）
+    box.classList.remove('hud-exit');
+}
+
+function hideHud() {
+    const box = document.getElementById('hudBox');
+    const hud = document.getElementById('broadcast-hud');
+    
+    // 播放离场动画
+    box.classList.add('hud-exit');
+    
+    // 动画结束后隐藏 DOM
+    setTimeout(() => {
+        hud.style.display = 'none';
+        box.classList.remove('hud-exit');
+    }, 500);
+}
+
+// 2. 背包中使用道具 (修改 toggleEquip 或新增 useConsumable)
+// 我们需要在 inventory.js (前端逻辑) 增加判断
+// 原来的 toggleEquip 主要是给装备用的，我们这里拦截一下 consumable
+
+// 修改原有的 toggleEquip，如果 category 是 consumable 且是 broadcast，走特殊流程
+const originalToggleEquip = window.toggleEquip;
+window.toggleEquip = async function(id, cat, action) {
+    // 拦截全服播报卡
+    if (cat === 'consumable' && (id.includes('broadcast'))) {
+        openBroadcastModal(id);
+        return;
+    }
+    // 其他道具走原逻辑
+    originalToggleEquip(id, cat, action);
+};
+
+// 打开输入弹窗
+let currentBroadcastItemType = ''; // 'high' or 'low'
+
+window.openBroadcastModal = function(itemIdRaw) {
+    // itemIdRaw 可能是数据库 id，也可能是 string id，这里根据你的 inventory 逻辑调整
+    // 假设 inventoryList 渲染时 id 是数据库唯一ID，我们需要知道 item_id 是 broadcast_high 还是 low
+    // 简单起见，我们直接看 itemId 字符串或者让 toggleEquip 传更多参数
+    // 这里假设传进来的是 user_items.id，我们需要去列表里找一下类型，或者...
+    // 简化：我们在生成 HTML 时，给按钮传具体的类型
+    
+    // 修正：建议在 loadInventory 生成 HTML 时，把 item_id 也传给 toggleEquip
+    // 例如：onclick="toggleEquip('${item.id}', '${item.category}', 'equip', '${item.item_id}')"
+    // 假设你修改了 loadInventory 的生成逻辑，如果没改，我们可以通过 textContent 判断（不推荐）
+    
+    // 临时方案：通过全局查找 DOM 或重新请求太麻烦。
+    // 建议修改 loadInventory 函数中生成按钮的部分：
+    // actionBtn = `<button onclick="handleUseItem('${item.item_id}')" ...` 
+    // 这样更清晰。
+    
+    // 但为了不破坏现有结构，假设我们有一个 handleUseItem 函数
+    // 下面是 UI 逻辑
+    const modal = document.getElementById('item-use-modal');
+    const input = document.getElementById('broadcastInput');
+    const picker = document.querySelector('.color-picker-row');
+    
+    // 判断高低档 (通过全局变量或传参，这里假设我们知道)
+    // 临时 Hack：判断 itemId 字符串包含 high 还是 low
+    // 如果是真实环境，请在 toggleEquip 里传入 item.item_id
+    
+    // 假设传入的是 'broadcast_high'
+    if (itemIdRaw.includes('high')) {
+        currentBroadcastItemType = 'high';
+        picker.style.display = 'flex'; // 显示选色
+        input.value = '';
+        input.placeholder = "输入宣言 (限20字)...";
+        input.disabled = false;
+    } else {
+        currentBroadcastItemType = 'low';
+        picker.style.display = 'none'; // 隐藏选色
+        input.value = "系统通告：我正在注视着这片荒原。";
+        input.disabled = true; // 低档不可编辑
+    }
+    
+    modal.style.display = 'flex';
+};
+
+window.closeItemModal = function() {
+    document.getElementById('item-use-modal').style.display = 'none';
+};
+
+window.selectBroadcastColor = function(color, el) {
+    selectedBroadcastColor = color;
+    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+    el.classList.add('selected');
+};
+
+window.submitBroadcast = async function() {
+    const input = document.getElementById('broadcastInput');
+    const content = input.value.trim();
+    
+    if (currentBroadcastItemType === 'high' && !content) return showToast('请输入内容', 'error');
+    
+    try {
+        const res = await fetch(`${API_BASE}/broadcast`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                tier: currentBroadcastItemType,
+                content: content,
+                color: selectedBroadcastColor
+            })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            closeItemModal();
+            loadInventory(); // 刷新背包，减数量
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络错误", 'error');
+    }
+};
 
 // 1. 加载好友列表
 window.loadFriendList = async function() {
@@ -1139,6 +1322,7 @@ function initApp() {
     
     // 启动路由
     if(isAppReady) handleRoute();
+    setTimeout(checkBroadcasts, 1000); // 延迟1秒显示，让用户先看清页面
 }
 
 const views = {
@@ -2563,7 +2747,16 @@ async function loadInventory(filterCategory = 'all') {
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0;width:100%;margin-top:10px;">已装备 / UNSET</button>`;
                 } else {
                     // ✅ 修复：确保传递正确的 category
-                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / EQUIP</button>`;
+                    let clickAction = `toggleEquip('${item.id}', '${item.category}', 'equip')`;
+                    if (item.item_id.includes('broadcast')) {
+                        clickAction = `openBroadcastModal('${item.item_id}')`;
+                    }
+                    
+                    if (item.category === 'consumable') {
+                        // 如果是消耗品，显示“使用”
+                        actionBtn = `<button onclick="${clickAction}" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / USE</button>`;
+                        // ...
+                    }
                 }
                 
                 // 显示剩余时间
@@ -2979,6 +3172,47 @@ async function loadNodeBroadcast() {
 // 或者直接 setInterval
 setInterval(loadNodeBroadcast, 30000); // 每30秒刷新一次广播
 
+async function loadAdminBroadcasts() {
+    const container = document.getElementById('adminBroadcastList');
+    if(!container) return;
+    
+    const res = await fetch(`${API_BASE}/admin`, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'get_pending_broadcasts' })
+    });
+    const data = await res.json();
+    
+    if (data.list.length === 0) {
+        container.innerHTML = '<div style="color:#666">暂无待审</div>';
+        return;
+    }
+    
+    let html = '';
+    data.list.forEach(b => {
+        html += `
+            <div style="border-bottom:1px dashed #333; padding:10px;">
+                <div style="font-size:0.8rem; color:#aaa;">[${b.tier.toUpperCase()}] ${b.nickname}:</div>
+                <div style="color:${b.style_color === 'rainbow' ? 'orange' : b.style_color}; font-weight:bold;">${b.content}</div>
+                <div style="margin-top:5px;">
+                    <button onclick="reviewBroadcast(${b.id}, 'approve')" class="mini-action-btn" style="color:#0f0;border-color:#0f0;">通过</button>
+                    <button onclick="reviewBroadcast(${b.id}, 'reject')" class="mini-action-btn" style="color:#f33;border-color:#f33;">驳回</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+window.reviewBroadcast = async function(id, decision) {
+    if(!confirm(decision === 'approve' ? "确认通过？" : "确认驳回？")) return;
+    await fetch(`${API_BASE}/admin`, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'review_broadcast', id, decision })
+    });
+    loadAdminBroadcasts();
+};
+
+// 记得在 loadAdminStats 里调用 loadAdminBroadcasts();
 
 
 
