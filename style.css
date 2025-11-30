@@ -2251,8 +2251,8 @@ body.bg-fire {
 .central-node {
     position: relative;
     z-index: 10;
-    width: 120px; /* 如果图片细节多，可以稍微改大一点，比如 120px */
-    height: 120px;
+    width: 160px; 
+    height: 160px;
     border-radius: 50%;
     cursor: pointer;
     transition: 0.3s;
@@ -2389,6 +2389,7 @@ body.bg-fire {
     80% { transform: translate(2px, -2px); }
     100% { transform: translate(0); }
 }
+
 
 
 
