@@ -986,8 +986,6 @@ async function checkSecurity() {
         }, 60000);
         loadTasks(); 
         checkForDrafts();
-        
-        ();
 
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
 
@@ -2668,6 +2666,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
