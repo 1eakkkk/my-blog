@@ -2650,6 +2650,118 @@ body.bg-fire {
     background: linear-gradient(135deg, red, orange, yellow, green, blue, indigo, violet);
 }
 
+/* --- 数据格斗场基础 --- */
+.duel-wrapper { max-width: 800px; margin: 0 auto; }
+.duel-header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #ff3333; padding-bottom: 10px; }
+.duel-header h2 { color: #ff3333; text-shadow: 0 0 10px rgba(255, 51, 51, 0.5); margin: 0; }
+
+.duel-list-header { display: flex; justify-content: space-between; padding: 10px 20px; color: #888; font-size: 0.8rem; border-bottom: 1px solid #333; }
+.duel-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #222; background: rgba(255, 51, 51, 0.05); transition: 0.3s; }
+.duel-item:hover { background: rgba(255, 51, 51, 0.1); border-left: 3px solid #ff3333; }
+.duel-stake { color: #FFD700; font-weight: bold; font-family: var(--font-tech); }
+
+/* --- ⚔️ 全屏对战动画层 (The Visual Core) ⚔️ --- */
+.duel-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.95); z-index: 100000;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    backdrop-filter: blur(20px);
+}
+
+.arena-stage {
+    display: flex; justify-content: space-between; align-items: center;
+    width: 80%; max-width: 800px; height: 300px; position: relative;
+}
+
+.arena-player { display: flex; flex-direction: column; align-items: center; width: 150px; }
+.player-name { color: #888; margin-bottom: 20px; font-size: 0.9rem; letter-spacing: 2px; }
+
+/* === 数据球体 (Data Orbs) === */
+.data-orb {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    position: relative;
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: #111;
+    border: 1px solid #333;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 2rem;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+/* 1. 立方体 (Rock) */
+.orb-cube {
+    background: rgba(255, 51, 51, 0.1);
+    border: 2px solid #ff3333;
+    box-shadow: 0 0 30px rgba(255, 51, 51, 0.4);
+    clip-path: polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%);
+    animation: float-slow 3s infinite ease-in-out;
+}
+.orb-cube::after { content: '🧊'; }
+
+/* 2. 薄膜 (Paper) */
+.orb-membrane {
+    background: rgba(0, 243, 255, 0.1);
+    border: 2px solid #00f3ff;
+    box-shadow: 0 0 30px rgba(0, 243, 255, 0.4);
+    border-radius: 10px;
+    animation: float-wobble 4s infinite ease-in-out;
+}
+.orb-membrane::after { content: '📄'; }
+
+/* 3. 利刃 (Scissors) */
+.orb-blade {
+    background: rgba(255, 215, 0, 0.1);
+    border: 2px solid #FFD700;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    transform: rotate(180deg);
+    animation: float-sharp 0.5s infinite alternate;
+}
+.orb-blade::after { content: '⚔️'; transform: rotate(180deg); }
+
+/* 未知状态 (Opponent Hidden) */
+.orb-unknown {
+    border: 2px dashed #666;
+    animation: spin 2s infinite linear;
+}
+.orb-unknown::after { content: '?'; color: #666; }
+
+/* 动画定义 */
+@keyframes float-slow { 0%,100% {transform:translateY(0)} 50% {transform:translateY(-10px)} }
+@keyframes float-wobble { 0%,100% {border-radius:10px} 50% {border-radius:50%} }
+@keyframes float-sharp { from {transform:rotate(180deg) scale(1)} to {transform:rotate(180deg) scale(1.1)} }
+
+/* === 撞击动画 === */
+.arena-center { width: 100px; display: flex; justify-content: center; align-items: center; position: relative; }
+.vs-text { font-size: 2rem; font-weight: 900; color: #333; font-style: italic; }
+
+.collision-flash {
+    position: absolute; width: 10px; height: 10px; background: #fff; border-radius: 50%; opacity: 0; pointer-events: none;
+}
+.flash-active {
+    animation: flash-bang 0.5s ease-out forwards;
+}
+@keyframes flash-bang {
+    0% { transform: scale(0); opacity: 1; }
+    50% { transform: scale(50); opacity: 0.8; }
+    100% { transform: scale(100); opacity: 0; }
+}
+
+/* 结算面板 */
+.duel-result-panel {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; z-index: 10;
+    animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.duel-result-panel h1 { font-size: 3rem; margin: 0; text-shadow: 0 0 20px currentColor; letter-spacing: 5px; }
+.win-text { color: #00ff00; }
+.lose-text { color: #ff3333; }
+.draw-text { color: #fff; }
+
+/* 胜利者放大，失败者破碎 */
+.winner-anim { transform: scale(1.5); z-index: 5; filter: drop-shadow(0 0 20px currentColor); }
+.loser-anim { transform: scale(0.5); opacity: 0.5; filter: grayscale(1); }
 
 
 
