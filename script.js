@@ -215,10 +215,26 @@ window.openChat = async function(uid, name) {
 };
 
 window.closeChatBox = function() {
-    document.getElementById('chatBox').style.display = 'none';
+    // 1. 隐藏聊天框
+    const chatBox = document.getElementById('chatBox');
+    if (chatBox) {
+        chatBox.style.display = 'none';
+        // 强制移除可能残留的样式干扰
+        chatBox.classList.remove('active'); 
+    }
+
+    // 2. 停止消息轮询
     if(chatPollInterval) clearInterval(chatPollInterval);
     currentChatTargetId = null;
-    if(window.innerWidth < 768) document.querySelector('.chat-sidebar').style.display = 'flex';
+
+    // 3. 移动端特有逻辑：关闭聊天框后，必须把好友列表(sidebar)显示回来
+    if(window.innerWidth < 768) {
+        const sidebar = document.querySelector('.chat-sidebar');
+        if(sidebar) {
+            sidebar.style.display = 'flex'; // 恢复显示
+            sidebar.style.flexDirection = 'column'; // 确保布局正确
+        }
+    }
 };
 
 // 覆盖原有的 loadChatHistory 函数
@@ -2767,6 +2783,7 @@ window.adminSearchUsers = async function() {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
