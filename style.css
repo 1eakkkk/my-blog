@@ -2045,37 +2045,50 @@ body.bg-fire {
 
     /* 4. 针对【私信页面】(#view-chat) 的特殊修复 */
     /* 私信页面需要固定高度内部滚动，不能随页面滚 */
-    #view-chat .chat-layout {
-        height: calc(100vh - 80px) !important; /* 减去顶部导航栏高度 */
-        display: flex;
-        flex-direction: column;
+    #chatBox {
+        position: fixed !important;
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100% !important; 
+        z-index: 9999; 
+        background: #000;
+        display: flex !important; 
+        flex-direction: column !important;
+        /* 移除任何可能导致滚动的属性 */
+        overflow: hidden !important; 
     }
 
-    /* 聊天记录列表 */
-    #chatList {
-        flex: 1;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain; /* 防止滑到底部触发外层滚动 */
+    /* 顶部标题栏 */
+    .chat-header {
+        flex-shrink: 0; /* 禁止缩小 */
+        background: #111;
+        z-index: 10;
     }
 
-    /* 聊天具体消息框 */
+    /* 消息列表：占据中间剩余的所有空间 */
     #chatMessages {
-        flex: 1;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain; /* 关键：阻止滚动链 */
-        padding-bottom: 80px; /* 给输入框留位置 */
-    }
-
-    /* 5. 修复侧边栏在某些机型上无法滑动的问题 */
-    .sidebar {
+        flex: 1 !important; /* 关键：自动撑开高度 */
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
+        /* 不需要巨大的 padding 了，因为输入框不再悬浮 */
+        padding-bottom: 20px !important; 
+        height: auto !important;
     }
-}
 
+    /* 输入框区域：回归文档流，不再悬浮 */
+    .chat-input-area {
+        position: static !important; /* 关键：取消 absolute，让它占据物理空间 */
+        width: 100%;
+        background: #111;
+        padding: 10px;
+        flex-shrink: 0; /* 防止被挤压 */
+        border-top: 1px solid #333;
+        /* 适配全面屏手机底部横条 (Safe Area) */
+        padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
+        z-index: 10;
+    }
 
 
 
