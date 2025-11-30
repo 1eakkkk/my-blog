@@ -83,12 +83,22 @@ body {
     justify-content: center;
 }
 
+/* 侧边栏名字样式优化 */
 .user-info h3 {
-    margin: 0 0 5px 0; /* 名字和等级之间留点空隙 */
+    margin: 0 0 5px 0;
     font-size: 1rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    /* 确保渐变名字能显示出来 */
+    display: inline-block; 
+    max-width: 100%;
+}
+
+/* 鼠标悬停在侧边栏名字或头像上时 */
+.user-info h3:hover, 
+#avatarContainer .post-avatar-box:hover {
+    opacity: 0.8;
 }
 
 /* 2. 重新设计等级徽章区域 (将作为等级和退出按钮的容器) */
@@ -1994,6 +2004,7 @@ body.bg-fire {
     background: var(--accent-blue);
     box-shadow: 0 -2px 10px var(--accent-blue);
 }
+
 
 
 
