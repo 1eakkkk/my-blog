@@ -2439,6 +2439,77 @@ body.bg-fire {
     }
 }
 
+/* --- N.O.D.E Rarity Colors (稀有度特效) --- */
+
+/* 通用日志行样式优化 */
+.log-line {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: 0.3s;
+}
+
+/* 🟢 Common */
+.rarity-common { color: #888; }
+
+/* 🔵 Rare (蓝光) */
+.rarity-rare { 
+    color: #00f3ff; 
+    text-shadow: 0 0 5px rgba(0, 243, 255, 0.5);
+}
+
+/* 🟣 Epic (紫光 + 边框闪烁) */
+.rarity-epic { 
+    color: #bd00ff;
+    text-shadow: 0 0 8px rgba(189, 0, 255, 0.6);
+    font-weight: bold;
+    border-left: 3px solid #bd00ff;
+    padding-left: 8px;
+    background: linear-gradient(90deg, rgba(189, 0, 255, 0.1), transparent);
+}
+
+/* 🟡 Legendary (金光流转 + 脉冲) */
+.rarity-legendary { 
+    color: #FFD700;
+    font-weight: 900;
+    text-shadow: 0 0 10px #FFD700, 0 0 20px #FF4500;
+    border: 1px solid #FFD700;
+    padding: 8px;
+    background: rgba(255, 215, 0, 0.1);
+    animation: legendary-pulse 1s infinite alternate;
+}
+@keyframes legendary-pulse {
+    from { box-shadow: 0 0 5px #FFD700; }
+    to { box-shadow: 0 0 20px #FFD700, inset 0 0 10px #FFD700; }
+}
+
+/* 🔴 Glitch (故障红) */
+.rarity-glitch { 
+    color: #ff3333; 
+    text-shadow: 2px 0 #000, -1px 0 #000;
+    font-family: 'Courier New', monospace;
+}
+
+/* --- 全服广播跑马灯 (Broadcast Ticker) --- */
+.node-broadcast {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 10px;
+    height: 20px;
+    overflow: hidden;
+    white-space: nowrap;
+    border-bottom: 1px dashed rgba(0, 255, 0, 0.3);
+    display: flex;
+    align-items: center;
+}
+.broadcast-content {
+    display: inline-block;
+    animation: ticker 15s linear infinite;
+    color: #00ff00;
+}
+@keyframes ticker {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
 
 
 
