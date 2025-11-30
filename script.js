@@ -865,6 +865,7 @@ window.searchPosts = function() {
     loadPosts(true); 
 }
 
+// === 修复版：安全检查与用户信息填充 ===
 async function checkSecurity() {
     const mask = document.getElementById('loading-mask');
     try {
@@ -888,10 +889,9 @@ async function checkSecurity() {
                         <h1 style="color: #ff3333; margin-top: 0;">🚫 ACCESS DENIED</h1>
                         <h2 style="color: #fff;">账号已被系统封禁</h2>
                         <div style="margin: 20px 0; text-align: left; color: #ccc; font-size: 0.9rem;">
-                            <p><strong>封禁理由 / REASON:</strong><br><span style="color: #ff3333">${reason}</span></p>
-                            <p><strong>解封时间 / EXPIRES:</strong><br><span style="color: #0f0">${expireDate}</span></p>
+                            <p><strong>封禁理由:</strong> <span style="color: #ff3333">${reason}</span></p>
+                            <p><strong>解封时间:</strong> <span style="color: #0f0">${expireDate}</span></p>
                         </div>
-                        <p style="color: #666; font-size: 0.8rem;">在此期间您无法进行任何操作。</p>
                         <button onclick="doLogout()" class="cyber-btn" style="border-color: #666; color: #666; margin-top: 20px;">退出登录 / LOGOUT</button>
                     </div>
                 `;
@@ -904,33 +904,32 @@ async function checkSecurity() {
         userRole = data.role || 'user';
         isAppReady = true;
 
+        // 设置页面的账号回显
         const settingUser = document.getElementById('settingUsername');
         if(settingUser) settingUser.value = data.username;
 
-        // === 1. 名字特效与点击跳转 ===
+        // === 1. 侧边栏名字：特效 + 点击跳转 ===
         const nameEl = document.getElementById('username');
         nameEl.textContent = data.nickname || data.username;
         
-        // 重置类名，防止叠加
+        // 清除旧类名，防止叠加
         nameEl.className = ''; 
-        // 读取并应用名字特效
+        // 如果有购买特效，应用 CSS
         if (data.name_color) {
+            // 确保 SHOP_CATALOG 已加载
             const ncItem = (typeof SHOP_CATALOG !== 'undefined') ? SHOP_CATALOG.find(i => i.id === data.name_color) : null;
             if (ncItem) nameEl.classList.add(ncItem.css);
         }
         
-        // 添加点击跳转样式和事件
+        // 添加点击样式和事件
         nameEl.style.cursor = 'pointer';
         nameEl.onclick = () => {
-            // 移动端点击后收起侧边栏
+            // 手机端点击后自动收起侧边栏
             document.getElementById('sidebar').classList.remove('open');
             window.location.hash = `#profile?u=${data.username}`;
         };
 
-        // === 2. i币显示 ===
-        document.getElementById('coinCount').textContent = data.coins;
-        
-        // === 3. 头像点击跳转 ===
+        // === 2. 侧边栏头像：点击跳转 ===
         const avatarHtml = renderUserAvatar(data);
         const avatarContainer = document.getElementById('avatarContainer');
         // 包裹一层带 onclick 的 div
@@ -941,8 +940,11 @@ async function checkSecurity() {
                 ${avatarHtml}
             </div>
         `;
+
+        // === 3. 其他信息填充 ===
+        document.getElementById('coinCount').textContent = data.coins;
         
-        const settingPreview = document.getElementById('settingCustomAvatarPreview'); // 注意ID变了，对应新卡片
+        const settingPreview = document.getElementById('settingCustomAvatarPreview');
         if(settingPreview) settingPreview.innerHTML = renderUserAvatar(data);
         
         const keyDisplay = document.getElementById('recoveryKeyDisplay');
@@ -952,6 +954,8 @@ async function checkSecurity() {
         if(badgePrefSelect) badgePrefSelect.value = data.badge_preference || 'number';
         
         document.getElementById('badgesArea').innerHTML = getBadgesHtml(data) + `<div id="logoutBtn">EXIT</div>`;
+        
+        // 渲染背景
         document.body.classList.remove('bg-default', 'bg-matrix', 'bg-space', 'bg-cyber', 'bg-sakura', 'bg-fire', 'bg-abyss');
         if (data.equipped_bg) {
             const bgClass = data.equipped_bg.replace('_', '-'); 
@@ -987,11 +991,10 @@ async function checkSecurity() {
             if(adminNav) adminNav.style.display = 'none';
         }
 
+        // VIP 显示逻辑
+        const vipBox = document.getElementById('vipBox');
         if(data.is_vip) {
-            const vipBox = document.getElementById('vipBox');
-            // 计算剩余天数
             const daysLeft = Math.ceil((data.vip_expires_at - Date.now()) / (1000 * 60 * 60 * 24));
-            
             if(vipBox) {
                 vipBox.innerHTML = `
                     <h4 style="color:#FFD700">VIP MEMBER</h4>
@@ -1002,8 +1005,6 @@ async function checkSecurity() {
                 vipBox.style.borderColor = 'gold';
             }
         } else {
-            // 如果不是VIP，显示广告
-            const vipBox = document.getElementById('vipBox');
             if(vipBox) {
                 vipBox.innerHTML = `<h4>商城 / SHOP</h4><p>购买 VIP 解锁特权</p><button onclick="window.location.hash='#shop'" class="vip-mini-btn">GO >></button>`;
                 vipBox.style.borderColor = '#333';
@@ -1017,6 +1018,11 @@ async function checkSecurity() {
         }, 60000);
         loadTasks(); 
         checkForDrafts();
+        
+        // === 修复：延迟调用路由，解决刷新空白问题 ===
+        setTimeout(() => {
+            handleRoute();
+        }, 10);
 
         if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
 
@@ -2695,6 +2701,7 @@ window.switchShopTab = function(type) {
     // 重新渲染
     renderShop(type);
 };
+
 
 
 
