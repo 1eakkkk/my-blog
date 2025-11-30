@@ -2715,6 +2715,57 @@ window.switchShopTab = function(type) {
     renderShop(type);
 };
 
+// === 管理后台：搜索用户 ===
+window.adminSearchUsers = async function() {
+    const input = document.getElementById('adminSearchInput');
+    const tbody = document.querySelector('#adminUserTable tbody');
+    const query = input.value.trim();
+    
+    if(!query) return showToast("请输入关键词", "error");
+    
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Searching...</td></tr>';
+    
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'search_users', query: query })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            if (data.list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">未找到匹配用户</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            data.list.forEach(u => {
+                // 快捷操作按钮：复制账号、封号
+                const copyBtn = `<button onclick="copyText('${u.username}')" class="mini-action-btn">复制账号</button>`;
+                const banBtn = `<button onclick="adminBanUser('${u.id}')" class="mini-action-btn" style="color:red; border-color:red;">封禁</button>`;
+                // 还可以加一个快捷查密钥
+                const keyBtn = `<button onclick="document.getElementById('adminTargetUser').value='${u.username}'; adminGenKey();" class="mini-action-btn" style="color:gold; border-color:gold;">查密钥</button>`;
+
+                html += `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td style="color:#00ccff; font-weight:bold;">${u.username}</td>
+                        <td>${u.nickname || '-'}</td>
+                        <td>${u.coins}</td>
+                        <td>${copyBtn} ${keyBtn}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        } else {
+            showToast(data.error, "error");
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Error</td></tr>';
+        }
+    } catch(e) {
+        showToast("网络错误", "error");
+    }
+};
 
 
 
