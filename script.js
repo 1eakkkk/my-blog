@@ -1962,7 +1962,56 @@ window.deletePost = async function(id) {
 };
 window.deleteComment = async function(id) { if(!confirm("Delete?")) return; await fetch(`${API_BASE}/comments?id=${id}`, {method:'DELETE'}); loadNativeComments(currentPostId); };
 window.adminBanUser = async function(uid) { const d=prompt("Days?"); if(!d)return; const r=prompt("Reason?"); if(!r)return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'ban_user', target_user_id:uid, days:d, reason:r})}); showToast("Done"); if(document.getElementById('view-admin').style.display === 'block') loadAdminBanList(); };
-window.adminGenKey = async function() { const u=document.getElementById('adminTargetUser').value; const r=await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'gen_key', target_username:u})}); const d=await r.json(); document.getElementById('adminKeyResult').innerText=d.key; };
+// === 修复版：查旧密钥 (支持 ID 精确查找) ===
+window.adminGenKey = async function(uid = null, name = null) { 
+    // 如果是从按钮点击传来的，自动填入输入框给管理员看
+    if (uid && name) {
+        document.getElementById('adminTargetUser').value = name;
+    }
+
+    // 获取输入框的值（作为后备）
+    const inputVal = document.getElementById('adminTargetUser').value.trim();
+    
+    // 构造请求体：如果有 UID 就用 UID，否则用输入框的名字
+    let payload = { action: 'gen_key' };
+    if (uid) {
+        payload.target_user_id = uid;
+    } else {
+        if(!inputVal) return showToast("请输入用户名");
+        payload.target_username = inputVal;
+    }
+
+    const resultDiv = document.getElementById('adminKeyResult');
+    resultDiv.innerHTML = "Querying...";
+
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload) 
+        }); 
+        const d = await res.json(); 
+        
+        if (d.success) {
+            // 显示密钥，并提示真实的用户名（这很重要，也许用户注册时带了空格）
+            resultDiv.innerHTML = `
+                <div style="color:#0f0; border:1px dashed #0f0; padding:5px; margin-top:5px;">
+                    <div>🔑 KEY: <strong style="user-select:all">${d.key}</strong></div>
+                    <div style="font-size:0.8rem; color:#aaa; margin-top:3px;">
+                        数据库真实账号: <strong style="color:#fff; border-bottom:1px solid #666;">${d.real_username}</strong>
+                        <button onclick="copyText('${d.real_username}')" class="mini-action-btn" style="float:right">复制账号</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            resultDiv.innerText = d.key || d.error; 
+            resultDiv.style.color = 'red';
+        }
+    } catch(e) {
+        resultDiv.innerText = "Error";
+    }
+};
+
 window.adminManageBalance = async function() {
     const u = document.getElementById('adminBalanceUser').value;
     const a = document.getElementById('adminBalanceAmount').value;
@@ -2767,6 +2816,7 @@ window.adminSearchUsers = async function() {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
