@@ -104,9 +104,31 @@ export async function onRequestPost(context) {
       await db.prepare("UPDATE users SET custom_title = ?, custom_title_color = ? WHERE username = ?").bind(req.title, req.color, req.target_username).run();
       return new Response(JSON.stringify({ success: true, message: 'OK' }));
   }
+  // === 修复：查询密钥 (如果没有则自动生成) ===
   if (action === 'gen_key') {
-      const t = await db.prepare("SELECT recovery_key FROM users WHERE username = ?").bind(req.target_username).first();
-      return new Response(JSON.stringify({ success: true, key: t ? t.recovery_key : 'Not Found' }));
+      const targetUser = req.target_username;
+      
+      // 1. 先查用户是否存在，以及当前的 key
+      const user = await db.prepare("SELECT id, recovery_key FROM users WHERE username = ?").bind(targetUser).first();
+      
+      if (!user) {
+          return new Response(JSON.stringify({ success: false, key: '用户不存在 / User Not Found' }));
+      }
+
+      // 2. 如果已有密钥，直接返回
+      if (user.recovery_key) {
+          return new Response(JSON.stringify({ success: true, key: user.recovery_key }));
+      } 
+      
+      // 3. 如果密钥为空 (NULL)，自动生成一个新的并保存
+      else {
+          const generateKey = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+          const newKey = `KEY-${generateKey()}-${generateKey()}-${generateKey()}`;
+          
+          await db.prepare("UPDATE users SET recovery_key = ? WHERE id = ?").bind(newKey, user.id).run();
+          
+          return new Response(JSON.stringify({ success: true, key: newKey + " (系统自动补发)" }));
+      }
   }
 
   if (action === 'manage_balance') {
