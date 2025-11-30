@@ -595,6 +595,35 @@
                         </div>
                     </div>
 
+                    <!-- 管理后台新增：用户搜索卡片 -->
+                    <div class="glass-card" style="border-color: #00ccff; margin-top: 20px;">
+                        <h3>🔍 用户搜索 / USER SEARCH</h3>
+                        <p style="font-size:0.8rem; color:#888;">输入昵称或账号，查询用户的真实 Username 和状态。</p>
+    
+                        <div style="display:flex; gap:10px; margin-bottom:10px;">
+                            <input type="text" id="adminSearchInput" class="cyber-input" placeholder="输入昵称 / 账号..." style="margin:0; flex:1;">
+                            <button onclick="adminSearchUsers()" class="cyber-btn" style="width:auto; margin:0; border-color:#00ccff; color:#00ccff;">SEARCH</button>
+                        </div>
+
+                        <!-- 搜索结果表格 -->
+                        <div class="table-responsive">
+                            <table class="tech-table" id="adminUserTable">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>USERNAME (账号)</th>
+                                        <th>NICKNAME (昵称)</th>
+                                        <th>余额</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="5" style="text-align:center; color:#666;">等待查询...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- 全服福利卡片 -->
                     <div class="glass-card" style="border-color: #ff00de; margin-top: 20px; background: rgba(255, 0, 222, 0.05);">
                         <h3 style="color: #ff00de;">🎁 全服福利发放</h3>
@@ -670,9 +699,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.0"></script>
+    <script src="script.js?v=8.1"></script>
 </body>
 </html>
+
 
 
 
