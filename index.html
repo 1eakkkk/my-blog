@@ -104,6 +104,12 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
                     排行榜
                 </a>
+
+                <!-- N.O.D.E 控制台 -->
+                <a href="#node" class="nav-link" style="color: #00ff00;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M2 12h20"></path><path d="M2 12l5 5"></path><path d="M2 12l5-5"></path><circle cx="12" cy="12" r="3"></circle><path d="M22 12l-5 5"></path><path d="M22 12l-5-5"></path></svg>
+                    N.O.D.E 控制台
+                </a>
                 
                 <!-- 私信与好友 -->
                 <a href="#chat" class="nav-link" id="navChat">
@@ -206,6 +212,42 @@
                     </div>
                     <div id="posts-list" class="posts-grid"></div>
                     <button id="loadMoreBtn" class="cyber-btn" onclick="loadPosts(false)" style="display:none; margin: 20px auto; max-width: 300px;">加载更多</button>
+                </div>
+
+                <!-- N.O.D.E 控制台视图 -->
+                <div id="view-node" class="view-section" style="display:none;">
+                    <div class="node-console-wrapper">
+                        <div class="node-header">
+                            <h2>N.O.D.E // NETWORK OPERATIONS</h2>
+                            <div class="node-status">LINKED: <span id="nodeUser">UNKNOWN</span></div>
+                        </div>
+                
+                        <!-- 雷达/地图可视化区域 -->
+                        <div class="node-visualizer">
+                            <div class="radar-circle"></div>
+                            <div class="radar-line"></div>
+                            <div class="node-point" style="top:20%; left:30%"></div>
+                            <div class="node-point" style="top:70%; left:60%"></div>
+                            <div class="node-point" style="top:40%; left:80%"></div>
+                            <div id="centralNode" class="central-node" onclick="exploreNode()">
+                                SCAN
+                            </div>
+                        </div>
+                
+                        <!-- 控制面板 -->
+                        <div class="node-controls">
+                            <p id="nodeCostDisplay">正在校准...</p>
+                            <button id="exploreBtn" class="cyber-btn glitch-effect" onclick="exploreNode()">
+                                INITIATE SCAN // 启动扫描
+                            </button>
+                        </div>
+                
+                        <!-- 日志终端 -->
+                        <div class="console-log" id="nodeLog">
+                            <div class="log-line">> SYSTEM READY...</div>
+                            <div class="log-line">> WAITING FOR INPUT...</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 2. 发帖 -->
@@ -699,9 +741,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.1"></script>
+    <script src="script.js?v=8.2"></script>
 </body>
 </html>
+
 
 
 
