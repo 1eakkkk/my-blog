@@ -135,9 +135,28 @@ export async function onRequest(context) {
         }
     }
 
-    // GET: 获取大厅列表
+    // GET: 获取列表 (支持 大厅 和 历史)
     if (request.method === 'GET') {
-        const list = await db.prepare("SELECT id, creator_name, bet_amount, created_at FROM duels WHERE status = 'open' ORDER BY created_at DESC LIMIT 50").all();
-        return new Response(JSON.stringify({ success: true, list: list.results }));
+        const url = new URL(request.url);
+        const mode = url.searchParams.get('mode') || 'lobby'; // 'lobby' or 'history'
+
+        if (mode === 'history') {
+            // 获取我参与过的已结束对局 (最近 20 场)
+            const list = await db.prepare(`
+                SELECT * FROM duels 
+                WHERE (creator_id = ? OR challenger_id = ?) 
+                AND status IN ('closed', 'cancelled')
+                ORDER BY resolved_at DESC, created_at DESC LIMIT 20
+            `).bind(user.id, user.id).all();
+            return new Response(JSON.stringify({ success: true, list: list.results, uid: user.id }));
+        } else {
+            // 大厅：只看 Open 的
+            const list = await db.prepare(`
+                SELECT id, creator_name, bet_amount, created_at, creator_id 
+                FROM duels WHERE status = 'open' 
+                ORDER BY created_at DESC LIMIT 50
+            `).bind().all(); // 注意：这里不需要 bind user.id，大厅是公开的
+            return new Response(JSON.stringify({ success: true, list: list.results, uid: user.id }));
+        }
     }
 }
