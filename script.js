@@ -1145,6 +1145,7 @@ const views = {
     home: document.getElementById('view-home'),
     write: document.getElementById('view-write'),
     tasks: document.getElementById('view-tasks'),
+    node: document.getElementById('view-node'),
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     shop: document.getElementById('view-shop'),
@@ -1218,6 +1219,11 @@ async function handleRoute() {
     } else if (hash === '#tasks') {
         if(views.tasks) views.tasks.style.display = 'block';
         loadTasks();
+    // 在 handleRoute() 内部添加：
+    } else if (hash === '#node') {
+        if(views.node) views.node.style.display = 'block';
+        // 高亮导航（如果有的话，手动添加active类）
+        loadNodeConsole();
     } else if (hash === '#leaderboard') {
         if(views.leaderboard) views.leaderboard.style.display = 'block';
         const link = document.querySelector('a[href="#leaderboard"]'); if(link) link.classList.add('active');
@@ -2784,6 +2790,115 @@ window.adminSearchUsers = async function() {
     }
 };
 
+// === N.O.D.E Console Logic ===
+
+async function loadNodeConsole() {
+    const userEl = document.getElementById('nodeUser');
+    const costEl = document.getElementById('nodeCostDisplay');
+    const btn = document.getElementById('exploreBtn');
+    
+    if(currentUser) {
+        userEl.innerText = (currentUser.nickname || currentUser.username).toUpperCase();
+    }
+
+    // 判断今日是否已免费探索
+    // 我们需要简单判断本地状态，或者后端返回。
+    // 为了准确，这里我们假设 currentUser 数据中已经包含了 last_node_explore_date 
+    // (注意：checkSecurity 需要确保返回了这个新字段，或者我们在这里单独调一次 user 接口，或者直接依靠后端返回的错误来判断)
+    
+    // 简单起见，我们直接显示通用文本，由点击后的反馈决定
+    costEl.innerHTML = "正在同步卫星数据...";
+    
+    // 获取最新状态 (复用 /api/user 稍微有点重，但最准确)
+    try {
+        const res = await fetch(`${API_BASE}/user`);
+        const data = await res.json();
+        if(data.loggedIn) {
+            currentUser = data; // 更新全局状态
+            const today = new Date(new Date().getTime() + 8*3600*1000).toISOString().split('T')[0];
+            const isFree = (data.last_node_explore_date !== today);
+            
+            if(isFree) {
+                costEl.innerHTML = `本次扫描消耗: <span style="color:#0f0">0 i币 (每日免费)</span>`;
+                btn.innerText = "INITIATE SCAN (FREE)";
+            } else {
+                costEl.innerHTML = `本次扫描消耗: <span style="color:#ff00de">50 i币</span> (余额: ${data.coins})`;
+                btn.innerText = "INITIATE SCAN (-50)";
+            }
+        }
+    } catch(e) {
+        costEl.innerText = "连接中断";
+    }
+}
+
+function addNodeLog(msg, type='') {
+    const logBox = document.getElementById('nodeLog');
+    const div = document.createElement('div');
+    div.className = `log-line ${type}`;
+    
+    // 打字机效果
+    div.innerText = "> ";
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+
+    let i = 0;
+    const interval = setInterval(() => {
+        div.innerText += msg.charAt(i);
+        i++;
+        logBox.scrollTop = logBox.scrollHeight;
+        if (i >= msg.length) clearInterval(interval);
+    }, 20); // 打字速度
+}
+
+window.exploreNode = async function() {
+    const btn = document.getElementById('exploreBtn');
+    const centerBtn = document.getElementById('centralNode');
+    
+    if(btn.disabled) return;
+    
+    btn.disabled = true;
+    centerBtn.style.animation = "radar-spin 0.5s infinite linear"; // 快速旋转特效
+    addNodeLog("CONNECTING TO NODE...", "info");
+
+    try {
+        // 模拟一点延迟，增加紧张感
+        await new Promise(r => setTimeout(r, 800));
+
+        const res = await fetch(`${API_BASE}/node`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        const data = await res.json();
+        
+        centerBtn.style.animation = ""; // 停止旋转
+
+        if (data.success) {
+            let logType = "";
+            if (data.type === 'glitch') logType = "error";
+            else if (data.type === 'item' || data.type === 'mission') logType = "warn"; // 金色/警告色
+            
+            addNodeLog("DATA RECEIVED: " + data.message, logType);
+            
+            // 刷新状态
+            if (data.remaining_coins !== undefined) {
+                document.getElementById('coinCount').innerText = data.remaining_coins;
+            }
+            loadNodeConsole(); // 刷新按钮状态
+            
+            // 如果触发了任务，刷新任务列表
+            if (data.type === 'mission') loadTasks();
+
+        } else {
+            addNodeLog("ERROR: " + data.error, "error");
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        centerBtn.style.animation = "";
+        addNodeLog("CRITICAL FAILURE: NETWORK LOST", "error");
+    } finally {
+        btn.disabled = false;
+    }
+};
 
 
 
