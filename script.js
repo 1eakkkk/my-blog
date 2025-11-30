@@ -1348,6 +1348,8 @@ async function handleRoute() {
     const sidebar = document.getElementById('sidebar');
     const navLinks = document.querySelectorAll('.nav-link');
     
+    window.closeDuelOverlay(); // 强制关闭遮罩
+    
     Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
     navLinks.forEach(el => el.classList.remove('active'));
     if(sidebar) sidebar.classList.remove('open');
@@ -3388,6 +3390,143 @@ window.closeDuelOverlay = function() {
     document.getElementById('orbP2').classList.remove('winner-anim', 'loser-anim');
 };
 
+// === ⚔️ 数据格斗场增强版逻辑 ===
+
+let currentDuelTab = 'lobby'; // 'lobby' or 'history'
+
+// 切换标签
+window.switchDuelTab = function(tab) {
+    currentDuelTab = tab;
+    
+    // UI 高亮
+    document.getElementById('btnDuelLobby').className = tab === 'lobby' ? 'shop-tab-btn active' : 'shop-tab-btn';
+    document.getElementById('btnDuelHistory').className = tab === 'history' ? 'shop-tab-btn active' : 'shop-tab-btn';
+    
+    loadDuels();
+};
+
+// 加载列表 (整合了大厅和历史)
+async function loadDuels() {
+    const list = document.getElementById('duelList');
+    if (!list) return;
+    list.innerHTML = '<div style="text-align:center;color:#666">SCANNING...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/duel?mode=${currentDuelTab}`);
+        const data = await res.json();
+        
+        list.innerHTML = '';
+        
+        if (!data.list || data.list.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:#444">NO DATA FOUND</div>';
+            return;
+        }
+
+        data.list.forEach(d => {
+            const div = document.createElement('div');
+            div.className = 'duel-item';
+            
+            if (currentDuelTab === 'lobby') {
+                // === 大厅模式 ===
+                const isMe = d.creator_id === data.uid;
+                const actionBtn = isMe 
+                    ? `<button onclick="cancelDuel(${d.id})" class="mini-action-btn" style="color:#666">撤销</button>`
+                    : `<button onclick="joinDuel(${d.id})" class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;border-color:#ff3333;color:#ff3333">挑战</button>`;
+                
+                div.innerHTML = `
+                    <div style="flex:1;">
+                        <span style="color:#fff;font-weight:bold">${d.creator_name}</span>
+                        <div style="font-size:0.7rem;color:#666">${new Date(d.created_at).toLocaleTimeString()}</div>
+                    </div>
+                    <div class="duel-stake" style="flex:1;text-align:center;">${d.bet_amount} i</div>
+                    <div style="flex:1;text-align:right;">${actionBtn}</div>
+                `;
+            } else {
+                // === 历史/回放模式 ===
+                // 判断我是发起者还是挑战者
+                const amICreator = d.creator_id === data.uid;
+                const opponentName = amICreator ? (d.challenger_name || "等待中...") : d.creator_name;
+                
+                // 判断输赢
+                let resultText = "处理中";
+                let resultColor = "#888";
+                
+                if (d.status === 'closed') {
+                    if (d.winner_id === 0) { resultText = "平局"; resultColor = "#fff"; }
+                    else if (d.winner_id === data.uid) { resultText = "胜利"; resultColor = "#0f0"; }
+                    else { resultText = "失败"; resultColor = "#f33"; }
+                } else if (d.status === 'cancelled') {
+                    resultText = "已撤销";
+                }
+
+                // 只有已结束的才能回放
+                const replayBtn = d.status === 'closed' 
+                    ? `<button onclick='replayDuel(${JSON.stringify(d)}, ${data.uid})' class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;color:#00f3ff;border-color:#00f3ff">► 回放</button>` 
+                    : `-`;
+
+                div.innerHTML = `
+                    <div style="flex:1;">
+                        <span style="color:#aaa;">VS</span> <span style="color:#fff;font-weight:bold">${opponentName}</span>
+                        <div style="font-size:0.7rem;color:#666">${d.bet_amount} i</div>
+                    </div>
+                    <div style="flex:1;text-align:center;color:${resultColor};font-weight:bold;">${resultText}</div>
+                    <div style="flex:1;text-align:right;">${replayBtn}</div>
+                `;
+            }
+            list.appendChild(div);
+        });
+    } catch(e) {
+        console.error(e);
+        list.innerHTML = 'Error loading data';
+    }
+}
+
+// 核心：回放功能
+window.replayDuel = function(duelData, myUid) {
+    const amICreator = duelData.creator_id === myUid;
+    
+    // 确定双方出招
+    // 如果我是发起者：我的招=creator_move, 对手=challenger_move
+    // 如果我是挑战者：我的招=challenger_move, 对手=creator_move
+    const myMove = amICreator ? duelData.creator_move : duelData.challenger_move;
+    const oppMove = amICreator ? duelData.challenger_move : duelData.creator_move;
+    
+    // 确定结果
+    let result = 'draw';
+    let winAmount = 0;
+    
+    if (duelData.winner_id !== 0) {
+        result = duelData.winner_id === myUid ? 'challenger' : 'creator'; 
+        // 注意：playDuelAnimation 里的 'challenger' 代表“我赢了”，'creator' 代表“对方赢了”
+        // 这个命名有点绕，但在 animation 函数里：
+        // result === 'challenger' -> orbP1(左边/我) 赢
+        // result === 'creator' -> orbP2(右边/对手) 赢
+    }
+    
+    // 计算显示的金额 (赢了显示总额，输了显示0或扣除)
+    // 简单起见，回放显示本局的总奖池的一半（即获胜金额）
+    const totalPool = duelData.bet_amount * 2;
+    const tax = Math.ceil(totalPool * 0.01);
+    winAmount = totalPool - tax;
+
+    // 播放动画
+    playDuelAnimation(myMove, oppMove, result, winAmount);
+};
+
+// ... createDuel, joinDuel, cancelDuel 保持不变 ...
+// ... playDuelAnimation 保持不变 ...
+
+// 修复：强制关闭遮罩函数
+window.closeDuelOverlay = function() {
+    const overlay = document.getElementById('duel-overlay');
+    if(overlay) overlay.style.display = 'none';
+    
+    // 清理可能残留的动画类
+    const p1 = document.getElementById('orbP1');
+    const p2 = document.getElementById('orbP2');
+    if(p1) p1.className = 'data-orb'; // 重置类
+    if(p2) p2.className = 'data-orb';
+};
 
 
 
