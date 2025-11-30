@@ -57,6 +57,48 @@
     <div class="bg-grid"></div>
     <div class="mobile-menu-btn" id="mobileMenuBtn">☰</div>
 
+    <!-- 全服播报 HUD 显示层 (默认隐藏) -->
+    <div id="broadcast-hud" class="broadcast-overlay" style="display:none;">
+        <div class="hud-center-box" id="hudBox">
+            <!-- 装饰性扫描线 -->
+            <div class="hud-scan-line"></div>
+            <!-- 顶部小字 -->
+            <div class="hud-label">SYSTEM BROADCAST // <span id="hudUser">UNKNOWN</span></div>
+            <!-- 核心内容 -->
+            <div class="hud-content" id="hudContent">HELLO WORLD</div>
+            <!-- 底部装饰 -->
+            <div class="hud-footer-deco">
+                <span class="dot">●</span> <span class="line"></span> <span class="dot">●</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 道具使用弹窗 (输入文字/选颜色) -->
+    <div id="item-use-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card glass-card">
+            <h3>使用：骇客宣言卡</h3>
+            <p style="color:#888; font-size:0.8rem; margin-bottom:15px;">全服玩家进入网站时可见，持续24小时。</p>
+            
+            <input type="text" id="broadcastInput" class="cyber-input" placeholder="输入宣言 (限20字)..." maxlength="20">
+            
+            <div style="margin-bottom:15px; text-align:left;">
+                <label style="font-size:0.8rem; color:#aaa;">文字颜色特效：</label>
+                <div class="color-picker-row">
+                    <div class="color-dot" style="background:#fff" onclick="selectBroadcastColor('#ffffff', this)"></div>
+                    <div class="color-dot" style="background:#00f3ff" onclick="selectBroadcastColor('#00f3ff', this)"></div>
+                    <div class="color-dot" style="background:#bd00ff" onclick="selectBroadcastColor('#bd00ff', this)"></div>
+                    <div class="color-dot" style="background:#ff3333" onclick="selectBroadcastColor('#ff3333', this)"></div>
+                    <div class="color-dot rainbow-dot" onclick="selectBroadcastColor('rainbow', this)">🌈</div>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:10px;">
+                <button onclick="closeItemModal()" class="cyber-btn" style="border-color:#666; color:#888;">取消</button>
+                <button onclick="submitBroadcast()" class="cyber-btn">提交审核</button>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- 侧边栏 -->
         <aside class="sidebar" id="sidebar">
@@ -751,6 +793,7 @@
     <script src="script.js?v=8.3"></script>
 </body>
 </html>
+
 
 
 
