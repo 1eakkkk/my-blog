@@ -2159,6 +2159,124 @@ body.bg-fire {
     }
 }
 
+/* --- N.O.D.E Console Styles --- */
+
+.node-console-wrapper {
+    background: #000;
+    border: 1px solid #00ff00;
+    padding: 20px;
+    font-family: 'Courier New', monospace;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #00ff00;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+.node-header h2 { margin: 0; color: #00ff00; font-size: 1.2rem; }
+.node-status { color: #00ff00; font-size: 0.8rem; }
+
+/* 雷达可视区域 */
+.node-visualizer {
+    height: 300px;
+    position: relative;
+    background: 
+        radial-gradient(circle, transparent 20%, rgba(0, 255, 0, 0.1) 21%, transparent 22%),
+        radial-gradient(circle, transparent 40%, rgba(0, 255, 0, 0.1) 41%, transparent 42%),
+        linear-gradient(0deg, transparent 49%, rgba(0, 255, 0, 0.2) 50%, transparent 51%),
+        linear-gradient(90deg, transparent 49%, rgba(0, 255, 0, 0.2) 50%, transparent 51%);
+    border: 1px solid #003300;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+/* 扫描线动画 */
+.radar-line {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 50%; height: 2px;
+    background: #00ff00;
+    transform-origin: 0 0;
+    animation: radar-spin 4s linear infinite;
+    box-shadow: 0 0 10px #00ff00;
+    opacity: 0.5;
+}
+@keyframes radar-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* 中心按钮 */
+.central-node {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px; height: 80px;
+    background: #001100;
+    border: 2px solid #00ff00;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #00ff00;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10;
+    transition: 0.3s;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+}
+.central-node:hover {
+    background: #00ff00;
+    color: #000;
+    box-shadow: 0 0 30px #00ff00;
+}
+.central-node:active { transform: translate(-50%, -50%) scale(0.95); }
+
+/* 装饰性小节点 */
+.node-point {
+    position: absolute;
+    width: 6px; height: 6px;
+    background: #00ff00;
+    border-radius: 50%;
+    animation: blink 2s infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* 控制区 */
+.node-controls { text-align: center; margin-bottom: 20px; }
+#nodeCostDisplay { color: #888; font-size: 0.9rem; margin-bottom: 10px; }
+
+/* 终端日志 */
+.console-log {
+    background: #050505;
+    border: 1px solid #333;
+    height: 150px;
+    padding: 10px;
+    overflow-y: auto;
+    text-align: left;
+    font-size: 0.8rem;
+}
+.log-line { margin-bottom: 5px; color: #00ff00; }
+.log-line.error { color: #ff3333; }
+.log-line.warn { color: #ff9900; }
+.log-line.info { color: #00ccff; }
+
+/* 按钮微调 */
+.glitch-effect:hover {
+    animation: glitch-anim 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+    color: #00ff00; border-color: #00ff00;
+}
+@keyframes glitch-anim {
+    0% { transform: translate(0); }
+    20% { transform: translate(-2px, 2px); }
+    40% { transform: translate(-2px, -2px); }
+    60% { transform: translate(2px, 2px); }
+    80% { transform: translate(2px, -2px); }
+    100% { transform: translate(0); }
+}
 
 
 
