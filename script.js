@@ -2738,26 +2738,22 @@ async function loadInventory(filterCategory = 'all') {
 
             let actionBtn = '';
             
-            // 1. 纯消耗品 (改名卡、置顶卡) -> 显示数量
+            // 1. 消耗品逻辑 (Consumable)
             if (item.category === 'consumable') {
+                // 基础显示：数量
                 actionBtn = `<div style="color:#aaa;font-size:0.8rem;margin-top:5px; border:1px solid #333; padding:5px; border-radius:4px;">拥有数量: <span style="color:#fff; font-weight:bold;">${item.quantity}</span></div>`;
+                
+                // === 修复：如果是播报卡，额外显示“使用”按钮 ===
+                if (item.item_id.includes('broadcast')) {
+                    actionBtn += `<button onclick="openBroadcastModal('${item.item_id}')" class="cyber-btn" style="width:100%; margin-top:10px; border-color:#00f3ff; color:#00f3ff;">启动 / ACTIVATE</button>`;
+                }
             } 
-            // 2. 可装备道具 (背景、边框、气泡、名字颜色) -> 显示装备按钮
+            // 2. 可装备道具逻辑 (Decoration / Timed)
             else {
                 if (item.is_equipped) {
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0;width:100%;margin-top:10px;">已装备 / UNSET</button>`;
                 } else {
-                    // ✅ 修复：确保传递正确的 category
-                    let clickAction = `toggleEquip('${item.id}', '${item.category}', 'equip')`;
-                    if (item.item_id.includes('broadcast')) {
-                        clickAction = `openBroadcastModal('${item.item_id}')`;
-                    }
-                    
-                    if (item.category === 'consumable') {
-                        // 如果是消耗品，显示“使用”
-                        actionBtn = `<button onclick="${clickAction}" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / USE</button>`;
-                        // ...
-                    }
+                    actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / EQUIP</button>`;
                 }
                 
                 // 显示剩余时间
@@ -3217,6 +3213,7 @@ window.reviewBroadcast = async function(id, decision) {
 };
 
 // 记得在 loadAdminStats 里调用 loadAdminBroadcasts();
+
 
 
 
