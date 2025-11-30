@@ -1403,11 +1403,13 @@ async function handleRoute() {
     } else if (hash === '#tasks') {
         if(views.tasks) views.tasks.style.display = 'block';
         loadTasks();
-    // 在 handleRoute() 内部添加：
     } else if (hash === '#node') {
         if(views.node) views.node.style.display = 'block';
         // 高亮导航（如果有的话，手动添加active类）
         loadNodeConsole();
+    } else if (hash === '#duel') {
+        if(document.getElementById('view-duel')) document.getElementById('view-duel').style.display = 'block';
+        loadDuels();
     } else if (hash === '#leaderboard') {
         if(views.leaderboard) views.leaderboard.style.display = 'block';
         const link = document.querySelector('a[href="#leaderboard"]'); if(link) link.classList.add('active');
@@ -3214,6 +3216,177 @@ window.reviewBroadcast = async function(id, decision) {
 
 // 记得在 loadAdminStats 里调用 loadAdminBroadcasts();
 
+// === ⚔️ 数据格斗场逻辑 ===
+
+// 1. 加载列表
+async function loadDuels() {
+    const list = document.getElementById('duelList');
+    if (!list) return;
+    list.innerHTML = '<div style="text-align:center;color:#666">SCANNING FREQUENCIES...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/duel`);
+        const data = await res.json();
+        
+        list.innerHTML = '';
+        if (data.list.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:#444">暂无对局，请创建</div>';
+            return;
+        }
+
+        data.list.forEach(d => {
+            const isMe = currentUser && d.creator_name === (currentUser.nickname || currentUser.username);
+            const actionBtn = isMe 
+                ? `<button onclick="cancelDuel(${d.id})" class="mini-action-btn" style="color:#666">撤销</button>`
+                : `<button onclick="joinDuel(${d.id})" class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;border-color:#ff3333;color:#ff3333">挑战</button>`;
+
+            const div = document.createElement('div');
+            div.className = 'duel-item';
+            div.innerHTML = `
+                <div style="font-weight:bold; color:#fff;">${d.creator_name}</div>
+                <div class="duel-stake">${d.bet_amount} i</div>
+                <div>${actionBtn}</div>
+            `;
+            list.appendChild(div);
+        });
+    } catch(e) {
+        list.innerHTML = 'Error';
+    }
+}
+
+// 2. 创建对局
+window.createDuel = async function() {
+    const bet = document.getElementById('duelBetAmount').value;
+    const move = document.getElementById('duelMyMove').value;
+    
+    if(!bet || bet < 10) return showToast("金额太小", "error");
+    
+    const btn = document.querySelector('.duel-controls button');
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(`${API_BASE}/duel`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'create', bet, move })
+        });
+        const data = await res.json();
+        if(data.success) {
+            showToast(data.message, 'success');
+            checkSecurity(); // 刷新余额
+            loadDuels();
+            document.getElementById('duelBetAmount').value = '';
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) { showToast("网络错误"); } 
+    finally { btn.disabled = false; }
+};
+
+// 3. 撤销
+window.cancelDuel = async function(id) {
+    if(!confirm("撤回资金？")) return;
+    await fetch(`${API_BASE}/duel`, { method: 'POST', body: JSON.stringify({action:'cancel', id}) });
+    checkSecurity();
+    loadDuels();
+};
+
+// 4. 加入对局 & 播放动画 (核心)
+window.joinDuel = async function(id) {
+    // 先让用户选出招
+    const myMove = prompt("输入你的指令：\n1 = 立方体 (Rock)\n2 = 薄膜 (Paper)\n3 = 利刃 (Scissors)", "1");
+    if(!myMove) return;
+    
+    const moveMap = {'1':'cube', '2':'membrane', '3':'blade'};
+    const finalMove = moveMap[myMove] || myMove; // 兼容直接输单词
+    
+    if(!['cube','membrane','blade'].includes(finalMove)) return showToast("指令无效", "error");
+
+    // 开始请求
+    const res = await fetch(`${API_BASE}/duel`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'join', id, move: finalMove })
+    });
+    const data = await res.json();
+    
+    if(!data.success) return showToast(data.error, 'error');
+
+    // === 启动动画序列 ===
+    playDuelAnimation(finalMove, data.creator_move, data.result, data.win_amount);
+    
+    // 刷新数据
+    checkSecurity();
+    loadDuels();
+};
+
+function playDuelAnimation(myMove, oppMove, result, winAmount) {
+    const overlay = document.getElementById('duel-overlay');
+    const orbP1 = document.getElementById('orbP1');
+    const orbP2 = document.getElementById('orbP2');
+    const flash = document.getElementById('collisionFlash');
+    const resPanel = document.getElementById('duelResultPanel');
+    const resTitle = document.getElementById('duelResultTitle');
+    const resDetail = document.getElementById('duelResultDetail');
+
+    // 1. 初始化
+    overlay.style.display = 'flex';
+    resPanel.style.display = 'none';
+    orbP1.className = `data-orb orb-${myMove}`; // 我方显示真实
+    orbP2.className = `data-orb orb-unknown`; // 敌方先隐藏
+    
+    // 重置位置
+    orbP1.style.transform = 'translateX(0)';
+    orbP2.style.transform = 'translateX(0)';
+    flash.classList.remove('flash-active');
+
+    // 2. 蓄力 (0.5s) -> 冲刺 (0.3s)
+    setTimeout(() => {
+        // 冲刺
+        orbP1.style.transform = 'translateX(100px)'; // 向右冲
+        orbP2.style.transform = 'translateX(-100px)'; // 向左冲
+        
+        // 3. 撞击瞬间 (0.8s时)
+        setTimeout(() => {
+            // 揭晓敌方
+            orbP2.className = `data-orb orb-${oppMove}`;
+            // 闪光
+            flash.classList.add('flash-active');
+            // 震动
+            document.body.style.animation = "shake 0.2s";
+            setTimeout(()=>document.body.style.animation="", 200);
+
+            // 4. 胜负反馈 (1.0s时)
+            setTimeout(() => {
+                if (result === 'challenger') { // 我赢 (我是挑战者)
+                    orbP1.classList.add('winner-anim');
+                    orbP2.classList.add('loser-anim');
+                    resTitle.innerText = "VICTORY";
+                    resTitle.className = "win-text";
+                    resDetail.innerText = `数据掠夺成功: +${winAmount} i`;
+                } else if (result === 'creator') { // 我输
+                    orbP1.classList.add('loser-anim');
+                    orbP2.classList.add('winner-anim');
+                    resTitle.innerText = "DEFEAT";
+                    resTitle.className = "lose-text";
+                    resDetail.innerText = "连接被切断";
+                } else { // 平局
+                    resTitle.innerText = "DRAW";
+                    resTitle.className = "draw-text";
+                    resDetail.innerText = "数据回流";
+                }
+                resPanel.style.display = 'block';
+            }, 300); // 撞击后稍微停顿一下出结果
+        }, 300);
+    }, 500);
+}
+
+window.closeDuelOverlay = function() {
+    document.getElementById('duel-overlay').style.display = 'none';
+    // 清理动画类
+    document.getElementById('orbP1').classList.remove('winner-anim', 'loser-anim');
+    document.getElementById('orbP2').classList.remove('winner-anim', 'loser-anim');
+};
 
 
 
