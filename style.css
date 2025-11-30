@@ -2090,6 +2090,70 @@ body.bg-fire {
         z-index: 10;
     }
 
+/* =========================================
+   === 移动端聊天框终极修复 ===
+   ========================================= */
+@media (max-width: 768px) {
+    /* 1. 聊天主容器：强制全屏、黑底白字 */
+    #chatBox {
+        position: fixed !important;
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100% !important; 
+        z-index: 99999 !important; /* 层级最高 */
+        background: #000 !important;
+        color: #fff !important; /* 关键：防止黑底黑字 */
+        display: flex !important; 
+        flex-direction: column !important;
+        overflow: hidden !important; 
+    }
+
+    /* 2. 顶部标题栏 */
+    .chat-header {
+        flex-shrink: 0; 
+        background: #111;
+        border-bottom: 1px solid #333;
+        padding: 15px;
+        z-index: 10;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* 3. 消息列表区：自动撑开，允许滑动 */
+    #chatMessages {
+        flex: 1 !important; 
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch; /* iOS 惯性滚动 */
+        overscroll-behavior: contain;      /* 防止连带页面滚动 */
+        padding: 15px !important;
+        padding-bottom: 20px !important;
+        height: auto !important;
+        background-color: #000; /* 确保背景纯黑 */
+    }
+
+    /* 4. 底部输入框：固定在底部，适配 iPhone 刘海 */
+    .chat-input-area {
+        position: static !important; /* 让 Flex 布局自动推到底部 */
+        width: 100%;
+        background: #111;
+        padding: 10px;
+        flex-shrink: 0; 
+        border-top: 1px solid #333;
+        /* 适配 iPhone X+ 底部横条 */
+        padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
+        z-index: 10;
+        display: flex;
+        gap: 10px;
+    }
+    
+    /* 修复输入框文字颜色 */
+    .chat-input-area input {
+        color: #fff !important;
+        background: #222 !important;
+    }
+}
 
 
 
