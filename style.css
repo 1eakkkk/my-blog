@@ -2159,110 +2159,222 @@ body.bg-fire {
     }
 }
 
-/* --- N.O.D.E Console Styles --- */
+/* --- N.O.D.E Console Styles (Void Hologram Theme) --- */
 
 .node-console-wrapper {
-    background: #000;
-    border: 1px solid #00ff00;
-    padding: 20px;
-    font-family: 'Courier New', monospace;
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
-    max-width: 600px;
-    margin: 0 auto;
+    background: 
+        linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+        url('https://img.1eak.cool/background.jpeg') center/cover no-repeat;
+    
+    border: 1px solid rgba(0, 243, 255, 0.3);
+    border-radius: 16px;
+    padding: 30px;
+    font-family: 'JetBrains Mono', monospace;
+    box-shadow: 
+        0 0 30px rgba(0, 243, 255, 0.1),
+        inset 0 0 50px rgba(0, 0, 0, 0.8);
+    max-width: 650px;
+    margin: 20px auto;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+/* 顶部装饰条 */
+.node-console-wrapper::before {
+    content: '';
+    position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent, #00f3ff, #bd00ff, transparent);
+    box-shadow: 0 0 10px #00f3ff;
 }
 
 .node-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #00ff00;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 25px;
+    padding-bottom: 15px;
 }
-.node-header h2 { margin: 0; color: #00ff00; font-size: 1.2rem; }
-.node-status { color: #00ff00; font-size: 0.8rem; }
+.node-header h2 { 
+    margin: 0; 
+    color: #fff; 
+    font-size: 1.2rem; 
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+    letter-spacing: 2px;
+}
+.node-status { 
+    color: #00f3ff; 
+    font-size: 0.8rem; 
+    background: rgba(0, 243, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 243, 255, 0.3);
+}
 
-/* 雷达可视区域 */
+/* 雷达/地图可视区域 (全息投影感) */
 .node-visualizer {
-    height: 300px;
+    height: 320px;
     position: relative;
-    background: 
-        radial-gradient(circle, transparent 20%, rgba(0, 255, 0, 0.1) 21%, transparent 22%),
-        radial-gradient(circle, transparent 40%, rgba(0, 255, 0, 0.1) 41%, transparent 42%),
-        linear-gradient(0deg, transparent 49%, rgba(0, 255, 0, 0.2) 50%, transparent 51%),
-        linear-gradient(90deg, transparent 49%, rgba(0, 255, 0, 0.2) 50%, transparent 51%);
-    border: 1px solid #003300;
-    margin-bottom: 20px;
-    overflow: hidden;
-}
-
-/* 扫描线动画 */
-.radar-line {
-    position: absolute;
-    top: 50%; left: 50%;
-    width: 50%; height: 2px;
-    background: #00ff00;
-    transform-origin: 0 0;
-    animation: radar-spin 4s linear infinite;
-    box-shadow: 0 0 10px #00ff00;
-    opacity: 0.5;
-}
-@keyframes radar-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-/* 中心按钮 */
-.central-node {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80px; height: 80px;
-    background: #001100;
-    border: 2px solid #00ff00;
-    border-radius: 50%;
+    /* 网格背景 */
+    background-image: 
+        linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 25px;
+    box-shadow: inset 0 0 20px #000;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #00ff00;
-    font-weight: bold;
-    cursor: pointer;
-    z-index: 10;
-    transition: 0.3s;
-    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
 }
-.central-node:hover {
-    background: #00ff00;
-    color: #000;
-    box-shadow: 0 0 30px #00ff00;
-}
-.central-node:active { transform: translate(-50%, -50%) scale(0.95); }
 
-/* 装饰性小节点 */
+/* 动态扫描雷达 */
+.radar-circle {
+    position: absolute;
+    width: 280px; height: 280px;
+    border: 1px dashed rgba(0, 243, 255, 0.3);
+    border-radius: 50%;
+    animation: pulse-ring 4s infinite ease-out;
+}
+.radar-line {
+    position: absolute;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    /* 扇形扫描渐变 */
+    background: conic-gradient(from 0deg, transparent 70%, rgba(0, 243, 255, 0.1) 90%, rgba(0, 243, 255, 0.4) 100%);
+    animation: radar-spin 3s linear infinite;
+    z-index: 1;
+}
+
+.central-node {
+    position: relative;
+    z-index: 10;
+    width: 120px; /* 如果图片细节多，可以稍微改大一点，比如 120px */
+    height: 120px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: 0.3s;
+    
+    /* === 修改部分开始 === */
+    
+    /* 填入你的核心/按钮图片链接 */
+    background: url('https://img.1eak.cool/button.jpeg') center/contain no-repeat;
+    
+    /* 去掉 CSS 边框，因为 AI 画的球体通常很立体 */
+    border: none; 
+    
+    /* 保留发光效果，让它看起来像是在发光 */
+    box-shadow: 0 0 30px rgba(0, 243, 255, 0.3);
+    
+    /* === 修改部分结束 === */
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* 文字样式 (SCAN) */
+    color: #fff;
+    font-weight: 900;
+    font-size: 1rem;
+    text-shadow: 0 0 5px rgba(0,0,0,0.8);
+    letter-spacing: 1px;
+}
+
+/* 鼠标放上去的效果：放大 + 增加光晕 */
+.central-node:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 50px rgba(0, 243, 255, 0.8);
+}
+.central-node:active { transform: scale(0.95); }
+
+/* 扫描时的动画 */
+.central-node.scanning {
+    animation: node-pulse 0.5s infinite alternate;
+}
+
+@keyframes node-pulse {
+    from { box-shadow: 0 0 20px #00f3ff; }
+    to { box-shadow: 0 0 60px #bd00ff, 0 0 100px #00f3ff; }
+}
+
+/* 随机浮动的数据点 */
 .node-point {
     position: absolute;
-    width: 6px; height: 6px;
-    background: #00ff00;
+    width: 8px; height: 8px;
+    background: #fff;
     border-radius: 50%;
-    animation: blink 2s infinite;
+    box-shadow: 0 0 10px #fff;
+    animation: floatPoint 3s ease-in-out infinite;
+    z-index: 2;
 }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.node-point:nth-child(1) { animation-delay: 0s; background: #00f3ff; box-shadow: 0 0 10px #00f3ff; }
+.node-point:nth-child(2) { animation-delay: 1s; background: #bd00ff; box-shadow: 0 0 10px #bd00ff; }
+.node-point:nth-child(3) { animation-delay: 2s; background: #ffd700; box-shadow: 0 0 10px #ffd700; }
 
-/* 控制区 */
+@keyframes floatPoint {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.5); opacity: 0.4; }
+}
+
+@keyframes radar-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0; } 50% { opacity: 0.3; } 100% { transform: scale(1.2); opacity: 0; } }
+
+/* 控制区 & 按钮 */
 .node-controls { text-align: center; margin-bottom: 20px; }
-#nodeCostDisplay { color: #888; font-size: 0.9rem; margin-bottom: 10px; }
+#nodeCostDisplay { 
+    color: #aaa; font-size: 0.9rem; margin-bottom: 15px; 
+    font-family: var(--font-tech);
+}
 
-/* 终端日志 */
+/* 探索按钮 - 升级版 */
+#exploreBtn {
+    background: linear-gradient(90deg, #0066ff, #00c6ff);
+    border: none;
+    color: #fff;
+    padding: 12px 30px;
+    border-radius: 30px; /* 圆角胶囊 */
+    font-weight: bold;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    box-shadow: 0 0 20px rgba(0, 198, 255, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+#exploreBtn::before {
+    content: '';
+    position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: skewX(-25deg);
+    transition: 0.5s;
+}
+#exploreBtn:hover::before { left: 100%; }
+#exploreBtn:hover { box-shadow: 0 0 40px rgba(0, 198, 255, 0.6); transform: translateY(-2px); }
+
+/* 日志终端 (玻璃面板) */
 .console-log {
-    background: #050505;
-    border: 1px solid #333;
-    height: 150px;
-    padding: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    height: 160px;
+    padding: 15px;
     overflow-y: auto;
     text-align: left;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
-.log-line { margin-bottom: 5px; color: #00ff00; }
-.log-line.error { color: #ff3333; }
-.log-line.warn { color: #ff9900; }
-.log-line.info { color: #00ccff; }
+
+/* 滚动条美化 */
+.console-log::-webkit-scrollbar { width: 4px; }
+.console-log::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+/* 日志颜色系统 */
+.log-line { margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 2px; }
+.log-line { color: #888; } /* 默认灰色 */
+.log-line.info { color: #00f3ff; text-shadow: 0 0 5px rgba(0, 243, 255, 0.3); } /* 信息青色 */
+.log-line.warn { color: #ffd700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); } /* 奖励金色 */
+.log-line.error { color: #ff3333; text-shadow: 0 0 5px rgba(255, 51, 51, 0.3); } /* 故障红色 */
 
 /* 按钮微调 */
 .glitch-effect:hover {
@@ -2277,6 +2389,7 @@ body.bg-fire {
     80% { transform: translate(2px, -2px); }
     100% { transform: translate(0); }
 }
+
 
 
 
