@@ -52,6 +52,34 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, message: '用户已解封' }));
   }
 
+  // ... 在 admin.js 现有的 action 判断中添加 ...
+
+  // 获取待审核播报
+  if (action === 'get_pending_broadcasts') {
+      const list = await db.prepare("SELECT * FROM broadcasts WHERE status = 'pending' ORDER BY created_at ASC").all();
+      return new Response(JSON.stringify({ success: true, list: list.results }));
+  }
+
+  // 审核播报
+  if (action === 'review_broadcast') {
+      const { id, decision } = req; // decision: 'approve' or 'reject'
+      
+      if (decision === 'reject') {
+          // 拒绝：状态改 rejected，这里为了简单不退道具了（或者你可以加退道具逻辑），通常作为惩罚
+          await db.prepare("UPDATE broadcasts SET status = 'rejected' WHERE id = ?").bind(id).run();
+          return new Response(JSON.stringify({ success: true, message: '已驳回' }));
+      }
+      
+      if (decision === 'approve') {
+          const now = Date.now();
+          const endTime = now + (24 * 60 * 60 * 1000); // 24小时后过期
+          await db.prepare("UPDATE broadcasts SET status = 'active', start_time = ?, end_time = ? WHERE id = ?")
+            .bind(now, endTime, id).run();
+          return new Response(JSON.stringify({ success: true, message: '已通过，即刻生效' }));
+      }
+  }
+  
+
   // ... (保留其他功能: toggle_invite, get_invites, refill, delete, get_feedbacks, mark_read, reply_fb, post_announce, grant, gen_key) ...
   if (action === 'toggle_invite_system') {
       const val = req.enabled ? 'true' : 'false';
