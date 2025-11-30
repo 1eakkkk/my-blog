@@ -1463,6 +1463,7 @@ async function handleRoute() {
             loadAdminInvites();
             loadAdminFeedbacks();
             loadAdminBanList();
+            if(typeof loadAdminBroadcasts === 'function') loadAdminBroadcasts(); 
         }
     } 
 }
@@ -2810,6 +2811,9 @@ const SHOP_CATALOG = [
     // === 💳 道具 ===
     { id: 'rename_card', cost: 100, name: '改名卡', type: 'consumable', category: 'consumable', icon: '💳', rarity: 'common', desc: '修改一次昵称' },
     { id: 'top_card', cost: 500, name: '置顶卡 (24h)', type: 'consumable', category: 'consumable', icon: '📌', rarity: 'rare', desc: '将你的帖子置顶一天' },
+    // === 📢 全服播报卡 (Broadcast) ===
+    { id: 'broadcast_low', cost: 500, name: '基础信标卡', type: 'consumable', category: 'consumable', icon: '📡', rarity: 'rare', desc: '全服广播(系统预设)，持续24h' },
+    { id: 'broadcast_high', cost: 2000, name: '骇客宣言卡', type: 'consumable', category: 'consumable', icon: '🛰️', rarity: 'legendary', desc: '自定义全服广播(支持幻彩)，持续24h' },
     
     // === 🌌 网页背景 (Backgrounds) ===
     { id: 'bg_matrix', cost: 500, name: '矩阵数据流', type: 'decoration', category: 'background', icon: '👾', rarity: 'rare', desc: '黑客潜行风格' },
@@ -3213,6 +3217,7 @@ window.reviewBroadcast = async function(id, decision) {
 };
 
 // 记得在 loadAdminStats 里调用 loadAdminBroadcasts();
+
 
 
 
