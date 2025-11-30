@@ -2390,6 +2390,54 @@ body.bg-fire {
     100% { transform: translate(0); }
 }
 
+/* --- N.O.D.E 移动端适配 --- */
+@media (max-width: 768px) {
+    .node-console-wrapper {
+        margin: 10px;       /* 减少外边距，让出更多宽度 */
+        padding: 15px;      /* 减少内边距，防止内容被挤压 */
+        border-radius: 12px;
+    }
+
+    .node-header {
+        flex-direction: column; /* 标题和状态分两行显示 */
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .node-header h2 {
+        font-size: 1rem;    /* 缩小标题字体 */
+    }
+
+    .node-visualizer {
+        height: 260px;      /* 降低可视区域高度 */
+    }
+
+    /* 缩小雷达圈，防止撑爆小屏幕 */
+    .radar-circle, .radar-line {
+        width: 220px;
+        height: 220px;
+    }
+
+    /* 缩小中间的大按钮 */
+    .central-node {
+        width: 130px;
+        height: 130px;
+        font-size: 0.9rem;
+    }
+
+    /* 调整底部按钮大小 */
+    #exploreBtn {
+        width: 100%;       /* 按钮撑满宽度，方便手指点击 */
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+    
+    /* 缩小日志字体 */
+    .console-log {
+        font-size: 0.75rem;
+        height: 120px;
+    }
+}
 
 
 
