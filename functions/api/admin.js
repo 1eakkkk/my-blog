@@ -185,5 +185,23 @@ export async function onRequestPost(context) {
       }
   }
 
+  // === 新增：搜索用户 (支持搜昵称或账号) ===
+  if (action === 'search_users') {
+      const term = req.query || '';
+      if (!term) return new Response(JSON.stringify({ success: false, error: '请输入关键词' }));
+      
+      const searchStr = `%${term}%`;
+      
+      // 同时匹配 username 和 nickname
+      const list = await db.prepare(`
+          SELECT id, username, nickname, status, coins, recovery_key, created_at 
+          FROM users 
+          WHERE username LIKE ? OR nickname LIKE ? 
+          ORDER BY created_at DESC LIMIT 20
+      `).bind(searchStr, searchStr).all();
+      
+      return new Response(JSON.stringify({ success: true, list: list.results }));
+  }
+
   return new Response(JSON.stringify({ success: false, error: '未知指令' }));
 }
