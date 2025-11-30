@@ -2,11 +2,13 @@
 export async function onRequest(context) {
   const { request, env } = context;
   const db = env.DB;
-  // ... (鉴权代码同上，务必加上) ...
+  
+  // 鉴权
   const cookie = request.headers.get('Cookie');
   const sessionId = cookie?.match(/session_id=([^;]+)/)?.[1];
+  if (!sessionId) return new Response(JSON.stringify({error:'Login'}),{status:401});
   const me = await db.prepare('SELECT id, username FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
-  if(!me) return new Response(JSON.stringify({error:'Login'}),{status:401});
+  if(!me) return new Response(JSON.stringify({error:'Invalid'}),{status:401});
 
   // GET: 获取对话列表 或 具体消息
   if (request.method === 'GET') {
@@ -17,10 +19,13 @@ export async function onRequest(context) {
           // 获取与某人的详细聊天记录 (标记已读)
           await db.prepare('UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ?').bind(targetId, me.id).run();
           
-          // === 修改：关联查询用户头像信息 ===
+          // === ✅ 修复：查询 equipped_bubble_style ===
+          // 注意：我们在 users 表中查询发送者的气泡样式
           const msgs = await db.prepare(`
               SELECT m.*, 
-                     u.username, u.nickname, u.avatar_url, u.avatar_variant, equipped_bubble_style
+                     u.username, u.nickname, u.avatar_url, u.avatar_variant, 
+                     u.equipped_bubble_style, /* 关键字段 */
+                     u.name_color             /* 顺便把名字颜色也带上 */
               FROM messages m
               JOIN users u ON m.sender_id = u.id
               WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)
@@ -29,8 +34,7 @@ export async function onRequest(context) {
           
           return new Response(JSON.stringify({ success: true, list: msgs.results }));
       } else {
-          // 获取最近对话列表 (比较复杂的SQL，找最近联系人)
-          // 这里简化：查所有发过消息或收过消息的人，并去重
+          // 获取最近对话列表
           const conversations = await db.prepare(`
              SELECT 
                 DISTINCT CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as uid,
@@ -39,10 +43,7 @@ export async function onRequest(context) {
                 (SELECT username FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as username,
                 (SELECT avatar_url FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as avatar_url,
                 (SELECT avatar_variant FROM users WHERE id = (CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END)) as avatar_variant,
-                
-                -- === 新增：统计该用户的未读消息数 ===
                 (SELECT COUNT(*) FROM messages WHERE sender_id = (CASE WHEN m_outer.sender_id = ? THEN m_outer.receiver_id ELSE m_outer.sender_id END) AND receiver_id = ? AND is_read = 0) as unread_count
-
              FROM messages m_outer
              WHERE sender_id = ? OR receiver_id = ?
              GROUP BY uid
