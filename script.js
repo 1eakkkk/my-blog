@@ -2745,7 +2745,8 @@ window.adminSearchUsers = async function() {
                 const copyBtn = `<button onclick="copyText('${u.username}')" class="mini-action-btn">复制账号</button>`;
                 const banBtn = `<button onclick="adminBanUser('${u.id}')" class="mini-action-btn" style="color:red; border-color:red;">封禁</button>`;
                 // 还可以加一个快捷查密钥
-                const keyBtn = `<button onclick="document.getElementById('adminTargetUser').value='${u.username}'; adminGenKey();" class="mini-action-btn" style="color:gold; border-color:gold;">查密钥</button>`;
+                // 传递 ID 和 用户名
+                const keyBtn = `<button onclick="adminGenKey('${u.id}', '${u.username}')" class="mini-action-btn" style="color:gold; border-color:gold;">查密钥</button>`;
 
                 html += `
                     <tr>
@@ -2766,6 +2767,7 @@ window.adminSearchUsers = async function() {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
