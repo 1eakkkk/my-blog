@@ -2820,10 +2820,14 @@ async function loadNodeConsole() {
             
             if(isFree) {
                 costEl.innerHTML = `本次扫描消耗: <span style="color:#0f0">0 i币 (每日免费)</span>`;
-                btn.innerText = "INITIATE SCAN (FREE)";
+                
+                // === 修改这里：汉化按钮 ===
+                btn.innerText = "启动扫描程序 (免费)";
             } else {
                 costEl.innerHTML = `本次扫描消耗: <span style="color:#ff00de">50 i币</span> (余额: ${data.coins})`;
-                btn.innerText = "INITIATE SCAN (-50)";
+                
+                // === 修改这里：汉化按钮 ===
+                btn.innerText = "启动扫描程序 (-50)";
             }
         }
     } catch(e) {
@@ -2899,6 +2903,7 @@ window.exploreNode = async function() {
         btn.disabled = false;
     }
 };
+
 
 
 
