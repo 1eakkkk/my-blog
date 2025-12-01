@@ -179,7 +179,7 @@ export async function onRequest(context) {
     if (request.method === 'GET') {
         // 如果这里报错 500，说明 duels 表可能不存在
         try {
-            const list = await db.prepare("SELECT id, creator_name, bet_amount, created_at FROM duels WHERE status = 'open' ORDER BY created_at DESC LIMIT 50").all();
+            const list = await db.prepare("SELECT id, creator_id, creator_name, bet_amount, created_at FROM duels WHERE status = 'open' ORDER BY created_at DESC LIMIT 50").all();
             return new Response(JSON.stringify({ success: true, list: list.results }));
         } catch (e) {
             return new Response(JSON.stringify({ success: false, error: '数据库错误: ' + e.message }), { status: 500 });
