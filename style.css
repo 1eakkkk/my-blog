@@ -2730,7 +2730,7 @@ body.bg-fire {
 }
 
 /* =========================================
-   2. 加入对局弹窗样式 (移动端适配)
+   2. 加入对局弹窗样式 (修复移动端显示)
    ========================================= */
 .join-modal-grid {
     display: flex;
@@ -2740,36 +2740,57 @@ body.bg-fire {
 }
 
 .join-option {
-    width: 70px; height: 70px;
+    width: 80px; height: 80px;
     border: 2px solid #333;
     border-radius: 12px;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0,0,0,0.5); /* 半透明黑底 */
+    
+    /* 文字/Emoji 居中逻辑 (作为图片加载失败的备份) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem; 
+    color: #fff;
+    
+    /* 背景图片逻辑 */
     background-position: center;
-    background-size: 60%;
+    background-size: 70%; /* 图片缩放比例 */
     background-repeat: no-repeat;
+    
     cursor: pointer;
     transition: 0.2s;
+    position: relative;
 }
 
-/* 选中状态 */
+/* 选中状态高亮 */
 .join-option.selected {
-    border-color: var(--accent-blue);
+    border-color: var(--accent-blue) !important;
     background-color: rgba(0, 112, 243, 0.2);
     box-shadow: 0 0 15px var(--accent-blue);
     transform: scale(1.1);
 }
 
-/* 选项对应的图片 (复用上面的 R2 链接) */
-.opt-blade { background-image: url('https://img.1eak.cool/jiandao.png'); }
-.opt-cube  { background-image: url('https://img.1eak.cool/stone.png'); }
-.opt-membrane { background-image: url('https://img.1eak.cool/bu.png'); }
+.opt-blade { 
+    background-image: url('https://img.1eak.cool/jiandao.png'); 
+}
+.opt-cube  { 
+    background-image: url('https://img.1eak.cool/stone.png'); 
+}
+.opt-membrane { 
+    background-image: url('https://img.1eak.cool/bu.png'); 
+}
 
+/* 移动端强制适配 */
 @media (max-width: 768px) {
-    .join-option {
-        width: 60px; height: 60px; /* 手机上稍微小一点适配屏幕 */
-    }
     .join-modal-grid {
-        gap: 15px;
+        gap: 15px; /* 间距缩小 */
+    }
+    
+    .join-option {
+        width: 65px !important;  /* 强制固定大小 */
+        height: 65px !important;
+        font-size: 1.8rem;       /* Emoji 稍微缩小 */
+        flex-shrink: 0;          /* 防止被挤压 */
     }
 }
 
@@ -3056,6 +3077,7 @@ body.bg-fire {
     color: #fff;
     border-bottom-color: #ff3333;
 }
+
 
 
 
