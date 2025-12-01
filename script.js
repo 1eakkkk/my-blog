@@ -3588,6 +3588,87 @@ window.toggleTurnstile = async function() {
     } catch(e){ showToast("设置失败"); }
 };
 
+// === ⚔️ 数据格斗场：Tab切换与回放逻辑 ===
+
+// 1. 切换 Tab (大厅悬赏 / 我的战绩)
+// 记得在 HTML 里给这两个文字加上 onclick="switchDuelTab('lobby')" 和 onclick="switchDuelTab('history')"
+let currentDuelTab = 'lobby';
+
+window.switchDuelTab = function(tab) {
+    currentDuelTab = tab;
+    // 简单的样式切换 (你需要自己在 HTML 给这两个按钮加 id)
+    // 这里直接重新加载数据
+    if (tab === 'lobby') {
+        loadDuels();
+    } else {
+        loadDuelHistory();
+    }
+};
+
+// 2. 加载历史战绩
+async function loadDuelHistory() {
+    const list = document.getElementById('duelList');
+    list.innerHTML = '<div style="text-align:center;color:#666">LOADING ARCHIVES...</div>';
+    
+    const res = await fetch(`${API_BASE}/duel`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'history' })
+    });
+    const data = await res.json();
+    
+    list.innerHTML = '';
+    if (!data.list || data.list.length === 0) {
+        list.innerHTML = '<div style="text-align:center;padding:20px;color:#444">暂无战斗记录</div>';
+        return;
+    }
+
+    data.list.forEach(d => {
+        const isWin = d.winner_id === data.my_id;
+        const isDraw = d.winner_id === 0;
+        
+        let resultHtml = `<span style="color:#ff3333">失败</span>`;
+        if (isWin) resultHtml = `<span style="color:#00ff00">胜利 (+${Math.floor(d.bet_amount*0.99)})</span>`;
+        if (isDraw) resultHtml = `<span style="color:#ccc">平局</span>`;
+
+        const div = document.createElement('div');
+        div.className = 'duel-item';
+        div.innerHTML = `
+            <div style="font-size:0.8rem">
+                <span style="color:#aaa">VS</span> 
+                <span style="color:#fff;font-weight:bold">${d.creator_name === currentUser.nickname ? d.challenger_name : d.creator_name}</span>
+            </div>
+            <div style="font-size:0.8rem">${resultHtml}</div>
+            <button onclick="watchReplay(${d.id})" class="mini-action-btn" style="border-color:#00f3ff;color:#00f3ff">▶ 回放</button>
+        `;
+        list.appendChild(div);
+    });
+}
+
+// 3. 观看回放 (复用之前的动画函数)
+window.watchReplay = async function(id) {
+    const res = await fetch(`${API_BASE}/duel`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'get_replay', id })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+        // 转换结果格式以匹配 playDuelAnimation 的参数要求
+        // playDuelAnimation 需要 result 为: 'challenger' (我赢), 'creator' (我输), 'draw'
+        // 但我们后端返回的是 win/lose，这里做个映射
+        
+        let animResult = 'draw';
+        if (data.result === 'win') animResult = 'challenger'; // 动画函数里 challenger 代表"我方胜利"
+        if (data.result === 'lose') animResult = 'creator';   // 动画函数里 creator 代表"对方胜利"
+        
+        // 播放动画
+        playDuelAnimation(data.myMove, data.oppMove, animResult, data.winAmount);
+    } else {
+        showToast(data.error, 'error');
+    }
+};
 
 
 
