@@ -2818,4 +2818,81 @@ body.bg-fire {
     }
 }
 
+/* === 修复：数据格斗场控制栏间距 (问题3) === */
+.duel-controls div[style*="display:flex"] {
+    gap: 25px !important; /* 强制拉大间距 */
+}
+
+/* === 新增：三角形选择器 UI (问题5) === */
+.rps-triangle-container {
+    position: relative;
+    width: 140px;
+    height: 120px;
+    margin: 0 20px; /* 左右留白 */
+}
+
+/* 每一个选项按钮 */
+.rps-btn {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #333;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: 0.3s;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.rps-btn:hover {
+    border-color: #fff;
+    transform: scale(1.1);
+}
+
+/* 选中状态 */
+.rps-btn.active {
+    background: var(--accent-blue);
+    color: #fff;
+    box-shadow: 0 0 15px var(--accent-blue);
+    border-color: #fff;
+    z-index: 10;
+}
+
+/* 三角形布局定位 */
+/* 剪刀 (Blade) - 顶部 */
+.rps-btn[data-val="blade"] {
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.rps-btn[data-val="blade"]:hover, .rps-btn[data-val="blade"].active {
+    transform: translateX(-50%) scale(1.1); /* 保持居中同时放大 */
+}
+
+/* 石头 (Cube) - 左下 */
+.rps-btn[data-val="cube"] {
+    bottom: 0;
+    left: 0;
+}
+
+/* 布 (Membrane) - 右下 */
+.rps-btn[data-val="membrane"] {
+    bottom: 0;
+    right: 0;
+}
+
+/* 装饰性连线 (可选，画出三角形轮廓) */
+.rps-triangle-bg {
+    position: absolute;
+    top: 20px; left: 20px; right: 20px; bottom: 20px;
+    pointer-events: none;
+    background: conic-gradient(from 180deg at 50% 40%, transparent 150deg, rgba(255,255,255,0.1) 180deg, transparent 210deg);
+    opacity: 0.5;
+    z-index: 0;
+}
+
 
