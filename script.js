@@ -64,7 +64,7 @@ async function playBroadcastQueue(queue, isOverload) {
     showHud(item, isOverload);
     
     // 根据档次决定持续时间
-    const duration = item.tier === 'high' ? 5000 : 3000;
+    const duration = item.tier === 'high' ? 3300 : 2400;
     
     // 等待播放完毕后，递归播放下一个
     setTimeout(() => {
@@ -3737,6 +3737,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
