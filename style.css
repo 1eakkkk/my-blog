@@ -2992,4 +2992,22 @@ body.bg-fire {
     z-index: 2147483648 !important; 
 }
 
+/* === ⚔️ 数据格斗场 Tab 样式修复 === */
+.duel-tab-btn {
+    cursor: pointer;
+    padding-bottom: 5px;
+    color: #666;
+    border-bottom: 2px solid #333; /* 默认灰色下划线 */
+    transition: 0.3s;
+}
+
+.duel-tab-btn:hover {
+    color: #fff;
+}
+
+/* 选中状态：亮色文字 + 红色下划线 */
+.duel-tab-btn.active {
+    color: #fff;
+    border-bottom-color: #ff3333;
+}
 
