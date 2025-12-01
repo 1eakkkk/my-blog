@@ -2930,78 +2930,129 @@ body.bg-fire {
     gap: 25px !important; /* 强制拉大间距 */
 }
 
-/* === 新增：三角形选择器 UI (问题5) === */
+/* =========================================
+   发起挑战区域美化 (Initiate Duel UI)
+   ========================================= */
+
+/* 1. 容器：PC端保持三角形，移动端改为横排 */
 .rps-triangle-container {
     position: relative;
-    width: 140px;
-    height: 120px;
-    margin: 0 20px; /* 左右留白 */
+    width: 200px;
+    height: 180px;
+    margin: 0 20px;
 }
 
-/* 每一个选项按钮 */
+/* 2. 按钮基础样式：改为发光卡片风格 */
 .rps-btn {
     position: absolute;
-    width: 40px;
-    height: 40px;
-    background: rgba(0,0,0,0.5);
-    border: 1px solid #333;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width: 60px; 
+    height: 60px;
+    
+    /* 样式美化 */
+    border: 2px solid #333;
+    border-radius: 50%; /* PC端保持圆形，移动端可以改 */
+    background-color: rgba(0,0,0,0.6);
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    
+    /* 图片设置 */
+    background-position: center;
+    background-size: 70%; /* 图片大小 */
+    background-repeat: no-repeat;
+    
     cursor: pointer;
-    font-size: 1.2rem;
-    transition: 0.3s;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 2;
 }
 
-.rps-btn:hover {
-    border-color: #fff;
-    transform: scale(1.1);
-}
-
-/* 选中状态 */
+/* 3. 选中状态：高亮发光 */
 .rps-btn.active {
-    background: var(--accent-blue);
-    color: #fff;
-    box-shadow: 0 0 15px var(--accent-blue);
-    border-color: #fff;
+    border-color: var(--accent-blue);
+    background-color: rgba(0, 112, 243, 0.2);
+    box-shadow: 0 0 20px var(--accent-blue);
+    transform: scale(1.2);
     z-index: 10;
 }
 
-/* 三角形布局定位 */
-/* 剪刀 (Blade) - 顶部 */
+/* 
+   👇👇👇 4. 图片链接替换 (R2 URL) 👇👇👇 
+   请确保这里填入的是您真实的 R2 链接
+*/
 .rps-btn[data-val="blade"] {
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    /* 剪刀 */
+    background-image: url('https://pub-your-r2-url.r2.dev/rps/scissors.png'); 
+    top: 0; left: 50%; transform: translateX(-50%); /* 三角形顶点 */
 }
-.rps-btn[data-val="blade"]:hover, .rps-btn[data-val="blade"].active {
-    transform: translateX(-50%) scale(1.1); /* 保持居中同时放大 */
+.rps-btn[data-val="blade"].active {
+    transform: translateX(-50%) scale(1.2); /* 选中时保持居中并放大 */
 }
 
-/* 石头 (Cube) - 左下 */
 .rps-btn[data-val="cube"] {
-    bottom: 0;
-    left: 0;
+    /* 石头 */
+    background-image: url('https://pub-your-r2-url.r2.dev/rps/rock.png');
+    bottom: 0; left: 0; /* 三角形左下 */
 }
 
-/* 布 (Membrane) - 右下 */
 .rps-btn[data-val="membrane"] {
-    bottom: 0;
-    right: 0;
+    /* 布 */
+    background-image: url('https://pub-your-r2-url.r2.dev/rps/paper.png');
+    bottom: 0; right: 0; /* 三角形右下 */
 }
 
-/* 装饰性连线 (可选，画出三角形轮廓) */
-.rps-triangle-bg {
-    position: absolute;
-    top: 20px; left: 20px; right: 20px; bottom: 20px;
-    pointer-events: none;
-    background: conic-gradient(from 180deg at 50% 40%, transparent 150deg, rgba(255,255,255,0.1) 180deg, transparent 210deg);
-    opacity: 0.5;
-    z-index: 0;
-}
 
+/* =========================================
+   📱 移动端强力修复 (Mobile Fix)
+   目标：横向居中排列，不再堆叠
+   ========================================= */
+@media (max-width: 768px) {
+    /* 1. 容器改为 Flex 布局，横向排列 */
+    .rps-triangle-container {
+        width: 100% !important;
+        height: auto !important;
+        display: flex !important;
+        flex-direction: row !important; /* 强制横向 */
+        justify-content: center !important; /* 居中 */
+        align-items: center !important;
+        gap: 25px !important; /* 按钮间距 */
+        margin: 20px 0 !important;
+        position: static !important; /* 取消绝对定位依赖 */
+    }
+
+    /* 2. 隐藏原本的三角形背景线 */
+    .rps-triangle-bg {
+        display: none !important;
+    }
+
+    /* 3. 按钮样式重置 */
+    .rps-btn {
+        position: static !important; /* 取消绝对定位 */
+        transform: none !important;  /* 取消位移 */
+        
+        /* 稍微变大一点，方便点击 */
+        width: 70px !important;
+        height: 70px !important;
+        border-radius: 12px !important; /* 改为圆角矩形，更像卡片 */
+        
+        /* 确保图片填充 */
+        background-size: 80% !important; 
+        
+        /* 加上一点底部边距防止太挤 */
+        margin: 0 !important;
+    }
+
+    /* 4. 选中状态微调 */
+    .rps-btn.active {
+        transform: scale(1.1) !important; /* 选中轻微放大 */
+        border-color: #ff3333 !important; /* 发起挑战用红色高亮，更醒目 */
+        box-shadow: 0 0 15px #ff3333 !important;
+    }
+    
+    /* 5. 修正特定按钮的定位干扰 */
+    .rps-btn[data-val="blade"],
+    .rps-btn[data-val="cube"],
+    .rps-btn[data-val="membrane"] {
+        top: auto; left: auto; right: auto; bottom: auto; /* 清除 PC 端定位 */
+    }
+}
 /* === 修复 VIP 徽章显示问题 === */
 .badge.vip-tag {
     /* 强制文字颜色为黑色，确保在金色背景上可见 */
@@ -3140,6 +3191,7 @@ body.bg-fire {
     /* 结算时稍微放大图标，更有冲击力 */
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 
 
 
