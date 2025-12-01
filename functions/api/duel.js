@@ -1,4 +1,4 @@
-// --- functions/api/duel.js ---
+// --- functions/api/duel.js (完整修复版) ---
 
 // 配置
 const TAX_RATE = 0.01; // 1% 系统税收
@@ -21,7 +21,7 @@ export async function onRequest(context) {
     const { request, env } = context;
     const db = env.DB;
 
-    // 鉴权
+    // 1. 鉴权
     const cookie = request.headers.get('Cookie');
     if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ error: 'Login required' }), { status: 401 });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
@@ -31,12 +31,18 @@ export async function onRequest(context) {
     const now = Date.now();
     const today = new Date(now + 8*3600*1000).toISOString().split('T')[0];
 
-    // 处理 POST 请求
+    // === 处理 POST 请求 (操作) ===
     if (request.method === 'POST') {
-        const body = await request.json();
+        let body = {};
+        try {
+            body = await request.json();
+        } catch (e) {
+            return new Response(JSON.stringify({ success: false, error: '无效的 JSON 数据' }), { status: 400 });
+        }
+        
         const { action } = body;
 
-        // 1. 每日限制检查 (无论是创建还是加入)
+        // 每日限制检查 (仅针对创建和加入)
         if (action === 'create' || action === 'join') {
             const limit = await db.prepare('SELECT duel_count FROM user_daily_limits WHERE user_id = ? AND date_key = ?').bind(user.id, today).first();
             if (limit && limit.duel_count >= DAILY_LIMIT) {
@@ -44,16 +50,15 @@ export async function onRequest(context) {
             }
         }
 
-        // === 创建对局 ===
+        // --- 1. 创建对局 ---
         if (action === 'create') {
             const { bet, move } = body;
             const amount = parseInt(bet);
             
-            if (amount < MIN_BET || amount > MAX_BET) return new Response(JSON.stringify({ success: false, error: `下注范围: ${MIN_BET} - ${MAX_BET}` }));
+            if (isNaN(amount) || amount < MIN_BET || amount > MAX_BET) return new Response(JSON.stringify({ success: false, error: `下注范围: ${MIN_BET} - ${MAX_BET}` }));
             if (user.coins < amount) return new Response(JSON.stringify({ success: false, error: '余额不足' }));
             if (!['cube', 'membrane', 'blade'].includes(move)) return new Response(JSON.stringify({ success: false, error: '无效数据体' }));
 
-            // 扣钱并创建
             await db.batch([
                 db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(amount, user.id),
                 db.prepare(`
@@ -66,111 +71,52 @@ export async function onRequest(context) {
             return new Response(JSON.stringify({ success: true, message: '数据节点已建立，等待链接...' }));
         }
 
-        // === 加入对局 (核心结算) ===
+        // --- 2. 加入对局 (结算) ---
         if (action === 'join') {
             const { id, move } = body;
             
-            // 查对局状态
             const duel = await db.prepare('SELECT * FROM duels WHERE id = ? AND status = "open"').bind(id).first();
             if (!duel) return new Response(JSON.stringify({ success: false, error: '对局不存在或已结束' }));
             if (duel.creator_id === user.id) return new Response(JSON.stringify({ success: false, error: '无法与自己对战' }));
             if (user.coins < duel.bet_amount) return new Response(JSON.stringify({ success: false, error: '余额不足' }));
 
-            // 计算结果
-            const result = resolveDuel(duel.creator_move, move); // 'creator', 'challenger', 'draw'
+            const result = resolveDuel(duel.creator_move, move);
             let winnerId = 0;
             let winAmount = 0;
-            
             const updates = [];
             
-            // 扣除挑战者本金
+            // 扣除挑战者本金 + 增加次数
             updates.push(db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(duel.bet_amount, user.id));
-            // 增加每日计数
             updates.push(db.prepare(`INSERT INTO user_daily_limits (user_id, date_key, duel_count) VALUES (?, ?, 1) ON CONFLICT(user_id, date_key) DO UPDATE SET duel_count = duel_count + 1`).bind(user.id, today));
 
             if (result === 'draw') {
-                // 平局：退款
+                // 平局退款
                 updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(duel.bet_amount, duel.creator_id));
                 updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(duel.bet_amount, user.id));
                 updates.push(db.prepare("UPDATE duels SET status = 'closed', challenger_id = ?, challenger_name = ?, challenger_move = ?, winner_id = 0, resolved_at = ? WHERE id = ?").bind(user.id, user.nickname||user.username, move, now, id));
             } else {
-                // 有人赢了
+                // 有胜负
                 const totalPool = duel.bet_amount * 2;
                 const tax = Math.ceil(totalPool * TAX_RATE);
                 winAmount = totalPool - tax;
-                
                 winnerId = (result === 'creator') ? duel.creator_id : user.id;
                 
-                // 给赢家发钱
                 updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(winAmount, winnerId));
-                // 更新对局记录
                 updates.push(db.prepare("UPDATE duels SET status = 'closed', challenger_id = ?, challenger_name = ?, challenger_move = ?, winner_id = ?, resolved_at = ? WHERE id = ?").bind(user.id, user.nickname||user.username, move, winnerId, now, id));
-                
-                // 赢家任务记录 (可选)
-                // updates.push(db.prepare("UPDATE user_tasks ..."));
             }
-
-            // === 获取我的历史战绩 ===
-        if (action === 'history') {
-            // 查我参与过的已结束对局
-            const list = await db.prepare(`
-                SELECT id, creator_name, challenger_name, bet_amount, winner_id, created_at 
-                FROM duels 
-                WHERE (creator_id = ? OR challenger_id = ?) AND status != 'open'
-                ORDER BY created_at DESC LIMIT 20
-            `).bind(user.id, user.id).all();
-            return new Response(JSON.stringify({ success: true, list: list.results, my_id: user.id }));
-        }
-
-        // === 获取回放详情 (Replay) ===
-        if (action === 'get_replay') {
-            const { id } = body;
-            const duel = await db.prepare('SELECT * FROM duels WHERE id = ?').bind(id).first();
-            
-            if (!duel) return new Response(JSON.stringify({ success: false, error: '记录不存在' }));
-            
-            // 计算结果用于回放
-            // 简单判断胜负关系
-            let result = 'draw';
-            if (duel.winner_id === user.id) result = 'win'; // 我赢
-            else if (duel.winner_id !== 0) result = 'lose'; // 我输
-            
-            // 确定我的出招和对方出招
-            let myMove, oppMove;
-            if (duel.creator_id === user.id) {
-                myMove = duel.creator_move;
-                oppMove = duel.challenger_move;
-            } else {
-                myMove = duel.challenger_move;
-                oppMove = duel.creator_move;
-            }
-
-            // 计算赢的钱 (扣税后)
-            const total = duel.bet_amount * 2;
-            const tax = Math.ceil(total * 0.01);
-            const winAmount = total - tax;
-
-            return new Response(JSON.stringify({ 
-                success: true, 
-                myMove, 
-                oppMove, 
-                result, // 'win', 'lose', 'draw'
-                winAmount 
-            }));
-        }
 
             await db.batch(updates);
 
             return new Response(JSON.stringify({ 
                 success: true, 
-                result: result, // 'creator', 'challenger', 'draw'
-                creator_move: duel.creator_move, // 此时才揭晓对手出招
+                result: result, 
+                creator_move: duel.creator_move,
                 win_amount: winAmount,
                 message: '数据流对撞完成' 
             }));
         }
 
-        // === 撤销对局 ===
+        // --- 3. 撤销对局 ---
         if (action === 'cancel') {
             const { id } = body;
             const duel = await db.prepare('SELECT * FROM duels WHERE id = ? AND creator_id = ? AND status = "open"').bind(id, user.id).first();
@@ -182,30 +128,63 @@ export async function onRequest(context) {
             ]);
             return new Response(JSON.stringify({ success: true, message: '已撤回数据流' }));
         }
-    }
 
-    // GET: 获取列表 (支持 大厅 和 历史)
-    if (request.method === 'GET') {
-        const url = new URL(request.url);
-        const mode = url.searchParams.get('mode') || 'lobby'; // 'lobby' or 'history'
-
-        if (mode === 'history') {
-            // 获取我参与过的已结束对局 (最近 20 场)
+        // --- 4. 获取历史战绩 (新增) ---
+        if (action === 'history') {
             const list = await db.prepare(`
-                SELECT * FROM duels 
-                WHERE (creator_id = ? OR challenger_id = ?) 
-                AND status IN ('closed', 'cancelled')
-                ORDER BY resolved_at DESC, created_at DESC LIMIT 20
+                SELECT id, creator_name, challenger_name, bet_amount, winner_id, created_at 
+                FROM duels 
+                WHERE (creator_id = ? OR challenger_id = ?) AND status != 'open' AND status != 'cancelled'
+                ORDER BY created_at DESC LIMIT 20
             `).bind(user.id, user.id).all();
-            return new Response(JSON.stringify({ success: true, list: list.results, uid: user.id }));
-        } else {
-            // 大厅：只看 Open 的
-            const list = await db.prepare(`
-                SELECT id, creator_name, bet_amount, created_at, creator_id 
-                FROM duels WHERE status = 'open' 
-                ORDER BY created_at DESC LIMIT 50
-            `).bind().all(); // 注意：这里不需要 bind user.id，大厅是公开的
-            return new Response(JSON.stringify({ success: true, list: list.results, uid: user.id }));
+            return new Response(JSON.stringify({ success: true, list: list.results, my_id: user.id }));
+        }
+
+        // --- 5. 获取回放详情 (新增) ---
+        if (action === 'get_replay') {
+            const { id } = body;
+            const duel = await db.prepare('SELECT * FROM duels WHERE id = ?').bind(id).first();
+            
+            if (!duel) return new Response(JSON.stringify({ success: false, error: '记录不存在' }));
+            
+            // 回放结果计算
+            let result = 'draw';
+            if (duel.winner_id === user.id) result = 'win';
+            else if (duel.winner_id !== 0) result = 'lose';
+            
+            let myMove, oppMove;
+            if (duel.creator_id === user.id) {
+                myMove = duel.creator_move;
+                oppMove = duel.challenger_move;
+            } else {
+                myMove = duel.challenger_move;
+                oppMove = duel.creator_move;
+            }
+
+            const total = duel.bet_amount * 2;
+            const tax = Math.ceil(total * TAX_RATE);
+            const winAmount = total - tax;
+
+            return new Response(JSON.stringify({ 
+                success: true, 
+                myMove, 
+                oppMove, 
+                result, 
+                winAmount 
+            }));
         }
     }
+
+    // === 处理 GET 请求 (获取大厅列表) ===
+    if (request.method === 'GET') {
+        // 如果这里报错 500，说明 duels 表可能不存在
+        try {
+            const list = await db.prepare("SELECT id, creator_name, bet_amount, created_at FROM duels WHERE status = 'open' ORDER BY created_at DESC LIMIT 50").all();
+            return new Response(JSON.stringify({ success: true, list: list.results }));
+        } catch (e) {
+            return new Response(JSON.stringify({ success: false, error: '数据库错误: ' + e.message }), { status: 500 });
+        }
+    }
+
+    return new Response(JSON.stringify({ success: false, error: 'Method Not Allowed' }), { status: 405 });
 }
