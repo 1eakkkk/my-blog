@@ -2917,3 +2917,35 @@ body.bg-fire {
     border: 1px solid rgba(0,0,0,0.2); /* 加个微弱边框增加层次感 */
 }
 
+/* === 📱 移动端修复：数据格斗场 === */
+@media (max-width: 768px) {
+    /* 1. 强制控制栏垂直排列，防止三角形被挤没 */
+    .duel-controls > div {
+        flex-direction: column !important;
+        gap: 20px !important;
+        padding: 15px 0;
+    }
+
+    /* 2. 确保三角形容器有足够空间 */
+    .rps-triangle-container {
+        margin: 10px auto !important; /* 居中 */
+        transform: scale(0.9); /* 稍微缩小一点以适应窄屏 */
+    }
+
+    /* 3. 调整输入框和按钮宽度 */
+    #duelBetAmount {
+        width: 100% !important;
+        max-width: 200px;
+    }
+    
+    .duel-controls button {
+        width: 100% !important;
+        max-width: 200px;
+        height: 45px !important;
+    }
+}
+
+/* === 🛡️ 修复回放遮罩层级 (防止被其他元素挡住) === */
+.duel-overlay {
+    z-index: 999999 !important; /* 确保在最顶层 */
+}
