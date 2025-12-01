@@ -7,6 +7,8 @@ export async function onRequestPost(context) {
   if (!username || !password) return new Response(JSON.stringify({success:false, error:"缺信息"}), { status: 400 });
 
   // 1. 验证 Turnstile
+  const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
+  const isTurnstileEnabled = setting ? setting.value === 'true' : true;
   const ip = request.headers.get('CF-Connecting-IP');
   const formData = new FormData();
   formData.append('secret', env.TURNSTILE_SECRET);
@@ -15,8 +17,13 @@ export async function onRequestPost(context) {
 
   const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { body: formData, method: 'POST' });
   const outcome = await verifyRes.json();
-  if (!outcome.success) {
+  
+  if (isTurnstileEnabled) {
+      if (!outcome.success) {
     return new Response(JSON.stringify({ success: false, error: '人机验证失败' }), { status: 403 });
+      }  
+      if (!turnstileToken) return new Response(JSON.stringify({ success: false, error: '请完成验证' }), { status: 403 });
+      // ... fetch verify ...
   }
 
   // 2. 邀请码逻辑
@@ -53,3 +60,4 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: false, error: '用户名已存在' }), { status: 409 });
   }
 }
+
