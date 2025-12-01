@@ -3280,8 +3280,8 @@ async function loadDuels() {
             div.className = 'duel-item';
             
             if (currentDuelTab === 'lobby') {
-                // === 大厅模式 ===
-                // [修复2] 使用 currentUser.id 判断是否是自己
+                // === 修复：使用 creator_id 准确判断 ===
+                // 只有当前用户存在，且 ID 匹配时，才显示撤销
                 const isMe = currentUser && (d.creator_id === currentUser.id);
                 
                 const actionBtn = isMe 
@@ -3740,6 +3740,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统故障", 'error');
     }
 };
+
 
 
 
