@@ -907,7 +907,7 @@ input:checked + .slider:before {
     box-shadow: 0 0 20px rgba(0, 112, 243, 0.5);
     animation: zoomIn 0.3s;
 }
-@keyframes zoomIn { from {transform:scale(0)} to {transform:scale(1)} }
+
 .lightbox-close {
     position: absolute;
     top: 15px;
@@ -2838,11 +2838,34 @@ body.bg-fire {
     100% { transform: scale(100); opacity: 0; }
 }
 
-/* 结算面板 */
+/* ✅ 修复后的代码 */
 .duel-result-panel {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    text-align: center; z-index: 10;
-    animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    /* 默认状态保持居中 */
+    transform: translate(-50%, -50%);
+    text-align: center; 
+    z-index: 10;
+    /* 使用修复后的动画 */
+    animation: duelZoomIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    /* 优化：防止文字换行导致排版丑陋 */
+    width: 100%; 
+    max-width: 600px;
+    pointer-events: auto; /* 确保按钮可点 */
+}
+
+/* 核心修复：在缩放的同时，强制保持 translate 居中 */
+@keyframes duelZoomIn { 
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0); 
+    } 
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1); 
+    } 
 }
 .duel-result-panel h1 { font-size: 3rem; margin: 0; text-shadow: 0 0 20px currentColor; letter-spacing: 5px; }
 .win-text { color: #00ff00; }
@@ -3101,6 +3124,21 @@ body.bg-fire {
     border-bottom-color: #ff3333;
 }
 
+/* 优化结算时的 VS 文字 */
+.arena-center .vs-text {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 5rem; /* 加大 */
+    opacity: 0.1; /* 变淡作为背景 */
+    z-index: 0;
+}
+
+/* 优化结算时的球体大小 */
+.duel-overlay .data-orb {
+    /* 结算时稍微放大图标，更有冲击力 */
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
 
 
 
