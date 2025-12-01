@@ -20,13 +20,15 @@ export async function onRequestPost(context) {
       const active = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(oneDayAgo).first();
       const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'invite_required'").first();
       const unreadFb = await db.prepare('SELECT COUNT(*) as c FROM feedbacks WHERE is_read = 0').first();
+      const tsSetting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
 
       return new Response(JSON.stringify({ 
           success: true, 
           totalUsers: total.c, 
           activeUsers: active.c,
           inviteRequired: setting ? setting.value === 'true' : true,
-          unreadFeedback: unreadFb.c
+          unreadFeedback: unreadFb.c,
+          turnstileEnabled: tsSetting ? tsSetting.value === 'true' : true 
       }));
   }
 
@@ -85,6 +87,11 @@ export async function onRequestPost(context) {
       const val = req.enabled ? 'true' : 'false';
       await db.prepare("INSERT INTO system_settings (key, value) VALUES ('invite_required', ?) ON CONFLICT(key) DO UPDATE SET value = ?").bind(val, val).run();
       return new Response(JSON.stringify({ success: true, message: `设置已更新` }));
+  }
+  if (action === 'toggle_turnstile') {
+      const val = req.enabled ? 'true' : 'false';
+      await db.prepare("INSERT INTO system_settings (key, value) VALUES ('turnstile_enabled', ?) ON CONFLICT(key) DO UPDATE SET value = ?").bind(val, val).run();
+      return new Response(JSON.stringify({ success: true, message: `人机验证已${req.enabled?'开启':'关闭'}` }));
   }
   if (action === 'get_invites') {
       const codes = await db.prepare('SELECT * FROM invites ORDER BY is_used ASC, created_at DESC LIMIT 50').all();
