@@ -37,8 +37,8 @@ const LEVEL_TABLE = [
     { lv: 6,  xp: 10000, title: '领主' },
     { lv: 7,  xp: 20000, title: '宗师' },
     { lv: 8,  xp: 35000, title: '传奇' },
-    { lv: 9,  xp: 50000, title: '半神' },
-    { lv: 10, xp: 60000, title: '赛博神' }
+    { lv: 9,  xp: 60000, title: '半神' },
+    { lv: 10, xp: 90000, title: '赛博神' }
 ];
 
 // 1. 检查并播放
@@ -660,7 +660,7 @@ function parseMarkdown(text) {
 }
 
 function calculateLevel(xp) {
-    if (xp >= 60000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
+    if (xp >= 90000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
     let currentLv = 1; let currentTitle = '潜行者'; let nextXp = 300; let prevXp = 0;
     for (let i = 0; i < LEVEL_TABLE.length; i++) {
         if (xp >= LEVEL_TABLE[i].xp) {
@@ -3737,6 +3737,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
