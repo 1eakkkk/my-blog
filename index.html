@@ -340,9 +340,9 @@
                         </div>
                 
                         <!-- 新增：切换标签 -->
-                        <div class="shop-tabs-container" style="margin-top:20px; border-color:#ff3333;">
-                            <button class="shop-tab-btn active" onclick="switchDuelTab('lobby')" id="btnDuelLobby">大厅悬赏</button>
-                            <button class="shop-tab-btn" onclick="switchDuelTab('history')" id="btnDuelHistory">我的战绩 (回放)</button>
+                        <div style="display:flex; justify-content:center; gap:30px; margin:20px 0; font-size:0.9rem; color:#666;">
+                            <span onclick="switchDuelTab('lobby')" style="cursor:pointer; border-bottom:2px solid #ff3333; padding-bottom:5px; color:#fff;">大厅悬赏</span>
+                            <span onclick="switchDuelTab('history')" style="cursor:pointer; border-bottom:2px solid #333; padding-bottom:5px; transition:0.3s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#666'">我的战绩 (回放)</span>
                         </div>
                 
                         <!-- 对局列表 -->
@@ -919,6 +919,7 @@
     <script src="script.js?v=8.7"></script>
 </body>
 </html>
+
 
 
 
