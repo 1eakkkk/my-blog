@@ -3454,15 +3454,23 @@ window.closeDuelOverlay = function() {
 
 let currentDuelTab = 'lobby'; // 'lobby' or 'history'
 
-// 切换标签
 window.switchDuelTab = function(tab) {
     currentDuelTab = tab;
     
-    // UI 高亮
-    document.getElementById('btnDuelLobby').className = tab === 'lobby' ? 'shop-tab-btn active' : 'shop-tab-btn';
-    document.getElementById('btnDuelHistory').className = tab === 'history' ? 'shop-tab-btn active' : 'shop-tab-btn';
-    
-    loadDuels();
+    // 1. 获取 DOM 元素
+    const btnLobby = document.getElementById('duelTabLobby');
+    const btnHistory = document.getElementById('duelTabHistory');
+
+    // 2. 切换样式 (移除旧的 active，添加新的 active)
+    if (tab === 'lobby') {
+        if(btnLobby) btnLobby.classList.add('active');
+        if(btnHistory) btnHistory.classList.remove('active');
+        loadDuels(); // 加载大厅数据
+    } else {
+        if(btnLobby) btnLobby.classList.remove('active');
+        if(btnHistory) btnHistory.classList.add('active');
+        loadDuelHistory(); // 加载历史数据
+    }
 };
 
 // 加载列表 (整合了大厅和历史)
@@ -3704,6 +3712,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统故障", 'error');
     }
 };
+
 
 
 
