@@ -3667,11 +3667,9 @@ async function loadDuelHistory() {
         list.appendChild(div);
     });
 }
-
-// === 修复版：观看回放 ===
+// === 调试修复版：观看回放 ===
 window.watchReplay = async function(id) {
-    // 1. 提示用户正在加载
-    showToast("加载回放数据...", "info");
+    showToast("正在连接历史数据库...", "info");
 
     try {
         const res = await fetch(`${API_BASE}/duel`, {
@@ -3681,26 +3679,31 @@ window.watchReplay = async function(id) {
         });
         const data = await res.json();
         
+        console.log("回放数据:", data); // F12看控制台有没有数据
+
         if (data.success) {
-            // 2. 转换胜负逻辑以匹配动画
-            // 动画函数定义：'challenger' = 左侧(我)胜, 'creator' = 右侧(对手)胜
+            // 检查 DOM 是否存在
+            const overlay = document.getElementById('duel-overlay');
+            if (!overlay) {
+                alert("严重错误：找不到动画遮罩层 (duel-overlay)！请检查 HTML 代码。");
+                return;
+            }
+
+            // 转换胜负逻辑
             let animResult = 'draw';
             if (data.result === 'win') animResult = 'challenger'; 
             if (data.result === 'lose') animResult = 'creator';
             
-            console.log("播放动画数据:", data); // 调试用
-
-            // 3. 强制播放动画
+            // 播放动画
             playDuelAnimation(data.myMove, data.oppMove, animResult, data.winAmount);
         } else {
-            showToast(data.error || "回放数据丢失", 'error');
+            showToast("错误: " + (data.error || "数据损坏"), 'error');
         }
     } catch(e) {
         console.error(e);
-        showToast("回放加载失败", 'error');
+        showToast("回放系统故障", 'error');
     }
 };
-
 
 
 
