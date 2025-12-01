@@ -2895,4 +2895,25 @@ body.bg-fire {
     z-index: 0;
 }
 
+/* === 修复 VIP 徽章显示问题 === */
+.badge.vip-tag {
+    /* 强制文字颜色为黑色，确保在金色背景上可见 */
+    color: #000 !important; 
+    
+    /* 强制重置背景裁剪，防止文字变成透明 */
+    -webkit-background-clip: border-box !important;
+    background-clip: border-box !important;
+    -webkit-text-fill-color: #000 !important;
+    
+    /* 确保背景是金色渐变 */
+    background: linear-gradient(45deg, #FFD700, #FFA500) !important;
+    
+    /* 字体调整 */
+    font-weight: 900 !important;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 6px !important;
+    min-width: 30px; /* 确保有最小宽度 */
+    text-align: center;
+    border: 1px solid rgba(0,0,0,0.2); /* 加个微弱边框增加层次感 */
+}
 
