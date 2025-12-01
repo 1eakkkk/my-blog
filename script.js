@@ -1413,6 +1413,7 @@ async function handleRoute() {
         // 高亮导航（如果有的话，手动添加active类）
         loadNodeConsole();
     } else if (hash === '#duel') {
+        if (views.duel) views.duel.style.display = 'block';
         loadDuels();
     } else if (hash === '#leaderboard') {
         if(views.leaderboard) views.leaderboard.style.display = 'block';
@@ -3669,6 +3670,7 @@ window.watchReplay = async function(id) {
         showToast(data.error, 'error');
     }
 };
+
 
 
 
