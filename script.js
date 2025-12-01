@@ -1330,6 +1330,7 @@ const views = {
     write: document.getElementById('view-write'),
     tasks: document.getElementById('view-tasks'),
     node: document.getElementById('view-node'),
+    duel: document.getElementById('view-duel'),
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     shop: document.getElementById('view-shop'),
@@ -1412,7 +1413,6 @@ async function handleRoute() {
         // 高亮导航（如果有的话，手动添加active类）
         loadNodeConsole();
     } else if (hash === '#duel') {
-        if(document.getElementById('view-duel')) document.getElementById('view-duel').style.display = 'block';
         loadDuels();
     } else if (hash === '#leaderboard') {
         if(views.leaderboard) views.leaderboard.style.display = 'block';
@@ -3587,6 +3587,7 @@ window.toggleTurnstile = async function() {
         showToast(data.message, 'success');
     } catch(e){ showToast("设置失败"); }
 };
+
 
 
 
