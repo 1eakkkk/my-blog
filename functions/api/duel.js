@@ -177,7 +177,6 @@ export async function onRequest(context) {
 
     // === 处理 GET 请求 (获取大厅列表) ===
     if (request.method === 'GET') {
-        // 如果这里报错 500，说明 duels 表可能不存在
         try {
             const list = await db.prepare("SELECT id, creator_id, creator_name, bet_amount, created_at FROM duels WHERE status = 'open' ORDER BY created_at DESC LIMIT 50").all();
             return new Response(JSON.stringify({ success: true, list: list.results }));
