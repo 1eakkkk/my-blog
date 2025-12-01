@@ -3456,35 +3456,6 @@ window.cancelDuel = async function(id) {
     loadDuels();
 };
 
-// 4. 加入对局 & 播放动画 (核心)
-window.joinDuel = async function(id) {
-    // 先让用户选出招
-    const myMove = prompt("输入你的指令：\n1 = 立方体 (Rock)\n2 = 薄膜 (Paper)\n3 = 利刃 (Scissors)", "1");
-    if(!myMove) return;
-    
-    const moveMap = {'1':'cube', '2':'membrane', '3':'blade'};
-    const finalMove = moveMap[myMove] || myMove; // 兼容直接输单词
-    
-    if(!['cube','membrane','blade'].includes(finalMove)) return showToast("指令无效", "error");
-
-    // 开始请求
-    const res = await fetch(`${API_BASE}/duel`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: 'join', id, move: finalMove })
-    });
-    const data = await res.json();
-    
-    if(!data.success) return showToast(data.error, 'error');
-
-    // === 启动动画序列 ===
-    playDuelAnimation(finalMove, data.creator_move, data.result, data.win_amount);
-    
-    // 刷新数据
-    checkSecurity();
-    loadDuels();
-};
-
 // === 修复版：动画播放主逻辑 ===
 function playDuelAnimation(myMove, oppMove, result, winAmount) {
     const overlay = document.getElementById('duel-overlay');
@@ -3750,6 +3721,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
