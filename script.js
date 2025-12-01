@@ -3452,7 +3452,7 @@ window.closeDuelOverlay = function() {
 
 // === ⚔️ 数据格斗场增强版逻辑 ===
 
-let currentDuelTab = 'lobby'; // 'lobby' or 'history'
+currentDuelTab = 'lobby'; // 'lobby' or 'history'
 
 window.switchDuelTab = function(tab) {
     currentDuelTab = tab;
@@ -3619,23 +3619,6 @@ window.toggleTurnstile = async function() {
     } catch(e){ showToast("设置失败"); }
 };
 
-// === ⚔️ 数据格斗场：Tab切换与回放逻辑 ===
-
-// 1. 切换 Tab (大厅悬赏 / 我的战绩)
-// 记得在 HTML 里给这两个文字加上 onclick="switchDuelTab('lobby')" 和 onclick="switchDuelTab('history')"
-currentDuelTab = 'lobby';
-
-window.switchDuelTab = function(tab) {
-    currentDuelTab = tab;
-    // 简单的样式切换 (你需要自己在 HTML 给这两个按钮加 id)
-    // 这里直接重新加载数据
-    if (tab === 'lobby') {
-        loadDuels();
-    } else {
-        loadDuelHistory();
-    }
-};
-
 // 2. 加载历史战绩
 async function loadDuelHistory() {
     const list = document.getElementById('duelList');
@@ -3712,6 +3695,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统故障", 'error');
     }
 };
+
 
 
 
