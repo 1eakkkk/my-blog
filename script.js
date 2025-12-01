@@ -1348,7 +1348,9 @@ async function handleRoute() {
     const sidebar = document.getElementById('sidebar');
     const navLinks = document.querySelectorAll('.nav-link');
     
-    window.closeDuelOverlay(); // 强制关闭遮罩
+    // === 修复：强制关闭格斗场全屏遮罩 ===
+    const duelOverlay = document.getElementById('duel-overlay');
+    if (duelOverlay) duelOverlay.style.display = 'none';
     
     Object.values(views).forEach(el => { if(el) el.style.display = 'none'; });
     navLinks.forEach(el => el.classList.remove('active'));
@@ -2295,7 +2297,7 @@ window.tipUser = async function(uid, postId = null) {
 
 window.adminGrantTitle = async function() { const u = document.getElementById('adminTitleUser').value; const t = document.getElementById('adminTitleText').value; const c = document.getElementById('adminTitleColor').value; if(!u) return showToast("请输入用户名"); try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'grant_title', target_username: u, title: t, color: c }) }); const data = await res.json(); if(data.success) showToast("头衔发放成功！"); else showToast(data.error, 'error'); } catch(e) { showToast("网络连接错误", 'error');} };
 window.adminUnbanUser = async function(uid) { if(!confirm("Unban?")) return; await fetch(`${API_BASE}/admin`, {method:'POST', body:JSON.stringify({action:'unban_user', target_user_id:uid})}); showToast("Done"); loadAdminBanList(); };
-async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge'); if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
+async function checkAdminStatus() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_stats'}) }); const data = await res.json(); if(data.success) { const badge = document.getElementById('adminFeedbackBadge') document.getElementById('turnstileToggle').checked = data.turnstileEnabled; if(badge) { if(data.unreadFeedback > 0) { badge.style.display = 'inline-block'; badge.textContent = data.unreadFeedback; } else { badge.style.display = 'none'; } } const statTotal = document.getElementById('statTotalUsers'); if(statTotal && statTotal.offsetParent !== null) { statTotal.innerText = data.totalUsers; document.getElementById('statActiveUsers').innerText = data.activeUsers; document.getElementById('inviteToggle').checked = data.inviteRequired; } } } catch(e){} }
 async function loadAdminStats() { checkAdminStatus(); }
 window.toggleInviteSystem = async function() { const enabled = document.getElementById('inviteToggle').checked; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) }); const data = await res.json(); showToast(data.message, 'success'); } catch(e){ showToast("设置失败"); } };
 async function loadAdminInvites() { const tbody = document.querySelector('#adminInviteTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_invites'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(inv => { const isExpired = inv.expires_at < Date.now(); let status = '<span style="color:#0f0">可用</span>'; if(inv.is_used) status = '<span style="color:#666">已用</span>'; else if(isExpired) status = '<span style="color:#f00">过期</span>'; const tr = document.createElement('tr'); tr.innerHTML = `<td>${inv.code}</td><td>${status}</td><td>${new Date(inv.expires_at).toLocaleDateString()}</td><td><button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button><button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">暂无数据</td></tr>'; } } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
@@ -3528,8 +3530,28 @@ window.closeDuelOverlay = function() {
     if(p2) p2.className = 'data-orb';
 };
 
+// === 三角形选择器逻辑 ===
+window.selectRps = function(val) {
+    // 1. 更新视觉
+    document.querySelectorAll('.rps-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.rps-btn[data-val="${val}"]`).classList.add('active');
+    
+    // 2. 更新隐藏值
+    document.getElementById('duelMyMove').value = val;
+};
 
-
+// === Admin Turnstile 开关 ===
+window.toggleTurnstile = async function() {
+    const enabled = document.getElementById('turnstileToggle').checked;
+    try {
+        const res = await fetch(`${API_BASE}/admin`, { 
+            method: 'POST', 
+            body: JSON.stringify({action: 'toggle_turnstile', enabled: enabled}) 
+        });
+        const data = await res.json();
+        showToast(data.message, 'success');
+    } catch(e){ showToast("设置失败"); }
+};
 
 
 
