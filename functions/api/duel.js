@@ -89,11 +89,18 @@ export async function onRequest(context) {
             updates.push(db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(duel.bet_amount, user.id));
             updates.push(db.prepare(`INSERT INTO user_daily_limits (user_id, date_key, duel_count) VALUES (?, ?, 1) ON CONFLICT(user_id, date_key) DO UPDATE SET duel_count = duel_count + 1`).bind(user.id, today));
 
+            // 构造通知消息
+            let notifyMsg = "";
+
             if (result === 'draw') {
                 // 平局退款
                 updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(duel.bet_amount, duel.creator_id));
                 updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(duel.bet_amount, user.id));
                 updates.push(db.prepare("UPDATE duels SET status = 'closed', challenger_id = ?, challenger_name = ?, challenger_move = ?, winner_id = 0, resolved_at = ? WHERE id = ?").bind(user.id, user.nickname||user.username, move, now, id));
+                
+                // New: 通知内容 - 平局
+                notifyMsg = `[格斗场] 您的对局(ID:${id})已结束。结果：平局。本金已退回。`;
+
             } else {
                 // 有胜负
                 const totalPool = duel.bet_amount * 2;
@@ -103,7 +110,23 @@ export async function onRequest(context) {
                 
                 updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(winAmount, winnerId));
                 updates.push(db.prepare("UPDATE duels SET status = 'closed', challenger_id = ?, challenger_name = ?, challenger_move = ?, winner_id = ?, resolved_at = ? WHERE id = ?").bind(user.id, user.nickname||user.username, move, winnerId, now, id));
+
+                // New: 通知内容 - 胜负
+                const isCreatorWin = (winnerId === duel.creator_id);
+                if (isCreatorWin) {
+                    notifyMsg = `[格斗场] 恭喜！您在对局(ID:${id})中击败了 ${user.nickname||user.username}，获得 ${winAmount} i币！`;
+                } else {
+                    notifyMsg = `[格斗场] 遗憾！您在对局(ID:${id})中输给了 ${user.nickname||user.username}。`;
+                }
             }
+
+            // === New: 插入通知给发起人 ===
+            // 假设您的 notifications 表结构是: id, user_id, message, type, is_read, created_at
+            // 这里我们插入到 creator_id
+            updates.push(db.prepare(`
+                INSERT INTO notifications (user_id, type, message, created_at, is_read) 
+                VALUES (?, 'system', ?, ?, 0)
+            `).bind(duel.creator_id, notifyMsg, now));
 
             await db.batch(updates);
 
