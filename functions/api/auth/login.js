@@ -5,19 +5,35 @@ export async function onRequestPost(context) {
   const db = env.DB;
   const { username, password, turnstileToken } = await request.json();
 
-  // 1. 验证 Turnstile (人机验证)
-  const ip = request.headers.get('CF-Connecting-IP');
-  const formData = new FormData();
-  formData.append('secret', env.TURNSTILE_SECRET);
-  formData.append('response', turnstileToken);
-  formData.append('remoteip', ip);
+  // 1. 检查开关配置
+  const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
+  const isTurnstileEnabled = setting ? setting.value === 'true' : true; // 默认开启
 
-  const url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-  const result = await fetch(url, { body: formData, method: 'POST' });
-  const outcome = await result.json();
+  // 2. 只有开启时，才执行验证逻辑
+  if (isTurnstileEnabled) {
+      // 2.1 先检查有没有 Token (前端是否传了)
+      if (!turnstileToken) {
+          return new Response(JSON.stringify({ success: false, error: '请完成人机验证' }), { status: 403 });
+      }
 
-  if (!outcome.success) {
-    return new Response(JSON.stringify({ success: false, error: '人机验证失败，请刷新重试' }), { status: 403 });
+      // 2.2 准备数据
+      const ip = request.headers.get('CF-Connecting-IP');
+      const formData = new FormData();
+      formData.append('secret', env.TURNSTILE_SECRET);
+      formData.append('response', turnstileToken);
+      formData.append('remoteip', ip);
+
+      // 2.3 发起请求
+      const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { 
+          body: formData, 
+          method: 'POST' 
+      });
+      const outcome = await verifyRes.json();
+
+      // 2.4 检查结果
+      if (!outcome.success) {
+          return new Response(JSON.stringify({ success: false, error: '人机验证失败' }), { status: 403 });
+      }
   }
 
   // 2. 密码哈希
@@ -52,3 +68,4 @@ export async function onRequestPost(context) {
 
   return new Response(JSON.stringify({ success: true, username: user.username }), { headers });
 }
+
