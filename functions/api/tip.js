@@ -1,5 +1,3 @@
-// functions/api/tip.js
-
 export async function onRequest(context) {
     const { request, env } = context;
     const db = env.DB;
