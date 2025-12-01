@@ -3377,18 +3377,16 @@ window.selectJoinMove = function(move, el) {
     el.classList.add('selected');
 };
 
-// 4. 确认加入 (点击 FIGHT 按钮)
 window.confirmJoinDuel = async function() {
     const id = document.getElementById('joinDuelIdVal').value;
     const move = document.getElementById('joinMoveVal').value;
     
     if (!move) return showToast("请先选择一种武器 (点击图标)", "error");
     
-    // 关闭弹窗
+    // 1. 关闭选择弹窗
     closeJoinModal();
     
-    // 调用核心 API (逻辑与之前的 joinDuel 一致)
-    // 显示加载提示
+    // 显示提示
     showToast("正在建立数据连接...", "info");
 
     try {
@@ -3401,17 +3399,17 @@ window.confirmJoinDuel = async function() {
         
         if(!data.success) return showToast(data.error, 'error');
 
-        // === 启动动画序列 (复用之前的动画逻辑) ===
-        // 这里需要将后端返回的 creator_move 和 result 传给动画
-        // data.result 是 'creator', 'challenger', 'draw'
-        // playDuelAnimation 需要: myMove, oppMove, result, winAmount
-        
-        // 我是挑战者，我的招是 move，对手招是 data.creator_move
+        // 2. 启动动画序列
+        // playDuelAnimation 负责显示全屏遮罩和动画
         playDuelAnimation(move, data.creator_move, data.result, data.win_amount);
         
-        // 刷新余额和列表
-        checkSecurity();
-        loadDuels();
+        // 3. 【关键优化】延迟刷新后台数据
+        // 动画的总时长大约是 2秒左右出结果，我们延迟 2.5秒 再刷新底层数据
+        // 这样用户在看动画时，底层列表不会突然跳动
+        setTimeout(() => {
+            checkSecurity(); // 刷新余额
+            loadDuels();     // 刷新列表状态(变为已结束)
+        }, 2500);
         
     } catch(e) {
         console.error(e);
@@ -3721,6 +3719,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
