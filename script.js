@@ -3290,7 +3290,7 @@ async function loadDuels() {
                 
                 const actionBtn = isMe 
                     ? `<button onclick="cancelDuel(${d.id})" class="mini-action-btn" style="color:#888; border-color:#888;">撤销</button>`
-                    : `<button onclick="joinDuel(${d.id})" class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;border-color:#ff3333;color:#ff3333">挑战</button>`;
+                    : `<button onclick="openJoinModal(${d.id})" class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;border-color:#ff3333;color:#ff3333">挑战</button>`;
                 
                 div.innerHTML = `
                     <div style="flex:1;">
@@ -3344,6 +3344,80 @@ async function loadDuels() {
         list.innerHTML = 'Error loading data';
     }
 }
+
+// === 新增：加入对局弹窗逻辑 ===
+
+// 1. 打开弹窗
+window.openJoinModal = function(id) {
+    const modal = document.getElementById('join-duel-modal');
+    const idInput = document.getElementById('joinDuelIdVal');
+    const moveInput = document.getElementById('joinMoveVal');
+    
+    // 重置状态
+    idInput.value = id;
+    moveInput.value = ''; // 清空上次选择
+    
+    // 清除所有选中样式
+    document.querySelectorAll('.join-option').forEach(el => el.classList.remove('selected'));
+    
+    modal.style.display = 'flex';
+};
+
+// 2. 关闭弹窗
+window.closeJoinModal = function() {
+    document.getElementById('join-duel-modal').style.display = 'none';
+};
+
+// 3. 选择出招 (点击图标)
+window.selectJoinMove = function(move, el) {
+    document.getElementById('joinMoveVal').value = move;
+    
+    // UI 高亮
+    document.querySelectorAll('.join-option').forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
+};
+
+// 4. 确认加入 (点击 FIGHT 按钮)
+window.confirmJoinDuel = async function() {
+    const id = document.getElementById('joinDuelIdVal').value;
+    const move = document.getElementById('joinMoveVal').value;
+    
+    if (!move) return showToast("请先选择一种武器 (点击图标)", "error");
+    
+    // 关闭弹窗
+    closeJoinModal();
+    
+    // 调用核心 API (逻辑与之前的 joinDuel 一致)
+    // 显示加载提示
+    showToast("正在建立数据连接...", "info");
+
+    try {
+        const res = await fetch(`${API_BASE}/duel`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'join', id: id, move: move })
+        });
+        const data = await res.json();
+        
+        if(!data.success) return showToast(data.error, 'error');
+
+        // === 启动动画序列 (复用之前的动画逻辑) ===
+        // 这里需要将后端返回的 creator_move 和 result 传给动画
+        // data.result 是 'creator', 'challenger', 'draw'
+        // playDuelAnimation 需要: myMove, oppMove, result, winAmount
+        
+        // 我是挑战者，我的招是 move，对手招是 data.creator_move
+        playDuelAnimation(move, data.creator_move, data.result, data.win_amount);
+        
+        // 刷新余额和列表
+        checkSecurity();
+        loadDuels();
+        
+    } catch(e) {
+        console.error(e);
+        showToast("网络连接失败", "error");
+    }
+};
 
 // 2. 创建对局
 window.createDuel = async function() {
@@ -3676,6 +3750,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
