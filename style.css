@@ -2956,7 +2956,7 @@ body.bg-fire {
     
     /* 图片设置 */
     background-position: center;
-    background-size: 70%; /* 图片大小 */
+    background-size: 98%; /* 图片大小 */
     background-repeat: no-repeat;
     
     cursor: pointer;
@@ -3191,6 +3191,7 @@ body.bg-fire {
     /* 结算时稍微放大图标，更有冲击力 */
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 
 
 
