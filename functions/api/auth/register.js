@@ -6,38 +6,32 @@ export async function onRequestPost(context) {
 
   if (!username || !password) return new Response(JSON.stringify({success:false, error:"缺信息"}), { status: 400 });
 
-  // 1. 检查开关配置
-  const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
-  const isTurnstileEnabled = setting ? setting.value === 'true' : true; // 默认开启
+  // === 修复点：改名为 tsSetting，避免和下面冲突 ===
+  // 1. 检查 Turnstile 开关
+  const tsSetting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
+  const isTurnstileEnabled = tsSetting ? tsSetting.value === 'true' : true; // 默认开启
 
-  // 2. 只有开启时，才执行验证逻辑
+  // 2. 验证 Turnstile (只有开启时才验证)
   if (isTurnstileEnabled) {
-      // 2.1 先检查有没有 Token (前端是否传了)
       if (!turnstileToken) {
           return new Response(JSON.stringify({ success: false, error: '请完成人机验证' }), { status: 403 });
       }
 
-      // 2.2 准备数据
       const ip = request.headers.get('CF-Connecting-IP');
       const formData = new FormData();
       formData.append('secret', env.TURNSTILE_SECRET);
       formData.append('response', turnstileToken);
       formData.append('remoteip', ip);
 
-      // 2.3 发起请求
-      const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { 
-          body: formData, 
-          method: 'POST' 
-      });
+      const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { body: formData, method: 'POST' });
       const outcome = await verifyRes.json();
-
-      // 2.4 检查结果
       if (!outcome.success) {
-          return new Response(JSON.stringify({ success: false, error: '人机验证失败' }), { status: 403 });
+        return new Response(JSON.stringify({ success: false, error: '人机验证失败' }), { status: 403 });
       }
   }
 
-  // 2. 邀请码逻辑
+  // 3. 邀请码逻辑
+  // 这里保留原来的变量名 setting，不会再报错了
   const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'invite_required'").first();
   const isInviteRequired = setting ? setting.value === 'true' : true;
 
@@ -48,7 +42,7 @@ export async function onRequestPost(context) {
       if (invite.expires_at && invite.expires_at < Date.now()) return new Response(JSON.stringify({success:false, error:"邀请码已过期"}), { status: 403 });
   }
 
-  // 3. 注册逻辑
+  // 4. 注册逻辑
   const myText = new TextEncoder().encode(password);
   const myDigest = await crypto.subtle.digest({ name: 'SHA-256' }, myText);
   const passwordHash = Array.from(new Uint8Array(myDigest)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -71,5 +65,3 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ success: false, error: '用户名已存在' }), { status: 409 });
   }
 }
-
-
