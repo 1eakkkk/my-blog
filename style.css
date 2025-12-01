@@ -2679,14 +2679,15 @@ body.bg-fire {
     border-radius: 50%;
     position: relative;
     transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    background-color: #000; /* 底色 */
+    background-color: #fff; /* 底色 */
     border: 2px solid #333;
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
     
     /* 关键：确保图片居中且适应圆形 */
     background-position: center;
-    background-size: 70%; /* 图片大小，可根据实际图片调整 (60%-80%) */
+    background-size: 90%; /* 图片大小，可根据实际图片调整 (60%-80%) */
     background-repeat: no-repeat;
+    overflow: hidden;
 }
 
 /* 移除之前的 Emoji 伪元素 */
@@ -3139,6 +3140,7 @@ body.bg-fire {
     /* 结算时稍微放大图标，更有冲击力 */
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 
 
 
