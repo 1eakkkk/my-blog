@@ -2945,7 +2945,22 @@ body.bg-fire {
     }
 }
 
-/* === 🛡️ 修复回放遮罩层级 (防止被其他元素挡住) === */
+/* === 🛡️ 强制修复：回放遮罩层级与显示 === */
 .duel-overlay {
-    z-index: 999999 !important; /* 确保在最顶层 */
+    position: fixed !important;
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.95) !important; 
+    z-index: 2147483647 !important; /* 浏览器允许的最大值 */
+    display: none; /* 默认隐藏，JS 控制显示 */
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center;
+    backdrop-filter: blur(20px);
 }
+
+/* 确保球体可见 */
+.data-orb {
+    z-index: 2147483648 !important; /* 比遮罩还高 */
+}
+
