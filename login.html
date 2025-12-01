@@ -140,39 +140,28 @@
         const passInput = document.getElementById('password');
         const keyInput = document.getElementById('recoveryKeyInput');
         const recoveryBox = document.getElementById('newRecoveryKey');
-        const inviteInput = document.getElementById('inviteCode'); // 获取元素
+        const inviteInput = document.getElementById('inviteCode');
 
-        // 检查是否已登录
+        // 1. 检查是否已登录
         fetch('/api/user').then(res => res.json()).then(data => {
             if (data.loggedIn) window.location.href = '/index.html';
         });
 
-        // 页面加载时检查配置
+        // 2. 页面加载时检查 Turnstile 配置
         fetch('/api/config')
             .then(res => res.json())
             .then(data => {
                 const widget = document.querySelector('.cf-turnstile');
                 if (!data.turnstileEnabled) {
-                    if(widget) widget.style.display = 'none';
-                    // 标记为不需要验证，防止前端表单提交拦截（如果有的话）
-                    window.isTurnstileDisabled = true; 
+                    if (widget) widget.style.display = 'none';
+                    // 标记为不需要验证，防止前端拦截
+                    window.isTurnstileDisabled = true;
                 }
+            })
+            .catch(() => {
+                // 如果获取配置失败，默认认为需要验证（安全起见）
+                console.log('Config load failed, defaulting to secure mode.');
             });
-    
-        // 修改表单提交逻辑
-        document.getElementById('authForm').onsubmit = async (e) => {
-            e.preventDefault();
-            // ... 获取用户名密码 ...
-            
-            const formData = new FormData(e.target);
-            let token = formData.get('cf-turnstile-response');
-            
-            // 如果系统禁用了验证码，或者验证码元素被隐藏了，就不检查 token
-            if (!window.isTurnstileDisabled && !token) {
-                 msgBox.textContent = "请完成人机验证";
-                 return;
-            }
-        };
 
         function switchTab(mode) {
             currentMode = mode;
@@ -195,7 +184,6 @@
                 passInput.placeholder = "PASSWORD // 设置密码";
                 keyInput.style.display = 'none';
                 keyInput.removeAttribute('required');
-                // 注册时显示邀请码
                 inviteInput.style.display = 'block';
                 inviteInput.required = true;
             } else if (mode === 'reset') {
@@ -207,27 +195,33 @@
             }
         }
 
+        // 3. 表单提交逻辑 (合并了你的新逻辑和旧有的请求逻辑)
         document.getElementById('authForm').onsubmit = async (e) => {
             e.preventDefault();
+            
+            // 获取用户输入
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
             const k = keyInput.value;
-            const invite = inviteInput.value; // 获取值
+            const invite = inviteInput.value;
 
             const formData = new FormData(e.target);
             const token = formData.get('cf-turnstile-response');
             
-            if (!token) {
+            // === 新增：人机验证逻辑 ===
+            // 如果 "没有禁用验证码" (即开启了) 且 "Token为空"，则报错
+            if (!window.isTurnstileDisabled && !token) {
                 msgBox.textContent = "请完成人机验证 / Please complete CAPTCHA";
                 return;
             }
+            // ========================
 
             submitBtn.disabled = true;
             submitBtn.textContent = "PROCESSING...";
             msgBox.textContent = "";
 
             let endpoint = '/api/auth/login';
-            let body = { username: u, password: p, turnstileToken: token }; // 加上 turnstileToken
+            let body = { username: u, password: p, turnstileToken: token };
 
             if (currentMode === 'register') {
                 endpoint = '/api/auth/register';
@@ -251,11 +245,9 @@
                     } else if (currentMode === 'register') {
                         msgBox.textContent = "注册成功! 请务必保存下方的恢复密钥!";
                         msgBox.classList.add('success-msg');
-                        // 显示恢复密钥
                         recoveryBox.style.display = 'block';
                         recoveryBox.innerHTML = `<strong>SYSTEM KEY GENERATED:</strong><br>${data.recoveryKey}<br><br>⚠️ 请截图或复制保存，忘记密码时需要使用它！`;
                         submitBtn.textContent = "GO TO LOGIN";
-                        // 强制切换逻辑让用户下次点击变成去登录
                         document.getElementById('authForm').onsubmit = () => { switchTab('login'); return false; };
                     } else if (currentMode === 'reset') {
                         alert("密码已重置，请登录");
@@ -263,16 +255,12 @@
                     }
                 } else {
                     msgBox.textContent = "ERROR: " + (data.error || "操作失败");
-                    if (window.turnstile) {
-                        turnstile.reset(); 
-                    }
+                    if (window.turnstile) turnstile.reset(); 
                     msgBox.classList.remove('success-msg');
                 }
             } catch (err) {
                 msgBox.textContent = "CRITICAL ERROR: 连接中断";
-                if (window.turnstile) {
-                    turnstile.reset();
-                }
+                if (window.turnstile) turnstile.reset();
             } finally {
                 submitBtn.disabled = false;
                 if (submitBtn.textContent === "PROCESSING...") {
@@ -285,6 +273,7 @@
     </script>
 </body>
 </html>
+
 
 
 
