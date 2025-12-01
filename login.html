@@ -147,6 +147,33 @@
             if (data.loggedIn) window.location.href = '/index.html';
         });
 
+        // 页面加载时检查配置
+        fetch('/api/config')
+            .then(res => res.json())
+            .then(data => {
+                const widget = document.querySelector('.cf-turnstile');
+                if (!data.turnstileEnabled) {
+                    if(widget) widget.style.display = 'none';
+                    // 标记为不需要验证，防止前端表单提交拦截（如果有的话）
+                    window.isTurnstileDisabled = true; 
+                }
+            });
+    
+        // 修改表单提交逻辑
+        document.getElementById('authForm').onsubmit = async (e) => {
+            e.preventDefault();
+            // ... 获取用户名密码 ...
+            
+            const formData = new FormData(e.target);
+            let token = formData.get('cf-turnstile-response');
+            
+            // 如果系统禁用了验证码，或者验证码元素被隐藏了，就不检查 token
+            if (!window.isTurnstileDisabled && !token) {
+                 msgBox.textContent = "请完成人机验证";
+                 return;
+            }
+        };
+
         function switchTab(mode) {
             currentMode = mode;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -258,6 +285,7 @@
     </script>
 </body>
 </html>
+
 
 
 
