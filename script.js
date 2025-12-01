@@ -2306,8 +2306,7 @@ async function checkAdminStatus() {
         const data = await res.json();
         
         if (data.success) {
-            // 修复点：这里末尾加上了分号
-            const badge = document.getElementById('adminFeedbackBadge'); 
+            const badge = document.getElementById('adminFeedbackBadge');
             
             // 这是你新增的逻辑，也要确保元素存在再赋值，防止报错
             const toggle = document.getElementById('turnstileToggle');
@@ -3588,6 +3587,7 @@ window.toggleTurnstile = async function() {
         showToast(data.message, 'success');
     } catch(e){ showToast("设置失败"); }
 };
+
 
 
 
