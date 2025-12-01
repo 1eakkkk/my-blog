@@ -3592,7 +3592,7 @@ window.toggleTurnstile = async function() {
 
 // 1. 切换 Tab (大厅悬赏 / 我的战绩)
 // 记得在 HTML 里给这两个文字加上 onclick="switchDuelTab('lobby')" 和 onclick="switchDuelTab('history')"
-let currentDuelTab = 'lobby';
+currentDuelTab = 'lobby';
 
 window.switchDuelTab = function(tab) {
     currentDuelTab = tab;
@@ -3669,6 +3669,7 @@ window.watchReplay = async function(id) {
         showToast(data.error, 'error');
     }
 };
+
 
 
 
