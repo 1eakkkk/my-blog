@@ -2660,14 +2660,6 @@ body.bg-fire {
 .duel-item:hover { background: rgba(255, 51, 51, 0.1); border-left: 3px solid #ff3333; }
 .duel-stake { color: #FFD700; font-weight: bold; font-family: var(--font-tech); }
 
-/* --- ⚔️ 全屏对战动画层 (The Visual Core) ⚔️ --- */
-.duel-overlay {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0, 0, 0, 0.95); z-index: 100000;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    backdrop-filter: blur(20px);
-}
-
 .arena-stage {
     display: flex; justify-content: space-between; align-items: center;
     width: 80%; max-width: 800px; height: 300px; position: relative;
@@ -2762,13 +2754,6 @@ body.bg-fire {
 /* 胜利者放大，失败者破碎 */
 .winner-anim { transform: scale(1.5); z-index: 5; filter: drop-shadow(0 0 20px currentColor); }
 .loser-anim { transform: scale(0.5); opacity: 0.5; filter: grayscale(1); }
-
-/* --- 修复：路由切换时强制隐藏遮罩 --- */
-/* 这只是辅助，主要靠 JS，但加上这个防止闪烁 */
-.duel-overlay:not([style*="display: block"]) {
-    pointer-events: none;
-    opacity: 0;
-}
 
 /* --- 移动端适配：数据格斗场 --- */
 @media (max-width: 768px) {
@@ -2968,23 +2953,30 @@ body.bg-fire {
     }
 }
 
-/* === 🛡️ 强制修复：回放遮罩层级 === */
+/* --- 🛡️ 修复：回放遮罩层级与显示 --- */
 .duel-overlay {
     position: fixed !important;
-    top: 0; 
-    left: 0; 
-    width: 100vw; 
-    height: 100vh;
-    /* 核心：黑色半透明背景 */
+    top: 0; left: 0; width: 100vw; height: 100vh;
     background: rgba(0, 0, 0, 0.95) !important; 
-    /* 核心：层级设为无限大，确保压在所有东西上面 */
     z-index: 2147483647 !important; 
     
-    display: none; /* 默认隐藏，JS 会把它改成 flex */
+    /* 默认隐藏 */
+    display: none; 
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    
+    /* Flex 布局居中 */
     flex-direction: column; 
     justify-content: center; 
     align-items: center;
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(10px);
+}
+
+/* 当 JS 设置 display: flex 时，利用这个类来控制透明度，或者直接依赖 JS 的 display */
+.duel-overlay[style*="display: flex"] {
+    opacity: 1 !important;
+    pointer-events: all !important;
 }
 
 /* 确保球体不被遮罩挡住 */
@@ -3010,4 +3002,5 @@ body.bg-fire {
     color: #fff;
     border-bottom-color: #ff3333;
 }
+
 
