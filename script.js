@@ -1288,25 +1288,43 @@ function initApp() {
         });
     }
 
-    // 8. 移动端右滑打开侧边栏
+    // === 修复版：移动端右滑打开侧边栏 (解决冲突) ===
     let touchStartX = 0;
     let touchStartY = 0;
+    let isSwipingScrollable = false; // 标记：是否正在滑动可滚动的区域
 
     document.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
+        
+        // === 关键修复：检测是否按在了分类栏或其他横向滚动区域上 ===
+        // 如果点击的目标也是 .shop-tabs-container 或其子元素，则标记为 true
+        if (e.target.closest('.shop-tabs-container') || e.target.closest('.table-responsive')) {
+            isSwipingScrollable = true;
+        } else {
+            isSwipingScrollable = false;
+        }
     }, {passive: true});
 
     document.addEventListener('touchend', (e) => {
+        // 如果刚才是在滑分类栏，直接忽略侧边栏逻辑
+        if (isSwipingScrollable) return;
+
         const touchEndX = e.changedTouches[0].screenX;
         const touchEndY = e.changedTouches[0].screenY;
         
         const sidebar = document.getElementById('sidebar');
-        if (touchStartX > 50 && (touchEndX - touchStartX > 80) && Math.abs(touchEndY - touchStartY) < 60) {
+        
+        // 逻辑：向右滑 (打开)
+        // 条件：起点靠左(前50px)，滑动距离>80，垂直偏移<60
+        if (touchStartX < 50 && (touchEndX - touchStartX > 80) && Math.abs(touchEndY - touchStartY) < 60) {
             if (sidebar && !sidebar.classList.contains('open')) {
                 sidebar.classList.add('open');
             }
         }
+        
+        // 逻辑：向左滑 (关闭)
+        // 条件：滑动距离>80
         if (sidebar && sidebar.classList.contains('open') && (touchStartX - touchEndX > 80)) {
             sidebar.classList.remove('open');
         }
@@ -3719,6 +3737,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
