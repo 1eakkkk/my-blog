@@ -312,17 +312,29 @@
                             <div style="font-size:0.8rem; color:#666;">WARNING: 高风险数据交换区 (TAX: 1%)</div>
                         </div>
                 
-                        <!-- 顶部操作区 -->
+                        <!-- 顶部操作区 (Triangle UI) -->
                         <div class="duel-controls glass-card">
-                            <div style="display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap;">
-                                <input type="number" id="duelBetAmount" class="cyber-input" placeholder="金额 (10-1000)" style="width:120px; margin:0;">
-                                <select id="duelMyMove" class="cyber-input" style="width:120px; margin:0;">
-                                    <option value="cube">🧊 立方体 (Rock)</option>
-                                    <option value="membrane">📄 薄膜 (Paper)</option>
-                                    <option value="blade">⚔️ 利刃 (Scissors)</option>
-                                </select>
-                                <button onclick="createDuel()" class="cyber-btn" style="width:auto; margin:0; border-color:#ff3333; color:#ff3333;">
-                                    INITIATE // 发起
+                            <div style="display:flex; align-items:center; justify-content:center;">
+                                <!-- 金额输入 -->
+                                <div style="display:flex; flex-direction:column; align-items:center;">
+                                    <label style="font-size:0.7rem; color:#666; margin-bottom:5px;">STAKE // 赌注</label>
+                                    <input type="number" id="duelBetAmount" class="cyber-input" placeholder="10 - 1000" style="width:100px; margin:0; text-align:center;">
+                                </div>
+                
+                                <!-- 三角形选择器 -->
+                                <div class="rps-triangle-container" id="rpsTriangle">
+                                    <div class="rps-triangle-bg"></div> <!-- 装饰背景 -->
+                                    <!-- 以后你可以把 innerHTML 换成 <img src="..."> -->
+                                    <div class="rps-btn" data-val="blade" onclick="selectRps('blade')">⚔️</div>
+                                    <div class="rps-btn active" data-val="cube" onclick="selectRps('cube')">🧊</div>
+                                    <div class="rps-btn" data-val="membrane" onclick="selectRps('membrane')">📄</div>
+                                </div>
+                                <!-- 隐藏的 Input 用于存值 -->
+                                <input type="hidden" id="duelMyMove" value="cube">
+                
+                                <!-- 发起按钮 -->
+                                <button onclick="createDuel()" class="cyber-btn" style="width:auto; height:50px; margin:0; border-color:#ff3333; color:#ff3333; padding:0 20px;">
+                                    INITIATE<br><span style="font-size:0.7rem">发起挑战</span>
                                 </button>
                             </div>
                         </div>
@@ -736,6 +748,14 @@
                             </label>
                         </div>
                         <p style="font-size:0.8rem; color:#666; margin-top:5px;">关闭后，用户注册无需邀请码。</p>
+                        <!-- 在 admin 视图的 SYSTEM CONTROL 卡片里添加 -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px dashed #333; padding-top:10px;">
+                            <span>🛡️ 登录页 Turnstile 人机验证</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="turnstileToggle" onchange="toggleTurnstile()">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- 3. 邀请码管理 (重构) -->
@@ -899,6 +919,7 @@
     <script src="script.js?v=8.6"></script>
 </body>
 </html>
+
 
 
 
