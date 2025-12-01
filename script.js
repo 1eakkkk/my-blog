@@ -3360,6 +3360,7 @@ window.joinDuel = async function(id) {
     loadDuels();
 };
 
+// === 修复版：动画播放主逻辑 ===
 function playDuelAnimation(myMove, oppMove, result, winAmount) {
     const overlay = document.getElementById('duel-overlay');
     const orbP1 = document.getElementById('orbP1');
@@ -3368,55 +3369,76 @@ function playDuelAnimation(myMove, oppMove, result, winAmount) {
     const resPanel = document.getElementById('duelResultPanel');
     const resTitle = document.getElementById('duelResultTitle');
     const resDetail = document.getElementById('duelResultDetail');
+    const p1Name = document.getElementById('arenaP1Name');
+    const p2Name = document.getElementById('arenaP2Name');
 
-    // 1. 初始化
-    overlay.style.display = 'flex';
-    resPanel.style.display = 'none';
-    orbP1.className = `data-orb orb-${myMove}`; // 我方显示真实
-    orbP2.className = `data-orb orb-unknown`; // 敌方先隐藏
+    if (!overlay) {
+        alert("动画容器缺失，请刷新页面");
+        return;
+    }
+
+    // 1. 强制重置所有状态 (防止上一次动画残留)
+    overlay.style.display = 'flex'; // 显示遮罩
+    resPanel.style.display = 'none'; // 隐藏结算板
+    flash.classList.remove('flash-active');
     
-    // 重置位置
+    // 清理之前的动画类
+    orbP1.classList.remove('winner-anim', 'loser-anim');
+    orbP2.classList.remove('winner-anim', 'loser-anim');
+    
+    // 重置球体位置和样式
     orbP1.style.transform = 'translateX(0)';
     orbP2.style.transform = 'translateX(0)';
-    flash.classList.remove('flash-active');
+    
+    // 设置初始球体
+    orbP1.className = `data-orb orb-${myMove}`; // 左侧直接显示你的招式
+    orbP2.className = `data-orb orb-unknown`;   // 右侧先显示问号
 
-    // 2. 蓄力 (0.5s) -> 冲刺 (0.3s)
+    // 设置名字 (可选)
+    if(p1Name) p1Name.innerText = "YOU";
+    if(p2Name) p2Name.innerText = "OPPONENT";
+
+    // 2. 开始动画序列
+    // 蓄力 (0ms - 500ms)
+    
     setTimeout(() => {
-        // 冲刺
-        orbP1.style.transform = 'translateX(100px)'; // 向右冲
-        orbP2.style.transform = 'translateX(-100px)'; // 向左冲
+        // 冲刺撞击
+        orbP1.style.transform = 'translateX(100px)'; 
+        orbP2.style.transform = 'translateX(-100px)'; 
         
-        // 3. 撞击瞬间 (0.8s时)
+        // 3. 撞击瞬间 (800ms)
         setTimeout(() => {
-            // 揭晓敌方
+            // 揭晓敌方招式
             orbP2.className = `data-orb orb-${oppMove}`;
-            // 闪光
+            
+            // 闪光特效
             flash.classList.add('flash-active');
-            // 震动
+            
+            // 屏幕震动
             document.body.style.animation = "shake 0.2s";
             setTimeout(()=>document.body.style.animation="", 200);
 
-            // 4. 胜负反馈 (1.0s时)
+            // 4. 展示结果 (1100ms)
             setTimeout(() => {
-                if (result === 'challenger') { // 我赢 (我是挑战者)
+                if (result === 'challenger') { // 我赢
                     orbP1.classList.add('winner-anim');
                     orbP2.classList.add('loser-anim');
                     resTitle.innerText = "VICTORY";
                     resTitle.className = "win-text";
-                    resDetail.innerText = `数据掠夺成功: +${winAmount} i`;
+                    resDetail.innerText = `收益: +${winAmount} i`;
                 } else if (result === 'creator') { // 我输
                     orbP1.classList.add('loser-anim');
                     orbP2.classList.add('winner-anim');
                     resTitle.innerText = "DEFEAT";
                     resTitle.className = "lose-text";
-                    resDetail.innerText = "连接被切断";
+                    resDetail.innerText = "数据丢失";
                 } else { // 平局
                     resTitle.innerText = "DRAW";
                     resTitle.className = "draw-text";
-                    resDetail.innerText = "数据回流";
+                    resDetail.innerText = "本金退回";
                 }
                 resPanel.style.display = 'block';
-            }, 300); // 撞击后稍微停顿一下出结果
+            }, 300);
         }, 300);
     }, 500);
 }
@@ -3646,37 +3668,38 @@ async function loadDuelHistory() {
     });
 }
 
-// 3. 观看回放 (复用之前的动画函数)
+// === 修复版：观看回放 ===
 window.watchReplay = async function(id) {
-    const res = await fetch(`${API_BASE}/duel`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: 'get_replay', id })
-    });
-    const data = await res.json();
-    
-    if (data.success) {
-        // 转换结果格式以匹配 playDuelAnimation 的参数要求
-        // playDuelAnimation 需要 result 为: 'challenger' (我赢), 'creator' (我输), 'draw'
-        // 但我们后端返回的是 win/lose，这里做个映射
+    // 1. 提示用户正在加载
+    showToast("加载回放数据...", "info");
+
+    try {
+        const res = await fetch(`${API_BASE}/duel`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'get_replay', id })
+        });
+        const data = await res.json();
         
-        let animResult = 'draw';
-        if (data.result === 'win') animResult = 'challenger'; // 动画函数里 challenger 代表"我方胜利"
-        if (data.result === 'lose') animResult = 'creator';   // 动画函数里 creator 代表"对方胜利"
-        
-        // 播放动画
-        playDuelAnimation(data.myMove, data.oppMove, animResult, data.winAmount);
-    } else {
-        showToast(data.error, 'error');
+        if (data.success) {
+            // 2. 转换胜负逻辑以匹配动画
+            // 动画函数定义：'challenger' = 左侧(我)胜, 'creator' = 右侧(对手)胜
+            let animResult = 'draw';
+            if (data.result === 'win') animResult = 'challenger'; 
+            if (data.result === 'lose') animResult = 'creator';
+            
+            console.log("播放动画数据:", data); // 调试用
+
+            // 3. 强制播放动画
+            playDuelAnimation(data.myMove, data.oppMove, animResult, data.winAmount);
+        } else {
+            showToast(data.error || "回放数据丢失", 'error');
+        }
+    } catch(e) {
+        console.error(e);
+        showToast("回放加载失败", 'error');
     }
 };
-
-
-
-
-
-
-
 
 
 
