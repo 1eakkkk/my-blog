@@ -99,6 +99,33 @@
         </div>
     </div>
 
+    <!-- 加入对局弹窗 (Join Duel Modal) -->
+    <div id="join-duel-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card glass-card" style="text-align:center; max-width: 350px;">
+            <h3 style="color:#fff; margin-bottom:5px;">接受挑战 // ACCEPT DUEL</h3>
+            <p style="color:#888; font-size:0.8rem;">选择你的数据武器进行对抗</p>
+            
+            <!-- 图标选择区 -->
+            <div class="join-modal-grid">
+                <!-- ⚔️ 剪刀 -->
+                <div class="join-option opt-blade" onclick="selectJoinMove('blade', this)"></div>
+                <!-- 🧊 石头 -->
+                <div class="join-option opt-cube" onclick="selectJoinMove('cube', this)"></div>
+                <!-- 📄 布 -->
+                <div class="join-option opt-membrane" onclick="selectJoinMove('membrane', this)"></div>
+            </div>
+    
+            <!-- 隐藏域存储数据 -->
+            <input type="hidden" id="joinDuelIdVal">
+            <input type="hidden" id="joinMoveVal">
+    
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button onclick="closeJoinModal()" class="cyber-btn" style="border-color:#666; color:#888;">取消</button>
+                <button onclick="confirmJoinDuel()" class="cyber-btn" style="border-color:#ff3333; color:#ff3333;">FIGHT!</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ⚔️ 对战动画全屏遮罩 (如果你的代码里没有这一段，回放绝对不会显示) ⚔️ -->
     <div id="duel-overlay" class="duel-overlay" style="display:none;">
         <div class="arena-stage">
@@ -891,9 +918,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.8"></script>
+    <script src="script.js?v=8.9"></script>
 </body>
 </html>
+
 
 
 
