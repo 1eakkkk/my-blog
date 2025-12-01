@@ -99,6 +99,36 @@
         </div>
     </div>
 
+    <!-- ⚔️ 对战动画全屏遮罩 (如果你的代码里没有这一段，回放绝对不会显示) ⚔️ -->
+    <div id="duel-overlay" class="duel-overlay" style="display:none;">
+        <div class="arena-stage">
+            <!-- 左侧: 我方 -->
+            <div class="arena-player left">
+                <div class="player-name" id="arenaP1Name">YOU</div>
+                <div class="data-orb" id="orbP1"></div>
+            </div>
+                
+            <!-- 中间: 对撞区 -->
+            <div class="arena-center">
+                <div class="vs-text">VS</div>
+                <div class="collision-flash" id="collisionFlash"></div>
+            </div>
+                
+            <!-- 右侧: 敌方 -->
+            <div class="arena-player right">
+                <div class="player-name" id="arenaP2Name">OPPONENT</div>
+                <div class="data-orb" id="orbP2"></div>
+            </div>
+        </div>
+                    
+           <!-- 结果结算面板 -->
+        <div id="duelResultPanel" class="duel-result-panel" style="display:none;">
+            <h1 id="duelResultTitle">VICTORY</h1>
+            <div id="duelResultDetail" style="margin-bottom:20px; color:#ccc;">+198 iCoins</div>
+            <button onclick="closeDuelOverlay()" class="cyber-btn" style="border-color:#fff; color:#fff; width:auto; padding:10px 30px;">CLOSE</button>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- 侧边栏 -->
         <aside class="sidebar" id="sidebar">
@@ -354,36 +384,6 @@
                         <div id="duelList" class="duel-list-container">
                             <!-- 动态生成 -->
                         </div>
-                    </div>
-                </div>
-                
-                <!-- ⚔️ 对战动画全屏遮罩 (如果你的代码里没有这一段，回放绝对不会显示) ⚔️ -->
-                <div id="duel-overlay" class="duel-overlay" style="display:none;">
-                    <div class="arena-stage">
-                        <!-- 左侧: 我方 -->
-                        <div class="arena-player left">
-                            <div class="player-name" id="arenaP1Name">YOU</div>
-                            <div class="data-orb" id="orbP1"></div>
-                        </div>
-                
-                        <!-- 中间: 对撞区 -->
-                        <div class="arena-center">
-                            <div class="vs-text">VS</div>
-                            <div class="collision-flash" id="collisionFlash"></div>
-                        </div>
-                
-                        <!-- 右侧: 敌方 -->
-                        <div class="arena-player right">
-                            <div class="player-name" id="arenaP2Name">OPPONENT</div>
-                            <div class="data-orb" id="orbP2"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- 结果结算面板 -->
-                    <div id="duelResultPanel" class="duel-result-panel" style="display:none;">
-                        <h1 id="duelResultTitle">VICTORY</h1>
-                        <div id="duelResultDetail" style="margin-bottom:20px; color:#ccc;">+198 iCoins</div>
-                        <button onclick="closeDuelOverlay()" class="cyber-btn" style="border-color:#fff; color:#fff; width:auto; padding:10px 30px;">CLOSE</button>
                     </div>
                 </div>
 
@@ -894,6 +894,7 @@
     <script src="script.js?v=8.8"></script>
 </body>
 </html>
+
 
 
 
