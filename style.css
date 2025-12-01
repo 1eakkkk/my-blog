@@ -2979,7 +2979,7 @@ body.bg-fire {
 */
 .rps-btn[data-val="blade"] {
     /* 剪刀 */
-    background-image: url('https://pub-your-r2-url.r2.dev/rps/scissors.png'); 
+    background-image: url('https://img.1eak.cool/jiandao.png'); 
     top: 0; left: 50%; transform: translateX(-50%); /* 三角形顶点 */
 }
 .rps-btn[data-val="blade"].active {
@@ -2988,13 +2988,13 @@ body.bg-fire {
 
 .rps-btn[data-val="cube"] {
     /* 石头 */
-    background-image: url('https://pub-your-r2-url.r2.dev/rps/rock.png');
+    background-image: url('https://img.1eak.cool/stone.png');
     bottom: 0; left: 0; /* 三角形左下 */
 }
 
 .rps-btn[data-val="membrane"] {
     /* 布 */
-    background-image: url('https://pub-your-r2-url.r2.dev/rps/paper.png');
+    background-image: url('https://img.1eak.cool/bu.png');
     bottom: 0; right: 0; /* 三角形右下 */
 }
 
@@ -3191,6 +3191,7 @@ body.bg-fire {
     /* 结算时稍微放大图标，更有冲击力 */
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 
 
 
