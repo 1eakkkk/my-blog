@@ -3257,15 +3257,20 @@ window.reviewBroadcast = async function(id, decision) {
 // 记得在 loadAdminStats 里调用 loadAdminBroadcasts();
 
 // === ⚔️ 数据格斗场逻辑 ===
-
 // 1. 加载列表 (整合版：大厅 + 历史)
 async function loadDuels() {
     const list = document.getElementById('duelList');
     if (!list) return;
     list.innerHTML = '<div style="text-align:center;color:#666">SCANNING FREQUENCIES...</div>';
 
+    // 确保 currentUser 已加载，用于比对 ID
+    if (!currentUser) {
+        // 如果尚未获取用户信息，尝试等待或使用空对象防止报错
+        console.warn("User data not ready yet.");
+    }
+    const myId = currentUser ? currentUser.id : -1;
+
     try {
-        // [修复1] 加上 ?mode=${currentDuelTab} 参数
         const res = await fetch(`${API_BASE}/duel?mode=${currentDuelTab}`);
         const data = await res.json();
         
@@ -3280,12 +3285,11 @@ async function loadDuels() {
             div.className = 'duel-item';
             
             if (currentDuelTab === 'lobby') {
-                // === 修复：使用 creator_id 准确判断 ===
-                // 只有当前用户存在，且 ID 匹配时，才显示撤销
-                const isMe = currentUser && (d.creator_id === currentUser.id);
+                // === 修复逻辑：强制转为 String 比对，防止 '1' !== 1 的问题 ===
+                const isMe = String(d.creator_id) === String(myId);
                 
                 const actionBtn = isMe 
-                    ? `<button onclick="cancelDuel(${d.id})" class="mini-action-btn" style="color:#666">撤销</button>`
+                    ? `<button onclick="cancelDuel(${d.id})" class="mini-action-btn" style="color:#888; border-color:#888;">撤销</button>`
                     : `<button onclick="joinDuel(${d.id})" class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;border-color:#ff3333;color:#ff3333">挑战</button>`;
                 
                 div.innerHTML = `
@@ -3297,27 +3301,31 @@ async function loadDuels() {
                     <div style="flex:1;text-align:right;">${actionBtn}</div>
                 `;
             } else {
-                // === [修复3] 补全历史/回放模式的逻辑 ===
-                // 判断我是发起者还是挑战者
-                const amICreator = d.creator_id === data.my_id; // 注意这里用 data.my_id 或 currentUser.id
-                const opponentName = amICreator ? (d.challenger_name || "等待中...") : d.creator_name;
+                // === 历史记录逻辑 ===
+                const amICreator = String(d.creator_id) === String(myId);
+                // 对手名字：如果我是创建者，对手就是 challenger；否则对手是 creator
+                const opponentName = amICreator 
+                    ? (d.challenger_name || "等待中...") 
+                    : d.creator_name;
                 
-                // 判断输赢
                 let resultText = "处理中";
                 let resultColor = "#888";
                 
                 if (d.status === 'closed') {
-                    if (d.winner_id === 0) { resultText = "平局"; resultColor = "#fff"; }
-                    else if (d.winner_id === (currentUser ? currentUser.id : 0)) { resultText = "胜利"; resultColor = "#0f0"; }
-                    else { resultText = "失败"; resultColor = "#f33"; }
+                    if (d.winner_id === 0) { 
+                        resultText = "平局"; resultColor = "#fff"; 
+                    } else if (String(d.winner_id) === String(myId)) { 
+                        resultText = "胜利"; resultColor = "#0f0"; 
+                    } else { 
+                        resultText = "失败"; resultColor = "#f33"; 
+                    }
                 } else if (d.status === 'cancelled') {
                     resultText = "已撤销";
                 }
 
-                // 只有已结束的才能回放
-                // 注意这里要把整行数据 d 传进去
+                // 只有已结束(closed)的才能回放
                 const replayBtn = d.status === 'closed' 
-                    ? `<button onclick='replayDuel(${JSON.stringify(d)}, ${currentUser.id})' class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;color:#00f3ff;border-color:#00f3ff">► 回放</button>` 
+                    ? `<button onclick="watchReplay(${d.id})" class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;color:#00f3ff;border-color:#00f3ff">▶ 回放</button>` 
                     : `-`;
 
                 div.innerHTML = `
@@ -3329,8 +3337,6 @@ async function loadDuels() {
                     <div style="flex:1;text-align:right;">${replayBtn}</div>
                 `;
             }
-            
-            // [修复4] appendChild 必须在 if/else 之外，否则大厅不显示
             list.appendChild(div);
         });
     } catch(e) {
@@ -3517,83 +3523,6 @@ window.switchDuelTab = function(tab) {
         loadDuelHistory(); // 加载历史数据
     }
 };
-
-// 加载列表 (整合了大厅和历史)
-async function loadDuels() {
-    const list = document.getElementById('duelList');
-    if (!list) return;
-    list.innerHTML = '<div style="text-align:center;color:#666">SCANNING...</div>';
-
-    try {
-        const res = await fetch(`${API_BASE}/duel?mode=${currentDuelTab}`);
-        const data = await res.json();
-        
-        list.innerHTML = '';
-        
-        if (!data.list || data.list.length === 0) {
-            list.innerHTML = '<div style="text-align:center;padding:20px;color:#444">NO DATA FOUND</div>';
-            return;
-        }
-
-        data.list.forEach(d => {
-            const div = document.createElement('div');
-            div.className = 'duel-item';
-            
-            if (currentDuelTab === 'lobby') {
-                // === 大厅模式 ===
-                const isMe = d.creator_id === data.uid;
-                const actionBtn = isMe 
-                    ? `<button onclick="cancelDuel(${d.id})" class="mini-action-btn" style="color:#666">撤销</button>`
-                    : `<button onclick="joinDuel(${d.id})" class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;border-color:#ff3333;color:#ff3333">挑战</button>`;
-                
-                div.innerHTML = `
-                    <div style="flex:1;">
-                        <span style="color:#fff;font-weight:bold">${d.creator_name}</span>
-                        <div style="font-size:0.7rem;color:#666">${new Date(d.created_at).toLocaleTimeString()}</div>
-                    </div>
-                    <div class="duel-stake" style="flex:1;text-align:center;">${d.bet_amount} i</div>
-                    <div style="flex:1;text-align:right;">${actionBtn}</div>
-                `;
-            } else {
-                // === 历史/回放模式 ===
-                // 判断我是发起者还是挑战者
-                const amICreator = d.creator_id === data.uid;
-                const opponentName = amICreator ? (d.challenger_name || "等待中...") : d.creator_name;
-                
-                // 判断输赢
-                let resultText = "处理中";
-                let resultColor = "#888";
-                
-                if (d.status === 'closed') {
-                    if (d.winner_id === 0) { resultText = "平局"; resultColor = "#fff"; }
-                    else if (d.winner_id === data.uid) { resultText = "胜利"; resultColor = "#0f0"; }
-                    else { resultText = "失败"; resultColor = "#f33"; }
-                } else if (d.status === 'cancelled') {
-                    resultText = "已撤销";
-                }
-
-                // 只有已结束的才能回放
-                const replayBtn = d.status === 'closed' 
-                    ? `<button onclick='replayDuel(${JSON.stringify(d)}, ${data.uid})' class="cyber-btn" style="width:auto;margin:0;padding:2px 10px;font-size:0.8rem;color:#00f3ff;border-color:#00f3ff">► 回放</button>` 
-                    : `-`;
-
-                div.innerHTML = `
-                    <div style="flex:1;">
-                        <span style="color:#aaa;">VS</span> <span style="color:#fff;font-weight:bold">${opponentName}</span>
-                        <div style="font-size:0.7rem;color:#666">${d.bet_amount} i</div>
-                    </div>
-                    <div style="flex:1;text-align:center;color:${resultColor};font-weight:bold;">${resultText}</div>
-                    <div style="flex:1;text-align:right;">${replayBtn}</div>
-                `;
-            }
-            list.appendChild(div);
-        });
-    } catch(e) {
-        console.error(e);
-        list.innerHTML = 'Error loading data';
-    }
-}
-
 // 核心：回放功能
 window.replayDuel = function(duelData, myUid) {
     const amICreator = duelData.creator_id === myUid;
@@ -3703,9 +3632,9 @@ async function loadDuelHistory() {
         list.appendChild(div);
     });
 }
-// === 调试修复版：观看回放 ===
+// === 修复版：观看回放 ===
 window.watchReplay = async function(id) {
-    showToast("正在连接历史数据库...", "info");
+    showToast("正在读取战斗数据...", "info");
 
     try {
         const res = await fetch(`${API_BASE}/duel`, {
@@ -3714,32 +3643,40 @@ window.watchReplay = async function(id) {
             body: JSON.stringify({ action: 'get_replay', id })
         });
         const data = await res.json();
-        
-        console.log("回放数据:", data); // F12看控制台有没有数据
 
         if (data.success) {
             // 检查 DOM 是否存在
             const overlay = document.getElementById('duel-overlay');
             if (!overlay) {
-                alert("严重错误：找不到动画遮罩层 (duel-overlay)！请检查 HTML 代码。");
+                alert("错误：缺少动画容器，请刷新页面");
                 return;
             }
 
-            // 转换胜负逻辑
-            let animResult = 'draw';
-            if (data.result === 'win') animResult = 'challenger'; 
-            if (data.result === 'lose') animResult = 'creator';
+            // === 关键：映射后端结果到前端动画逻辑 ===
+            // 动画函数 playDuelAnimation 的逻辑是：
+            // 'challenger' = 左侧(我)赢
+            // 'creator'    = 右侧(对手)赢
+            // (这是基于 playDuelAnimation 内部 orbP1=winner 的逻辑)
             
-            // 播放动画
+            let animResult = 'draw';
+            if (data.result === 'win') {
+                animResult = 'challenger'; // 我赢了，动画参数传 challenger (代表P1胜)
+            } else if (data.result === 'lose') {
+                animResult = 'creator';    // 我输了，动画参数传 creator (代表P2胜)
+            }
+            
+            // 启动动画
             playDuelAnimation(data.myMove, data.oppMove, animResult, data.winAmount);
+            
         } else {
-            showToast("错误: " + (data.error || "数据损坏"), 'error');
+            showToast("无法加载回放: " + (data.error || "未知错误"), 'error');
         }
     } catch(e) {
         console.error(e);
-        showToast("回放系统故障", 'error');
+        showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
