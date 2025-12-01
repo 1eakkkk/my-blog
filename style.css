@@ -2917,31 +2917,54 @@ body.bg-fire {
     border: 1px solid rgba(0,0,0,0.2); /* 加个微弱边框增加层次感 */
 }
 
-/* === 📱 移动端修复：数据格斗场 === */
+/* === 📱 移动端终极修复：数据格斗场 === */
 @media (max-width: 768px) {
-    /* 1. 强制控制栏垂直排列，防止三角形被挤没 */
+    /* 1. 整体控制栏垂直排列 (输入框 - 按钮组 - 发起按钮) */
     .duel-controls > div {
         flex-direction: column !important;
-        gap: 20px !important;
+        gap: 15px !important;
         padding: 15px 0;
+        width: 100%;
     }
 
-    /* 2. 确保三角形容器有足够空间 */
+    /* 2. 容器改为横向 Flex 布局，取消固定宽高 */
     .rps-triangle-container {
-        margin: 10px auto !important; /* 居中 */
-        transform: scale(0.9); /* 稍微缩小一点以适应窄屏 */
+        position: static !important; /* 取消相对定位 */
+        width: 100% !important;      /* 撑满宽度 */
+        height: auto !important;     /* 高度自适应 */
+        display: flex !important;    /* 启用 Flex */
+        justify-content: center !important; /* 居中对齐 */
+        gap: 30px !important;        /* 按钮之间的间距 */
+        margin: 10px 0 !important;
+        transform: none !important;  /* 取消缩放 */
     }
 
-    /* 3. 调整输入框和按钮宽度 */
+    /* 3. 按钮改为静态流式布局 (取消绝对定位) */
+    .rps-btn {
+        position: static !important; /* 关键：取消 absolute */
+        transform: none !important;  /* 取消位移 */
+        width: 50px !important;      /* 稍微加大，方便手指点击 */
+        height: 50px !important;
+        font-size: 1.4rem !important;
+        margin: 0 !important;
+    }
+
+    /* 4. 隐藏三角形背景装饰线 (手机上横排不需要这个) */
+    .rps-triangle-bg {
+        display: none !important;
+    }
+
+    /* 5. 输入框和发起按钮适配 */
     #duelBetAmount {
-        width: 100% !important;
-        max-width: 200px;
+        width: 80% !important;
+        font-size: 1rem;
+        padding: 10px;
     }
     
     .duel-controls button {
-        width: 100% !important;
-        max-width: 200px;
-        height: 45px !important;
+        width: 80% !important;
+        height: 50px !important;
+        font-size: 1rem !important;
     }
 }
 
@@ -2968,4 +2991,5 @@ body.bg-fire {
 .data-orb {
     z-index: 2147483648 !important; 
 }
+
 
