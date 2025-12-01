@@ -1881,13 +1881,17 @@ body.bg-abyss::after {
     margin-bottom: 30px;
     border-bottom: 1px solid #333;
     padding-bottom: 10px;
-    
-    /* 核心修复：启用横向滚动 */
+
+    /* === 核心修复 吸顶固定 === */
+    position: sticky;
+    top: 0;           /* 吸附在视口顶部 */
+    z-index: 100;     /* 层级高于下方商品 */
+    background: rgba(5, 5, 5, 0.95); /* 深色背景，遮挡下方滚动的文字 */
+    backdrop-filter: blur(5px);      /* 磨砂玻璃效果 */
+    /* 核心修复 启用横向滚动 */
     flex-wrap: nowrap;        /* 强制不换行 */
     overflow-x: auto;         /* 允许横向滑动 */
     -webkit-overflow-scrolling: touch; /* 开启 iOS 惯性滚动 */
-    
-    /* 隐藏丑陋的滚动条，但保留功能 */
     scrollbar-width: none;    /* Firefox */
 }
 
@@ -1903,14 +1907,17 @@ body.bg-abyss::after {
         justify-content: flex-start; 
         
         /* 增加一点内边距，防止第一个按钮贴边太紧 */
-        padding-left: 10px;
-        padding-right: 10px;
+        padding-left: 15px;
+        padding-right: 15px;
+        top: 0; 
     }
     
     /* 确保按钮不被挤压变形 */
     .shop-tab-btn, .inv-tab-btn {
         flex-shrink: 0; /* 禁止缩小 */
         white-space: nowrap; /* 禁止文字换行 */
+        background: rgba(255,255,255,0.05); /* 给按钮加个浅底色，更像按钮 */
+        border-radius: 20px;
     }
 }
 
@@ -3227,6 +3234,7 @@ body.bg-fire {
     /* 结算时稍微放大图标，更有冲击力 */
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 
 
 
