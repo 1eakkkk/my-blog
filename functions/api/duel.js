@@ -110,6 +110,55 @@ export async function onRequest(context) {
                 // updates.push(db.prepare("UPDATE user_tasks ..."));
             }
 
+            // === 获取我的历史战绩 ===
+        if (action === 'history') {
+            // 查我参与过的已结束对局
+            const list = await db.prepare(`
+                SELECT id, creator_name, challenger_name, bet_amount, winner_id, created_at 
+                FROM duels 
+                WHERE (creator_id = ? OR challenger_id = ?) AND status != 'open'
+                ORDER BY created_at DESC LIMIT 20
+            `).bind(user.id, user.id).all();
+            return new Response(JSON.stringify({ success: true, list: list.results, my_id: user.id }));
+        }
+
+        // === 获取回放详情 (Replay) ===
+        if (action === 'get_replay') {
+            const { id } = body;
+            const duel = await db.prepare('SELECT * FROM duels WHERE id = ?').bind(id).first();
+            
+            if (!duel) return new Response(JSON.stringify({ success: false, error: '记录不存在' }));
+            
+            // 计算结果用于回放
+            // 简单判断胜负关系
+            let result = 'draw';
+            if (duel.winner_id === user.id) result = 'win'; // 我赢
+            else if (duel.winner_id !== 0) result = 'lose'; // 我输
+            
+            // 确定我的出招和对方出招
+            let myMove, oppMove;
+            if (duel.creator_id === user.id) {
+                myMove = duel.creator_move;
+                oppMove = duel.challenger_move;
+            } else {
+                myMove = duel.challenger_move;
+                oppMove = duel.creator_move;
+            }
+
+            // 计算赢的钱 (扣税后)
+            const total = duel.bet_amount * 2;
+            const tax = Math.ceil(total * 0.01);
+            const winAmount = total - tax;
+
+            return new Response(JSON.stringify({ 
+                success: true, 
+                myMove, 
+                oppMove, 
+                result, // 'win', 'lose', 'draw'
+                winAmount 
+            }));
+        }
+
             await db.batch(updates);
 
             return new Response(JSON.stringify({ 
