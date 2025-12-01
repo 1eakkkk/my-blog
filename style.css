@@ -1868,14 +1868,50 @@ body.bg-abyss::after {
     margin: 10px 0;
 }
 
-/* --- 商城 Tab 切换样式 --- */
+/* =========================================
+   修复：分类导航栏 (支持横向滑动)
+   ========================================= */
 .shop-tabs-container {
     display: flex;
-    justify-content: center;
+    
+    /* PC端默认居中，但如果内容太多也会自动变成从左开始 */
+    justify-content: center; 
+    
     gap: 10px;
     margin-bottom: 30px;
     border-bottom: 1px solid #333;
     padding-bottom: 10px;
+    
+    /* 核心修复：启用横向滚动 */
+    flex-wrap: nowrap;        /* 强制不换行 */
+    overflow-x: auto;         /* 允许横向滑动 */
+    -webkit-overflow-scrolling: touch; /* 开启 iOS 惯性滚动 */
+    
+    /* 隐藏丑陋的滚动条，但保留功能 */
+    scrollbar-width: none;    /* Firefox */
+}
+
+/* 隐藏滚动条 (Chrome/Safari) */
+.shop-tabs-container::-webkit-scrollbar { 
+    display: none; 
+}
+
+/* 移动端强制适配 */
+@media (max-width: 768px) {
+    .shop-tabs-container {
+        /* 关键：移动端强制从左侧开始对齐，防止居中导致左侧内容滑不出来 */
+        justify-content: flex-start; 
+        
+        /* 增加一点内边距，防止第一个按钮贴边太紧 */
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    /* 确保按钮不被挤压变形 */
+    .shop-tab-btn, .inv-tab-btn {
+        flex-shrink: 0; /* 禁止缩小 */
+        white-space: nowrap; /* 禁止文字换行 */
+    }
 }
 
 .shop-tab-btn {
@@ -3191,6 +3227,7 @@ body.bg-fire {
     /* 结算时稍微放大图标，更有冲击力 */
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 
 
 
