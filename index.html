@@ -382,7 +382,7 @@
                     </div>
                 </div>
                 
-                <!-- ⚔️ 对战动画全屏遮罩 (The Arena) ⚔️ -->
+                <!-- ⚔️ 对战动画全屏遮罩 (如果你的代码里没有这一段，回放绝对不会显示) ⚔️ -->
                 <div id="duel-overlay" class="duel-overlay" style="display:none;">
                     <div class="arena-stage">
                         <!-- 左侧: 我方 -->
@@ -400,15 +400,15 @@
                         <!-- 右侧: 敌方 -->
                         <div class="arena-player right">
                             <div class="player-name" id="arenaP2Name">OPPONENT</div>
-                            <div class="data-orb" id="orbP2"></div> <!-- 初始状态是未知的 -->
+                            <div class="data-orb" id="orbP2"></div>
                         </div>
                     </div>
                     
                     <!-- 结果结算面板 -->
                     <div id="duelResultPanel" class="duel-result-panel" style="display:none;">
                         <h1 id="duelResultTitle">VICTORY</h1>
-                        <div id="duelResultDetail">+198 iCoins</div>
-                        <button onclick="closeDuelOverlay()" class="cyber-btn" style="margin-top:20px;">CLOSE CONNECTION</button>
+                        <div id="duelResultDetail" style="margin-bottom:20px; color:#ccc;">+198 iCoins</div>
+                        <button onclick="closeDuelOverlay()" class="cyber-btn" style="border-color:#fff; color:#fff; width:auto; padding:10px 30px;">CLOSE</button>
                     </div>
                 </div>
 
@@ -916,9 +916,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.7"></script>
+    <script src="script.js?v=8.8"></script>
 </body>
 </html>
+
 
 
 
