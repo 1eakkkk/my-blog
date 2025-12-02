@@ -87,38 +87,53 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: true, list: list.results }));
       }
 
-      // === 2. 审核通过/驳回 ===
+  // === 2. 审核通过/驳回 ===
   if (action === 'review_recharge') {
-      const { id, decision } = body; // decision: 'approve' or 'reject'
-            
-      const req = await db.prepare("SELECT * FROM recharge_requests WHERE id = ?").bind(id).first();
-      if (!req || req.status !== 'pending') return new Response(JSON.stringify({ error: '申请不存在或已处理' }));
+      // 1. 修正：从 req 中获取 id 和 decision
+      const { id, decision } = req; 
+
+      // 2. 修正：变量名改为 rechargeRecord，避免与上面的 req 冲突
+      const rechargeRecord = await db.prepare("SELECT * FROM recharge_requests WHERE id = ?").bind(id).first();
+      
+      if (!rechargeRecord || rechargeRecord.status !== 'pending') {
+          return new Response(JSON.stringify({ success: false, error: '申请不存在或已处理' }));
+      }
 
       const updates = [];
       const now = Date.now();
+      const userId = rechargeRecord.user_id; // 提取用户ID
 
       if (decision === 'approve') {
           // 解析金额：从 "0.1元 (650币)" 中提取 650
-      const coins = parseInt(req.amount_str.match(/(\d+)币/)[1]);
-                
+          // 增加安全性检查，防止匹配失败报错
+          const match = (rechargeRecord.amount_str || "").match(/(\d+)币/);
+          const coins = match ? parseInt(match[1]) : 0;
+          
+          if (coins <= 0) {
+              return new Response(JSON.stringify({ success: false, error: '金额解析失败' }));
+          }
+
           // 1. 给用户加钱
-      updates.push(db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(coins, req.user_id));
-           // 2. 更新申请状态
-      updates.push(db.prepare("UPDATE recharge_requests SET status = 'approved' WHERE id = ?").bind(id));
-           // 3. 通知用户
-      updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
-        .bind(req.user_id, `【充值到账】感谢支持！您的 ${coins} i币已到账。`, now));
-  } else {
-                // 驳回
-      updates.push(db.prepare("UPDATE recharge_requests SET status = 'rejected' WHERE id = ?").bind(id));
-      updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
-        .bind(req.user_id, `【充值失败】您的充值申请未通过审核 (截图无效或未收到款项)。`, now));
+          updates.push(db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(coins, userId));
+          // 2. 更新申请状态
+          updates.push(db.prepare("UPDATE recharge_requests SET status = 'approved', updated_at = ? WHERE id = ?").bind(now, id));
+          // 3. 通知用户
+          updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
+            .bind(userId, `【充值到账】感谢支持！您的 ${coins} i币已到账。`, now));
+      } else {
+          // 驳回
+          updates.push(db.prepare("UPDATE recharge_requests SET status = 'rejected', updated_at = ? WHERE id = ?").bind(now, id));
+          updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
+            .bind(userId, `【充值失败】您的充值申请未通过审核 (截图无效或未收到款项)。`, now));
       }
 
-      await db.batch(updates);
-      return new Response(JSON.stringify({ success: true }));
+      try {
+          await db.batch(updates);
+          return new Response(JSON.stringify({ success: true, message: decision === 'approve' ? '审核通过' : '已驳回' }));
+      } catch (err) {
+          return new Response(JSON.stringify({ success: false, error: '数据库操作失败: ' + err.message }));
+      }
   }
-
   // ... (保留其他功能: toggle_invite, get_invites, refill, delete, get_feedbacks, mark_read, reply_fb, post_announce, grant, gen_key) ...
   if (action === 'toggle_invite_system') {
       const val = req.enabled ? 'true' : 'false';
