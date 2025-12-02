@@ -71,37 +71,32 @@ export async function onRequest(context) {
                 }
             }
 
-            // --- 收获 ---
-            if (action === 'harvest') {
-                const { slotIndex } = body;
-                const item = await db.prepare("SELECT * FROM home_items WHERE user_id = ? AND slot_index = ?").bind(user.id, slotIndex).first();
-                
-                if (!item) return Response.json({ success: false, error: '槽位为空' });
-                if (now < item.harvest_at) return Response.json({ success: false, error: '未成熟' });
+            // --- 种植 ---
+            if (action === 'plant') {
+                const { slotIndex, seedId } = body;
+                const seedConfig = SEEDS[seedId];
+                if (!seedConfig) return Response.json({ success: false, error: '无效种子' });
 
-                const config = SEEDS[item.item_id];
-                if (!config) { // 异常数据清理
-                    await db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id).run();
-                    return Response.json({ success: false, error: '种子数据异常，已重置' });
+                // 检查背包
+                const hasSeed = await db.prepare("SELECT id, quantity FROM user_items WHERE user_id = ? AND item_id = ? AND quantity > 0").bind(user.id, seedId).first();
+                if (!hasSeed) return Response.json({ success: false, error: '背包内无此种子' });
+
+                // 检查槽位
+                const occupied = await db.prepare("SELECT id FROM home_items WHERE user_id = ? AND slot_index = ?").bind(user.id, slotIndex).first();
+                if (occupied) return Response.json({ success: false, error: '该槽位已有植物' });
+
+                try {
+                    await db.batch([
+                        db.prepare("UPDATE user_items SET quantity = quantity - 1 WHERE id = ?").bind(hasSeed.id),
+                        db.prepare("DELETE FROM user_items WHERE id = ? AND quantity <= 0").bind(hasSeed.id),
+                        // 👇 修复点：在 SQL 中显式写入 'plant' 作为 type 的值
+                        db.prepare("INSERT INTO home_items (user_id, slot_index, item_id, type, created_at, harvest_at) VALUES (?, ?, ?, 'plant', ?, ?)")
+                          .bind(user.id, slotIndex, seedId, now, now + seedConfig.duration)
+                    ]);
+                    return Response.json({ success: true, message: `正在编译: ${seedConfig.name}` });
+                } catch (dbErr) {
+                    return Response.json({ success: false, error: '数据库错误: ' + dbErr.message });
                 }
-
-                // 掉落逻辑
-                const DROP_RATE = 0.15;
-                let dropMsg = "";
-                const updates = [
-                    db.prepare("UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id = ?").bind(config.reward_coins, config.reward_xp, user.id),
-                    db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id)
-                ];
-
-                if (Math.random() < DROP_RATE) {
-                    const existing = await db.prepare("SELECT id FROM user_items WHERE user_id = ? AND item_id = 'item_algo_frag'").bind(user.id).first();
-                    if (existing) updates.push(db.prepare("UPDATE user_items SET quantity = quantity + 1 WHERE id = ?").bind(existing.id));
-                    else updates.push(db.prepare("INSERT INTO user_items (user_id, item_id, category, quantity, created_at) VALUES (?, ?, 'consumable', 1, ?)").bind(user.id, 'item_algo_frag', now));
-                    dropMsg = " 🎁 获得: 加速算法碎片!";
-                }
-
-                await db.batch(updates);
-                return Response.json({ success: true, message: `收获成功! (+${config.reward_coins}i, +${config.reward_xp}XP)${dropMsg}` });
             }
 
             // --- 打工逻辑 ---
