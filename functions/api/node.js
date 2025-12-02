@@ -150,13 +150,58 @@ const EVENTS = [
     { rarity: 'rare', prob: 10, type: 'mission', msg: "赏金猎人公会发布了新的悬赏令！" }
 ];
 
-// === 核心逻辑代码 ===
-
 function rollEvent() {
     let sum = 0; EVENTS.forEach(e => sum += e.prob);
     let rand = Math.random() * sum;
     for (let e of EVENTS) { if (rand < e.prob) return e; rand -= e.prob; }
     return EVENTS[EVENTS.length - 1];
+}
+
+// 模拟处理单个事件，返回处理结果 (不直接操作数据库，而是返回指令)
+function processEvent(event, currentCoins) {
+    let result = { msg: event.msg, coins: 0, xp: 0, item: null, vip: 0, mission: null, log: null };
+    
+    if (event.type === 'reward_coin') {
+        const amount = Math.floor(Math.random() * (event.max - event.min + 1)) + event.min;
+        result.coins = amount;
+        if (!result.msg.includes(amount)) result.msg += ` (+${amount} i币)`;
+    } 
+    else if (event.type === 'reward_xp') {
+        const amount = Math.floor(Math.random() * (event.max - event.min + 1)) + event.min;
+        result.xp = amount;
+        if (!result.msg.includes(amount)) result.msg += ` (XP +${amount})`;
+    }
+    else if (event.type === 'glitch') {
+        let lose = Math.floor(Math.random() * (event.lose_max - event.lose_min + 1)) + event.lose_min;
+        // 简单保护，不扣成负数，但这里只计算变化量
+        // 实际扣除会在合并时再次校验，这里先返回负数
+        result.coins = -lose;
+        result.msg += ` (损失 ${lose} i币)`;
+    }
+    else if (event.type === 'item') {
+        result.item = event.items[Math.floor(Math.random() * event.items.length)];
+        const nameMap = {'rename_card': '改名卡', 'top_card': '置顶卡', 'broadcast_low': '基础信标卡', 'broadcast_high': '骇客宣言卡'};
+        result.msg += ` [获得: ${nameMap[result.item] || result.item}]`;
+    }
+    else if (event.type === 'item_vip') {
+        result.vip = event.days;
+        result.msg += ` (VIP时长 +${event.days}天)`;
+    }
+    else if (event.type === 'mission') {
+        const tasks = [
+            {code: 'node_post_1', desc: '紧急任务：发布 1 条情报 (帖子)', target: 1, xp: 100, coin: 50},
+            {code: 'node_like_10', desc: '紧急任务：校准 10 个数据点 (点赞)', target: 10, xp: 80, coin: 40},
+            {code: 'node_comment_5', desc: '紧急任务：建立 5 次神经连接 (评论)', target: 5, xp: 120, coin: 60}
+        ];
+        result.mission = tasks[Math.floor(Math.random() * tasks.length)];
+        result.msg += ` [已接受任务]`;
+    }
+
+    if (event.rarity === 'epic' || event.rarity === 'legendary') {
+        result.log = { rarity: event.rarity, msg: result.msg };
+    }
+
+    return result;
 }
 
 export async function onRequestPost(context) {
@@ -170,18 +215,99 @@ export async function onRequestPost(context) {
     const user = await db.prepare('SELECT * FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
     if (!user) return new Response(JSON.stringify({ error: '无效会话' }), { status: 401 });
 
-    // === 获取全服日志 (用于跑马灯) ===
     const reqBody = await request.json().catch(()=>({}));
+
+    // === 获取全服日志 (用于跑马灯) ===
     if (reqBody.action === 'get_logs') {
-        // 只查最近的 5 条史诗/传说记录
-        const logs = await db.prepare('SELECT * FROM node_public_logs ORDER BY created_at DESC LIMIT 5').all();
+        const now = Date.now();
+        // 修复：筛选有效期内的日志 (Legendary 24h, Epic 12h)
+        const timeLegendary = now - (24 * 60 * 60 * 1000);
+        const timeEpic = now - (12 * 60 * 60 * 1000);
+
+        const logs = await db.prepare(`
+            SELECT * FROM node_public_logs 
+            WHERE (event_type = 'legendary' AND created_at > ?) 
+               OR (event_type = 'epic' AND created_at > ?) 
+            ORDER BY created_at DESC LIMIT 10
+        `).bind(timeLegendary, timeEpic).all();
+        
         return new Response(JSON.stringify({ success: true, logs: logs.results }));
     }
 
-    // 2. 检查冷却与费用 (探索逻辑)
     const now = Date.now();
     const utc8 = new Date(now + (8 * 60 * 60 * 1000));
     const today = utc8.toISOString().split('T')[0];
+    
+    // === 5连抽快速检索 ===
+    if (reqBody.action === 'multi_explore') {
+        const cost = 250; // 5 * 50
+        if (user.coins < cost) return new Response(JSON.stringify({ success: false, error: `能量不足，需要 ${cost} i币` }), { status: 400 });
+
+        let totalCoins = 0; // 净收益 (扣费后的变化)
+        let totalXp = 0;
+        let msgs = [];
+        let items = [];
+        let updates = [];
+        let highestRarity = 'common';
+        const rarityScore = { 'common': 1, 'rare': 2, 'glitch': 2, 'epic': 3, 'legendary': 4 };
+
+        // 预扣费
+        totalCoins -= cost;
+
+        // 循环5次
+        for (let i = 0; i < 5; i++) {
+            const event = rollEvent();
+            // 记录最高稀有度用于前端特效
+            if (rarityScore[event.rarity] > rarityScore[highestRarity]) {
+                highestRarity = event.rarity;
+            }
+
+            const res = processEvent(event, user.coins + totalCoins); // 传入实时余额模拟值
+            
+            // 累加数据
+            totalCoins += res.coins;
+            totalXp += res.xp;
+            msgs.push(`[${event.rarity.toUpperCase()}] ${res.msg}`);
+
+            // 处理物品
+            if (res.item) {
+                const existing = await db.prepare('SELECT id FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, res.item).first();
+                if (existing) updates.push(db.prepare('UPDATE user_items SET quantity = quantity + 1 WHERE id = ?').bind(existing.id));
+                else updates.push(db.prepare('INSERT INTO user_items (user_id, item_id, category, quantity, created_at) VALUES (?, ?, ?, 1, ?)').bind(user.id, res.item, 'consumable', now));
+            }
+            // 处理VIP
+            if (res.vip > 0) {
+                let newExpire = (user.vip_expires_at > now ? user.vip_expires_at : now) + (res.vip * 86400 * 1000);
+                updates.push(db.prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE id = ?').bind(newExpire, user.id));
+            }
+            // 处理任务
+            if (res.mission) {
+                const t = res.mission;
+                const periodKey = `mission_${Date.now()}_${i}`;
+                updates.push(db.prepare(`INSERT INTO user_tasks (user_id, task_code, category, description, target, reward_xp, reward_coins, period_key, status, created_at) VALUES (?, ?, 'node_mission', ?, ?, ?, ?, ?, 0, ?)`).bind(user.id, t.code, t.desc, t.target, t.xp, t.coin, periodKey, now));
+            }
+            // 处理日志
+            if (res.log) {
+                updates.push(db.prepare('INSERT INTO node_public_logs (username, event_type, message, created_at) VALUES (?, ?, ?, ?)').bind(user.nickname||user.username, res.log.rarity, res.log.msg, now));
+            }
+        }
+
+        // 最终更新用户钱和经验
+        updates.push(db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id = ?').bind(totalCoins, totalXp, user.id));
+        
+        await db.batch(updates);
+
+        return new Response(JSON.stringify({
+            success: true,
+            message: "快速检索完成",
+            summary: msgs, // 数组
+            new_coins: user.coins + totalCoins,
+            new_xp: user.xp + totalXp,
+            rarity: highestRarity
+        }));
+    }
+
+    // === 单次探索 (原逻辑) ===
     const isFree = (user.last_node_explore_date !== today);
     const cost = isFree ? 0 : 50;
 
@@ -189,7 +315,6 @@ export async function onRequestPost(context) {
         return new Response(JSON.stringify({ success: false, error: `能量不足，需要 ${cost} i币` }), { status: 400 });
     }
 
-    // 3. 准备基础数据变更（先扣费）
     let currentCoins = user.coins - cost;
     let currentXp = user.xp;
     let updates = []; 
@@ -197,101 +322,44 @@ export async function onRequestPost(context) {
     if (cost > 0) {
         updates.push(db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(cost, user.id));
     }
-    // 更新最后探索时间
     updates.push(db.prepare('UPDATE users SET last_node_explore_date = ? WHERE id = ?').bind(today, user.id));
 
-    // 4. 执行随机事件
     const event = rollEvent();
-    let resultMsg = event.msg;
+    const res = processEvent(event, currentCoins);
     
-    // === 详细逻辑处理分支 ===
-    
-    // 💰 金币奖励
-    if (event.type === 'reward_coin') {
-        const amount = Math.floor(Math.random() * (event.max - event.min + 1)) + event.min;
-        updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(amount, user.id));
-        
-        // 动态替换文案中的数字，如果文案里没写具体数字，就追加在后面
-        if (!resultMsg.includes(amount)) resultMsg += ` (+${amount} i币)`;
-        currentCoins += amount; 
-    } 
-    // 🧠 经验奖励
-    else if (event.type === 'reward_xp') {
-        const amount = Math.floor(Math.random() * (event.max - event.min + 1)) + event.min;
-        updates.push(db.prepare('UPDATE users SET xp = xp + ? WHERE id = ?').bind(amount, user.id));
-        
-        if (!resultMsg.includes(amount)) resultMsg += ` (XP +${amount})`;
-        currentXp += amount; 
+    // 应用单次结果
+    if (res.coins !== 0) {
+        updates.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(res.coins, user.id));
+        currentCoins += res.coins;
     }
-    // ⚠️ 故障/扣费
-    else if (event.type === 'glitch') {
-        let lose = Math.floor(Math.random() * (event.lose_max - event.lose_min + 1)) + event.lose_min;
-        // 保护机制：不会扣成负数
-        if (lose > currentCoins) lose = currentCoins; 
-        
-        if (lose > 0) {
-            updates.push(db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(lose, user.id));
-            resultMsg += ` (损失 ${lose} i币)`;
-            currentCoins -= lose; 
-        } else {
-            resultMsg += " (钱包已空，侥幸逃脱)";
-        }
+    if (res.xp > 0) {
+        updates.push(db.prepare('UPDATE users SET xp = xp + ? WHERE id = ?').bind(res.xp, user.id));
+        currentXp += res.xp;
     }
-    // 📦 道具掉落
-    else if (event.type === 'item') {
-        const item = event.items[Math.floor(Math.random() * event.items.length)];
-        const existing = await db.prepare('SELECT id FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, item).first();
-        if (existing) {
-            updates.push(db.prepare('UPDATE user_items SET quantity = quantity + 1 WHERE id = ?').bind(existing.id));
-        } else {
-            updates.push(db.prepare('INSERT INTO user_items (user_id, item_id, category, quantity, created_at) VALUES (?, ?, ?, 1, ?)').bind(user.id, item, 'consumable', now));
-        }
-        // 简单的中文映射
-        const nameMap = {'rename_card': '改名卡', 'top_card': '置顶卡', 'broadcast_low': '基础信标卡', 'broadcast_high': '骇客宣言卡'};
-        resultMsg += ` [获得: ${nameMap[item] || item}]`;
+    if (res.item) {
+        const existing = await db.prepare('SELECT id FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, res.item).first();
+        if (existing) updates.push(db.prepare('UPDATE user_items SET quantity = quantity + 1 WHERE id = ?').bind(existing.id));
+        else updates.push(db.prepare('INSERT INTO user_items (user_id, item_id, category, quantity, created_at) VALUES (?, ?, ?, 1, ?)').bind(user.id, res.item, 'consumable', now));
     }
-    // 👑 特殊：VIP 掉落
-    else if (event.type === 'item_vip') {
-        let newExpire = now;
-        if (user.vip_expires_at > newExpire) newExpire = user.vip_expires_at + (event.days * 86400 * 1000);
-        else newExpire = newExpire + (event.days * 86400 * 1000);
-        
+    if (res.vip > 0) {
+        let newExpire = (user.vip_expires_at > now ? user.vip_expires_at : now) + (res.vip * 86400 * 1000);
         updates.push(db.prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE id = ?').bind(newExpire, user.id));
-        resultMsg += ` (VIP时长 +${event.days}天)`;
     }
-    // 📜 任务触发
-    else if (event.type === 'mission') {
-        const tasks = [
-            {code: 'node_post_1', desc: '紧急任务：发布 1 条情报 (帖子)', target: 1, xp: 100, coin: 50},
-            {code: 'node_like_10', desc: '紧急任务：校准 10 个数据点 (点赞)', target: 10, xp: 80, coin: 40},
-            {code: 'node_comment_5', desc: '紧急任务：建立 5 次神经连接 (评论)', target: 5, xp: 120, coin: 60}
-        ];
-        const t = tasks[Math.floor(Math.random() * tasks.length)];
-        const periodKey = `mission_${Date.now()}`; // 唯一ID
-        
-        updates.push(db.prepare(`
-            INSERT INTO user_tasks (user_id, task_code, category, description, target, reward_xp, reward_coins, period_key, status, created_at) 
-            VALUES (?, ?, 'node_mission', ?, ?, ?, ?, ?, 0, ?)
-        `).bind(user.id, t.code, t.desc, t.target, t.xp, t.coin, periodKey, Date.now()));
-        
-        resultMsg += ` [已接受任务]`;
+    if (res.mission) {
+        const t = res.mission;
+        const periodKey = `mission_${Date.now()}`;
+        updates.push(db.prepare(`INSERT INTO user_tasks (user_id, task_code, category, description, target, reward_xp, reward_coins, period_key, status, created_at) VALUES (?, ?, 'node_mission', ?, ?, ?, ?, ?, 0, ?)`).bind(user.id, t.code, t.desc, t.target, t.xp, t.coin, periodKey, now));
+    }
+    if (res.log) {
+        updates.push(db.prepare('INSERT INTO node_public_logs (username, event_type, message, created_at) VALUES (?, ?, ?, ?)').bind(user.nickname||user.username, res.log.rarity, res.log.msg, now));
     }
 
-    // === 5. 全服广播逻辑 ===
-    // 如果是 Epic 或 Legendary 事件，记录到公共日志表
-    if (event.rarity === 'epic' || event.rarity === 'legendary') {
-        const logMsg = `${resultMsg}`; // 简化消息，前端会拼用户名
-        updates.push(db.prepare('INSERT INTO node_public_logs (username, event_type, message, created_at) VALUES (?, ?, ?, ?)').bind(user.nickname||user.username, event.rarity, logMsg, now));
-    }
-
-    // 6. 执行所有数据库操作
     if (updates.length > 0) await db.batch(updates);
 
-    // 7. 返回结果给前端
     return new Response(JSON.stringify({ 
         success: true, 
-        message: resultMsg, 
-        rarity: event.rarity, // 前端根据这个显示颜色特效
+        message: res.msg, 
+        rarity: event.rarity, 
         type: event.type,
         new_coins: currentCoins,
         new_xp: currentXp
