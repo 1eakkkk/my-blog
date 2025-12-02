@@ -565,19 +565,52 @@
                         <button class="shop-tab-btn" onclick="switchShopTab('recharge')" style="color:#00ff00; border-color:#00ff00;">🔋 充值</button>
                     </div>
                     
-                    <!-- 在 shop-list 上方增加一个隐藏的卡密兑换区 (仅在充值Tab显示) -->
-                    <div id="recharge-area" style="display:none; max-width:500px; margin:0 auto 20px; text-align:center;">
-                        <div class="glass-card" style="padding:20px; border:1px solid #00ff00;">
-                            <h3 style="color:#00ff00; margin-top:0;">卡密兑换 / REDEEM CODE</h3>
-                            <p style="font-size:0.8rem; color:#aaa; margin-bottom:10px;">请输入您获取的充值卡密（CDK）</p>
-                            <div style="display:flex; gap:10px;">
-                                <input type="text" id="cdkInput" class="cyber-input" placeholder="XXXX-XXXX-XXXX" style="margin:0;">
-                                <button onclick="redeemCdk()" class="cyber-btn" style="width:auto; margin:0; border-color:#00ff00; color:#00ff00;">兑换</button>
+                    <!-- 充值/赞助区域 -->
+                    <div id="recharge-area" style="display:none; max-width:600px; margin:0 auto 20px; text-align:center;">
+                        <div class="glass-card" style="border:1px solid #00ff00; padding:20px;">
+                            <h3 style="color:#00ff00; margin-top:0;">⚡ 能量注入协议 / ENERGY BOOST</h3>
+                            <p style="font-size:0.9rem; color:#ccc; line-height:1.6;">
+                                支持本站燃烧服务器能量。<br>
+                                作为感谢，您将收到站点赠送的 <span style="color:gold">i币礼包</span>。
+                            </p>
+                    
+                            <!-- 1. 档位选择 -->
+                            <div style="display:flex; justify-content:center; gap:15px; margin:20px 0;">
+                                <div class="recharge-option active" onclick="selectRechargeOption('small', this)">
+                                    <div style="font-size:1.2rem; color:#fff;">￥0.10</div>
+                                    <div style="font-size:0.8rem; color:#00ccff;">650 i币</div>
+                                </div>
+                                <div class="recharge-option" onclick="selectRechargeOption('large', this)">
+                                    <div style="font-size:1.2rem; color:#fff;">￥0.60</div>
+                                    <div style="font-size:0.8rem; color:#ffd700;">4300 i币</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="selectedRechargeType" value="small">
+                    
+                            <!-- 2. 二维码展示区 -->
+                            <div style="background:#fff; padding:10px; border-radius:8px; display:inline-block; margin-bottom:15px;">
+                                <!-- 👇👇👇 请把 src 换成你自己的微信收款码图片链接 👇👇👇 -->
+                                <img src="https://img.1eak.cool/pay/wechat_pay.jpg" style="width:150px; height:150px; display:block;">
+                            </div>
+                            <p style="font-size:0.8rem; color:#888;">请使用微信扫码支付对应金额</p>
+                    
+                            <!-- 3. 上传截图 -->
+                            <div style="margin-top:20px; border-top:1px dashed #333; padding-top:20px;">
+                                <p style="font-size:0.9rem; margin-bottom:10px;">上传支付截图 (Proof of Transaction)</p>
+                                
+                                <div style="display:flex; gap:10px; justify-content:center;">
+                                    <input type="file" id="proofUpload" accept="image/*" style="display:none;" onchange="uploadProof()">
+                                    <button onclick="document.getElementById('proofUpload').click()" class="cyber-btn" style="width:auto; margin:0;">
+                                        📷 上传截图
+                                    </button>
+                                    <button onclick="submitRechargeRequest()" class="cyber-btn" style="width:auto; margin:0; border-color:#00ff00; color:#00ff00;">
+                                        🚀 提交审核
+                                    </button>
+                                </div>
+                                <div id="proofPreview" style="margin-top:10px; color:#00f3ff; font-size:0.8rem;"></div>
+                                <input type="hidden" id="uploadedProofUrl">
                             </div>
                         </div>
-                        
-                        <div style="margin: 20px 0; border-bottom: 1px dashed #333;"></div>
-                        <h3 style="margin-bottom:15px;">选择充值档位</h3>
                     </div>
 
                     <!-- 商品列表容器 -->
@@ -937,9 +970,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.10"></script>
+    <script src="script.js?v=8.11"></script>
 </body>
 </html>
+
 
 
 
