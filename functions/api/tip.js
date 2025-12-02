@@ -1,3 +1,5 @@
+// --- functions/api/tip.js ---
+
 export async function onRequest(context) {
     const { request, env } = context;
     const db = env.DB;
@@ -23,11 +25,10 @@ export async function onRequest(context) {
         const { target_user_id, amount, post_id } = body;
         const tipAmount = parseInt(amount);
 
-        // === 修复 Bug：严格校验打赏金额 ===
+        // === 基础校验 ===
         if (isNaN(tipAmount)) {
             return new Response(JSON.stringify({ error: '金额无效' }), { status: 400 });
         }
-        // 确保被打赏者至少收到 1 i币
         if (tipAmount < 1) {
              return new Response(JSON.stringify({ error: '最低打赏金额为 1 i币' }), { status: 400 });
         }
@@ -49,9 +50,7 @@ export async function onRequest(context) {
         const today = new Date(now + 8 * 3600 * 1000).toISOString().split('T')[0];
 
         // === 1. 计算发送者经验 (受限) ===
-        // VIP 上限 174，普通 120
         const DAILY_XP_LIMIT = user.is_vip ? 174 : 120;
-        
         const dailyStats = await db.prepare('SELECT xp_earned FROM user_daily_limits WHERE user_id = ? AND date_key = ?').bind(user.id, today).first();
         const currentDailyXp = dailyStats ? dailyStats.xp_earned : 0;
 
@@ -62,18 +61,19 @@ export async function onRequest(context) {
         }
 
         // === 2. 计算接收者经验 (不受限) ===
-        // 5币 = 1经验，向下取整
+        // 5币 = 1经验
         const recipientXp = Math.floor(tipAmount / 5);
 
         try {
             const updates = [];
 
-            // --- A. 发送者操作 ---
+            // --- A. 发送者操作 (修复：增加 tips_sent 统计) ---
             updates.push(
-                db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ? WHERE id = ?')
-                .bind(tipAmount, actualSenderXp, user.id)
+                db.prepare('UPDATE users SET coins = coins - ?, xp = xp + ?, tips_sent = tips_sent + ? WHERE id = ?')
+                .bind(tipAmount, actualSenderXp, tipAmount, user.id)
             );
             
+            // 每日限额记录
             if (actualSenderXp > 0) {
                 updates.push(
                     db.prepare(`
@@ -85,20 +85,27 @@ export async function onRequest(context) {
                 );
             }
 
-            // 3. 记录流水
+            // 记录流水
             updates.push(
                 db.prepare('INSERT INTO tips (sender_id, receiver_id, post_id, amount, created_at) VALUES (?, ?, ?, ?, ?)')
                 .bind(user.id, target_user_id, post_id || null, tipAmount, now)
             );
 
-            // --- B. 接收者操作 ---
-            // 接收者获得全额打赏金 (tipAmount >= 1)
+            // --- B. 接收者操作 (修复：增加 tips_received 统计) ---
             updates.push(
-                db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id = ?')
-                .bind(tipAmount, recipientXp, target_user_id)
+                db.prepare('UPDATE users SET coins = coins + ?, xp = xp + ?, tips_received = tips_received + ? WHERE id = ?')
+                .bind(tipAmount, recipientXp, tipAmount, target_user_id)
             );
 
-            // 2. 发送通知
+            // --- C. 帖子统计操作 (新增：如果存在 post_id，增加帖子总收益) ---
+            if (post_id) {
+                updates.push(
+                    db.prepare('UPDATE posts SET total_coins = total_coins + ? WHERE id = ?')
+                    .bind(tipAmount, post_id)
+                );
+            }
+
+            // 发送通知
             const senderName = user.nickname || user.username;
             const notifyMsg = `收到来自 ${senderName} 的打赏: ${tipAmount} i币` + (recipientXp > 0 ? ` (+${recipientXp} XP)` : "");
             updates.push(
@@ -106,16 +113,14 @@ export async function onRequest(context) {
                 .bind(target_user_id, notifyMsg, now)
             );
 
+            // 执行事务
             await db.batch(updates);
 
             let successMsg = `打赏成功！消耗 ${tipAmount} i币`;
             if (actualSenderXp > 0) {
                 successMsg += `，获得 ${actualSenderXp} 经验`;
-                if (currentDailyXp + actualSenderXp >= DAILY_XP_LIMIT) {
-                    successMsg += ` (今日经验已达上限)`;
-                }
             } else {
-                successMsg += ` (今日经验已达上限 +0 XP)`;
+                successMsg += ` (今日经验已达上限)`;
             }
 
             return new Response(JSON.stringify({ 
