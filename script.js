@@ -4732,10 +4732,22 @@ window.loadStockMarket = async function() {
             myPositions = data.positions;
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 刷新当前选中的股票
-            switchStock(currentStockSymbol);
+            // 存储后端传来的今日开盘价
+            // 假设后端返回结构是 data.opens = { 'BLUE': 100, ... }
+            window.marketOpens = data.opens || {}; 
             
-            // 刷新公司资金显示 (顶部仪表盘的)
+            // 处理休市状态
+            const mask = document.getElementById('marketClosedMask');
+            if (!data.status.isOpen) {
+                if(mask) mask.style.display = 'flex';
+                // 禁用交易按钮
+                document.querySelectorAll('#stockTradeAmount, button[onclick^="tradeStock"]').forEach(e => e.disabled = true);
+            } else {
+                if(mask) mask.style.display = 'none';
+                document.querySelectorAll('#stockTradeAmount, button[onclick^="tradeStock"]').forEach(e => e.disabled = false);
+            }
+
+            switchStock(currentStockSymbol);
             document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
         }
     } catch(e) { console.error(e); }
@@ -4756,80 +4768,134 @@ window.switchStock = function(symbol) {
     updatePositionUI(symbol);
 };
 
+// script.js - 重写绘图函数
+
 function renderStockChart(symbol) {
     const canvas = document.getElementById('stockCanvas');
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
     const width = 600;
-    const height = 200;
-    
-    // 确保 Canvas 分辨率匹配 (防止模糊)
+    const height = 220; // 稍微增高
     canvas.width = width;
     canvas.height = height;
 
+    // === 1. 定义绘图区域 (内边距) ===
+    // 留出左侧写价格，底部写时间
+    const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+
     const data = marketData[symbol]; // Array of {t, p}
-    
-    // 1. 清空画布
     ctx.clearRect(0, 0, width, height);
     
     if(!data || data.length === 0) return;
 
-    // 2. 计算最大最小值 (定比例)
+    // === 2. 计算极值与看板数据 ===
     let minP = Infinity, maxP = -Infinity;
     data.forEach(d => {
         if(d.p < minP) minP = d.p;
         if(d.p > maxP) maxP = d.p;
     });
-    // 上下留 10% 的缓冲空间，防止线条顶格
-    const padding = (maxP - minP) * 0.1;
-    minP -= padding; maxP += padding;
-    const range = maxP - minP;
+    
+    // 扩展 Y 轴范围，防止顶格
+    const rangeBuffer = (maxP - minP) === 0 ? maxP * 0.1 : (maxP - minP); // 防止一条直线时除以0
+    const yMin = minP - rangeBuffer * 0.2; 
+    const yMax = maxP + rangeBuffer * 0.2;
+    const yRange = yMax - yMin;
 
-    // === 新增：绘制背景网格 (Grid) ===
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; // 网格颜色：淡淡的白
-    ctx.lineWidth = 1;
+    const currentPrice = data[data.length - 1].p;
+    // 开盘价取后端传来的 dayOpen，如果没传则取当前图表最早的一个点兜底
+    const openPrice = window.marketOpens ? window.marketOpens[symbol] : data[0].p;
 
-    // 横线 (画 4 条，水平分割)
-    for (let i = 1; i < 5; i++) {
-        let y = (height / 5) * i;
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-    }
-
-    // 竖线 (每 5 个数据点画一条，约每 5 分钟)
-    const stepX = width / (data.length - 1);
-    for (let i = 0; i < data.length; i += 5) {
-        const x = i * stepX;
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-    }
-    ctx.stroke(); // 绘制网格
-
-    // === 3. 绘制主折线 ===
+    // 更新 HTML 看板
+    document.getElementById('stockHigh').innerText = maxP;
+    document.getElementById('stockLow').innerText = minP;
+    document.getElementById('stockOpen').innerText = openPrice;
+    
+    const curEl = document.getElementById('stockCurrent');
+    curEl.innerText = currentPrice;
+    // 现价颜色：比开盘高则红/绿(看涨跌颜色习惯，赛博风通常 绿=涨/好，红=跌/坏，或者反过来)
+    // 这里设定：大于开盘价为绿色(#0f0)，小于为红色(#f33)
+    curEl.style.color = currentPrice >= openPrice ? '#0f0' : '#f33'; 
     const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+
+    // === 3. 绘制坐标轴网格 ===
+    ctx.lineWidth = 1;
+    ctx.font = '12px JetBrains Mono';
+    ctx.fillStyle = '#888';
+    
+    // 3.1 横线 (价格轴) - 画 5 条
+    const ySteps = 5;
+    for (let i = 0; i <= ySteps; i++) {
+        const val = yMin + (yRange / ySteps) * i;
+        const y = padding.top + chartH - ((val - yMin) / yRange * chartH);
+        
+        // 线
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+
+        // 文字 (价格)
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.floor(val), padding.left - 5, y);
+    }
+
+    // 3.2 竖线 (时间轴) - 每 5 个点画一条
+    const xStep = chartW / (data.length - 1);
+    for (let i = 0; i < data.length; i += 5) {
+        const x = padding.left + (i * xStep);
+        
+        // 线
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, height - padding.bottom);
+        ctx.stroke();
+
+        // 文字 (时间 HH:mm)
+        const date = new Date(data[i].t);
+        const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(timeStr, x, height - padding.bottom + 5);
+    }
+
+    // === 4. 绘制折线图 ===
     ctx.strokeStyle = colorMap[symbol] || '#fff';
-    ctx.lineWidth = 3; // 主线稍微加粗
+    ctx.lineWidth = 2;
     ctx.beginPath();
 
     data.forEach((d, i) => {
-        const x = i * stepX;
-        // 坐标系转换：价格越高 y 越小
-        const y = height - ((d.p - minP) / range * height);
+        const x = padding.left + (i * xStep);
+        const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
         
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
     });
     ctx.stroke();
 
-    // === 4. 更新右上角价格显示 ===
-    const latestPrice = data[data.length - 1].p;
-    const label = document.getElementById('stockPriceLabel');
-    if (label) {
-        label.innerText = latestPrice;
-        label.style.color = colorMap[symbol];
-    }
+    // === 5. 绘制最后一个点的光标 (呼吸灯效果) ===
+    const lastX = padding.left + ((data.length - 1) * xStep);
+    const lastY = padding.top + chartH - ((currentPrice - yMin) / yRange * chartH);
+    
+    ctx.beginPath();
+    ctx.fillStyle = colorMap[symbol];
+    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 加个虚线指向右边
+    ctx.beginPath();
+    ctx.setLineDash([5, 5]);
+    ctx.moveTo(padding.left, lastY);
+    ctx.lineTo(width - padding.right, lastY);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.stroke();
+    ctx.setLineDash([]); // 重置
 }
 
 function updatePositionUI(symbol) {
@@ -4904,6 +4970,7 @@ window.tradeStock = async function(action) {
         }
     } catch(e) { showToast("交易失败", "error"); }
 };
+
 
 
 
