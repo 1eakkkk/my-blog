@@ -1508,8 +1508,7 @@ async function handleRoute() {
         const bizView = document.getElementById('view-business');if (bizView) bizView.style.display = 'block';
         const link = document.querySelector('a[href="#business"]');if (link) link.classList.add('active');
         if (typeof loadBusiness === 'function') {
-            loadBusiness();
-        }
+        loadBusiness();
     } else if (hash.startsWith('#profile?u=')) {
         if(views.profile) document.getElementById('view-profile').style.display = 'block'; // 注意这里 HTML ID 是 view-profile
         const u = hash.split('=')[1];
@@ -5249,6 +5248,7 @@ function addUserLog(msg, actionType) {
     // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
+
 
 
 
