@@ -4720,21 +4720,31 @@ let myPositions = [];
 let marketOpens = {}; // 存开盘价
 let companyInfo = {};
 let globalLogs = [];
-
-
-// --- script.js 重写 loadStockMarket ---
+// --- script.js 调试版 loadStockMarket ---
 
 window.loadStockMarket = async function() {
-    const canvas = document.getElementById('stockCanvas');
-    if(!canvas) return; 
+    console.log("[Stock] 开始加载股市数据..."); // 调试日志 1
 
-    // 只有第一次加载显示 Loading，后续静默刷新
+    const canvas = document.getElementById('stockCanvas');
+    if(!canvas) {
+        console.error("[Stock] 找不到 canvas 元素，停止加载。"); // 调试日志 2
+        return; 
+    }
+
     const curEl = document.getElementById('stockCurrent');
     if(curEl && curEl.innerText === '--') curEl.innerText = "Loading...";
 
     try {
+        console.log("[Stock] 发起 API 请求..."); // 调试日志 3
         const res = await fetch(`${API_BASE}/stock`);
+        
+        if (!res.ok) {
+            console.error("[Stock] API 请求失败:", res.status); // 调试日志 4
+            return;
+        }
+
         const data = await res.json();
+        console.log("[Stock] API 返回数据:", data); // 调试日志 5
         
         if (data.success) {
             marketData = data.market;
@@ -4742,10 +4752,14 @@ window.loadStockMarket = async function() {
             marketOpens = data.opens || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 1. 处理日志 (合并后端新闻到全局数组)
-            mergeLogs(data.news, 'news');
+            // 处理日志
+            if (typeof mergeLogs === 'function') {
+                mergeLogs(data.news, 'news');
+            } else {
+                console.warn("[Stock] mergeLogs 函数未定义！");
+            }
             
-            // 2. 处理休市
+            // 处理休市
             const mask = document.getElementById('marketClosedMask');
             if (data.status && !data.status.isOpen) {
                 if(mask) mask.style.display = 'flex';
@@ -4755,12 +4769,12 @@ window.loadStockMarket = async function() {
                 disableTrading(false);
             }
 
-            // 3. 更新资金
+            // 更新资金
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
 
-            // 4. 绑定交互事件 (防重复绑定)
+            // 绑定事件
             if (!canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -4769,27 +4783,28 @@ window.loadStockMarket = async function() {
                 canvas.addEventListener('touchend', handleChartLeave);
                 canvas.dataset.listening = "true";
                 
-                // 窗口变化重绘
                 window.removeEventListener('resize', resizeStockChart);
                 window.addEventListener('resize', resizeStockChart);
             }
 
-            // 5. 渲染界面
+            console.log("[Stock] 开始绘制图表..."); // 调试日志 6
             switchStock(currentStockSymbol);
+        } else {
+            console.error("[Stock] 后端返回错误:", data.error);
         }
     } catch(e) { console.error("Stock Load Error:", e); }
     
-    // 自动刷新定时器
+    // 自动刷新
     if (!window.stockAutoRefreshTimer) {
         window.stockAutoRefreshTimer = setInterval(() => {
             const stockView = document.getElementById('view-business');
-            if (stockView && stockView.style.display !== 'none' && document.getElementById('stockCanvas')) {
+            // 只有当 view-business 显示时才刷新
+            if (stockView && stockView.style.display !== 'none') {
                 loadStockMarket();
             }
         }, 10000); 
     }
 };
-
 // 辅助：窗口大小改变时重绘
 function resizeStockChart() {
     if(document.getElementById('stockCanvas')) {
@@ -5234,6 +5249,7 @@ function addUserLog(msg, actionType) {
     // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
+
 
 
 
