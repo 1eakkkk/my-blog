@@ -4844,56 +4844,53 @@ function handleChartLeave() {
     drawInteractiveChart(currentStockSymbol, null);
 }
 
-// script.js - 核心绘图函数 (响应式 + 高清版)
-
-// script.js - 核心绘图函数 (终极修复版)
+// --- script.js 核心绘图函数 (防白屏版) ---
 
 function drawInteractiveChart(symbol, mousePos) {
     const canvas = document.getElementById('stockCanvas');
+    // 获取父级容器
     const container = document.querySelector('.stock-chart-container');
+    
     if (!canvas || !container) return;
     
     const ctx = canvas.getContext('2d');
     
-    // === 1. 响应式与高清屏处理 ===
-    const dpr = window.devicePixelRatio || 1;
+    // === 1. 强制尺寸计算 (核心修复) ===
+    // 优先取容器的 rect，如果为 0 (隐藏状态)，则尝试取 clientWidth，再不行就给个默认值 600
     const rect = container.getBoundingClientRect();
-    const cssWidth = rect.width || 600;
-    const cssHeight = rect.height || 220;
+    let cssWidth = rect.width > 0 ? rect.width : (container.clientWidth || 600);
+    let cssHeight = rect.height > 0 ? rect.height : (container.clientHeight || 220);
     
+    const dpr = window.devicePixelRatio || 1;
+    
+    // 设置物理像素
     canvas.width = cssWidth * dpr;
     canvas.height = cssHeight * dpr;
     ctx.scale(dpr, dpr);
 
+    // 逻辑宽高
     const width = cssWidth;
     const height = cssHeight;
 
-    // === 2. 定义绘图区域 ===
-    const isMobile = width < 400;
-    const padding = { 
-        top: 20, 
-        right: isMobile ? 10 : 20, 
-        bottom: 20, 
-        left: isMobile ? 40 : 50 
-    };
-    const chartW = width - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
-
     // 清空画布
     ctx.clearRect(0, 0, width, height);
-    
-    // 安全检查
+
+    // === 2. 数据检查 ===
+    // 打印日志方便调试，如果控制台有数据但屏幕没图，说明是绘图逻辑问题
     if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
+        console.warn(`[Stock] ${symbol} 无数据，等待中...`);
+        
         ctx.fillStyle = '#666';
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText("WAITING FOR DATA STREAM...", width/2, height/2);
+        ctx.textBaseline = 'middle';
+        ctx.fillText("WAITING FOR DATA...", width / 2, height / 2);
         return; 
     }
 
     const data = marketData[symbol]; 
 
-    // === 3. 数据计算 ===
+    // === 3. 计算极值 ===
     let minP = Infinity, maxP = -Infinity;
     data.forEach(d => {
         if(d.p < minP) minP = d.p;
@@ -4905,11 +4902,12 @@ function drawInteractiveChart(symbol, mousePos) {
     const yMax = Math.ceil(maxP + rangeBuffer * 0.2);
     const yRange = yMax - yMin;
 
-    const currentPrice = data[data.length - 1].p;
-    const openPrice = (marketOpens && marketOpens[symbol]) ? marketOpens[symbol] : data[0].p;
-
     // === 4. 更新看板 (无交互时) ===
     if (!mousePos) {
+        // 防止 marketOpens 未定义报错
+        const openPrice = (window.marketOpens && window.marketOpens[symbol]) ? window.marketOpens[symbol] : data[0].p;
+        const currentPrice = data[data.length - 1].p;
+        
         const elOpen = document.getElementById('stockOpen');
         const elHigh = document.getElementById('stockHigh');
         const elLow = document.getElementById('stockLow');
@@ -4927,11 +4925,21 @@ function drawInteractiveChart(symbol, mousePos) {
     const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
     const themeColor = colorMap[symbol];
 
-    // === 5. 绘制网格与坐标轴 ===
+    // === 5. 绘制坐标轴 (移动端简化) ===
+    const isMobile = width < 400;
+    const padding = { 
+        top: 20, 
+        right: isMobile ? 10 : 20, 
+        bottom: 20, 
+        left: isMobile ? 35 : 50 
+    };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+
     ctx.lineWidth = 1;
     ctx.font = '10px JetBrains Mono';
     
-    // 横线 (价格)
+    // 横线
     const ySteps = 5;
     for (let i = 0; i <= ySteps; i++) {
         const val = yMin + (yRange / ySteps) * i;
@@ -4949,9 +4957,9 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText(Math.floor(val), padding.left - 5, y);
     }
 
-    // 竖线 (时间)
+    // 竖线
     const xStep = chartW / (data.length - 1);
-    const xStepsCount = isMobile ? 4 : 6; 
+    const xStepsCount = isMobile ? 3 : 6; 
     const timeInterval = Math.floor((data.length - 1) / (xStepsCount - 1));
 
     for (let i = 0; i < data.length; i += timeInterval) {
@@ -4972,22 +4980,6 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText(timeStr, x, height - padding.bottom + 5);
     }
 
-    // 坐标轴标题
-    if (!isMobile) {
-        ctx.fillStyle = '#aaa';
-        ctx.font = 'bold 12px JetBrains Mono';
-        
-        ctx.textAlign = 'center';
-        ctx.save();
-        ctx.translate(15, height / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillText("PRICE", 0, 0);
-        ctx.restore();
-
-        ctx.textAlign = 'right';
-        ctx.fillText("TIME", width - 10, height - 5);
-    }
-
     // === 6. 绘制折线 ===
     ctx.beginPath();
     ctx.strokeStyle = themeColor;
@@ -5004,9 +4996,8 @@ function drawInteractiveChart(symbol, mousePos) {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // === 7. 交互 / 最后一个点 ===
+    // === 7. 交互显示 ===
     if (mousePos) {
-        // --- 鼠标交互模式 ---
         let index = Math.round((mousePos.x - padding.left) / xStep);
         if (index < 0) index = 0;
         if (index >= data.length) index = data.length - 1;
@@ -5027,15 +5018,9 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // 圆点
-        ctx.beginPath();
-        ctx.fillStyle = '#fff';
-        ctx.arc(pointX, pointY, 4, 0, Math.PI * 2);
-        ctx.fill();
-
         // 浮窗
         const date = new Date(target.t);
-        const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
         const infoText = `${timeStr} | ¥${target.p}`;
         
         ctx.font = '12px sans-serif';
@@ -5043,22 +5028,21 @@ function drawInteractiveChart(symbol, mousePos) {
         let boxX = pointX + 10;
         let boxY = pointY - 30;
         
+        // 边界处理
         if (boxX + textWidth > width) boxX = pointX - textWidth - 10;
         if (boxY < 0) boxY = pointY + 20;
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(boxX, boxY, textWidth, 24);
         ctx.strokeStyle = themeColor;
-        ctx.lineWidth = 1;
         ctx.strokeRect(boxX, boxY, textWidth, 24);
 
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
         ctx.fillText(infoText, boxX + 10, boxY + 12);
 
     } else {
-        // --- 默认模式 (最后一个点) ---
+        // 最后一个点
         const lastIdx = data.length - 1;
         const lastX = padding.left + (lastIdx * xStep);
         const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
@@ -5067,15 +5051,6 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillStyle = themeColor;
         ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
         ctx.fill();
-        
-        // 虚线指向Y轴
-        ctx.beginPath();
-        ctx.setLineDash([2, 4]);
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.moveTo(padding.left, lastY);
-        ctx.lineTo(width - padding.right, lastY);
-        ctx.stroke();
-        ctx.setLineDash([]);
     }
 }
 
@@ -5259,6 +5234,7 @@ function addUserLog(msg, actionType) {
     // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
+
 
 
 
