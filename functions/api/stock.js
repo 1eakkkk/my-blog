@@ -1,12 +1,20 @@
-// --- functions/api/stock.js ---
-
-// === 股市配置 ===
+// === 股市配置 (高波动修正版) ===
 const STOCKS = {
-    'BLUE': { name: '蓝盾安全指数', base: 100, vol: 0.02, color: '#00f3ff' },
-    'GOLD': { name: '神经元科技',   base: 500, vol: 0.08, color: '#ffd700' },
-    'RED':  { name: '荒坂军工期货', base: 2000, vol: 0.25, color: '#ff3333' }
-};
+    // 1. 蓝盾 (稳健 -> 进阶)
+    // 原 0.02 -> 现 0.08 (8%)
+    // 预期波动：100 ± 16 (范围 84 ~ 116)，价差约 30，满足您的要求。
+    'BLUE': { name: '蓝盾安全指数', base: 100, vol: 0.08, color: '#00f3ff' },
 
+    // 2. 神经元 (成长 -> 激进)
+    // 原 0.08 -> 现 0.18 (18%)
+    // 预期波动：500 ± 90 (范围 410 ~ 590)，保持比蓝盾更刺激。
+    'GOLD': { name: '神经元科技',   base: 500, vol: 0.18, color: '#ffd700' },
+
+    // 3. 荒坂 (崩坏 -> 毁灭)
+    // 原 0.25 -> 现 0.40 (40%)
+    // 预期波动：2000 ± 800 (范围 1200 ~ 2800)，极易暴富或归零。
+    'RED':  { name: '荒坂军工期货', base: 2000, vol: 0.40, color: '#ff3333' }
+};
 // === 辅助：判断是否休市 (UTC+8 02:00 - 06:00) ===
 function getMarketStatus() {
     const now = new Date();
@@ -26,18 +34,11 @@ function getPriceAtTime(symbol, timestamp) {
     const config = STOCKS[symbol];
     if(!config) return 0;
 
-    // 如果处于休市时间，强制把时间戳锁定在今天的 02:00:00
-    // 这样休市期间价格是一条直线
     const date = new Date(timestamp);
     const utcHour = date.getUTCHours();
     const bjHour = (utcHour + 8) % 24;
     
     if (bjHour >= 2 && bjHour < 6) {
-        // 计算当天 02:00 的时间戳
-        // 简单处理：如果是休市，我们让 seed 保持为休市开始那一刻
-        // 为了方便，这里我们不改变 timestamp，而是让算法在休市期间输出“休市前最后一刻的价格”
-        // 但为了K线图还能画出来，我们只在“交易”时拦截。
-        // 在绘图算法里，我们让波动停止。
         return getLastClosingPrice(symbol, timestamp);
     }
 
@@ -49,8 +50,8 @@ function getPriceAtTime(symbol, timestamp) {
     const noise = (random() - 0.5) * 2; 
     let factor = 1 + (trend * config.vol * 2) + (noise * config.vol);
     
-    if (factor > 1.5) factor = 1.5; 
-    if (factor < 0.5) factor = 0.5; 
+    if (factor > 1.6) factor = 1.6; 
+    if (factor < 0.3) factor = 0.3; 
 
     return Math.max(1, Math.floor(config.base * factor));
 }
