@@ -3590,6 +3590,33 @@ body.bg-fire {
     background: rgba(0, 243, 255, 0.1);
 }
 
+/* --- style.css 新增 --- */
+
+.stat-box {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+}
+.stat-box .label {
+    font-size: 0.7rem;
+    color: #666;
+    margin-bottom: 2px;
+}
+.stat-box .val {
+    color: #fff;
+}
+
+@media (max-width: 768px) {
+    .stock-stats-row {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .stat-box {
+        flex: 1 1 40%; /* 移动端一行两个 */
+        border: 1px solid #222;
+        padding: 5px;
+        background: rgba(255,255,255,0.02);
+    }
+}
 
 
 
