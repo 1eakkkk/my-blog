@@ -2921,53 +2921,25 @@ const SHOP_CATALOG = [
     { id: 'color_gold', cost: 500, name: '至尊金名', type: 'timed', category: 'name_color', days: 30, css: 'color-gold', icon: '👑', rarity: 'legendary', desc: '30天土豪金名（名字颜色）' },
 ];
 
-// === 渲染商城函数 (优化版：显示已购买状态) ===
 window.renderShop = async function(filterType = 'all') {
     const container = document.getElementById('shop-list');
     const rechargeArea = document.getElementById('recharge-area');
     
     if(!container) return;
     
-    // 1. 处理充值 Tab 的特殊显示
+    // === 核心修复：如果是充值 Tab，只显示静态区域，不渲染卡片 ===
     if (filterType === 'recharge') {
-        if(rechargeArea) rechargeArea.style.display = 'block'; // 显示卡密框
-        
-        // 渲染充值档位卡片
-        container.innerHTML = '';
-        
-        // 定义充值档位
-        const rechargePacks = [
-            { id: 'pack_small', price: '0.10', coins: 600, bonus: 50, name: '微型能量包', icon: '🔋', color: '#00ccff' },
-            { id: 'pack_large', price: '0.60', coins: 4000, bonus: 300, name: '高能反应堆', icon: '☢️', color: '#ffd700' }
-        ];
-
-        rechargePacks.forEach(pack => {
-            const total = pack.coins + pack.bonus;
-            const div = document.createElement('div');
-            div.className = 'glass-card shop-item';
-            div.style.borderColor = pack.color;
-            div.innerHTML = `
-                <div class="item-icon" style="text-shadow:0 0 10px ${pack.color}">${pack.icon}</div>
-                <h3 style="margin:5px 0; color:${pack.color}">${pack.name}</h3>
-                <div style="font-size:1.2rem; font-weight:bold; margin:10px 0;">
-                    ${pack.coins} <span style="font-size:0.8rem">+${pack.bonus}</span> i币
-                </div>
-                <div class="price" style="color:#fff">￥ ${pack.price}</div>
-                <button onclick="buyRechargePack('${pack.name}', '${pack.price}')" class="cyber-btn" style="width:100%; border-color:${pack.color}; color:${pack.color}">
-                    获取卡密
-                </button>
-            `;
-            container.appendChild(div);
-        });
-        return;
+        if(rechargeArea) rechargeArea.style.display = 'block'; // 显示顶部的扫码区
+        container.style.display = 'none'; // 隐藏下方的商品列表容器
+        return; // 直接结束，不再往下执行生成卡密卡片的逻辑
     } 
     
-    // 非充值 Tab，隐藏兑换区
+    // 其他 Tab 的逻辑
     if(rechargeArea) rechargeArea.style.display = 'none';
-
-    // ... (以下是原有的背包逻辑，保持不变) ...
+    container.style.display = 'grid'; // 恢复显示商品列表
     container.innerHTML = '<div class="loading">Loading Shop Data...</div>';
     
+    // ... (以下是获取背包和渲染其他商品的逻辑，保持不变) ...
     let ownedItemIds = [];
     try {
         const res = await fetch(`${API_BASE}/inventory`);
@@ -2994,7 +2966,7 @@ window.renderShop = async function(filterType = 'all') {
     }
 
     filtered.forEach(item => {
-        // ... (保持原有的渲染逻辑不变) ...
+        // ... (保持原有的渲染逻辑) ...
         const div = document.createElement('div');
         div.className = `glass-card shop-item ${item.rarity || ''}`;
         
@@ -3029,7 +3001,6 @@ window.renderShop = async function(filterType = 'all') {
         container.appendChild(div);
     });
 };
-
 // === 切换标签 ===
 window.switchShopTab = function(type) {
     // 切换按钮高亮
@@ -3985,6 +3956,7 @@ window.reviewRecharge = async function(id, decision) {
         showToast(d.error, "error");
     }
 };
+
 
 
 
