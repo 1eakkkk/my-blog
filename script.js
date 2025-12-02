@@ -4774,6 +4774,15 @@ window.loadStockMarket = async function() {
             switchStock(currentStockSymbol);
         }
     } catch(e) { console.error("Stock Load Error:", e); }
+        if (!window.stockAutoRefreshTimer) {
+        window.stockAutoRefreshTimer = setInterval(() => {
+            // 只有当股市界面显示时才刷新，节省流量
+            const stockView = document.getElementById('view-business');
+            if (stockView && stockView.style.display !== 'none' && document.getElementById('stockCanvas')) {
+                loadStockMarket(); // 重新拉取
+            }
+        }, 10000); // 10000 毫秒 = 10 秒
+    }
 };
 
 // 辅助：窗口大小改变时重绘
@@ -5126,6 +5135,7 @@ window.tradeStock = async function(action) {
         }
     } catch(e) { showToast("交易失败", "error"); }
 };
+
 
 
 
