@@ -2663,6 +2663,7 @@ async function loadLeaderboard() {
         // 定义四个榜单的配置
         const boards = [
             { title: "⚡ 等级天梯", data: data.xp, valueKey: 'xp', format: v => `${v} XP` },
+            { title: "🏦 财富榜",   data: data.coins, valueKey: 'coins', format: v => `<span style="color:#FFD700">${v} i</span>` },
             { title: "💸 慈善家", data: data.sent, valueKey: 'tips_sent', format: v => `${v} i` },
             { title: "💰 创作者", data: data.received, valueKey: 'tips_received', format: v => `${v} i` },
             { title: "❤️ 人气王", data: data.likes, valueKey: 'likes_received', format: v => `${v} ❤` }
@@ -3758,6 +3759,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
