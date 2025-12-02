@@ -1,122 +1,103 @@
-好的，根据您提供的最新修改内容（N.O.D.E 控制台、数据格斗场、全服播报、系统配置开关及相关 Bug 修复），我已经更新了项目摘要文档。
+好的，根据您最近对 **家园系统 (Data Cabin)**、**打工系统 (Work Station)**、**商城优化 (预览/批量购买)** 以及 **N.O.D.E 快速检索** 的一系列重大更新，我为您重新生成了最新的项目摘要。
 
-以下是更新后的完整 **Project Summary**：
+这份文档反映了 v8.15 版本的完整状态。
 
 ---
 
 # Project Summary: 1eak.cool (Cyberpunk Social Platform)
 
 ## 1) 项目总览
-这是一个基于 Cloudflare 全家桶（Pages, D1, R2）构建的赛博朋克风格社交社区平台。项目采用原生 HTML/JS/CSS 开发（无前端框架），是一个单页应用（SPA），具备发帖、评论、实时私信、好友系统、积分商城、任务系统、VIP 会员、**随机探索（节点系统）**、**PVP博弈（数据格斗）**、**全服广播**及完整的后台管理功能。
+这是一个基于 Cloudflare 全家桶（Pages, D1, R2）构建的赛博朋克风格社交社区平台。项目采用原生 HTML/JS/CSS 开发（无前端框架），是一个单页应用（SPA）。
+**核心特色**：在原有的社交（发帖/私信）与博弈（格斗/探索）基础上，新增了**养成与挂机生态**（家园种植、打工终端），构建了完整的“产出-消耗-博弈”经济闭环。
 
 ## 2) 技术栈
 *   **前端 Core**: 原生 JavaScript (ES6+), HTML5, CSS3 (CSS Variables, Flexbox/Grid, Animations).
-*   **前端库**: `Marked.js` (Markdown渲染), `DOMPurify` (XSS防护), `Cloudflare Turnstile` (人机验证).
-*   **后端 (Serverless)**: Cloudflare Pages Functions (运行在 Edge 上的 Node.js 环境).
+*   **前端资源**: SVG 图标 (Feather风格), 外部 R2 图片资源 (用于种子/道具图标).
+*   **后端 (Serverless)**: Cloudflare Pages Functions (Node.js edge runtime).
 *   **数据库**: Cloudflare D1 (SQLite).
-*   **对象存储**: Cloudflare R2 (存储图片/视频).
+*   **对象存储**: Cloudflare R2 (存储用户上传及游戏素材).
 *   **鉴权方式**: 自研 Cookie Session 机制 + SHA-256 密码哈希.
 
-## 3) 项目目录结构
+## 3) 项目目录结构 (更新)
 ```text
 /
-├── login.html              # 登录/注册/重置密码入口页面 (含 Turnstile 动态开关)
-├── index.html              # 主应用入口 (SPA容器, 包含侧边栏、HUD遮罩、所有视图模板)
-├── style.css               # 全局样式, 含赛博朋克主题、流光动画、移动端适配媒体查询
-├── script.js               # 核心前端逻辑 (路由、API封装、DOM操作、游戏逻辑、动画控制)
-└── functions/api/          # 后端 API 目录 (Cloudflare Functions)
-    ├── _middleware.js      # 全局中间件 (IP限流 Rate Limiting)
-    ├── admin.js            # 管理员接口 (统计, 封禁, 公告, 邀请码, 播报审核, 开关配置)
-    ├── block.js            # 黑名单管理
-    ├── broadcast.js        # [新增] 全服播报系统 (申请、获取生效列表)
-    ├── checkin.js          # 每日签到逻辑
-    ├── comments.js         # 评论 CRUD (支持置顶、回复)
-    ├── config.js           # [新增] 公开系统配置 (如 Turnstile 开关)
-    ├── draw.js             # 幸运抽奖
-    ├── duel.js             # [新增] 数据格斗场 (PVP创建、加入、结算、回放)
-    ├── feedback.js         # 用户反馈系统
-    ├── follow.js           # 关注/取关逻辑
-    ├── force_fix.js        # 管理员紧急修复工具
-    ├── friends.js          # 好友申请与管理
-    ├── inventory.js        # 背包系统 (获取、装备、使用消耗品)
-    ├── leaderboard.js      # 排行榜数据
-    ├── like.js             # 点赞逻辑
-    ├── messages.js         # 私信系统
-    ├── node.js             # [新增] N.O.D.E 控制台 (随机事件探索、全服日志)
-    ├── notifications.js    # 通知系统
-    ├── posts.js            # 帖子 CRUD
-    ├── profile.js          # 个人资料修改
-    ├── profile_public.js   # 公开用户信息查询
-    ├── random_avatar.js    # 随机像素头像生成
-    ├── shop.js             # 商城购买逻辑 (VIP, 道具, 播报卡)
-    ├── tasks.js            # 任务系统
-    ├── tip.js              # 打赏转账逻辑
-    ├── upload.js           # R2 文件上传接口
-    ├── user.js             # 当前用户 Session 校验
-    ├── vip.js              # VIP 购买接口
-    └── auth/
-        ├── login.js        # 登录验证
-        ├── logout.js       # 登出
-        ├── register.js     # 注册
-        └── reset.js        # 密码重置
+├── login.html              # 登录/注册入口
+├── index.html              # SPA容器 (新增 #view-home 视图, 侧边栏按钮组调整)
+├── style.css               # 全局样式 (新增 .home-slot, .preview-stage, 移动端深度适配)
+├── script.js               # 前端控制器 (新增 loadHomeSystem, multiExploreNode, previewItem)
+└── functions/api/          # 后端 API 目录
+    ├── _middleware.js      # 全局中间件
+    ├── admin.js            # 管理员接口 (修复充值审核, 增加全服福利)
+    ├── broadcast.js        # 全服播报逻辑
+    ├── duel.js             # 数据格斗场
+    ├── home.js             # [新增] 家园与打工核心逻辑 (种植, 收获, 掉落, 挂机)
+    ├── inventory.js        # 背包系统
+    ├── node.js             # [更新] N.O.D.E (移除任务, 新增5连抽 multi_explore)
+    ├── shop.js             # [更新] 商城 (支持批量购买, 种子配置)
+    ├── tip.js              # [修复] 打赏同时更新排行榜统计
+    ├── user.js             # 用户状态
+    └── ... (其他基础功能文件: posts, comments, likes, etc.)
 ```
 
-## 4) 功能模块摘要
-*   **script.js**: 巨型控制器。新增了 `exploreNode` (节点探索)、`loadDuels/watchReplay` (格斗与回放动画)、`checkBroadcasts` (全服HUD广播) 等游戏化逻辑。
-*   **node.js**: 处理“N.O.D.E 控制台”的随机事件（60+种事件，含稀有度分级）、概率计算及全服稀有掉落日志。
-*   **duel.js**: 处理“数据格斗场”的下注、石头剪刀布胜负判定、每日限制及历史回放数据查询。
-*   **broadcast.js**: 处理全服播报卡的购买消耗、内容提交及有效期管理。
-*   **config.js**: 提供前端可见的系统开关配置（如是否开启人机验证）。
-*   **style.css**: 新增了“虚空全息”风格界面、粒子对撞动画、全屏 HUD 广播特效及移动端深度适配。
+## 4) 功能模块摘要 (更新)
+*   **home.js (New)**: 
+    *   **种植系统**: 处理 4 个地块 (`home_items`) 的种子种植、生长倒计时。
+    *   **收获逻辑**: 校验成熟时间，发放 i币/XP，并判定**稀有掉落**（加速算法碎片，概率 15%）。
+    *   **打工系统**: 处理 `start_work`, `claim_work`，支持多种工种（数据清理、黑盒调试等）的挂机收益。
+*   **shop.js**: 
+    *   支持 `quantity` 参数实现**批量购买**消耗品（如种子）。
+    *   集成了 VIP、装饰品、时效道具、种子的统一购买接口。
+*   **node.js**: 
+    *   新增 `multi_explore` 动作，支持 **5连抽快速检索**（一次扣除 250 i币，批量生成结果）。
+    *   移除了旧版无效的 `mission` 事件类型，优化了稀有度概率。
+*   **script.js**: 
+    *   新增 **商城预览 (Preview)** 功能，支持查看装饰品效果。
+    *   新增 **侧边栏自定义排序**，支持拖拽或点击调整菜单顺序。
+    *   集成了 R2 图片链接，替代原有的 Emoji 图标。
 
-## 5) 数据库结构 (推断)
-基于 SQL 查询推断的主要表结构：
-*   **users**: `id`, `username`, `password`, `nickname`, `coins`, `xp`, `role`, `is_vip`, `last_node_explore_date` (节点探索CD) 等。
-*   **user_items**: 背包表，新增支持 `consumable` 类型道具的使用逻辑。
-*   **duels**: [新增] `id`, `creator_id`, `bet_amount`, `creator_move`, `challenger_id`, `challenger_move`, `winner_id`, `status`, `created_at`。
-*   **user_daily_limits**: [新增] `user_id`, `date_key`, `duel_count` (防止赌博上瘾)。
-*   **broadcasts**: [新增] `id`, `user_id`, `tier` (high/low), `content`, `style_color`, `status` (pending/active), `end_time`。
-*   **node_public_logs**: [新增] `username`, `event_type`, `message` (用于记录传说级事件跑马灯)。
-*   **system_settings**: [新增] Key-Value 表，用于存储全局开关（如 `turnstile_enabled`）。
+## 5) 数据库结构 (D1 Schema)
+*   **users**: 基础用户信息，余额，经验，VIP 等。
+*   **user_items**: 背包表，存储种子、碎片、卡片等。
+*   **home_items** (New): `user_id`, `slot_index` (0-3), `item_id`, `type` ('plant'), `created_at`, `harvest_at`。
+*   **user_works** (New): `user_id`, `work_type`, `start_time`, `end_time`, `status`。
+*   **duels**: PVP 对局记录。
+*   **broadcasts**: 全服播报记录。
+*   **system_settings**: 全局开关配置。
 
-## 6) 全局逻辑流
-1.  **节点探索**: 用户点击探索 -> 后端计算概率（含保底/故障/传说掉落） -> 返回结果与稀有度 -> 前端播放震屏/光效并实时更新余额。
-2.  **PVP格斗**: 用户 A 发起悬赏（扣除 i 币） -> 用户 B 接受挑战（扣除 i 币） -> 后端计算胜负 -> 前端通过 `id="duel-overlay"` 播放全屏对撞动画 -> 资金划转。
-3.  **全服广播**: 用户使用道具提交内容 -> 管理员后台审核通过 -> 所有在线用户通过轮询 (`checkBroadcasts`) 获取生效列表 -> 屏幕出现全息 HUD 弹窗。
-4.  **安全配置**: 登录页加载时请求 `/api/config`，根据后端返回决定是否显示和校验 Cloudflare Turnstile。
+## 6) 全局经济逻辑流
+1.  **稳定产出 (家园/打工)**: 用户购买种子 -> 种植(4-24h) -> 收获 i币/XP (+稀有碎片)。用户挂机打工 -> 获得固定低保收益。
+2.  **高风险博弈 (Node/Duel)**: 
+    *   **Node**: 单抽(50i) 或 5连抽(250i) -> 随机获取高额 i币、VIP、道具或扣费故障。
+    *   **Duel**: 玩家间 PVP 猜拳，胜者拿走奖池。
+3.  **消费回收 (商城)**: 购买种子(循环消耗)、购买 VIP(特权)、购买高价装饰/特效(炫耀)。
 
-## 7) 编码风格总结 (重要)
-*   **命名规范**: JS 变量 `camelCase`，数据库字段 `snake_case`。
-*   **前端交互**: 
-    *   复杂动画（如格斗回放、HUD）使用全屏 `div` 遮罩 + CSS 动画类切换（`.add('scanning')`）。
-    *   移动端适配优先使用 Flex 布局调整方向（`flex-direction: column`）而非简单的缩放。
-    *   数据加载完成后，通过 DOM 操作直接更新 UI（如金币跳动），减少页面刷新。
-*   **后端逻辑**: 
-    *   关键交易逻辑（如 PVP 结算、道具消耗）必须使用 `db.batch()` 事务。
-    *   必须校验 `creator_id` 与 `session.user_id` 确保操作权限。
-    *   API 返回结构统一为 `{ success: true, data... }` 或 `{ success: false, error: "..." }`。
+## 7) 编码与 UI 规范
+*   **视觉风格**: 
+    *   **赛博青 (#00f3ff)**: 用于家园、数据、构建类元素。
+    *   **霓虹紫 (#bd00ff)**: 用于 5连抽、抽奖、史诗级物品。
+    *   **UI 组件**: 统一使用胶囊圆角按钮 (`border-radius: 30px`) 和 玻璃拟态卡片 (`glass-card`)。
+*   **交互规范**:
+    *   **预览**: 装饰品必须提供预览弹窗。
+    *   **批量**: 消耗品购买必须弹窗询问数量。
+    *   **反馈**: 所有异步操作必须有 `showToast` 反馈，长耗时操作（如 5连抽）需有终端打印特效。
+*   **移动端适配**:
+    *   家园地块采用 `2x2` 网格布局。
+    *   商城 Tab 栏支持横向滑动。
+    *   聊天框强制全屏 Flex 布局，防止键盘遮挡。
 
-## 8) 修改规则 (开发规范)
-1.  **HTML 结构**: 严禁在 `index.html` 中保留重复的 ID 元素（如 `duel-overlay`），这会导致 JS 选择器失效。
-2.  **Z-Index 管理**: 全屏遮罩层（如回放、广播 HUD）的 `z-index` 必须设置为极大值（如 `2147483647`），并使用 `!important` 防止被背景特效覆盖。
-3.  **移动端适配**: 新增复杂界面时，必须在 `style.css` 底部添加 `@media (max-width: 768px)` 块，调整布局（如将横排按钮改为竖排）。
-4.  **防刷逻辑**: 涉及 i 币交易的功能，必须在后端校验余额、每日次数限制，并防止自己与自己交互。
+## 8) 修改规则 (注意事项)
+1.  **图片资源**: 商城和背包的 `icon` 字段现在支持 HTML 字符串 (`<img src="...">`)，修改物品时需保持 `object-fit: contain` 样式。
+2.  **数据库约束**: 插入 `home_items` 时必须显式指定 `type='plant'`，防止 `NOT NULL` 报错。
+3.  **前后端同步**: 修改打工或种子配置时，必须**同时修改** `script.js` (展示用) 和 `home.js` (计算用) 中的常量配置。
 
-## 9) 版本快照 (v8.8)
-*   **当前状态**: 拥有丰富娱乐功能的赛博朋克社区。
-*   **新增特性**:
-    *   **N.O.D.E 控制台**: 60+ 随机事件，含 VIP 掉落和全服跑马灯。
-    *   **数据格斗场**: 石头剪刀布博弈，全屏粒子对撞动画，支持历史回放。
-    *   **全服播报**: 高级/低级广播卡，全息 HUD 视觉通知，含管理员审核流。
-    *   **系统开关**: 支持动态关闭人机验证。
-*   **UI/UX 改进**: “虚空全息”视觉风格，移动端操作体验优化。
+## 9) 版本快照 (v8.15)
+*   **当前状态**: 拥有“家园养成”与“PVP博弈”双核心的完整社区。
+*   **最新特性**:
+    *   **数据家园**: 4格田字格种植，可视化的 R2 图片素材，成熟发光特效。
+    *   **任务终端**: 多档位挂机打工，倒计时进度条。
+    *   **快速检索**: N.O.D.E 控制台支持一键 5 连抽，爽快感倍增。
+    *   **侧边栏升级**: 签到/抽奖置顶，支持用户自定义菜单排序。
+    *   **商城进化**: 支持物品效果预览，支持消耗品批量购买。
 
-## 10) 未来使用方法
-**Prompt 示例**:
-> "基于 Project Summary，请为‘数据格斗场’增加一个‘连胜榜’功能。需要在 `leaderboard.js` 中增加查询逻辑，统计 `duels` 表中连胜次数最多的用户，并在前端排行榜页面展示。"
-
-**AI 行为准则**:
-1.  读取本 Summary 理解数据库表结构（特别是 `duels` 表）。
-2.  明确修改文件：`functions/api/leaderboard.js` 和 `script.js`。
-3.  保持 SQL 写法一致，使用 `db.prepare`。
-4.  遵循现有的 CSS 风格（霓虹色、玻璃拟态）。
+---
+*End of Summary*
