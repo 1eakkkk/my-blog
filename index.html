@@ -229,7 +229,12 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline> <polyline points="2 12 12 17 22 12"></polyline></svg>
                     数据家园
                 </a>
-                
+
+                <a href="#business" class="nav-link" style="color: #00f3ff;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+                    创业中心
+                </a>
+                                
                 <!-- 私信与好友 -->
                 <a href="#chat" class="nav-link" id="navChat">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
@@ -478,6 +483,93 @@
                         </div>
                         <div id="duelList" class="duel-list-container">
                             <!-- 动态生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 创业系统视图 -->
+                <div id="view-business" class="view-section" style="display:none;">
+                    <div class="node-header">
+                        <h2>BUSINESS CORP // 商业帝国</h2>
+                        <div id="marketTicker" class="node-status" style="border-color:gold; color:gold;">MARKET: ANALYZING...</div>
+                    </div>
+                
+                    <!-- 状态 1: 没有公司 (显示创建面板) -->
+                    <div id="biz-create-panel" style="display:none;">
+                        <p style="color:#ccc; margin-bottom:20px;">投资实体产业，承担市场波动，赢取超额回报。请选择你的赛道：</p>
+                        <div class="biz-plans-grid">
+                            <!-- 方案 A -->
+                            <div class="glass-card plan-card" onclick="selectBizPlan('shell')">
+                                <div class="plan-icon">🏚️</div>
+                                <h3>数据作坊</h3>
+                                <div class="plan-cost">2,500 i</div>
+                                <p>低风险，低回报。适合新手练手。</p>
+                            </div>
+                            <!-- 方案 B -->
+                            <div class="glass-card plan-card" onclick="selectBizPlan('startup')">
+                                <div class="plan-icon">🏢</div>
+                                <h3>科技独角兽</h3>
+                                <div class="plan-cost">6,000 i</div>
+                                <p>中等风险，成长性高。主流选择。</p>
+                            </div>
+                            <!-- 方案 C -->
+                            <div class="glass-card plan-card" onclick="selectBizPlan('blackops')">
+                                <div class="plan-icon">🏴‍☠️</div>
+                                <h3>黑域工作室</h3>
+                                <div class="plan-cost">12,000 i</div>
+                                <p>极高风险，极高波动。赌狗天堂。</p>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top:20px; text-align:center;">
+                            <input type="text" id="newCompanyName" class="cyber-input" placeholder="输入公司名称..." style="width:250px; text-align:center;">
+                            <br>
+                            <button onclick="createCompany()" class="cyber-btn" style="width:200px; margin-top:10px;">注册公司</button>
+                            <input type="hidden" id="selectedBizType">
+                        </div>
+                    </div>
+                
+                    <!-- 状态 2: 已有公司 (显示仪表盘) -->
+                    <div id="biz-dashboard" style="display:none;">
+                        <!-- 财务概览卡片 -->
+                        <div class="glass-card" style="background:rgba(0,50,0,0.3); border-color:#0f0; margin-bottom:20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <div style="font-size:0.8rem; color:#888;">COMPANY VALUE / 市值</div>
+                                    <div id="bizCapital" style="font-size:2rem; font-weight:bold; color:#fff;">0</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-size:0.8rem; color:#888;">TYPE</div>
+                                    <div id="bizTypeDisplay" style="color:#00f3ff;">-</div>
+                                </div>
+                            </div>
+                            <div id="bizLastSettle" style="margin-top:10px; font-size:0.8rem; color:#aaa; border-top:1px dashed #333; padding-top:5px;">
+                                昨日财报: 暂无数据
+                            </div>
+                        </div>
+                
+                        <!-- 经营控制台 -->
+                        <div style="display:flex; gap:15px; flex-wrap:wrap;">
+                            <!-- 策略调整 -->
+                            <div class="glass-card" style="flex:1; min-width:280px;">
+                                <h3>📊 经营方针</h3>
+                                <p style="font-size:0.8rem; color:#666; margin-bottom:10px;">调整明日的风险偏好。</p>
+                                <div class="strategy-selector">
+                                    <button class="cyber-btn" onclick="setStrategy('safe')" id="btn-strat-safe">保守 (稳健)</button>
+                                    <button class="cyber-btn" onclick="setStrategy('normal')" id="btn-strat-normal">平衡 (默认)</button>
+                                    <button class="cyber-btn" onclick="setStrategy('risky')" id="btn-strat-risky">激进 (高风险)</button>
+                                </div>
+                            </div>
+                
+                            <!-- 资本操作 -->
+                            <div class="glass-card" style="flex:1; min-width:280px;">
+                                <h3>💰 资本运作</h3>
+                                <p style="font-size:0.8rem; color:#666; margin-bottom:10px;">注资扩大规模，或提现离场。</p>
+                                <div style="display:flex; gap:10px;">
+                                    <button onclick="bizInvest()" class="cyber-btn" style="border-color:#0f0; color:#0f0;">追加投资</button>
+                                    <button onclick="bizWithdraw()" class="cyber-btn" style="border-color:#f33; color:#f33;">提现 (含税)</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1072,6 +1164,7 @@
     <script src="script.js?v=8.15"></script>
 </body>
 </html>
+
 
 
 
