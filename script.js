@@ -50,9 +50,12 @@ const SEED_CATALOG = [
 
 // 打工配置
 const WORK_CATALOG = {
-    'cleaning': { name: '数据清理', time: '2分钟', reward: 15 },
-    'sorting':  { name: '缓存整理', time: '10分钟', reward: 80 },
-    'debug':    { name: '黑盒调试', time: '60分钟', reward: 500 }
+    'cleaning': { name: '数据清理', time: '10分钟', reward: 20 },
+    'sorting':  { name: '缓存整理', time: '30分钟', reward: 60 },
+    'debug':    { name: '黑盒调试', time: '60分钟', reward: 120 },
+    'deepcleaning':    { name: '深度清洁', time: '180分钟', reward: 360 },
+    'fixbug':    { name: '修复漏洞', time: '360分钟', reward: 720 },
+    'sleeptest':    { name: '睡眠测试', time: '600分钟', reward: 1200 },
 };
 
 let workTicker = null; // 定时器
@@ -4534,6 +4537,7 @@ window.resetNavOrder = function() {
     localStorage.removeItem('nav_order');
     location.reload();
 };
+
 
 
 
