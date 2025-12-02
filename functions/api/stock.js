@@ -293,7 +293,7 @@ export async function onRequest(context) {
              logMsg = `平空 ${qty} 股 ${symbol} @ ${currentPrice}`;
         }
 
-        await db.batch(updates = batch); // 修正 batch 变量
+        await db.batch(batch);
         return Response.json({ success: true, message: '交易成功', log: logMsg });
     }
 }
