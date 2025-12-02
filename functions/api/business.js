@@ -57,8 +57,8 @@ export async function onRequest(context) {
             // 1. 策略修正
             let strategyMult = 1.0;
             let riskMult = 1.0;
-            if (company.strategy === 'conservative') { strategyMult = 0.5; riskMult = 0.5; }
-            if (company.strategy === 'aggressive') { strategyMult = 1.5; riskMult = 1.5; }
+            if (company.strategy === 'safe') { strategyMult = 0.5; riskMult = 0.5; }
+            if (company.strategy === 'risky') { strategyMult = 1.5; riskMult = 1.5; }
 
             // 2. 计算波动
             // 随机因子 (-1 ~ 1) * 波动率 * 风险倍率
