@@ -3700,6 +3700,21 @@ body.bg-fire {
     }
 }
 
+/* --- style.css 修改 --- */
+
+.stock-chart-container {
+    width: 100%;
+    /* 强制最小高度，防止高度为0 */
+    min-height: 220px; 
+    height: 220px;
+    border: 1px solid #333;
+    background: rgba(0,0,0,0.8);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 15px;
+    /* 确保它是块级元素 */
+    display: block; 
+}
 
 
 
