@@ -4719,16 +4719,18 @@ let marketData = {};
 let myPositions = [];
 let marketOpens = {}; // 存开盘价
 let companyInfo = {};
+let globalLogs = [];
 
 
-// 1. 加载数据
+// --- script.js 重写 loadStockMarket ---
+
 window.loadStockMarket = async function() {
     const canvas = document.getElementById('stockCanvas');
     if(!canvas) return; 
 
-    // 显示 Loading
+    // 只有第一次加载显示 Loading，后续静默刷新
     const curEl = document.getElementById('stockCurrent');
-    if(curEl) curEl.innerText = "Loading...";
+    if(curEl && curEl.innerText === '--') curEl.innerText = "Loading...";
 
     try {
         const res = await fetch(`${API_BASE}/stock`);
@@ -4738,9 +4740,12 @@ window.loadStockMarket = async function() {
             marketData = data.market;
             myPositions = data.positions;
             marketOpens = data.opens || {}; 
-            renderStockLogs(data.news);
             companyInfo = { capital: data.capital, type: data.companyType };
             
+            // 1. 处理日志 (合并后端新闻到全局数组)
+            mergeLogs(data.news, 'news');
+            
+            // 2. 处理休市
             const mask = document.getElementById('marketClosedMask');
             if (data.status && !data.status.isOpen) {
                 if(mask) mask.style.display = 'flex';
@@ -4750,39 +4755,38 @@ window.loadStockMarket = async function() {
                 disableTrading(false);
             }
 
+            // 3. 更新资金
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
 
-            // === 修复：绑定触摸事件 ===
+            // 4. 绑定交互事件 (防重复绑定)
             if (!canvas.dataset.listening) {
-                // 鼠标
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
-                
-                // 触摸 (手机端)
                 canvas.addEventListener('touchstart', handleTouch, {passive: false});
                 canvas.addEventListener('touchmove', handleTouch, {passive: false});
                 canvas.addEventListener('touchend', handleChartLeave);
-                
                 canvas.dataset.listening = "true";
+                
+                // 窗口变化重绘
+                window.removeEventListener('resize', resizeStockChart);
+                window.addEventListener('resize', resizeStockChart);
             }
 
-            // 监听窗口大小改变，重绘图表 (适配横竖屏切换)
-            window.removeEventListener('resize', resizeStockChart);
-            window.addEventListener('resize', resizeStockChart);
-
+            // 5. 渲染界面
             switchStock(currentStockSymbol);
         }
     } catch(e) { console.error("Stock Load Error:", e); }
-        if (!window.stockAutoRefreshTimer) {
+    
+    // 自动刷新定时器
+    if (!window.stockAutoRefreshTimer) {
         window.stockAutoRefreshTimer = setInterval(() => {
-            // 只有当股市界面显示时才刷新，节省流量
             const stockView = document.getElementById('view-business');
             if (stockView && stockView.style.display !== 'none' && document.getElementById('stockCanvas')) {
-                loadStockMarket(); // 重新拉取
+                loadStockMarket();
             }
-        }, 10000); // 10000 毫秒 = 10 秒
+        }, 10000); 
     }
 };
 
@@ -4848,29 +4852,23 @@ function drawInteractiveChart(symbol, mousePos) {
     if (!canvas || !container) return;
     
     const ctx = canvas.getContext('2d');
+    let cssWidth = container.clientWidth || 600;
+    let cssHeight = container.clientHeight || 220;
     
-    // === 1. 响应式与高清屏处理 ===
-    // 获取容器的实际显示尺寸
+    const dpr = window.devicePixelRatio || 1;
+    
     const rect = container.getBoundingClientRect();
     const cssWidth = rect.width;
     const cssHeight = rect.height;
     
-    // 获取设备像素比 (手机通常是 2 或 3)
-    const dpr = window.devicePixelRatio || 1;
-    
-    // 设置 Canvas 内部实际分辨率 (乘以上面那个倍数)
     canvas.width = cssWidth * dpr;
     canvas.height = cssHeight * dpr;
-    
-    // 缩放绘图上下文，这样我们画图时只需要按 cssWidth/cssHeight 思考
+
     ctx.scale(dpr, dpr);
 
-    // 绘图使用的逻辑宽高
     const width = cssWidth;
     const height = cssHeight;
 
-    // === 2. 定义绘图区域 ===
-    // 手机屏幕窄，稍微减小一点左侧留白
     const isMobile = width < 400;
     const padding = { 
         top: 20, 
@@ -4880,8 +4878,13 @@ function drawInteractiveChart(symbol, mousePos) {
     };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
+    ctx.clearRect(0, 0, width, height);
+    
     if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
-        console.warn("等待数据中...", symbol);
+        ctx.fillStyle = '#666';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("WAITING FOR DATA STREAM...", width/2, height/2);
         return; 
     }
     const data = marketData[symbol]; 
@@ -4900,6 +4903,30 @@ function drawInteractiveChart(symbol, mousePos) {
     const yMin = Math.floor(minP - rangeBuffer * 0.2); 
     const yMax = Math.ceil(maxP + rangeBuffer * 0.2);
     const yRange = yMax - yMin;
+    if (!mousePos) {
+        const openPrice = marketOpens[symbol] || data[0].p;
+        const currentPrice = data[data.length - 1].p;
+        
+        // 安全更新 DOM
+        const elOpen = document.getElementById('stockOpen');
+        const elHigh = document.getElementById('stockHigh');
+        const elLow = document.getElementById('stockLow');
+        const elCurr = document.getElementById('stockCurrent');
+
+        if(elOpen) elOpen.innerText = openPrice;
+        if(elHigh) elHigh.innerText = maxP;
+        if(elLow) elLow.innerText = minP;
+        if(elCurr) {
+            elCurr.innerText = currentPrice;
+            elCurr.style.color = currentPrice >= openPrice ? '#0f0' : '#f33';
+        }
+    }
+    const isMobile = width < 400;
+    const padding = { top: 20, right: 10, bottom: 20, left: 50 };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
+    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    const themeColor = colorMap[symbol];
 
     const currentPrice = data[data.length - 1].p;
     const openPrice = marketOpens[symbol] || data[0].p;
@@ -4995,15 +5022,16 @@ function drawInteractiveChart(symbol, mousePos) {
     ctx.shadowBlur = 0;
 
     // === 7. 交互 / 最后一个点 ===
-    if (mousePos) {
-        let index = Math.round((mousePos.x - padding.left) / xStep);
-        if (index < 0) index = 0;
-        if (index >= data.length) index = data.length - 1;
-
-        const target = data[index];
-        const pointX = padding.left + (index * xStep);
-        const pointY = padding.top + chartH - ((target.p - yMin) / yRange * chartH);
-
+    if (!mousePos) {
+        const lastIdx = data.length - 1;
+        const lastX = padding.left + (lastIdx * xStep);
+        const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
+        
+        ctx.beginPath();
+        ctx.fillStyle = themeColor;
+        ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
         // 十字线
         ctx.beginPath();
         ctx.strokeStyle = '#fff';
@@ -5133,8 +5161,8 @@ window.tradeStock = async function(action) {
         if (data.success) {
             showToast("交易成功", "success");
             document.getElementById('stockTradeAmount').value = '';
-            addStockLog(data.log, action === 'buy' || action === 'cover' ? 'buy' : 'sell');
-            loadStockMarket(); // 刷新数据
+            addUserLog(data.log, (action === 'buy' || action === 'cover') ? 'buy' : 'sell');
+            setTimeout(loadStockMarket, 500); 
         } else {
             showToast(data.error, "error");
         }
@@ -5177,6 +5205,83 @@ function addStockLog(msg, type) {
     list.insertBefore(div, list.firstChild);
 }
 
+// --- script.js 新增/替换日志逻辑 ---
+
+// 合并日志到全局数组
+function mergeLogs(newItems, source) {
+    if (!newItems || newItems.length === 0) return;
+
+    let hasChange = false;
+    newItems.forEach(item => {
+        // 防止重复添加相同的新闻 (根据时间和内容去重)
+        // 假设 item 结构: { time: 12345678, msg: "...", type: "good" }
+        // 或者是用户操作: { time: 12345678, msg: "...", source: "user" }
+        
+        // 构造唯一标识
+        const uniqueKey = item.time + item.msg;
+        
+        // 检查是否已存在
+        const exists = globalLogs.some(log => (log.time + log.msg) === uniqueKey);
+        
+        if (!exists) {
+            // 标记来源，方便渲染不同样式
+            item.source = source || 'news'; 
+            globalLogs.push(item);
+            hasChange = true;
+        }
+    });
+
+    if (hasChange || source === 'user') {
+        // 按时间倒序排列 (新的在简报)
+        globalLogs.sort((a, b) => b.time - a.time);
+        // 只保留最近 50 条
+        if (globalLogs.length > 50) globalLogs = globalLogs.slice(0, 50);
+        renderAllLogs();
+    }
+}
+
+// 渲染所有日志
+function renderAllLogs() {
+    const list = document.getElementById('stockLogList');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    globalLogs.forEach(n => {
+        const date = new Date(n.time);
+        const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+        
+        let className = 'log-item';
+        let icon = '';
+        
+        if (n.source === 'user') {
+            // 用户操作：买入/卖出
+            className += n.actionType === 'buy' ? ' buy' : ' sell';
+            icon = '👤';
+        } else {
+            // 系统新闻
+            className += n.type === 'good' ? ' news-good' : ' news-bad';
+            icon = n.type === 'good' ? '🚀' : '📉';
+        }
+        
+        const div = document.createElement('div');
+        div.className = className;
+        div.innerHTML = `<span class="log-time">[${timeStr}]</span> ${icon} ${n.msg}`;
+        list.appendChild(div);
+    });
+}
+
+// 添加用户操作日志 (不刷新网页，直接插入数组)
+function addUserLog(msg, actionType) {
+    const now = Date.now();
+    const logItem = {
+        time: now,
+        msg: msg,
+        source: 'user',
+        actionType: actionType // 'buy' or 'sell'
+    };
+    mergeLogs([logItem], 'user');
+}
 
 
 
