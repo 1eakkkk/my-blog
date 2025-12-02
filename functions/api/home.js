@@ -15,9 +15,9 @@ export async function onRequest(context) {
 
     // === 配置常量 (后端校验用) ===
     const SEEDS = {
-        'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_coins: 50, reward_xp: 20 },
-        'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_coins: 180, reward_xp: 80 },
-        'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 400, reward_xp: 200 }
+        'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_coins: 150, reward_xp: 120 },
+        'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_coins: 280, reward_xp: 180 },
+        'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 600, reward_xp: 450 }
     };
     
     const WORKS = {
@@ -83,6 +83,37 @@ export async function onRequest(context) {
             if (now < item.harvest_at) return Response.json({ success: false, error: '算法尚未运行完毕' });
 
             const config = SEEDS[item.item_id];
+            const DROP_RATE = 0.15;
+            const dropRandom = Math.random();
+            let dropMessage = "";
+            const batch = [
+                // 1. 基础奖励
+                db.prepare("UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id = ?").bind(config.reward_coins, config.reward_xp, user.id),
+                // 2. 删除植物
+                db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id)
+            ];
+
+            if (dropRandom < DROP_RATE) {
+                // 检查用户是否已有该物品 (如果是可堆叠的)
+                // 这里假设 user_items 表结构: id, user_id, item_id, quantity, category...
+                // 我们尝试插入或更新 (UPSERT 逻辑对于 SQLite 稍微复杂，这里用简单的查-改逻辑或 INSERT ON CONFLICT)
+                
+                // 简单方案：直接插入或更新数量
+                // 假设 user_items 表有唯一约束 UNIQUE(user_id, item_id)
+                // 如果没有唯一约束，需要先查一下
+                const existingItem = await db.prepare("SELECT id FROM user_items WHERE user_id = ? AND item_id = 'item_algo_frag'").bind(user.id).first();
+                
+                if (existingItem) {
+                    batch.push(db.prepare("UPDATE user_items SET quantity = quantity + 1 WHERE id = ?").bind(existingItem.id));
+                } else {
+                    // 新增物品 (注意 category 填 'consumable')
+                    batch.push(db.prepare("INSERT INTO user_items (user_id, item_id, quantity, type, category, created_at) VALUES (?, 'item_algo_frag', 1, 'consumable', 'consumable', ?)")
+                        .bind(user.id, now));
+                }
+                
+                dropMessage = " 🎁 获得: 加速算法碎片!";
+            }
+            
             if (!config) {
                 // 异常数据清除
                 await db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id).run();
