@@ -3905,6 +3905,64 @@ window.submitRechargeRequest = async function() {
     }
 };
 
+// === 管理员：加载充值申请 ===
+window.loadRechargeRequests = async function() {
+    const c = document.getElementById('adminRechargeList');
+    c.innerHTML = 'Loading...';
+    
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_recharge_requests' })
+        });
+        const data = await res.json();
+        
+        if (data.list.length === 0) {
+            c.innerHTML = '<div style="color:#666">暂无待审核申请</div>';
+            return;
+        }
+        
+        let html = '';
+        data.list.forEach(r => {
+            html += `
+                <div style="border-bottom:1px dashed #333; padding:10px; display:flex; gap:10px; align-items:center;">
+                    <a href="${r.proof_url}" target="_blank">
+                        <img src="${r.proof_url}" style="width:50px; height:80px; object-fit:cover; border:1px solid #666;">
+                    </a>
+                    <div style="flex:1;">
+                        <div style="color:#fff; font-weight:bold;">${r.username}</div>
+                        <div style="color:#00ff00;">${r.amount_str}</div>
+                        <div style="font-size:0.7rem; color:#888;">${new Date(r.created_at).toLocaleString()}</div>
+                    </div>
+                    <div>
+                        <button onclick="reviewRecharge(${r.id}, 'approve')" class="cyber-btn" style="width:auto; padding:5px 10px; border-color:#00ff00; color:#00ff00; margin-bottom:5px;">✅ 通过</button>
+                        <button onclick="reviewRecharge(${r.id}, 'reject')" class="cyber-btn" style="width:auto; padding:5px 10px; border-color:#ff3333; color:#ff3333;">❌ 驳回</button>
+                    </div>
+                </div>
+            `;
+        });
+        c.innerHTML = html;
+    } catch(e) {
+        c.innerHTML = 'Error';
+    }
+};
+
+// === 管理员：执行审核 ===
+window.reviewRecharge = async function(id, decision) {
+    if(!confirm(decision === 'approve' ? "确认款项已到账，并发放i币？" : "确认驳回？")) return;
+    
+    const res = await fetch(`${API_BASE}/admin`, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'review_recharge', id, decision })
+    });
+    const d = await res.json();
+    if(d.success) {
+        showToast("处理完成", "success");
+        loadRechargeRequests();
+    } else {
+        showToast(d.error, "error");
+    }
+};
 
 
 
