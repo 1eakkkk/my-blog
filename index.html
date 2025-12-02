@@ -555,12 +555,29 @@
                 <div id="view-shop" class="view-section" style="display:none;">
                     <h2>// ITEM SHOP</h2>
     
-                    <!-- 顶部导航栏 -->
+                    <!-- 找到 view-shop 中的 tabs 容器 -->
                     <div class="shop-tabs-container">
                         <button class="shop-tab-btn active" onclick="switchShopTab('all')">全部</button>
                         <button class="shop-tab-btn" onclick="switchShopTab('vip')">💎 会员</button>
                         <button class="shop-tab-btn" onclick="switchShopTab('decoration')">🎨 装饰</button>
                         <button class="shop-tab-btn" onclick="switchShopTab('consumable')">📦 道具</button>
+                        <!-- 新增：充值入口 -->
+                        <button class="shop-tab-btn" onclick="switchShopTab('recharge')" style="color:#00ff00; border-color:#00ff00;">🔋 充值</button>
+                    </div>
+                    
+                    <!-- 在 shop-list 上方增加一个隐藏的卡密兑换区 (仅在充值Tab显示) -->
+                    <div id="recharge-area" style="display:none; max-width:500px; margin:0 auto 20px; text-align:center;">
+                        <div class="glass-card" style="padding:20px; border:1px solid #00ff00;">
+                            <h3 style="color:#00ff00; margin-top:0;">卡密兑换 / REDEEM CODE</h3>
+                            <p style="font-size:0.8rem; color:#aaa; margin-bottom:10px;">请输入您获取的充值卡密（CDK）</p>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="cdkInput" class="cyber-input" placeholder="XXXX-XXXX-XXXX" style="margin:0;">
+                                <button onclick="redeemCdk()" class="cyber-btn" style="width:auto; margin:0; border-color:#00ff00; color:#00ff00;">兑换</button>
+                            </div>
+                        </div>
+                        
+                        <div style="margin: 20px 0; border-bottom: 1px dashed #333;"></div>
+                        <h3 style="margin-bottom:15px;">选择充值档位</h3>
                     </div>
 
                     <!-- 商品列表容器 -->
@@ -923,6 +940,7 @@
     <script src="script.js?v=8.10"></script>
 </body>
 </html>
+
 
 
 
