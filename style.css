@@ -3268,6 +3268,20 @@ body.bg-fire {
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+.recharge-option {
+    border: 1px solid #333;
+    background: rgba(255,255,255,0.05);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+    min-width: 100px;
+}
+.recharge-option.active {
+    border-color: #00ff00;
+    background: rgba(0, 255, 0, 0.1);
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+}
 
 
 
