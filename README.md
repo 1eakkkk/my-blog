@@ -5,7 +5,7 @@
 
 ## 2) 技术栈
 *   **前端 Core**: 原生 JavaScript (ES6+), HTML5, CSS3 (CSS Variables, Flexbox/Grid, Animations).
-*   **前端库**: `Marked.js` (Markdown渲染), `DOMPurify` (XSS防护), `Cloudflare Turnstile` (人机验证).
+*   **前端库**: *Marked.js* (Markdown渲染),*DOMPurify* (XSS防护), *Cloudflare Turnstile* (人机验证).
 *   **后端 (Serverless)**: Cloudflare Pages Functions (运行在 Edge 上的 Node.js 环境).
 *   **数据库**: Cloudflare D1 (SQLite).
 *   **对象存储**: Cloudflare R2 (存储图片/视频).
@@ -57,7 +57,7 @@
 ```
 
 ## 4) 功能模块摘要
-*   **script.js**: 巨型控制器。新增了 `exploreNode` (节点探索)、`loadDuels/watchReplay` (格斗与回放动画)、`checkBroadcasts` (全服HUD广播) 等游戏化逻辑。
+*   **script.js**: 巨型控制器。新增了*exploreNode* (节点探索)、*loadDuels/watchReplay* (格斗与回放动画)、*checkBroadcasts* (全服HUD广播) 等游戏化逻辑。
 *   **node.js**: 处理“N.O.D.E 控制台”的随机事件（80+种事件，含稀有度分级）、概率计算及全服稀有掉落日志。
 *   **duel.js**: 处理“数据格斗场”的下注、石头剪刀布胜负判定、每日限制及历史回放数据查询。
 *   **broadcast.js**: 处理全服播报卡的购买消耗、内容提交及有效期管理。
@@ -66,41 +66,41 @@
 
 ## 5) 数据库结构
 基于 SQL 查询推断的主要表结构：
-*   **users**: `id`, `username`, `password`, `nickname`, `coins`, `xp`, `role`, `is_vip`, `last_node_explore_date` (节点探索CD) 等。
-*   **user_items**: 背包表，新增支持 `consumable` 类型道具的使用逻辑。
-*   **duels**: `id`, `creator_id`, `bet_amount`, `creator_move`, `challenger_id`, `challenger_move`, `winner_id`, `status`, `created_at`。
-*   **user_daily_limits**: `user_id`, `date_key`, `duel_count` (防止赌博上瘾)。
-*   **broadcasts**: `id`, `user_id`, `tier` (high/low), `content`, `style_color`, `status` (pending/active), `end_time`。
-*   **node_public_logs**: `username`, `event_type`, `message` (用于记录传说级事件跑马灯)。
-*   **system_settings**: Key-Value 表，用于存储全局开关（如 `turnstile_enabled`）。
+*   **users**
+*   **user_items**: 背包表，新增支持消耗类型道具的使用逻辑。
+*   **duels**
+*   **user_daily_limits**
+*   **broadcasts**
+*   **node_public_logs**
+*   **system_settings**
 
 ## 6) 全局逻辑流
 1.  **节点探索**: 用户点击探索 -> 后端计算概率（含保底/故障/传说掉落） -> 返回结果与稀有度 -> 前端播放震屏/光效并实时更新余额。
-2.  **PVP格斗**: 用户 A 发起悬赏（扣除 i 币） -> 用户 B 接受挑战（扣除 i 币） -> 后端计算胜负 -> 前端通过 `id="duel-overlay"` 播放全屏对撞动画 -> 资金划转。
-3.  **全服广播**: 用户使用道具提交内容 -> 管理员后台审核通过 -> 所有在线用户通过轮询 (`checkBroadcasts`) 获取生效列表 -> 屏幕出现全息 HUD 弹窗。
-4.  **安全配置**: 登录页加载时请求 `/api/config`，根据后端返回决定是否显示和校验 Cloudflare Turnstile。
+2.  **PVP格斗**: 用户 A 发起悬赏（扣除 i 币） -> 用户 B 接受挑战（扣除 i 币） -> 后端计算胜负 -> 前端通过 *id="duel-overlay"* 播放全屏对撞动画 -> 资金划转。
+3.  **全服广播**: 用户使用道具提交内容 -> 管理员后台审核通过 -> 所有在线用户通过轮询 (*checkBroadcasts*) 获取生效列表 -> 屏幕出现全息 HUD 弹窗。
+4.  **安全配置**: 登录页加载时请求 */api/config*，根据后端返回决定是否显示和校验 Cloudflare Turnstile。
 
 ## 7) 编码风格
-*   **命名规范**: JS 变量 `camelCase`，数据库字段 `snake_case`。
+*   **命名规范**: JS 变量 *camelCase*，数据库字段 *snake_case*。
 *   **前端交互**: 
-    *   复杂动画（如格斗回放、HUD）使用全屏 `div` 遮罩 + CSS 动画类切换（`.add('scanning')`）。
-    *   移动端适配优先使用 Flex 布局调整方向（`flex-direction: column`）而非简单的缩放。
+    *   复杂动画（如格斗回放、HUD）使用全屏 `div` 遮罩 + CSS 动画类切换（*.add('scanning')*）。
+    *   移动端适配优先使用 Flex 布局调整方向（*flex-direction: column*）而非简单的缩放。
     *   数据加载完成后，通过 DOM 操作直接更新 UI（如金币跳动），减少页面刷新。
 *   **后端逻辑**: 
-    *   关键交易逻辑（如 PVP 结算、道具消耗）必须使用 `db.batch()` 事务。
-    *   必须校验 `creator_id` 与 `session.user_id` 确保操作权限。
-    *   API 返回结构统一为 `{ success: true, data... }` 或 `{ success: false, error: "..." }`。
+    *   关键交易逻辑（如 PVP 结算、道具消耗）必须使用 *db.batch()* 事务。
+    *   必须校验 *creator_id* 与 *session.user_id* 确保操作权限。
+    *   API 返回结构统一为 *{ success: true, data... }* 或 *{ success: false, error: "..." }*。
  
 ## 8) 修改规则 (开发规范)
-1.  **HTML 结构**: 严禁在 `index.html` 中保留重复的 ID 元素（如 `duel-overlay`），这会导致 JS 选择器失效。
-2.  **Z-Index 管理**: 全屏遮罩层（如回放、广播 HUD）的 `z-index` 必须设置为极大值（如 `2147483647`），并使用 `!important` 防止被背景特效覆盖。
-3.  **移动端适配**: 新增复杂界面时，必须在 `style.css` 底部添加 `@media (max-width: 768px)` 块，调整布局（如将横排按钮改为竖排）。
+1.  **HTML 结构**: 严禁在 *index.html* 中保留重复的 ID 元素（如 *duel-overlay*），这会导致 JS 选择器失效。
+2.  **Z-Index 管理**: 全屏遮罩层（如回放、广播 HUD）的 `z-index` 必须设置为极大值（如 *2147483647*），并使用 *!important* 防止被背景特效覆盖。
+3.  **移动端适配**: 新增复杂界面时，必须在 *style.css* 底部添加 *@media (max-width: 768px)* 块，调整布局（如将横排按钮改为竖排）。
 4.  **防刷逻辑**: 涉及 i 币交易的功能，必须在后端校验余额、每日次数限制，并防止自己与自己交互。
 
 ## 9) 版本快照 (v8.10)
 *   **当前状态**: 拥有丰富娱乐功能的赛博朋克社区。
 *   **新增特性**:
-    *   **N.O.D.E 控制台**: 60+ 随机事件，含 VIP 掉落和全服跑马灯。
+    *   **N.O.D.E 控制台**: 80+ 随机事件，含 VIP 掉落和全服跑马灯。
     *   **数据格斗场**: 石头剪刀布博弈，全屏粒子对撞动画，支持历史回放。
     *   **全服播报**: 高级/低级广播卡，全息 HUD 视觉通知，含管理员审核流。
     *   **系统开关**: 支持动态关闭人机验证。
