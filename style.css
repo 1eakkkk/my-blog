@@ -3453,6 +3453,28 @@ body.bg-fire {
     transform: none;
 }
 
+/* --- style.css 修改 --- */
+
+/* 统一图标容器的大小和对齐方式 */
+.item-icon {
+    width: 80px;           /* 限制容器宽度 */
+    height: 80px;          /* 限制容器高度 */
+    margin: 0 auto 15px;   /* 居中显示，并与下方文字保持间距 */
+    
+    display: flex;         /* 使用 Flex 布局 */
+    align-items: center;   /* 垂直居中 */
+    justify-content: center; /* 水平居中 */
+    
+    font-size: 3.5rem;     /* 调整 Emoji 图标的大小，使其与图片接近 */
+}
+
+/* 专门限制图片的大小，防止撑爆容器 */
+.item-icon img {
+    max-width: 100% !important;  /* 宽度不超过容器 */
+    max-height: 100% !important; /* 高度不超过容器 */
+    object-fit: contain;         /* 保持图片比例，不拉伸 */
+    display: block;
+}
 
 
 
