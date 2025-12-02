@@ -2920,6 +2920,7 @@ const SHOP_CATALOG = [
     // === 📢 全服播报卡 (Broadcast) ===
     { id: 'broadcast_low', cost: 500, name: '基础信标卡', type: 'consumable', category: 'consumable', icon: '📡', rarity: 'rare', desc: '全服广播(系统预设)，持续24h' },
     { id: 'broadcast_high', cost: 2000, name: '骇客宣言卡', type: 'consumable', category: 'consumable', icon: '🛰️', rarity: 'legendary', desc: '自定义全服广播(支持幻彩)，持续24h' },
+    { id: 'item_algo_frag', name: '加速算法碎片', type: 'consumable', category: 'consumable', icon: '<img src="https://img.1eak.cool/jiasuhexin.png" style="width:100%;height:100%;object-fit:contain;">', rarity: 'legendary', desc: '稀有的数据碎片，可用于系统升级(功能开发中)。'},
     
     // === 🌌 网页背景 (Backgrounds) ===
     { id: 'bg_matrix', cost: 500, name: '矩阵数据流', type: 'decoration', category: 'background', icon: '👾', rarity: 'rare', desc: '黑客潜行风格（网页背景）' },
@@ -4243,6 +4244,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
