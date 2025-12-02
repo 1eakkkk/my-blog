@@ -2744,24 +2744,41 @@ async function loadLeaderboard() {
 }
 
 window.buyItem = async function(itemId) {
-    if(!confirm("确定购买此商品吗？")) return;
+    // 查找商品信息
+    const item = SHOP_CATALOG.find(i => i.id === itemId);
+    if (!item) return showToast("商品数据错误", "error");
+
+    let quantity = 1;
+
+    // 如果是消耗品 (种子/卡片)，询问数量
+    if (item.type === 'consumable') {
+        const input = prompt(`请输入购买 [${item.name}] 的数量 (单价: ${item.cost})`, "1");
+        if (input === null) return; // 取消
+        quantity = parseInt(input);
+        if (isNaN(quantity) || quantity < 1) return showToast("数量无效", "error");
+        
+        if (!confirm(`确认购买 ${quantity} 个 [${item.name}]？\n总价: ${quantity * item.cost} i币`)) return;
+    } else {
+        // 非消耗品 (VIP/装饰) 直接确认
+        if(!confirm(`确定购买 [${item.name}] 吗？\n价格: ${item.cost} i币`)) return;
+    }
     
     try {
         const res = await fetch(`${API_BASE}/shop`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'buy_vip', itemId: itemId })
+            body: JSON.stringify({ action: 'buy', itemId: itemId, quantity: quantity })
         });
         const data = await res.json();
         
         if (data.success) {
             showToast(data.message, 'success');
-            checkSecurity(); // 刷新状态
+            checkSecurity(); // 刷新余额
         } else {
             showToast(data.error, 'error');
         }
     } catch(e) {
-        showToast("购买失败", 'error');
+        showToast("购买失败: 网络错误", 'error');
     }
 };
 
@@ -4329,6 +4346,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
