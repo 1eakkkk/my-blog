@@ -570,6 +570,47 @@
                                     <button onclick="bizWithdraw()" class="cyber-btn" style="border-color:#f33; color:#f33;">提现 (含税)</button>
                                 </div>
                             </div>
+                            <!-- 在 biz-dashboard 里，资本运作卡片下方添加 -->
+
+                            <div class="glass-card" style="margin-top:20px; border-color:#00f3ff; min-height:400px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                                    <h3 style="color:#00f3ff; margin:0;">📊 二级市场 / STOCK EXCHANGE</h3>
+                                    <button onclick="loadStockMarket()" class="mini-action-btn">🔄 刷新行情</button>
+                                </div>
+                            
+                                <!-- K线图区域 -->
+                                <div class="stock-chart-container" style="height:200px; border:1px solid #333; background:rgba(0,0,0,0.5); position:relative; overflow:hidden;">
+                                    <!-- Canvas 画布 -->
+                                    <canvas id="stockCanvas" width="600" height="200"></canvas>
+                                    <div id="stockPriceLabel" style="position:absolute; top:10px; right:10px; font-size:1.5rem; font-weight:bold; color:#fff;"></div>
+                                </div>
+                            
+                                <!-- 股票切换 Tab -->
+                                <div class="shop-tabs-container" style="margin:15px 0;">
+                                    <button class="stock-tab active" onclick="switchStock('BLUE')">🛡️ 蓝盾 (稳健)</button>
+                                    <button class="stock-tab" onclick="switchStock('GOLD')">⚡ 神经元 (成长)</button>
+                                    <button class="stock-tab" onclick="switchStock('RED')">💥 荒坂 (高危)</button>
+                                </div>
+                            
+                                <!-- 交易操作区 -->
+                                <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                                    <!-- 左侧：当前持仓 -->
+                                    <div style="flex:1; min-width:200px; padding:10px; background:rgba(255,255,255,0.05); border-radius:4px;">
+                                        <div style="font-size:0.8rem; color:#aaa;">当前持仓 (POSITION)</div>
+                                        <div id="myStockAmount" style="font-size:1.2rem; font-weight:bold;">0 股</div>
+                                        <div id="myStockProfit" style="font-size:0.9rem;">浮动盈亏: --</div>
+                                    </div>
+                            
+                                    <!-- 右侧：买卖 -->
+                                    <div style="flex:1; min-width:200px; display:flex; gap:5px; align-items:center;">
+                                        <input type="number" id="stockTradeAmount" class="cyber-input" placeholder="数量" style="width:80px; margin:0;">
+                                        <button onclick="tradeStock('buy')" class="cyber-btn" style="margin:0; border-color:#0f0; color:#0f0;">买入</button>
+                                        <button onclick="tradeStock('sell')" class="cyber-btn" style="margin:0; border-color:#f33; color:#f33;">卖出</button>
+                                        <!-- 仅限黑域工作室显示的按钮 -->
+                                        <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="margin:0; display:none; border-color:gold; color:gold;">平空</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1164,6 +1205,7 @@
     <script src="script.js?v=8.15"></script>
 </body>
 </html>
+
 
 
 
