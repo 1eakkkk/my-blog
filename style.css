@@ -259,9 +259,13 @@ header { display: flex; justify-content: space-between; color: var(--text-dim); 
 .cyber-textarea { height: 200px; resize: vertical; }
 .cyber-input:focus, .cyber-textarea:focus { border-color: var(--accent-blue); outline: none; }
 
-/* 文章详情页布局 */
-.full-article { border: 1px solid var(--border-color); padding: 2rem; margin-top: 1rem; background: #0e0e0e; }
-.article-body { white-space: pre-wrap; line-height: 1.6; color: #ddd; }
+/* 文章详情页布局 - 修复双层边框问题 */
+.full-article { 
+    border: none;       /* 去掉外框 */
+    padding: 0;         /* 去掉内边距，让卡片撑满 */
+    margin-top: 1rem; 
+    background: transparent; /* 背景透明 */
+}.article-body { white-space: pre-wrap; line-height: 1.6; color: #ddd; }
 .back-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; margin-bottom: 10px; font-family: var(--font-tech); }
 .back-btn:hover { color: #fff; }
 
@@ -3234,6 +3238,7 @@ body.bg-fire {
     /* 结算时稍微放大图标，更有冲击力 */
     transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
 
 
 
