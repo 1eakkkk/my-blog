@@ -578,11 +578,33 @@
                                     <button onclick="loadStockMarket()" class="mini-action-btn">🔄 刷新行情</button>
                                 </div>
                             
-                                <!-- K线图区域 -->
-                                <div class="stock-chart-container" style="height:200px; border:1px solid #333; background:rgba(0,0,0,0.5); position:relative; overflow:hidden;">
-                                    <!-- Canvas 画布 -->
-                                    <canvas id="stockCanvas" width="600" height="200"></canvas>
-                                    <div id="stockPriceLabel" style="position:absolute; top:10px; right:10px; font-size:1.5rem; font-weight:bold; color:#fff;"></div>
+                                <div class="stock-stats-row" style="display:flex; justify-content:space-between; margin-bottom:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:4px; border:1px solid #333;">
+                                    <div class="stat-box">
+                                        <div class="label">OPEN (开盘)</div>
+                                        <div class="val" id="stockOpen">--</div>
+                                    </div>
+                                    <div class="stat-box">
+                                        <div class="label">HIGH (最高)</div>
+                                        <div class="val" id="stockHigh" style="color:#0f0;">--</div>
+                                    </div>
+                                    <div class="stat-box">
+                                        <div class="label">LOW (最低)</div>
+                                        <div class="val" id="stockLow" style="color:#f33;">--</div>
+                                    </div>
+                                    <div class="stat-box">
+                                        <div class="label">CURRENT (现价)</div>
+                                        <div class="val" id="stockCurrent" style="font-size:1.2rem; font-weight:bold;">--</div>
+                                    </div>
+                                </div>
+                            
+                                <!-- K线图区域 (去掉了内部的 label) -->
+                                <div class="stock-chart-container" style="height:220px; border:1px solid #333; background:rgba(0,0,0,0.8); position:relative; overflow:hidden; margin-bottom:15px;">
+                                    <canvas id="stockCanvas" width="600" height="220"></canvas>
+                                    <!-- 休市遮罩层 -->
+                                    <div id="marketClosedMask" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); color:#f33; align-items:center; justify-content:center; flex-direction:column; font-size:1.5rem; font-weight:bold;">
+                                        <div>🚫 MARKET CLOSED</div>
+                                        <div style="font-size:0.8rem; color:#fff; margin-top:5px;">TRADING HOURS: 06:00 - 02:00</div>
+                                    </div>
                                 </div>
                             
                                 <!-- 股票切换 Tab -->
@@ -1205,6 +1227,7 @@
     <script src="script.js?v=8.16"></script>
 </body>
 </html>
+
 
 
 
