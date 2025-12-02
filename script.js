@@ -1503,7 +1503,9 @@ async function handleRoute() {
         if(views.notifications) views.notifications.style.display = 'block';
         const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
         loadNotifications();
-        // ... 在 handleRoute 内部 ...
+    } else if (hash === '#business') {
+        if(views.business) document.getElementById('view-business').style.display = 'block'; // 假设你已把 view-business 加到 views 对象里，没加的话直接用 getElementById
+        loadBusiness();
     } else if (hash.startsWith('#profile?u=')) {
         if(views.profile) document.getElementById('view-profile').style.display = 'block'; // 注意这里 HTML ID 是 view-profile
         const u = hash.split('=')[1];
@@ -4538,6 +4540,185 @@ window.resetNavOrder = function() {
     location.reload();
 };
 
+// === 创业系统逻辑 ===
+
+async function loadBusiness() {
+    const createPanel = document.getElementById('biz-create-panel');
+    const dashboard = document.getElementById('biz-dashboard');
+    const marketTicker = document.getElementById('marketTicker');
+    
+    // Loading
+    marketTicker.innerText = "CONNECTING TO STOCK MARKET...";
+    
+    try {
+        const res = await fetch(`${API_BASE}/business`);
+        const data = await res.json();
+        
+        // 1. 显示市场行情
+        const trendIcon = data.market.val > 0 ? '📈' : '📉';
+        marketTicker.innerText = `${trendIcon} ${data.market.name}`;
+        marketTicker.style.color = data.market.val > 0 ? '#0f0' : (data.market.val < 0 ? '#f33' : '#fff');
+
+        if (data.bankrupt) {
+            alert(`💔 噩耗：\n${data.report.msg}\n\n公司已破产清算，剩余资金归零。请重新创业。`);
+            createPanel.style.display = 'block';
+            dashboard.style.display = 'none';
+            return;
+        }
+
+        if (data.hasCompany) {
+            // 显示仪表盘
+            createPanel.style.display = 'none';
+            dashboard.style.display = 'block';
+            
+            const c = data.company;
+            document.getElementById('bizCapital').innerText = c.capital.toLocaleString();
+            
+            // 翻译类型
+            const typeNames = {'shell':'数据作坊', 'startup':'科技独角兽', 'blackops':'黑域工作室'};
+            document.getElementById('bizTypeDisplay').innerText = typeNames[c.type];
+
+            // 每日财报弹窗/显示
+            if (data.todayReport) {
+                const r = data.todayReport;
+                const color = r.profit >= 0 ? '#0f0' : '#f33';
+                const sign = r.profit >= 0 ? '+' : '';
+                document.getElementById('bizLastSettle').innerHTML = 
+                    `<span style="color:${color}">${r.msg} (${sign}${r.rate}%) 盈亏: ${sign}${r.profit}</span>`;
+                
+                // 如果有新财报，弹个 Toast
+                showToast(`今日财报: ${sign}${r.profit} i币`, r.profit>=0 ? 'success':'error');
+                checkSecurity(); // 刷新余额
+            }
+
+            // 更新策略按钮状态
+            document.querySelectorAll('.strategy-selector button').forEach(b => b.classList.remove('active'));
+            const map = {'safe':'btn-strat-safe', 'normal':'btn-strat-normal', 'risky':'btn-strat-risky'};
+            // 注意数据库存的是 'conservative' 等，要做个映射或者后端统一
+            // 后端存的是 safe/normal/risky 吗？回头看代码...
+            // 后端存的是 conservative/normal/aggressive? 
+            // 修正：前端按钮传参 safe/normal/risky，后端存的也是这个。
+            // 检查后端代码：
+            // 后端代码第80行：strategy === 'conservative' ...
+            // 后端代码第125行：if (!['safe', 'normal', 'risky'].includes(strategy))
+            
+            // --- 修正后端代码的小笔误 ---
+            // 后端接收 safe，但逻辑里写的是 conservative。
+            // **重要修正**：请确保后端 `business.js` 第 80 行左右判断的是 `safe` 和 `risky`，或者前端传 `conservative`。
+            // 建议：统一用 safe, normal, risky。
+            
+            // 假设后端已修复为 safe/risky，前端高亮：
+            let currentStrat = c.strategy; 
+            if(currentStrat === 'conservative') currentStrat = 'safe'; // 兼容
+            if(currentStrat === 'aggressive') currentStrat = 'risky'; // 兼容
+            
+            const btnId = `btn-strat-${currentStrat}`;
+            if(document.getElementById(btnId)) document.getElementById(btnId).classList.add('active');
+
+        } else {
+            // 显示创建页
+            createPanel.style.display = 'block';
+            dashboard.style.display = 'none';
+        }
+
+    } catch(e) {
+        console.error(e);
+        showToast("无法连接交易所", "error");
+    }
+}
+
+// 选择创业方案
+window.selectBizPlan = function(type) {
+    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+    // 找到对应的卡片高亮 (这里简单粗暴点，实际建议给卡片加 id)
+    event.currentTarget.classList.add('selected');
+    document.getElementById('selectedBizType').value = type;
+};
+
+// 创建公司
+window.createCompany = async function() {
+    const type = document.getElementById('selectedBizType').value;
+    const name = document.getElementById('newCompanyName').value.trim();
+    
+    if(!type) return showToast("请选择一种创业方案", "error");
+    if(!name) return showToast("请输入公司名称", "error");
+    
+    if(!confirm(`确定花费 i币 创建 [${name}] 吗？`)) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/business`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'create', type, name })
+        });
+        const data = await res.json();
+        if(data.success) {
+            showToast(data.message, "success");
+            checkSecurity();
+            loadBusiness();
+        } else {
+            showToast(data.error, "error");
+        }
+    } catch(e) { showToast("网络错误"); }
+};
+
+// 调整策略
+window.setStrategy = async function(strat) {
+    try {
+        const res = await fetch(`${API_BASE}/business`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'set_strategy', strategy: strat })
+        });
+        const data = await res.json();
+        if(data.success) {
+            showToast(data.message, "success");
+            loadBusiness(); // 刷新高亮
+        } else {
+            showToast(data.error, "error");
+        }
+    } catch(e) { showToast("操作失败"); }
+};
+
+// 注资
+window.bizInvest = async function() {
+    const amount = prompt("请输入追加投资金额 (至少 100):");
+    if(!amount) return;
+    
+    const res = await fetch(`${API_BASE}/business`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'invest', amount })
+    });
+    const data = await res.json();
+    if(data.success) {
+        showToast(data.message, "success");
+        checkSecurity();
+        loadBusiness();
+    } else {
+        showToast(data.error, "error");
+    }
+};
+
+// 提现
+window.bizWithdraw = async function() {
+    const amount = prompt("请输入提现金额 (收取10%手续费):");
+    if(!amount) return;
+    
+    const res = await fetch(`${API_BASE}/business`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'withdraw', amount })
+    });
+    const data = await res.json();
+    if(data.success) {
+        showToast(data.message, "success");
+        checkSecurity();
+        loadBusiness();
+    } else {
+        showToast(data.error, "error");
+    }
+};
 
 
 
