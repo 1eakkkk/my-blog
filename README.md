@@ -68,14 +68,29 @@
 *   **style.css**: 对“数据格斗场”添加了“虚空全息”风格界面、粒子对撞动画、全屏 HUD 广播特效及移动端深度适配。
 
 ## 5) 数据库结构
-基于 SQL 查询推断的主要表结构：
-*   **users**
-*   **user_items**: 背包表，新增支持消耗类型道具的使用逻辑。
-*   **duels**
-*   **user_daily_limits**
-*   **broadcasts**
-*   **node_public_logs**
-*   **system_settings**
+数据库目前拥有
+```text
+SELECT
+posts.*,
+posts.total_coins,
+users.username as author_username,
+users.nickname as author_nickname,
+users.is_vip as author_vip,
+users.level as author_level,
+users.xp as author_xp,
+users.avatar_variant as author_avatar_variant,
+users.avatar_url as author_avatar_url,
+users.role as author_role,
+users.custom_title as author_title,
+users.custom_title_color as author_title_color,
+users.badge_preference as author_badge_preference,
+users.equipped_post_style as author_equipped_post_style,
+users.name_color as author_name_color,
+(SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = 3) as is_liked,
+(SELECT COUNT(*) FROM comments WHERE post_id = posts.id) as comment_count
+FROM posts JOIN users ON posts.user_id = users.id ORDER BY (posts.category = '公告') DESC, posts.is_pinned DESC, posts.created_at DESC LIMIT ? OFFSET ?
+```
+等一系列数据，由于篇幅关系，暂时不列太多。
 
 ## 6) 全局逻辑流
 1.  **节点探索**: 用户点击探索 -> 后端计算概率（含保底/故障/传说掉落） -> 返回结果与稀有度 -> 前端播放震屏/光效并实时更新余额。
