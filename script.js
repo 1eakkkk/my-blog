@@ -43,9 +43,9 @@ const LEVEL_TABLE = [
 
 // 种子配置 (对应后端)
 const SEED_CATALOG = [
-    { id: 'seed_moss', name: '低频缓存苔藓', timeStr: '4小时', icon: '🌿', cost: '20 i' },
-    { id: 'seed_quantum', name: '量子枝条', timeStr: '12小时', icon: '🎋', cost: '100 i' },
-    { id: 'seed_vine', name: '修复算法藤', timeStr: '24小时', icon: '🧬', cost: '300 i' }
+    { id: 'seed_moss', name: '低频缓存苔藓', timeStr: '4小时', img: 'https://img.1eak.cool/dipintaixian.png', cost: '20 i' },
+    { id: 'seed_quantum', name: '量子枝条', timeStr: '12小时', img: 'https://img.1eak.cool/liangzizhitiao.png', cost: '100 i' },
+    { id: 'seed_vine', name: '修复算法藤', timeStr: '24小时', img: 'https://img.1eak.cool/suanfateng.png, cost: '300 i' }
 ];
 
 // 打工配置
@@ -4020,7 +4020,7 @@ function renderHomeGrid(items) {
         
         if (item) {
             // 有植物
-            const config = SEED_CATALOG.find(s => s.id === item.item_id) || { name: '未知', icon: '❓' };
+            const config = SEED_CATALOG.find(s => s.id === item.item_id) || { name: '未知', img: '' };
             const now = Date.now();
             const isReady = now >= item.harvest_at;
             
@@ -4048,7 +4048,7 @@ function renderHomeGrid(items) {
             }
             
             div.innerHTML = `
-                <div class="slot-icon">${config.icon}</div>
+                <div class="slot-icon" style="background-image: url('${config.img}');"></div>
                 <div class="slot-name">${config.name}</div>
                 ${statusHtml}
             `;
@@ -4150,7 +4150,8 @@ window.openSeedSelector = function(slotIndex) {
         div.style.alignItems = 'center';
         div.style.padding = '10px';
         div.innerHTML = `
-            <div style="font-size:1.5rem; margin-right:10px;">${s.icon}</div>
+            <!-- 修改这里：用 img 标签显示预览 -->
+            <div class="item-icon-small" style="background-image: url('${s.img}');"></div>
             <div style="flex:1;">
                 <div style="font-weight:bold;">${s.name}</div>
                 <div style="font-size:0.7rem; color:#888;">周期: ${s.timeStr}</div>
@@ -4242,6 +4243,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
