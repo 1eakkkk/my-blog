@@ -4846,26 +4846,29 @@ function handleChartLeave() {
 
 // script.js - 核心绘图函数 (响应式 + 高清版)
 
+// script.js - 核心绘图函数 (终极修复版)
+
 function drawInteractiveChart(symbol, mousePos) {
     const canvas = document.getElementById('stockCanvas');
     const container = document.querySelector('.stock-chart-container');
     if (!canvas || !container) return;
     
     const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
     
+    // === 1. 响应式与高清屏处理 ===
+    const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
-    const cssWidth = rect.width;
-    const cssHeight = rect.height;
+    const cssWidth = rect.width || 600;
+    const cssHeight = rect.height || 220;
     
     canvas.width = cssWidth * dpr;
     canvas.height = cssHeight * dpr;
-
     ctx.scale(dpr, dpr);
 
     const width = cssWidth;
     const height = cssHeight;
 
+    // === 2. 定义绘图区域 ===
     const isMobile = width < 400;
     const padding = { 
         top: 20, 
@@ -4875,8 +4878,11 @@ function drawInteractiveChart(symbol, mousePos) {
     };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
+
+    // 清空画布
     ctx.clearRect(0, 0, width, height);
     
+    // 安全检查
     if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
         ctx.fillStyle = '#666';
         ctx.font = '14px sans-serif';
@@ -4884,10 +4890,8 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText("WAITING FOR DATA STREAM...", width/2, height/2);
         return; 
     }
+
     const data = marketData[symbol]; 
-    // 注意：这里不需要 clearRect，因为重设 canvas.width 自动清空了画布
-    
-    if(!data || data.length === 0) return;
 
     // === 3. 数据计算 ===
     let minP = Infinity, maxP = -Infinity;
@@ -4900,11 +4904,12 @@ function drawInteractiveChart(symbol, mousePos) {
     const yMin = Math.floor(minP - rangeBuffer * 0.2); 
     const yMax = Math.ceil(maxP + rangeBuffer * 0.2);
     const yRange = yMax - yMin;
+
+    const currentPrice = data[data.length - 1].p;
+    const openPrice = (marketOpens && marketOpens[symbol]) ? marketOpens[symbol] : data[0].p;
+
+    // === 4. 更新看板 (无交互时) ===
     if (!mousePos) {
-        const openPrice = marketOpens[symbol] || data[0].p;
-        const currentPrice = data[data.length - 1].p;
-        
-        // 安全更新 DOM
         const elOpen = document.getElementById('stockOpen');
         const elHigh = document.getElementById('stockHigh');
         const elLow = document.getElementById('stockLow');
@@ -4919,20 +4924,10 @@ function drawInteractiveChart(symbol, mousePos) {
         }
     }
 
-    // 更新看板 (无交互时)
-    if (!mousePos) {
-        document.getElementById('stockOpen').innerText = openPrice;
-        document.getElementById('stockHigh').innerText = maxP;
-        document.getElementById('stockLow').innerText = minP;
-        const curEl = document.getElementById('stockCurrent');
-        curEl.innerText = currentPrice;
-        curEl.style.color = currentPrice >= openPrice ? '#0f0' : '#f33';
-    }
-
     const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
     const themeColor = colorMap[symbol];
 
-    // === 4. 绘制网格 ===
+    // === 5. 绘制网格与坐标轴 ===
     ctx.lineWidth = 1;
     ctx.font = '10px JetBrains Mono';
     
@@ -4954,7 +4949,7 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText(Math.floor(val), padding.left - 5, y);
     }
 
-    // 竖线 (时间) - 手机上少画几条，防止拥挤
+    // 竖线 (时间)
     const xStep = chartW / (data.length - 1);
     const xStepsCount = isMobile ? 4 : 6; 
     const timeInterval = Math.floor((data.length - 1) / (xStepsCount - 1));
@@ -4977,8 +4972,8 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText(timeStr, x, height - padding.bottom + 5);
     }
 
-    // === 5. 绘制坐标轴标题 ===
-    if (!isMobile) { // 手机空间小，就不画这两个标题了
+    // 坐标轴标题
+    if (!isMobile) {
         ctx.fillStyle = '#aaa';
         ctx.font = 'bold 12px JetBrains Mono';
         
@@ -5010,16 +5005,16 @@ function drawInteractiveChart(symbol, mousePos) {
     ctx.shadowBlur = 0;
 
     // === 7. 交互 / 最后一个点 ===
-    if (!mousePos) {
-        const lastIdx = data.length - 1;
-        const lastX = padding.left + (lastIdx * xStep);
-        const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
-        
-        ctx.beginPath();
-        ctx.fillStyle = themeColor;
-        ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
-        ctx.fill();
-    }
+    if (mousePos) {
+        // --- 鼠标交互模式 ---
+        let index = Math.round((mousePos.x - padding.left) / xStep);
+        if (index < 0) index = 0;
+        if (index >= data.length) index = data.length - 1;
+
+        const target = data[index];
+        const pointX = padding.left + (index * xStep);
+        const pointY = padding.top + chartH - ((target.p - yMin) / yRange * chartH);
+
         // 十字线
         ctx.beginPath();
         ctx.strokeStyle = '#fff';
@@ -5040,7 +5035,7 @@ function drawInteractiveChart(symbol, mousePos) {
 
         // 浮窗
         const date = new Date(target.t);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
+        const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
         const infoText = `${timeStr} | ¥${target.p}`;
         
         ctx.font = '12px sans-serif';
@@ -5063,7 +5058,7 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText(infoText, boxX + 10, boxY + 12);
 
     } else {
-        // 呼吸灯点
+        // --- 默认模式 (最后一个点) ---
         const lastIdx = data.length - 1;
         const lastX = padding.left + (lastIdx * xStep);
         const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
@@ -5073,6 +5068,7 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
         ctx.fill();
         
+        // 虚线指向Y轴
         ctx.beginPath();
         ctx.setLineDash([2, 4]);
         ctx.strokeStyle = 'rgba(255,255,255,0.3)';
@@ -5089,10 +5085,12 @@ function updatePositionUI(symbol) {
     const profitEl = document.getElementById('myStockProfit');
     const btnCover = document.getElementById('btnShortCover');
     
-    // === 修复点：增加安全检查 ===
-    // 如果 marketData 为空，或者没有当前股票的数据，直接停止执行，防止报错
+    // 1. 安全检查：防止 DOM 元素不存在导致报错
+    if (!amountEl || !profitEl || !btnCover) return;
+
+    // 2. 安全检查：防止数据未加载导致报错
     if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
-        if(amountEl) amountEl.innerText = "Loading...";
+        amountEl.innerText = "Loading...";
         return; 
     }
 
@@ -5101,37 +5099,48 @@ function updatePositionUI(symbol) {
     const currentPrice = history[history.length - 1].p;
 
     if (pos) {
-        amountEl.innerText = `${pos.amount} 股`;
+        // === 优化点：把均价显示出来 ===
+        // 使用 innerHTML 插入带样式的辅助文字
+        const avgPrice = Math.floor(pos.avg_price);
+        amountEl.innerHTML = `${pos.amount} 股 <span style="font-size:0.8rem; color:#888; margin-left:10px;">(均价: ${avgPrice})</span>`;
         
         // 盈亏计算
         let profit = 0;
         if (pos.amount > 0) {
             // 做多盈亏
             profit = (currentPrice - pos.avg_price) * pos.amount;
-            if(btnCover) btnCover.style.display = 'none'; 
+            btnCover.style.display = 'none'; 
         } else {
             // 做空盈亏
             profit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
-            if(btnCover) btnCover.style.display = 'inline-block'; 
+            btnCover.style.display = 'inline-block'; 
         }
         
         const sign = profit >= 0 ? '+' : '';
         const color = profit >= 0 ? '#0f0' : '#f33';
         profitEl.innerHTML = `浮动盈亏: <span style="color:${color}">${sign}${Math.floor(profit)}</span>`;
     } else {
+        // 无持仓状态
         amountEl.innerText = "0 股";
         profitEl.innerText = "浮动盈亏: --";
-        if(btnCover) btnCover.style.display = 'none';
+        btnCover.style.display = 'none';
     }
 }
 
+// === 1. 交易函数 (优化版) ===
 window.tradeStock = async function(action) {
     const amountVal = document.getElementById('stockTradeAmount').value;
     const amount = parseInt(amountVal);
     
+    // 基础校验
     if (!amount || amount <= 0) return showToast("请输入有效数量", "error");
     
-    // 简单的前端校验
+    // 安全检查：防止 companyInfo 未加载时报错
+    if (typeof companyInfo === 'undefined' || !companyInfo.type) {
+        return showToast("正在同步公司数据，请稍后...", "error");
+    }
+
+    // 卖出/做空 校验
     if (action === 'sell' && companyInfo.type !== 'blackops') {
         // 非黑域公司，卖出时检查是否有持仓
         const pos = myPositions.find(p => p.stock_symbol === currentStockSymbol);
@@ -5149,103 +5158,82 @@ window.tradeStock = async function(action) {
         if (data.success) {
             showToast("交易成功", "success");
             document.getElementById('stockTradeAmount').value = '';
+            
+            // 核心：使用新的日志系统记录操作
             addUserLog(data.log, (action === 'buy' || action === 'cover') ? 'buy' : 'sell');
+            
+            // 稍后刷新数据以更新 K 线和持仓
             setTimeout(loadStockMarket, 500); 
         } else {
             showToast(data.error, "error");
         }
-    } catch(e) { showToast("交易失败", "error"); }
+    } catch(e) { 
+        console.error(e);
+        showToast("交易请求失败", "error"); 
+    }
 };
 
-// === 股市日志渲染 ===
+// === 2. 新版日志系统 (合并渲染) ===
 
-function renderStockLogs(newsList) {
-    const list = document.getElementById('stockLogList');
-    list.innerHTML = ''; 
-    
-    if (newsList && newsList.length > 0) {
-        newsList.forEach(n => {
-            const date = new Date(n.time);
-            const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
-            const className = n.type === 'good' ? 'news-good' : 'news-bad';
-            const icon = n.type === 'good' ? '🚀' : '📉';
-            
-            const div = document.createElement('div');
-            div.className = `log-item ${className}`;
-            div.innerHTML = `<span class="log-time">[${timeStr}]</span> ${icon} ${n.msg}`;
-            list.appendChild(div);
-        });
-    } else {
-        list.innerHTML = `<div class="log-item system">市场平稳，暂无重大新闻。</div>`;
-    }
-}
-
-function addStockLog(msg, type) {
-    const list = document.getElementById('stockLogList');
-    const now = new Date();
-    const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
-    
-    const div = document.createElement('div');
-    div.className = `log-item ${type}`; // type: 'buy' or 'sell'
-    div.innerHTML = `<span class="log-time">[${timeStr}]</span> 👤 ${msg}`;
-    
-    // 插入到最前面
-    list.insertBefore(div, list.firstChild);
-}
-
-// --- script.js 新增/替换日志逻辑 ---
-
-// 合并日志到全局数组
+// 合并日志到全局数组 (核心逻辑)
 function mergeLogs(newItems, source) {
+    // 确保全局变量已定义，防止报错
+    if (typeof globalLogs === 'undefined') window.globalLogs = [];
+
     if (!newItems || newItems.length === 0) return;
 
     let hasChange = false;
     newItems.forEach(item => {
-        // 防止重复添加相同的新闻 (根据时间和内容去重)
-        // 假设 item 结构: { time: 12345678, msg: "...", type: "good" }
-        // 或者是用户操作: { time: 12345678, msg: "...", source: "user" }
-        
-        // 构造唯一标识
+        // 构造唯一标识 (时间戳+内容) 防止重复添加后端传来的新闻
         const uniqueKey = item.time + item.msg;
         
         // 检查是否已存在
         const exists = globalLogs.some(log => (log.time + log.msg) === uniqueKey);
         
         if (!exists) {
-            // 标记来源，方便渲染不同样式
+            // 标记来源
             item.source = source || 'news'; 
             globalLogs.push(item);
             hasChange = true;
         }
     });
 
+    // 如果有新数据，或者强制为用户操作，则重新排序并渲染
     if (hasChange || source === 'user') {
-        // 按时间倒序排列 (新的在简报)
+        // 按时间倒序排列 (最新的在上面)
         globalLogs.sort((a, b) => b.time - a.time);
-        // 只保留最近 50 条
+        
+        // 性能优化：只保留最近 50 条
         if (globalLogs.length > 50) globalLogs = globalLogs.slice(0, 50);
+        
         renderAllLogs();
     }
 }
 
-// 渲染所有日志
+// 渲染所有日志 (UI 逻辑)
 function renderAllLogs() {
     const list = document.getElementById('stockLogList');
     if (!list) return;
     
     list.innerHTML = '';
     
+    if (globalLogs.length === 0) {
+        list.innerHTML = `<div class="log-item system">暂无市场动态...</div>`;
+        return;
+    }
+    
     globalLogs.forEach(n => {
         const date = new Date(n.time);
+        // 修复：小时数也要补零 (09:05 而不是 9:05)
         const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
         
         let className = 'log-item';
         let icon = '';
         
         if (n.source === 'user') {
-            // 用户操作：买入/卖出
+            // 用户操作
             className += n.actionType === 'buy' ? ' buy' : ' sell';
-            icon = '👤';
+            icon = '👤'; // 用户图标
         } else {
             // 系统新闻
             className += n.type === 'good' ? ' news-good' : ' news-bad';
@@ -5259,15 +5247,16 @@ function renderAllLogs() {
     });
 }
 
-// 添加用户操作日志 (不刷新网页，直接插入数组)
+// 添加用户操作日志 (辅助函数)
 function addUserLog(msg, actionType) {
     const now = Date.now();
     const logItem = {
         time: now,
         msg: msg,
-        source: 'user',
+        source: 'user', // 标记为用户来源
         actionType: actionType // 'buy' or 'sell'
     };
+    // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
 
