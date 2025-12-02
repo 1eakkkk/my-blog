@@ -89,10 +89,8 @@ export async function onRequestPost(context) {
 
   // === 2. 审核通过/驳回 ===
   if (action === 'review_recharge') {
-      // 1. 修正：从 req 中获取 id 和 decision
       const { id, decision } = req; 
 
-      // 2. 修正：变量名改为 rechargeRecord，避免与上面的 req 冲突
       const rechargeRecord = await db.prepare("SELECT * FROM recharge_requests WHERE id = ?").bind(id).first();
       
       if (!rechargeRecord || rechargeRecord.status !== 'pending') {
@@ -101,11 +99,9 @@ export async function onRequestPost(context) {
 
       const updates = [];
       const now = Date.now();
-      const userId = rechargeRecord.user_id; // 提取用户ID
+      const userId = rechargeRecord.user_id; 
 
       if (decision === 'approve') {
-          // 解析金额：从 "0.1元 (650币)" 中提取 650
-          // 增加安全性检查，防止匹配失败报错
           const match = (rechargeRecord.amount_str || "").match(/(\d+)币/);
           const coins = match ? parseInt(match[1]) : 0;
           
@@ -115,14 +111,18 @@ export async function onRequestPost(context) {
 
           // 1. 给用户加钱
           updates.push(db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(coins, userId));
-          // 2. 更新申请状态
-          updates.push(db.prepare("UPDATE recharge_requests SET status = 'approved', updated_at = ? WHERE id = ?").bind(now, id));
+          
+          // 2. 更新申请状态 (已删除 updated_at)
+          updates.push(db.prepare("UPDATE recharge_requests SET status = 'approved' WHERE id = ?").bind(id));
+          
           // 3. 通知用户
           updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
             .bind(userId, `【充值到账】感谢支持！您的 ${coins} i币已到账。`, now));
       } else {
           // 驳回
-          updates.push(db.prepare("UPDATE recharge_requests SET status = 'rejected', updated_at = ? WHERE id = ?").bind(now, id));
+          // 更新申请状态 (已删除 updated_at)
+          updates.push(db.prepare("UPDATE recharge_requests SET status = 'rejected' WHERE id = ?").bind(id));
+          
           updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
             .bind(userId, `【充值失败】您的充值申请未通过审核 (截图无效或未收到款项)。`, now));
       }
