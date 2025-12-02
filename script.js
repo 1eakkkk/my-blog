@@ -4718,15 +4718,17 @@ let currentStockSymbol = 'BLUE';
 let marketData = {};
 let myPositions = [];
 let marketOpens = {}; // 存开盘价
+let companyInfo = {};
+
 
 // 1. 加载数据
 window.loadStockMarket = async function() {
     const canvas = document.getElementById('stockCanvas');
-    // 防止未打开页面时报错
     if(!canvas) return; 
 
-    // 显示 Loading 状态
-    document.getElementById('stockCurrent').innerText = "Loading...";
+    // 显示 Loading
+    const curEl = document.getElementById('stockCurrent');
+    if(curEl) curEl.innerText = "Loading...";
 
     try {
         const res = await fetch(`${API_BASE}/stock`);
@@ -4735,9 +4737,9 @@ window.loadStockMarket = async function() {
         if (data.success) {
             marketData = data.market;
             myPositions = data.positions;
-            marketOpens = data.opens || {}; // 获取开盘价
+            marketOpens = data.opens || {}; 
+            companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 处理休市
             const mask = document.getElementById('marketClosedMask');
             if (data.status && !data.status.isOpen) {
                 if(mask) mask.style.display = 'flex';
@@ -4747,23 +4749,49 @@ window.loadStockMarket = async function() {
                 disableTrading(false);
             }
 
-            // 更新资金显示
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
 
-            // 绑定鼠标事件 (只绑定一次，防止重复)
+            // === 修复：绑定触摸事件 ===
             if (!canvas.dataset.listening) {
+                // 鼠标
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
+                
+                // 触摸 (手机端)
+                canvas.addEventListener('touchstart', handleTouch, {passive: false});
+                canvas.addEventListener('touchmove', handleTouch, {passive: false});
+                canvas.addEventListener('touchend', handleChartLeave);
+                
                 canvas.dataset.listening = "true";
             }
 
-            // 渲染当前股票
+            // 监听窗口大小改变，重绘图表 (适配横竖屏切换)
+            window.removeEventListener('resize', resizeStockChart);
+            window.addEventListener('resize', resizeStockChart);
+
             switchStock(currentStockSymbol);
         }
     } catch(e) { console.error("Stock Load Error:", e); }
 };
+
+// 辅助：窗口大小改变时重绘
+function resizeStockChart() {
+    if(document.getElementById('stockCanvas')) {
+        drawInteractiveChart(currentStockSymbol, null);
+    }
+}
+
+// 辅助：处理触摸坐标转换
+function handleTouch(e) {
+    e.preventDefault(); // 阻止页面滚动
+    const rect = e.target.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    drawInteractiveChart(currentStockSymbol, {x, y});
+}
 
 function disableTrading(disabled) {
     const els = document.querySelectorAll('#stockTradeAmount, button[onclick^="tradeStock"]');
@@ -4802,192 +4830,196 @@ function handleChartLeave() {
     drawInteractiveChart(currentStockSymbol, null);
 }
 
-// === 5. 核心绘图函数 (终极版) ===
+// script.js - 核心绘图函数 (响应式 + 高清版)
+
 function drawInteractiveChart(symbol, mousePos) {
     const canvas = document.getElementById('stockCanvas');
-    if (!canvas) return;
+    const container = document.querySelector('.stock-chart-container');
+    if (!canvas || !container) return;
+    
     const ctx = canvas.getContext('2d');
     
-    const width = 600;
-    const height = 220;
-    canvas.width = width;
-    canvas.height = height;
+    // === 1. 响应式与高清屏处理 ===
+    // 获取容器的实际显示尺寸
+    const rect = container.getBoundingClientRect();
+    const cssWidth = rect.width;
+    const cssHeight = rect.height;
+    
+    // 获取设备像素比 (手机通常是 2 或 3)
+    const dpr = window.devicePixelRatio || 1;
+    
+    // 设置 Canvas 内部实际分辨率 (乘以上面那个倍数)
+    canvas.width = cssWidth * dpr;
+    canvas.height = cssHeight * dpr;
+    
+    // 缩放绘图上下文，这样我们画图时只需要按 cssWidth/cssHeight 思考
+    ctx.scale(dpr, dpr);
+
+    // 绘图使用的逻辑宽高
+    const width = cssWidth;
+    const height = cssHeight;
+
+    // === 2. 定义绘图区域 ===
+    // 手机屏幕窄，稍微减小一点左侧留白
+    const isMobile = width < 400;
+    const padding = { 
+        top: 20, 
+        right: isMobile ? 10 : 20, 
+        bottom: 20, 
+        left: isMobile ? 40 : 50 
+    };
+    const chartW = width - padding.left - padding.right;
+    const chartH = height - padding.top - padding.bottom;
 
     const data = marketData[symbol]; 
+    // 注意：这里不需要 clearRect，因为重设 canvas.width 自动清空了画布
+    
     if(!data || data.length === 0) return;
 
-    // === A. 计算基础数据 ===
-    // 这里的 data 是按照时间顺序排列的数组
-    
-    // 计算极值
+    // === 3. 数据计算 ===
     let minP = Infinity, maxP = -Infinity;
     data.forEach(d => {
         if(d.p < minP) minP = d.p;
         if(d.p > maxP) maxP = d.p;
     });
     
-    // Y轴范围 (上下各留 15% 缓冲)
-    const paddingVal = (maxP - minP) === 0 ? maxP * 0.1 : (maxP - minP);
-    const yMin = Math.floor(minP - paddingVal * 0.3);
-    const yMax = Math.ceil(maxP + paddingVal * 0.3);
+    const rangeBuffer = (maxP - minP) === 0 ? maxP * 0.1 : (maxP - minP);
+    const yMin = Math.floor(minP - rangeBuffer * 0.2); 
+    const yMax = Math.ceil(maxP + rangeBuffer * 0.2);
     const yRange = yMax - yMin;
 
-    // 布局边距
-    const pad = { top: 30, right: 60, bottom: 30, left: 60 }; // 右侧留宽点给价格标签
-    const chartW = width - pad.left - pad.right;
-    const chartH = height - pad.top - pad.bottom;
+    const currentPrice = data[data.length - 1].p;
+    const openPrice = marketOpens[symbol] || data[0].p;
 
-    // 颜色定义
-    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
-    const themeColor = colorMap[symbol];
-
-    // === B. 更新顶部数据看板 (修复不显示问题) ===
-    // 只有当鼠标不在图表上时，才更新为最新数据（避免闪烁）
+    // 更新看板 (无交互时)
     if (!mousePos) {
-        const openP = marketOpens[symbol] || data[0].p;
-        const currP = data[data.length - 1].p;
-        
-        document.getElementById('stockOpen').innerText = openP;
+        document.getElementById('stockOpen').innerText = openPrice;
         document.getElementById('stockHigh').innerText = maxP;
         document.getElementById('stockLow').innerText = minP;
         const curEl = document.getElementById('stockCurrent');
-        curEl.innerText = currP;
-        curEl.style.color = currP >= openP ? '#0f0' : '#f33';
+        curEl.innerText = currentPrice;
+        curEl.style.color = currentPrice >= openPrice ? '#0f0' : '#f33';
     }
 
-    // === C. 绘制网格与坐标轴 ===
-    ctx.clearRect(0, 0, width, height);
+    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    const themeColor = colorMap[symbol];
+
+    // === 4. 绘制网格 ===
     ctx.lineWidth = 1;
     ctx.font = '10px JetBrains Mono';
     
-    // C1. 横线 (价格轴)
+    // 横线 (价格)
     const ySteps = 5;
     for (let i = 0; i <= ySteps; i++) {
-        const price = yMin + (yRange / ySteps) * i;
-        const y = pad.top + chartH - ((price - yMin) / yRange * chartH);
+        const val = yMin + (yRange / ySteps) * i;
+        const y = padding.top + chartH - ((val - yMin) / yRange * chartH);
         
-        // 网格线
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.moveTo(pad.left, y);
-        ctx.lineTo(width - pad.right, y);
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
         ctx.stroke();
 
-        // 刻度文字 (左侧)
-        ctx.fillStyle = '#666';
+        ctx.fillStyle = '#888';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText(Math.floor(price), pad.left - 5, y);
+        ctx.fillText(Math.floor(val), padding.left - 5, y);
     }
 
-    // C2. 竖线 (时间轴)
+    // 竖线 (时间) - 手机上少画几条，防止拥挤
     const xStep = chartW / (data.length - 1);
-    const xStepsCount = 6; // 显示6个时间点
+    const xStepsCount = isMobile ? 4 : 6; 
     const timeInterval = Math.floor((data.length - 1) / (xStepsCount - 1));
 
     for (let i = 0; i < data.length; i += timeInterval) {
-        const x = pad.left + (i * xStep);
+        const x = padding.left + (i * xStep);
         
-        // 网格线
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.moveTo(x, pad.top);
-        ctx.lineTo(x, height - pad.bottom);
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, height - padding.bottom);
         ctx.stroke();
 
-        // 时间文字
         const date = new Date(data[i].t);
         const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+        
         ctx.fillStyle = '#666';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(timeStr, x, height - pad.bottom + 5);
+        ctx.fillText(timeStr, x, height - padding.bottom + 5);
     }
 
-    // C3. 绘制轴说明 (Axis Labels)
-    ctx.fillStyle = '#aaa';
-    ctx.font = 'bold 12px JetBrains Mono';
-    
-    // 纵轴标题
-    ctx.textAlign = 'center';
-    ctx.save();
-    ctx.translate(15, height / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText("PRICE (i币)", 0, 0);
-    ctx.restore();
+    // === 5. 绘制坐标轴标题 ===
+    if (!isMobile) { // 手机空间小，就不画这两个标题了
+        ctx.fillStyle = '#aaa';
+        ctx.font = 'bold 12px JetBrains Mono';
+        
+        ctx.textAlign = 'center';
+        ctx.save();
+        ctx.translate(15, height / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText("PRICE", 0, 0);
+        ctx.restore();
 
-    // 横轴标题
-    ctx.textAlign = 'right';
-    ctx.fillText("TIME (时间)", width - 10, height - 10);
+        ctx.textAlign = 'right';
+        ctx.fillText("TIME", width - 10, height - 5);
+    }
 
-
-    // === D. 绘制主折线 ===
+    // === 6. 绘制折线 ===
     ctx.beginPath();
     ctx.strokeStyle = themeColor;
     ctx.lineWidth = 2;
-    // 添加阴影增加霓虹感
     ctx.shadowBlur = 10;
     ctx.shadowColor = themeColor;
 
     data.forEach((d, i) => {
-        const x = pad.left + (i * xStep);
-        const y = pad.top + chartH - ((d.p - yMin) / yRange * chartH);
+        const x = padding.left + (i * xStep);
+        const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
     });
     ctx.stroke();
-    // 重置阴影
     ctx.shadowBlur = 0;
 
-
-    // === E. 交互层 (十字光标 & 悬停数据) ===
-    
+    // === 7. 交互 / 最后一个点 ===
     if (mousePos) {
-        // E1. 找到离鼠标最近的数据点
-        // 鼠标X 对应的数组索引
-        let index = Math.round((mousePos.x - pad.left) / xStep);
-        // 边界限制
+        let index = Math.round((mousePos.x - padding.left) / xStep);
         if (index < 0) index = 0;
         if (index >= data.length) index = data.length - 1;
 
         const target = data[index];
-        const pointX = pad.left + (index * xStep);
-        const pointY = pad.top + chartH - ((target.p - yMin) / yRange * chartH);
+        const pointX = padding.left + (index * xStep);
+        const pointY = padding.top + chartH - ((target.p - yMin) / yRange * chartH);
 
-        // E2. 绘制十字准星
+        // 十字线
         ctx.beginPath();
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]); // 虚线
-        
-        // 竖线
-        ctx.moveTo(pointX, pad.top);
-        ctx.lineTo(pointX, height - pad.bottom);
-        // 横线
-        ctx.moveTo(pad.left, pointY);
-        ctx.lineTo(width - pad.right, pointY);
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(pointX, padding.top);
+        ctx.lineTo(pointX, height - padding.bottom);
+        ctx.moveTo(padding.left, pointY);
+        ctx.lineTo(width - padding.right, pointY);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // E3. 绘制焦点圆圈
+        // 圆点
         ctx.beginPath();
         ctx.fillStyle = '#fff';
         ctx.arc(pointX, pointY, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // E4. 绘制数据浮窗 (Tooltip)
+        // 浮窗
         const date = new Date(target.t);
         const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
         const infoText = `${timeStr} | ¥${target.p}`;
         
-        // 浮窗背景
+        ctx.font = '12px sans-serif';
         const textWidth = ctx.measureText(infoText).width + 20;
         let boxX = pointX + 10;
         let boxY = pointY - 30;
         
-        // 防止浮窗超出右边界
         if (boxX + textWidth > width) boxX = pointX - textWidth - 10;
-        // 防止超出上边界
         if (boxY < 0) boxY = pointY + 20;
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -4996,30 +5028,27 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.lineWidth = 1;
         ctx.strokeRect(boxX, boxY, textWidth, 24);
 
-        // 浮窗文字
         ctx.fillStyle = '#fff';
-        ctx.font = '12px sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(infoText, boxX + 10, boxY + 12);
 
     } else {
-        // 如果没有鼠标悬停，在最后一个点画一个呼吸点
+        // 呼吸灯点
         const lastIdx = data.length - 1;
-        const lastX = pad.left + (lastIdx * xStep);
-        const lastY = pad.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
+        const lastX = padding.left + (lastIdx * xStep);
+        const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
         
         ctx.beginPath();
         ctx.fillStyle = themeColor;
         ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
         ctx.fill();
         
-        // 指示线
         ctx.beginPath();
         ctx.setLineDash([2, 4]);
         ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.moveTo(pad.left, lastY);
-        ctx.lineTo(width - pad.right, lastY);
+        ctx.moveTo(padding.left, lastY);
+        ctx.lineTo(width - padding.right, lastY);
         ctx.stroke();
         ctx.setLineDash([]);
     }
@@ -5097,6 +5126,7 @@ window.tradeStock = async function(action) {
         }
     } catch(e) { showToast("交易失败", "error"); }
 };
+
 
 
 
