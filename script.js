@@ -1491,6 +1491,7 @@ async function handleRoute() {
         if(views.settings) views.settings.style.display = 'block';
         const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
         loadBlockedUsers();
+        loadNavSettings();
     } else if (hash === '#about') {
         if(views.about) views.about.style.display = 'block';
         const link = document.querySelector('a[href="#about"]'); if(link) link.classList.add('active');
@@ -2976,19 +2977,19 @@ window.renderShop = async function(filterType = 'all') {
     
     if(!container) return;
     
-    // === 核心修复：如果是充值 Tab，只显示静态区域，不渲染卡片 ===
+    // 1. 处理充值 Tab (显示静态区域，不渲染商品)
     if (filterType === 'recharge') {
-        if(rechargeArea) rechargeArea.style.display = 'block'; // 显示顶部的扫码区
-        container.style.display = 'none'; // 隐藏下方的商品列表容器
-        return; // 直接结束，不再往下执行生成卡密卡片的逻辑
+        if(rechargeArea) rechargeArea.style.display = 'block';
+        container.style.display = 'none';
+        return;
     } 
     
-    // 其他 Tab 的逻辑
+    // 其他 Tab：隐藏充值区，显示商品网格
     if(rechargeArea) rechargeArea.style.display = 'none';
-    container.style.display = 'grid'; // 恢复显示商品列表
+    container.style.display = 'grid';
     container.innerHTML = '<div class="loading">Loading Shop Data...</div>';
     
-    // ... (以下是获取背包和渲染其他商品的逻辑，保持不变) ...
+    // 2. 获取背包数据 (用于判断“已拥有”)
     let ownedItemIds = [];
     try {
         const res = await fetch(`${API_BASE}/inventory`);
@@ -2998,14 +2999,14 @@ window.renderShop = async function(filterType = 'all') {
         }
     } catch(e) {}
 
-    // 修改为：
+    // 3. 筛选商品 (核心逻辑：分类筛选 + 排除 material 类型)
     const filtered = (filterType === 'all' ? SHOP_CATALOG : SHOP_CATALOG.filter(i => {
         if (filterType === 'vip') return i.type === 'vip';
         if (filterType === 'consumable') return i.type === 'consumable';
         if (filterType === 'decoration') return i.type === 'decoration' || i.type === 'timed';
         return i.type === filterType;
     }))
-    .filter(i => i.type !== 'material');
+    .filter(i => i.type !== 'material'); // 👈 关键：排除掉碎片等非卖品
 
     container.innerHTML = '';
     
@@ -3014,30 +3015,48 @@ window.renderShop = async function(filterType = 'all') {
         return;
     }
 
+    // 4. 渲染卡片
     filtered.forEach(item => {
-        // ... (保持原有的渲染逻辑) ...
         const div = document.createElement('div');
         div.className = `glass-card shop-item ${item.rarity || ''}`;
         
-        let btnHtml = '';
         const isOwned = ownedItemIds.includes(item.id);
+        let actionButtons = '';
 
-        if (item.type === 'vip') {
-            btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买 / 续费</button>`;
-        } else if (item.type === 'consumable') {
-            btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
-        } else if (item.type === 'decoration') {
-            if (isOwned) {
-                btnHtml = `<button class="cyber-btn" disabled style="width:100%; border-color:#333; color:#666; cursor:not-allowed;">✓ 已拥有</button>`;
-            } else {
-                btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
+        // === 核心修改：根据类型生成不同的按钮 ===
+        
+        // A. 支持预览的类型 (装饰、特效、背景等)
+        if (item.type === 'decoration' || item.type === 'timed' || item.category === 'post_style' || item.category === 'bubble' || item.category === 'name_color' || item.category === 'background') {
+            
+            // 生成 "预览" + "购买" 双按钮
+            actionButtons = `
+                <div style="display:flex; gap:5px; width:100%; margin-top:10px;">
+                    <button onclick="previewItem('${item.id}')" class="cyber-btn" style="flex:1; margin:0; font-size:0.8rem; border-color:#aaa; color:#aaa;">👁️ 预览</button>
+                    <button onclick="buyItem('${item.id}')" class="cyber-btn" style="flex:1; margin:0; font-size:0.8rem;">购买</button>
+                </div>
+            `;
+            
+            // 如果是永久装饰且已拥有，显示“已拥有” (时效性物品仍允许续费购买)
+            if (isOwned && item.type !== 'timed') {
+                actionButtons = `<button class="cyber-btn" disabled style="width:100%; margin-top:10px; border-color:#333; color:#666;">✓ 已拥有</button>`;
             }
-        } else if (item.type === 'timed') {
-            if (isOwned) {
-                btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%; border-color:gold; color:gold;">续费 (+${item.days}天)</button>`;
-            } else {
-                btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
+            // 补充：如果是时效性物品且已拥有，按钮文字可以变更为“续费”
+            else if (isOwned && item.type === 'timed') {
+                 actionButtons = `
+                    <div style="display:flex; gap:5px; width:100%; margin-top:10px;">
+                        <button onclick="previewItem('${item.id}')" class="cyber-btn" style="flex:1; margin:0; font-size:0.8rem; border-color:#aaa; color:#aaa;">👁️ 预览</button>
+                        <button onclick="buyItem('${item.id}')" class="cyber-btn" style="flex:1; margin:0; font-size:0.8rem; border-color:gold; color:gold;">续费</button>
+                    </div>
+                `;
             }
+
+        } 
+        // B. 不支持预览的类型 (消耗品、VIP、种子)
+        else {
+            let btnText = '购买';
+            if (item.type === 'vip') btnText = '购买 / 续费';
+            
+            actionButtons = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%; margin-top:10px;">${btnText}</button>`;
         }
 
         div.innerHTML = `
@@ -3045,7 +3064,7 @@ window.renderShop = async function(filterType = 'all') {
             <h3 style="margin:5px 0; font-size:1rem;">${item.name}</h3>
             <p style="color:#888; font-size:0.8rem; height:40px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">${item.desc}</p>
             <div class="price" style="color:${item.rarity==='legendary'?'#FFD700':'#fff'}">${item.cost} i</div>
-            ${btnHtml}
+            ${actionButtons}
         `;
         container.appendChild(div);
     });
@@ -4347,9 +4366,174 @@ window.cancelWork = async function() {
     loadHomeSystem();
 };
 
+// --- script.js 新增：预览功能 ---
+
+window.previewItem = function(itemId) {
+    const item = SHOP_CATALOG.find(i => i.id === itemId);
+    if(!item) return;
+
+    const modal = document.getElementById('preview-modal');
+    const container = document.getElementById('previewContainer');
+    const buyBtn = document.getElementById('previewBuyBtn');
+    
+    // 绑定购买按钮
+    buyBtn.onclick = () => { closePreviewModal(); buyItem(itemId); };
+    
+    container.innerHTML = '';
+    container.style.background = '#000'; // 重置背景
+    
+    // 根据类型展示不同的预览
+    if (item.category === 'post_style') {
+        // 帖子边框预览
+        container.innerHTML = `
+            <div class="post-card ${item.css}" style="width:100%; padding:15px; margin:0;">
+                <h3 style="margin-top:0; font-size:1rem;">演示标题</h3>
+                <p style="font-size:0.8rem; color:#ccc;">这就是装备了 [${item.name}] 后的帖子效果。</p>
+            </div>
+        `;
+    } 
+    else if (item.category === 'bubble') {
+        // 气泡预览
+        container.innerHTML = `
+            <div class="msg-row right" style="width:100%; justify-content:center;">
+                <div class="msg-bubble ${item.css}">
+                    你好！这是 [${item.name}] 气泡的效果。
+                </div>
+                <div class="msg-avatar" style="background:#333;"></div>
+            </div>
+        `;
+    }
+    else if (item.category === 'name_color') {
+        // 名字颜色预览
+        container.innerHTML = `
+            <div style="text-align:center;">
+                <div style="color:#666; font-size:0.8rem; margin-bottom:5px;">当前昵称预览</div>
+                <span class="${item.css}" style="font-size:1.5rem;">${currentUser ? currentUser.nickname : 'Player'}</span>
+            </div>
+        `;
+    }
+    else if (item.category === 'background') {
+
+        container.innerHTML = `<div style="color:#fff; z-index:2; text-shadow:0 0 5px #000;">背景效果预览</div>`;
+
+        container.className = `preview-stage ${item.id.replace('_', '-')}`;
+
+    }
+    else {
+        // 其他物品 (如种子、卡片) 显示图标
+        container.innerHTML = `
+            <div style="text-align:center;">
+                <div style="font-size:3rem; margin-bottom:10px;">${item.icon}</div>
+                <div>${item.name}</div>
+            </div>
+        `;
+    }
+
+    modal.style.display = 'flex';
+};
+
+window.closePreviewModal = function() {
+    document.getElementById('preview-modal').style.display = 'none';
+    // 重置 class，防止背景残留
+    document.getElementById('previewContainer').className = 'preview-stage';
+};
 
 
+const DEFAULT_NAV_ORDER = [
+    '#home', '#node', '#home', '#duel', '#chat', '#write', '#shop', 
+    '#inventory', '#feedback', '#profile?u=', '#settings', '#about'
+];
 
+function initSidebarOrder() {
+    const nav = document.querySelector('aside nav');
+    if(!nav) return;
+
+    const savedOrder = JSON.parse(localStorage.getItem('nav_order') || '[]');
+    if (savedOrder.length === 0) return; // 无自定义，使用默认 HTML 顺序
+
+    // 将现有链接存入 Map
+    const links = Array.from(nav.querySelectorAll('a'));
+    const linkMap = {};
+    links.forEach(a => {
+        // 获取 href 的 hash 部分，如果是 #profile?u=xxx 这种，只取前缀或完整匹配
+        const key = a.getAttribute('href'); 
+        linkMap[key] = a;
+    });
+
+    const adminLink = document.getElementById('navAdmin');
+    
+    // 重新追加
+    savedOrder.forEach(key => {
+        if (linkMap[key]) {
+            nav.appendChild(linkMap[key]);
+            delete linkMap[key]; // 标记已处理
+        }
+    });
+
+    for (let key in linkMap) {
+        if(linkMap[key] !== adminLink) nav.appendChild(linkMap[key]);
+    }
+
+    // 始终把 Admin 放在最后
+    if(adminLink) nav.appendChild(adminLink);
+}
+
+window.loadNavSettings = function() {
+    const container = document.getElementById('navSortList');
+    if(!container) return;
+    
+    const nav = document.querySelector('aside nav');
+    const links = Array.from(nav.querySelectorAll('a:not(#navAdmin)')); // 排除管理员
+    
+    let html = '';
+    links.forEach((a, index) => {
+        const name = a.innerText.trim();
+        const href = a.getAttribute('href');
+        
+        html += `
+            <div class="sort-item">
+                <span>${name}</span>
+                <div class="sort-controls">
+                    <button onclick="moveNav('${href}', -1)">↑</button>
+                    <button onclick="moveNav('${href}', 1)">↓</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+};
+
+window.moveNav = function(href, direction) {
+    const nav = document.querySelector('aside nav');
+    const link = nav.querySelector(`a[href="${href}"]`);
+    if(!link) return;
+
+    if (direction === -1) { // 上移
+        const prev = link.previousElementSibling;
+        if(prev) nav.insertBefore(link, prev);
+    } else { // 下移
+        const next = link.nextElementSibling;
+        if(next && next.id !== 'navAdmin') { // 不允许移到 Admin 下面
+            nav.insertBefore(next, link);
+        }
+    }
+    
+    saveNavOrder();
+    loadNavSettings(); // 刷新列表
+};
+
+window.saveNavOrder = function() {
+    const nav = document.querySelector('aside nav');
+    const links = Array.from(nav.querySelectorAll('a'));
+    const order = links.map(a => a.getAttribute('href'));
+    localStorage.setItem('nav_order', JSON.stringify(order));
+    showToast("菜单顺序已保存");
+};
+
+window.resetNavOrder = function() {
+    localStorage.removeItem('nav_order');
+    location.reload();
+};
 
 
 
