@@ -4139,7 +4139,7 @@ function renderHomeGrid(items) {
     grid.innerHTML = '';
     
     // 生成 9 个槽位
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 4; i++) {
         const item = items.find(it => it.slot_index === i);
         const div = document.createElement('div');
         
@@ -4537,6 +4537,7 @@ window.resetNavOrder = function() {
     localStorage.removeItem('nav_order');
     location.reload();
 };
+
 
 
 
