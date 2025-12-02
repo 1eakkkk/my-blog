@@ -1,6 +1,6 @@
 # **1eak.cool个人赛博朋克风格博客网站兼微社区**
 
->- ### [网站地址点击这里](https:app.1eak.cool "1eak的秘密基地")
+>- ### [网站地址点击这里](https://app.1eak.cool "1eak的秘密基地")
 
 ## 1) 项目总览
 这是一个基于 Cloudflare 全家桶（Pages, D1, R2）构建的赛博朋克风格社交社区平台。
