@@ -3283,6 +3283,98 @@ body.bg-fire {
     box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
 }
 
+/* --- 家园系统样式 --- */
+
+/* 九宫格容器 */
+.home-grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin: 0 auto;
+    max-width: 600px;
+}
+
+/* 每一个槽位 */
+.home-slot {
+    aspect-ratio: 1; /* 保持正方形 */
+    background: rgba(0, 20, 0, 0.3);
+    border: 1px solid #333;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.home-slot:hover {
+    border-color: #0f0;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+    background: rgba(0, 40, 0, 0.4);
+}
+
+/* 空槽位样式 */
+.home-slot.empty {
+    border-style: dashed;
+    color: #444;
+}
+.home-slot.empty:hover {
+    color: #0f0;
+}
+
+/* 槽位内部元素 */
+.slot-icon { font-size: 2rem; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,255,0,0.5); }
+.slot-name { font-size: 0.7rem; color: #ccc; text-align: center; line-height: 1.2; }
+.slot-timer { font-size: 0.6rem; color: #888; margin-top: 5px; font-family: 'JetBrains Mono', monospace; }
+
+/* 成熟发光特效 */
+.ready-glow {
+    border-color: #0f0;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+    animation: pulse-green 1.5s infinite alternate;
+}
+@keyframes pulse-green {
+    from { box-shadow: 0 0 5px rgba(0, 255, 0, 0.2); }
+    to { box-shadow: 0 0 20px rgba(0, 255, 0, 0.6); }
+}
+
+/* 任务卡片样式 */
+.work-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 243, 255, 0.05);
+    border: 1px solid #005f66;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+}
+.work-active {
+    border-color: #00f3ff;
+    box-shadow: inset 0 0 20px rgba(0, 243, 255, 0.1);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .home-grid-container {
+        gap: 10px;
+    }
+    .slot-icon { font-size: 1.5rem; }
+    .slot-name { transform: scale(0.9); }
+    
+    .work-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .work-card button {
+        width: 100%;
+        margin: 0;
+    }
+}
 
 
 
