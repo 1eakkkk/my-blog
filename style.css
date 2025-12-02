@@ -3540,6 +3540,39 @@ body.bg-fire {
     border-radius: 4px;
 }
 
+/* --- 创业系统样式 --- */
+
+.biz-plans-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.plan-card {
+    cursor: pointer;
+    text-align: center;
+    transition: 0.3s;
+    border: 2px solid transparent;
+}
+.plan-card:hover, .plan-card.selected {
+    border-color: #00f3ff;
+    background: rgba(0, 243, 255, 0.1);
+    transform: translateY(-5px);
+}
+
+.plan-icon { font-size: 3rem; margin-bottom: 10px; }
+.plan-cost { font-size: 1.2rem; color: #FFD700; font-weight: bold; margin: 5px 0; }
+
+.strategy-selector .cyber-btn {
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+    padding: 8px;
+}
+.strategy-selector .cyber-btn.active {
+    background: var(--accent-blue);
+    color: #fff;
+    box-shadow: 0 0 10px var(--accent-blue);
+}
 
 
 
