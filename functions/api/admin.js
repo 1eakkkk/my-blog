@@ -80,7 +80,44 @@ export async function onRequestPost(context) {
           return new Response(JSON.stringify({ success: true, message: '已通过，即刻生效' }));
       }
   }
-  
+
+      // === 1. 获取充值申请列表 ===
+  if (action === 'get_recharge_requests') {
+      const list = await db.prepare("SELECT * FROM recharge_requests WHERE status = 'pending' ORDER BY created_at DESC").all();
+      return new Response(JSON.stringify({ success: true, list: list.results }));
+      }
+
+      // === 2. 审核通过/驳回 ===
+  if (action === 'review_recharge') {
+      const { id, decision } = body; // decision: 'approve' or 'reject'
+            
+      const req = await db.prepare("SELECT * FROM recharge_requests WHERE id = ?").bind(id).first();
+      if (!req || req.status !== 'pending') return new Response(JSON.stringify({ error: '申请不存在或已处理' }));
+
+      const updates = [];
+      const now = Date.now();
+
+      if (decision === 'approve') {
+          // 解析金额：从 "0.1元 (650币)" 中提取 650
+      const coins = parseInt(req.amount_str.match(/(\d+)币/)[1]);
+                
+          // 1. 给用户加钱
+      updates.push(db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(coins, req.user_id));
+           // 2. 更新申请状态
+      updates.push(db.prepare("UPDATE recharge_requests SET status = 'approved' WHERE id = ?").bind(id));
+           // 3. 通知用户
+      updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
+        .bind(req.user_id, `【充值到账】感谢支持！您的 ${coins} i币已到账。`, now));
+  } else {
+                // 驳回
+      updates.push(db.prepare("UPDATE recharge_requests SET status = 'rejected' WHERE id = ?").bind(id));
+      updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, created_at, is_read) VALUES (?, 'system', ?, ?, 0)")
+        .bind(req.user_id, `【充值失败】您的充值申请未通过审核 (截图无效或未收到款项)。`, now));
+      }
+
+      await db.batch(updates);
+      return new Response(JSON.stringify({ success: true }));
+  }
 
   // ... (保留其他功能: toggle_invite, get_invites, refill, delete, get_feedbacks, mark_read, reply_fb, post_announce, grant, gen_key) ...
   if (action === 'toggle_invite_system') {
