@@ -21,9 +21,13 @@ export async function onRequest(context) {
             'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 400, reward_xp: 200 }
         };
         const WORKS = {
-            'cleaning': { name: '数据清理', duration: 2 * 60 * 1000, reward: 15 },
-            'sorting':  { name: '缓存整理', duration: 10 * 60 * 1000, reward: 80 },
-            'debug':    { name: '黑盒调试', duration: 60 * 60 * 1000, reward: 500 }
+            'cleaning': { name: '数据清理', duration: 10 * 60 * 1000, reward: 20 },
+            'sorting':  { name: '缓存整理', duration: 30 * 60 * 1000, reward: 60 },
+            'debug':    { name: '黑盒调试', duration: 60 * 60 * 1000, reward: 120 },
+            'deepcleaning':    { name: '深度清理', duration: 3 * 60 * 60 * 1000, reward: 360 },
+            'fixbug':    { name: '修复漏洞', duration: 6 * 60 * 60 * 1000, reward: 720 },
+            'sleeptest':    { name: '睡眠测试', duration: 10 * 60 * 60 * 1000, reward: 1200 }
+            
         };
 
         // === GET ===
