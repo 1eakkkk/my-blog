@@ -4604,12 +4604,8 @@ async function loadBusiness() {
                 showToast(`今日财报: ${sign}${r.profit} i币`, r.profit>=0 ? 'success':'error');
                 checkSecurity(); // 刷新余额
             } 
-            // --- 关键点：loadStockMarket 必须在 if (todayReport) 的花括号外面 ---
-            
             // 加载股市数据
-            if (typeof loadStockMarket === 'function') {
-                loadStockMarket();
-            }
+            loadStockMarket();
 
             // 更新策略按钮状态
             document.querySelectorAll('.strategy-selector button').forEach(b => b.classList.remove('active'));
@@ -5263,6 +5259,7 @@ function addUserLog(msg, actionType) {
     // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
+
 
 
 
