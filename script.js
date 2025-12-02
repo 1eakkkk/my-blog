@@ -1374,6 +1374,7 @@ const views = {
     node: document.getElementById('view-node'),
     duel: document.getElementById('view-duel'),
     cabin: document.getElementById('view-cabin'), 
+    business: document.getElementById('view-business'),
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     shop: document.getElementById('view-shop'),
@@ -4719,6 +4720,7 @@ window.bizWithdraw = async function() {
         showToast(data.error, "error");
     }
 };
+
 
 
 
