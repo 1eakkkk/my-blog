@@ -4880,7 +4880,10 @@ function drawInteractiveChart(symbol, mousePos) {
     };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
-
+    if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
+        console.warn("等待数据中...", symbol);
+        return; 
+    }
     const data = marketData[symbol]; 
     // 注意：这里不需要 clearRect，因为重设 canvas.width 自动清空了画布
     
@@ -5173,6 +5176,7 @@ function addStockLog(msg, type) {
     // 插入到最前面
     list.insertBefore(div, list.firstChild);
 }
+
 
 
 
