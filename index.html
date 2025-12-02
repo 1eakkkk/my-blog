@@ -356,11 +356,14 @@
                         <div class="node-controls">
                             <p id="nodeCostDisplay">CALIBRATING...</p>
                             <div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
-                                <button id="exploreBtn" onclick="exploreNode()" class="cyber-btn" style="width:auto; min-width:160px;">
-                                    启动扫描程序
+                                <!-- 单抽按钮 -->
+                                <button id="exploreBtn" onclick="exploreNode()">
+                                    启动扫描程序 (-50)
                                 </button>
-                                <button id="multiExploreBtn" onclick="multiExploreNode()" class="cyber-btn" style="width:auto; min-width:160px; border-color:#bd00ff; color:#bd00ff;">
-                                快速检索 x5 (-250)
+                                
+                                <!-- 5连抽按钮：去掉了内联样式，依靠 CSS 渲染 -->
+                                <button id="multiExploreBtn" onclick="multiExploreNode()">
+                                    快速检索 x5 (-250)
                                 </button>
                             </div>
                         </div>
@@ -1035,71 +1038,8 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.14"></script>
+    <script src="script.js?v=8.15"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
