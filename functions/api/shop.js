@@ -68,72 +68,64 @@ export async function onRequestPost(context) {
     const { request, env } = context;
     const db = env.DB;
 
-    // 1. 鉴权
     const cookie = request.headers.get('Cookie');
-    if (!cookie || !cookie.includes('session_id')) {
-        return new Response(JSON.stringify({ error: 'Login required' }), { status: 401 });
-    }
+    if (!cookie) return Response.json({ success: false, error: '未登录' });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
     const user = await db.prepare(`SELECT * FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-    
-    if (!user) return new Response(JSON.stringify({ error: 'Invalid session' }), { status: 401 });
+    if (!user) return Response.json({ success: false, error: '会话无效' });
 
-    // 2. 获取请求
     let body = {};
     try { body = await request.json(); } catch(e) {}
-    const { action, itemId } = body;
+    
+    // === 获取数量 ===
+    const { itemId, quantity } = body;
+    const buyCount = Math.max(1, parseInt(quantity) || 1); // 默认为1，最少为1
+
     const item = CATALOG[itemId];
+    if (!item) return Response.json({ success: false, error: '商品不存在' });
 
-    if (!item) return new Response(JSON.stringify({ success: false, error: '商品不存在' }));
-    if (user.coins < item.cost) return new Response(JSON.stringify({ success: false, error: '余额不足' }));
+    // 计算总价
+    const totalCost = item.cost * buyCount;
+    if (user.coins < totalCost) return Response.json({ success: false, error: `余额不足，需要 ${totalCost} i币` });
 
-    // === 购买 VIP ===
+    // VIP 和 时效道具通常不支持批量，强制为1
+    if (item.type === 'vip' || item.type === 'timed' || item.type === 'decoration') {
+        if(buyCount > 1) return Response.json({ success: false, error: '此类商品只能单次购买' });
+    }
+
+    // === 执行购买 ===
     if (item.type === 'vip') {
          const now = Date.now();
-         let newExpire = now;
-         if (user.vip_expires_at > now) newExpire = user.vip_expires_at + (item.days * 86400 * 1000);
-         else newExpire = now + (item.days * 86400 * 1000);
-         
-         await db.batch([
-             db.prepare('UPDATE users SET coins = coins - ?, vip_expires_at = ?, is_vip = 1 WHERE id = ?').bind(item.cost, newExpire, user.id)
-         ]);
-         return new Response(JSON.stringify({ success: true, message: 'VIP 充值成功' }));
+         let newExpire = (user.vip_expires_at > now ? user.vip_expires_at : now) + (item.days * 86400 * 1000);
+         await db.prepare('UPDATE users SET coins = coins - ?, vip_expires_at = ?, is_vip = 1 WHERE id = ?').bind(totalCost, newExpire, user.id).run();
+         return Response.json({ success: true, message: 'VIP 充值成功' });
     }
 
-    // === 购买消耗品 (改名卡、置顶卡、种子) ===
+    // === 消耗品 (种子/卡片) - 支持批量 ===
     if (item.type === 'consumable') {
-        const existing = await db.prepare('SELECT id, quantity FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, itemId).first();
-        
-        await db.batch([
-            db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(item.cost, user.id),
-            existing 
-                ? db.prepare('UPDATE user_items SET quantity = quantity + 1 WHERE id = ?').bind(existing.id)
-                : db.prepare('INSERT INTO user_items (user_id, item_id, category, quantity, created_at) VALUES (?, ?, ?, 1, ?)').bind(user.id, itemId, item.category, Date.now())
-        ]);
-        return new Response(JSON.stringify({ success: true, message: `购买成功: ${item.name}` }));
-    }
-    
-    // === 购买装饰/时效道具 ===
-    if (item.type === 'decoration' || item.type === 'timed') {
         const existing = await db.prepare('SELECT id FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, itemId).first();
         
-        if (existing && item.type === 'decoration') {
-            return new Response(JSON.stringify({ success: false, error: '你已经拥有该物品了' }));
-        }
-        
-        let expireTime = 0;
-        if (item.type === 'timed') {
-            expireTime = Date.now() + (item.days * 86400 * 1000);
-        }
-
         await db.batch([
-             db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(item.cost, user.id),
-             // 简单处理：如果是时效物品且已有，这里会插入重复记录或者需要在表结构设唯一约束。
-             // 建议：先删后加，或者前端控制。这里采用通用插入。
-             db.prepare('INSERT INTO user_items (user_id, item_id, category, expires_at, created_at) VALUES (?, ?, ?, ?, ?)').bind(user.id, itemId, item.category, expireTime, Date.now())
+            db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(totalCost, user.id),
+            existing 
+                ? db.prepare('UPDATE user_items SET quantity = quantity + ? WHERE id = ?').bind(buyCount, existing.id)
+                : db.prepare('INSERT INTO user_items (user_id, item_id, category, quantity, created_at) VALUES (?, ?, ?, ?, ?)').bind(user.id, itemId, item.category, buyCount, Date.now())
         ]);
-        return new Response(JSON.stringify({ success: true, message: `购买成功: ${item.name}` }));
+        return Response.json({ success: true, message: `购买成功: ${item.name} x${buyCount}` });
     }
     
-    return new Response(JSON.stringify({ success: false, error: '未知商品类型' }));
+    // === 装饰/时效 ===
+    if (item.type === 'decoration' || item.type === 'timed') {
+        const existing = await db.prepare('SELECT id FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, itemId).first();
+        if (existing && item.type === 'decoration') return Response.json({ success: false, error: '已拥有该物品' });
+        
+        let expireTime = item.type === 'timed' ? Date.now() + (item.days * 86400 * 1000) : 0;
+        await db.batch([
+             db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(totalCost, user.id),
+             db.prepare('INSERT INTO user_items (user_id, item_id, category, expires_at, created_at) VALUES (?, ?, ?, ?, ?)').bind(user.id, itemId, item.category, expireTime, Date.now())
+        ]);
+        return Response.json({ success: true, message: `购买成功: ${item.name}` });
+    }
+    
+    return Response.json({ success: false, error: 'Error' });
 }
