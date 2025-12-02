@@ -4757,51 +4757,79 @@ window.switchStock = function(symbol) {
 };
 
 function renderStockChart(symbol) {
-    const ctx = document.getElementById('stockCanvas').getContext('2d');
+    const canvas = document.getElementById('stockCanvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
     const width = 600;
     const height = 200;
+    
+    // 确保 Canvas 分辨率匹配 (防止模糊)
+    canvas.width = width;
+    canvas.height = height;
+
     const data = marketData[symbol]; // Array of {t, p}
     
-    // 清空
+    // 1. 清空画布
     ctx.clearRect(0, 0, width, height);
     
     if(!data || data.length === 0) return;
 
-    // 找最大最小值以定比例
+    // 2. 计算最大最小值 (定比例)
     let minP = Infinity, maxP = -Infinity;
     data.forEach(d => {
         if(d.p < minP) minP = d.p;
         if(d.p > maxP) maxP = d.p;
     });
-    // 留点边距
+    // 上下留 10% 的缓冲空间，防止线条顶格
     const padding = (maxP - minP) * 0.1;
     minP -= padding; maxP += padding;
     const range = maxP - minP;
 
-    // 颜色
+    // === 新增：绘制背景网格 (Grid) ===
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; // 网格颜色：淡淡的白
+    ctx.lineWidth = 1;
+
+    // 横线 (画 4 条，水平分割)
+    for (let i = 1; i < 5; i++) {
+        let y = (height / 5) * i;
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+    }
+
+    // 竖线 (每 5 个数据点画一条，约每 5 分钟)
+    const stepX = width / (data.length - 1);
+    for (let i = 0; i < data.length; i += 5) {
+        const x = i * stepX;
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+    }
+    ctx.stroke(); // 绘制网格
+
+    // === 3. 绘制主折线 ===
     const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
-    ctx.strokeStyle = colorMap[symbol];
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = colorMap[symbol] || '#fff';
+    ctx.lineWidth = 3; // 主线稍微加粗
     ctx.beginPath();
 
-    // 绘制折线
-    const stepX = width / (data.length - 1);
     data.forEach((d, i) => {
         const x = i * stepX;
+        // 坐标系转换：价格越高 y 越小
         const y = height - ((d.p - minP) / range * height);
-        if (i===0) ctx.moveTo(x, y);
+        
+        if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
     });
     ctx.stroke();
 
-    // 显示最新价格
-    const currentPrice = data[0].p; 
-
+    // === 4. 更新右上角价格显示 ===
     const latestPrice = data[data.length - 1].p;
-    
     const label = document.getElementById('stockPriceLabel');
-    label.innerText = latestPrice;
-    label.style.color = colorMap[symbol];
+    if (label) {
+        label.innerText = latestPrice;
+        label.style.color = colorMap[symbol];
+    }
 }
 
 function updatePositionUI(symbol) {
@@ -4810,6 +4838,13 @@ function updatePositionUI(symbol) {
     const profitEl = document.getElementById('myStockProfit');
     const btnCover = document.getElementById('btnShortCover');
     
+    // === 修复点：增加安全检查 ===
+    // 如果 marketData 为空，或者没有当前股票的数据，直接停止执行，防止报错
+    if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
+        if(amountEl) amountEl.innerText = "Loading...";
+        return; 
+    }
+
     // 获取当前价
     const history = marketData[symbol];
     const currentPrice = history[history.length - 1].p;
@@ -4820,13 +4855,13 @@ function updatePositionUI(symbol) {
         // 盈亏计算
         let profit = 0;
         if (pos.amount > 0) {
-            // 做多盈亏 = (现价 - 均价) * 数量
+            // 做多盈亏
             profit = (currentPrice - pos.avg_price) * pos.amount;
-            btnCover.style.display = 'none'; // 隐藏平空按钮
+            if(btnCover) btnCover.style.display = 'none'; 
         } else {
-            // 做空盈亏 = (均价 - 现价) * 绝对值数量
+            // 做空盈亏
             profit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
-            btnCover.style.display = 'inline-block'; // 显示平空按钮
+            if(btnCover) btnCover.style.display = 'inline-block'; 
         }
         
         const sign = profit >= 0 ? '+' : '';
@@ -4835,7 +4870,7 @@ function updatePositionUI(symbol) {
     } else {
         amountEl.innerText = "0 股";
         profitEl.innerText = "浮动盈亏: --";
-        btnCover.style.display = 'none';
+        if(btnCover) btnCover.style.display = 'none';
     }
 }
 
@@ -4869,6 +4904,7 @@ window.tradeStock = async function(action) {
         }
     } catch(e) { showToast("交易失败", "error"); }
 };
+
 
 
 
