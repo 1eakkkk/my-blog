@@ -2920,7 +2920,11 @@ const SHOP_CATALOG = [
     // === 📢 全服播报卡 (Broadcast) ===
     { id: 'broadcast_low', cost: 500, name: '基础信标卡', type: 'consumable', category: 'consumable', icon: '📡', rarity: 'rare', desc: '全服广播(系统预设)，持续24h' },
     { id: 'broadcast_high', cost: 2000, name: '骇客宣言卡', type: 'consumable', category: 'consumable', icon: '🛰️', rarity: 'legendary', desc: '自定义全服广播(支持幻彩)，持续24h' },
-    
+    // 在 script.js 的 SHOP_CATALOG 数组里添加：
+    { id: 'seed_moss', cost: 20, name: '种子：低频苔藓', type: 'consumable', category: 'consumable', icon: '<img src="https://img.1eak.cool/dipintaixian.png" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 5px rgba(0,255,0,0.3));">', rarity: 'common', desc: '家园种植用，4小时成熟。' },
+    { id: 'seed_quantum', cost: 100, name: '种子：量子枝条', type: 'consumable', category: 'consumable', icon: '<img src="https://img.1eak.cool/liangzizhitiao.png" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 5px rgba(0,255,0,0.3));">', rarity: 'rare', desc: '家园种植用，12小时成熟。' },
+    { id: 'seed_vine', cost: 300, name: '种子：修复算法藤', type: 'consumable', category: 'consumable', icon: '<img src="https://img.1eak.cool/suanfateng.png" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 5px rgba(0,255,0,0.3));">', rarity: 'epic', desc: '家园种植用，24小时成熟。' },
+    { id: 'item_algo_frag', cost: 9999, name: '加速算法碎片', type: 'material', category: 'consumable', icon: '<img src="https://img.1eak.cool/jiasuhexin.png" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px gold);">', rarity: 'legendary', desc: '非常稀有的数据碎片，可用于系统升级(功能开发中)。' },
     // === 🌌 网页背景 (Backgrounds) ===
     { id: 'bg_matrix', cost: 500, name: '矩阵数据流', type: 'decoration', category: 'background', icon: '👾', rarity: 'rare', desc: '黑客潜行风格（网页背景）' },
     { id: 'bg_space', cost: 900, name: '深空星系', type: 'decoration', category: 'background', icon: '🌌', rarity: 'epic', desc: '深邃星空视差（网页背景）' },
@@ -4325,6 +4329,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
