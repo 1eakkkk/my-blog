@@ -3835,6 +3835,75 @@ window.redeemCdk = async function() {
     }
 };
 
+// === 充值逻辑 (人工审核版) ===
+
+window.selectRechargeOption = function(type, el) {
+    document.getElementById('selectedRechargeType').value = type;
+    document.querySelectorAll('.recharge-option').forEach(d => d.classList.remove('active'));
+    el.classList.add('active');
+};
+
+// 1. 上传支付截图
+window.uploadProof = async function() {
+    const input = document.getElementById('proofUpload');
+    if(input.files.length === 0) return;
+    
+    const file = input.files[0];
+    showToast("正在上传凭证...", "info");
+    
+    // 复用之前的压缩与上传逻辑
+    const processedFile = await compressImage(file);
+    const formData = new FormData();
+    formData.append('file', processedFile);
+
+    try {
+        const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+        const data = await res.json();
+        
+        if(data.success) {
+            document.getElementById('uploadedProofUrl').value = data.url;
+            document.getElementById('proofPreview').innerHTML = `✅ 已上传: ${file.name}`;
+            showToast("凭证上传成功", "success");
+        } else {
+            showToast("上传失败", "error");
+        }
+    } catch(e) {
+        showToast("网络错误", "error");
+    }
+};
+
+// 2. 提交申请
+window.submitRechargeRequest = async function() {
+    const type = document.getElementById('selectedRechargeType').value;
+    const proofUrl = document.getElementById('uploadedProofUrl').value;
+    
+    if(!proofUrl) return showToast("请先上传支付截图", "error");
+    
+    const btn = document.querySelector('#recharge-area button:last-child');
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(`${API_BASE}/recharge_submit`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ type, proofUrl })
+        });
+        const data = await res.json();
+        
+        if(data.success) {
+            showToast("申请已提交！管理员审核后自动到账。", "success");
+            // 清空状态
+            document.getElementById('uploadedProofUrl').value = '';
+            document.getElementById('proofPreview').innerHTML = '';
+        } else {
+            showToast(data.error, "error");
+        }
+    } catch(e) {
+        showToast("提交失败", "error");
+    } finally {
+        btn.disabled = false;
+    }
+};
 
 
 
