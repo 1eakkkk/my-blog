@@ -3251,6 +3251,87 @@ window.exploreNode = async function() {
     }
 };
 
+// --- script.js 新增函数 ---
+
+window.multiExploreNode = async function() {
+    const btn = document.getElementById('multiExploreBtn');
+    const centerBtn = document.getElementById('centralNode');
+    
+    if(btn.disabled) return;
+    
+    if(!confirm("确定消耗 250 i币 进行 5 次快速检索吗？")) return;
+
+    btn.disabled = true;
+    centerBtn.classList.add('scanning'); 
+    addNodeLog("INITIATING RAPID SCAN SEQUENCE...", "info");
+
+    try {
+        await new Promise(r => setTimeout(r, 500)); // 稍短一点的延迟
+
+        const res = await fetch(`${API_BASE}/node`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'multi_explore' })
+        });
+        const data = await res.json();
+        
+        centerBtn.classList.remove('scanning');
+
+        if (data.success) {
+            // 1. 播放最高稀有度的特效
+            if (data.rarity === 'legendary') {
+                document.body.style.animation = "shake 0.5s";
+                setTimeout(()=>document.body.style.animation="", 500);
+            }
+
+            // 2. 打印 5 条日志
+            data.summary.forEach((msg, idx) => {
+                setTimeout(() => {
+                    // 简单的稀有度颜色判断
+                    let type = '';
+                    if (msg.includes('[EPIC]')) type = 'rarity-epic';
+                    else if (msg.includes('[LEGENDARY]')) type = 'rarity-legendary';
+                    else if (msg.includes('[RARE]')) type = 'rarity-rare';
+                    else if (msg.includes('[GLITCH]')) type = 'rarity-glitch';
+                    
+                    addNodeLog(msg, type);
+                }, idx * 200); // 每条间隔 0.2 秒显示
+            });
+
+            // 3. 更新 UI
+            if (currentUser) {
+                currentUser.coins = data.new_coins;
+                currentUser.xp = data.new_xp;
+            }
+            // 刷新侧边栏
+            const coinEl = document.getElementById('coinCount');
+            if (coinEl) coinEl.innerText = data.new_coins;
+            
+            // 刷新经验条 (复用之前的逻辑)
+            const xpText = document.getElementById('xpText');
+            const xpBar = document.getElementById('xpBar');
+            if (xpText && xpBar) {
+                const levelInfo = calculateLevel(data.new_xp);
+                xpText.textContent = `${data.new_xp} / ${levelInfo.next}`;
+                xpBar.style.width = `${levelInfo.percent}%`;
+            }
+
+            // 刷新按钮状态
+            loadNodeConsole();
+
+        } else {
+            addNodeLog("ERROR: " + data.error, "error");
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        centerBtn.classList.remove('scanning');
+        addNodeLog("CRITICAL FAILURE", "error");
+        console.error(e);
+    } finally {
+        btn.disabled = false;
+    }
+};
+
 // 拉取全服广播
 async function loadNodeBroadcast() {
     const ticker = document.getElementById('nodeTicker');
@@ -4243,6 +4324,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
