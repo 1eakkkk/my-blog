@@ -41,6 +41,19 @@ const LEVEL_TABLE = [
     { lv: 10, xp: 90000, title: '赛博神' }
 ];
 
+const HOME_CATALOG = [
+    { id: 'seed_moss', type: 'seed', name: '低频缓存苔藓', cost: 20, timeStr: '4小时', icon: '🌿', desc: '入门级算法植物，产出少量数据。' },
+    { id: 'seed_quantum', type: 'seed', name: '量子枝条', cost: 100, timeStr: '12小时', icon: '🎋', desc: '利用量子纠缠生长，收益中等。' },
+    { id: 'seed_vine', type: 'seed', name: '修复算法藤', cost: 300, timeStr: '24小时', icon: '🧬', desc: '能够自动修复坏道的稀有植物。' }
+];
+
+// 工作配置
+const WORK_TYPES = {
+    'cleaning': { name: '数据清理 (Data Clean)', time: '2分钟', reward: '15 i' },
+    'sorting':  { name: '缓存整理 (Cache Sort)', time: '10分钟', reward: '80 i' },
+    'debug':    { name: '黑盒调试 (Debug)', time: '60分钟', reward: '500 i' }
+};
+
 // 1. 检查并播放
 async function checkBroadcasts() {
     try {
@@ -1460,6 +1473,10 @@ async function handleRoute() {
         const allInvBtn = document.querySelector('.inv-tab-btn[onclick="switchInventoryTab(\'all\')"]');
         if(allInvBtn) allInvBtn.classList.add('active');
         loadInventory('all');
+    } else if (hash === '#home') {
+        if(views.home) views.home.style.display = 'block'; // 记得在 HTML 加 view-home
+        loadHomeData();
+        loadWorkData();
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
         const link = document.querySelector('a[href="#settings"]'); if(link) link.classList.add('active');
@@ -3958,6 +3975,232 @@ window.reviewRecharge = async function(id, decision) {
     }
 };
 
+// === 家园 & 打工系统逻辑 ===
+
+let homeTimer = null;
+let workTimer = null;
+
+async function loadHomeData() {
+    const container = document.getElementById('home-grid');
+    if(!container) return;
+    container.innerHTML = '<div class="loading">正在加载数据空间...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/home`);
+        const data = await res.json();
+        
+        if(data.success) {
+            renderHomeGrid(data.items);
+        }
+    } catch(e) { console.error(e); }
+}
+
+function renderHomeGrid(items) {
+    const container = document.getElementById('home-grid');
+    container.innerHTML = '';
+    
+    // 生成 9 个种植槽位 (0-8)
+    for(let i=0; i<9; i++) {
+        const item = items.find(it => it.slot_index === i);
+        const div = document.createElement('div');
+        div.className = 'home-slot glass-card';
+        
+        if (item) {
+            // 已种植
+            const now = Date.now();
+            const isReady = now >= item.harvest_at;
+            // 计算进度百分比
+            const totalTime = item.harvest_at - item.created_at;
+            const passed = now - item.created_at;
+            let percent = Math.floor((passed / totalTime) * 100);
+            if(percent > 100) percent = 100;
+
+            let statusHtml = '';
+            if(isReady) {
+                statusHtml = `<div class="slot-status ready">🟢 运行完毕 (READY)</div>`;
+                div.classList.add('ready-glow');
+                div.onclick = () => harvestSlot(i);
+            } else {
+                statusHtml = `<div class="slot-status growing">🟠 编译中 ${percent}%</div>`;
+                // 显示倒计时
+                const timeLeft = Math.ceil((item.harvest_at - now) / 60000); // 分钟
+                statusHtml += `<div style="font-size:0.7rem;color:#666">${timeLeft} min left</div>`;
+            }
+
+            // 根据ID找名字
+            const catItem = HOME_CATALOG.find(c => c.id === item.item_id) || { name: '未知算法', icon: '❓' };
+
+            div.innerHTML = `
+                <div class="slot-icon">${catItem.icon}</div>
+                <div class="slot-name">${catItem.name}</div>
+                ${statusHtml}
+                ${isReady ? '<div style="font-size:0.7rem;color:#0f0;margin-top:5px;">[点击收获]</div>' : ''}
+            `;
+        } else {
+            // 空槽位
+            div.className += ' empty';
+            div.innerHTML = `
+                <div style="color:#333;font-size:2rem;">+</div>
+                <div style="font-size:0.8rem;color:#666">空闲节点</div>
+            `;
+            div.onclick = () => openPlantModal(i);
+        }
+        container.appendChild(div);
+    }
+}
+
+async function harvestSlot(idx) {
+    showToast("正在解密数据...", "info");
+    const res = await fetch(`${API_BASE}/home`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'harvest', slotIndex: idx })
+    });
+    const data = await res.json();
+    if(data.success) {
+        showToast(data.message, 'success');
+        checkSecurity(); // 刷新钱
+        loadHomeData();  // 刷新地块
+    } else {
+        showToast(data.error, 'error');
+    }
+}
+
+// 种植弹窗逻辑 (简化版：直接 prompt 或者做一个简单的 Modal)
+window.openPlantModal = function(slotIdx) {
+    // 这里建议用 HTML 写一个 modal，这里为了演示逻辑直接用 prompt 或简单的 confirm 流程
+    // 实际项目中，请参照你的 item-use-modal 写一个 seed-select-modal
+    // 这里我假设你已经有一个 id="seed-modal" 的弹窗
+    const modal = document.getElementById('seed-modal');
+    if(!modal) return alert("请先在 HTML 添加种子选择弹窗");
+    
+    // 渲染种子列表
+    const list = document.getElementById('seed-list');
+    list.innerHTML = '';
+    HOME_CATALOG.forEach(seed => {
+        const div = document.createElement('div');
+        div.className = 'glass-card shop-item'; // 复用样式
+        div.style.minHeight = 'auto';
+        div.style.padding = '10px';
+        div.innerHTML = `
+            <div style="font-size:1.5rem">${seed.icon}</div>
+            <div style="font-weight:bold;font-size:0.9rem;">${seed.name}</div>
+            <div style="font-size:0.7rem;color:#888">${seed.timeStr}</div>
+            <button class="cyber-btn" onclick="plantSeed(${slotIdx}, '${seed.id}')" style="margin-top:5px;font-size:0.8rem;">种植 (需种子)</button>
+        `;
+        list.appendChild(div);
+    });
+    
+    modal.style.display = 'flex';
+}
+
+window.closeSeedModal = function() {
+    document.getElementById('seed-modal').style.display = 'none';
+}
+
+window.plantSeed = async function(slotIdx, seedId) {
+    const res = await fetch(`${API_BASE}/home`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'plant', slotIndex: slotIdx, seedId })
+    });
+    const data = await res.json();
+    if(data.success) {
+        showToast(data.message, 'success');
+        closeSeedModal();
+        loadHomeData();
+    } else {
+        showToast(data.error, 'error');
+    }
+}
+
+// === 打工系统 ===
+async function loadWorkData() {
+    const box = document.getElementById('work-status-box');
+    box.innerHTML = '加载任务状态...';
+    
+    const res = await fetch(`${API_BASE}/work`);
+    const data = await res.json();
+    
+    if (data.work) {
+        // 正在打工
+        const w = data.work;
+        const now = Date.now();
+        const config = WORK_TYPES[w.work_type];
+        
+        if (now >= w.end_time) {
+            // 完成
+            box.innerHTML = `
+                <div class="glass-card" style="border-color:#0f0;text-align:center;">
+                    <h3 style="color:#0f0">任务完成: ${config.name}</h3>
+                    <button onclick="claimWork()" class="cyber-btn" style="border-color:#0f0;color:#0f0;">领取报酬 (${config.reward})</button>
+                </div>
+            `;
+        } else {
+            // 进行中
+            const leftSec = Math.ceil((w.end_time - now)/1000);
+            box.innerHTML = `
+                <div class="glass-card" style="text-align:center;">
+                    <h3>任务进行中: ${config.name}</h3>
+                    <div class="xp-bar-bg" style="margin:15px 0;"><div class="xp-bar-fill rainbow-bar" style="width:100%"></div></div>
+                    <div style="color:#00f3ff;font-family:monospace;font-size:1.2rem;">剩余时间: ${leftSec}s</div>
+                    <button onclick="cancelWork()" class="mini-action-btn" style="margin-top:10px;color:#f33;border-color:#f33;">放弃任务</button>
+                </div>
+            `;
+            // 简单倒计时刷新
+            if(workTimer) clearTimeout(workTimer);
+            workTimer = setTimeout(loadWorkData, 1000);
+        }
+    } else {
+        // 空闲状态，显示任务列表
+        let html = '';
+        for(let type in WORK_TYPES) {
+            const wt = WORK_TYPES[type];
+            html += `
+                <div class="glass-card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <div>
+                        <div style="font-weight:bold">${wt.name}</div>
+                        <div style="font-size:0.7rem;color:#888">耗时: ${wt.time} / 报酬: ${wt.reward}</div>
+                    </div>
+                    <button onclick="startWork('${type}')" class="cyber-btn" style="width:auto;margin:0;">接单</button>
+                </div>
+            `;
+        }
+        box.innerHTML = html;
+    }
+}
+
+window.startWork = async function(type) {
+    const res = await fetch(`${API_BASE}/work`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'start', workType: type })
+    });
+    const data = await res.json();
+    if(data.success) { showToast(data.message, 'success'); loadWorkData(); }
+    else showToast(data.error, 'error');
+}
+
+window.claimWork = async function() {
+    const res = await fetch(`${API_BASE}/work`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'claim' })
+    });
+    const data = await res.json();
+    if(data.success) { showToast(data.message, 'success'); checkSecurity(); loadWorkData(); }
+    else showToast(data.error, 'error');
+}
+
+window.cancelWork = async function() {
+    if(!confirm("放弃任务将没有收益，确定吗？")) return;
+    const res = await fetch(`${API_BASE}/work`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'cancel' })
+    });
+    loadWorkData();
+}
 
 
 
