@@ -4712,16 +4712,21 @@ window.bizWithdraw = async function() {
     }
 };
 
-// === 股市逻辑 ===
+// --- script.js 股市核心逻辑 (交互版) ---
 
 let currentStockSymbol = 'BLUE';
 let marketData = {};
 let myPositions = [];
-let companyInfo = {}; // 存类型和资金
+let marketOpens = {}; // 存开盘价
 
+// 1. 加载数据
 window.loadStockMarket = async function() {
     const canvas = document.getElementById('stockCanvas');
-    if(!canvas) return; // 没在界面上
+    // 防止未打开页面时报错
+    if(!canvas) return; 
+
+    // 显示 Loading 状态
+    document.getElementById('stockCurrent').innerText = "Loading...";
 
     try {
         const res = await fetch(`${API_BASE}/stock`);
@@ -4730,172 +4735,294 @@ window.loadStockMarket = async function() {
         if (data.success) {
             marketData = data.market;
             myPositions = data.positions;
-            companyInfo = { capital: data.capital, type: data.companyType };
+            marketOpens = data.opens || {}; // 获取开盘价
             
-            // 存储后端传来的今日开盘价
-            // 假设后端返回结构是 data.opens = { 'BLUE': 100, ... }
-            window.marketOpens = data.opens || {}; 
-            
-            // 处理休市状态
+            // 处理休市
             const mask = document.getElementById('marketClosedMask');
-            if (!data.status.isOpen) {
+            if (data.status && !data.status.isOpen) {
                 if(mask) mask.style.display = 'flex';
-                // 禁用交易按钮
-                document.querySelectorAll('#stockTradeAmount, button[onclick^="tradeStock"]').forEach(e => e.disabled = true);
+                disableTrading(true);
             } else {
                 if(mask) mask.style.display = 'none';
-                document.querySelectorAll('#stockTradeAmount, button[onclick^="tradeStock"]').forEach(e => e.disabled = false);
+                disableTrading(false);
             }
 
+            // 更新资金显示
+            if(document.getElementById('bizCapital')) {
+                document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
+            }
+
+            // 绑定鼠标事件 (只绑定一次，防止重复)
+            if (!canvas.dataset.listening) {
+                canvas.addEventListener('mousemove', handleChartHover);
+                canvas.addEventListener('mouseleave', handleChartLeave);
+                canvas.dataset.listening = "true";
+            }
+
+            // 渲染当前股票
             switchStock(currentStockSymbol);
-            document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
         }
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("Stock Load Error:", e); }
 };
 
+function disableTrading(disabled) {
+    const els = document.querySelectorAll('#stockTradeAmount, button[onclick^="tradeStock"]');
+    els.forEach(e => e.disabled = disabled);
+}
+
+// 2. 切换股票
 window.switchStock = function(symbol) {
     currentStockSymbol = symbol;
     
-    // UI 高亮
+    // Tab 高亮
     document.querySelectorAll('.stock-tab').forEach(b => b.classList.remove('active'));
-    // 简单粗暴根据文本找按钮，或者你可以给按钮加 id
+    // 简单的根据文本匹配来高亮，或者你可以给HTML加ID
     const btns = document.querySelectorAll('.stock-tab');
-    if(symbol==='BLUE') btns[0].classList.add('active');
-    if(symbol==='GOLD') btns[1].classList.add('active');
-    if(symbol==='RED') btns[2].classList.add('active');
+    if(symbol==='BLUE' && btns[0]) btns[0].classList.add('active');
+    if(symbol==='GOLD' && btns[1]) btns[1].classList.add('active');
+    if(symbol==='RED' && btns[2]) btns[2].classList.add('active');
 
-    renderStockChart(symbol);
+    // 绘制图表 (无鼠标位置，显示默认状态)
+    drawInteractiveChart(symbol, null);
+    
+    // 更新持仓面板
     updatePositionUI(symbol);
 };
 
-// script.js - 重写绘图函数
+// 3. 鼠标移动处理
+function handleChartHover(e) {
+    const rect = e.target.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    drawInteractiveChart(currentStockSymbol, {x, y});
+}
 
-function renderStockChart(symbol) {
+// 4. 鼠标离开处理
+function handleChartLeave() {
+    drawInteractiveChart(currentStockSymbol, null);
+}
+
+// === 5. 核心绘图函数 (终极版) ===
+function drawInteractiveChart(symbol, mousePos) {
     const canvas = document.getElementById('stockCanvas');
     if (!canvas) return;
-    
     const ctx = canvas.getContext('2d');
+    
     const width = 600;
-    const height = 220; // 稍微增高
+    const height = 220;
     canvas.width = width;
     canvas.height = height;
 
-    // === 1. 定义绘图区域 (内边距) ===
-    // 留出左侧写价格，底部写时间
-    const padding = { top: 20, right: 20, bottom: 30, left: 50 };
-    const chartW = width - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
-
-    const data = marketData[symbol]; // Array of {t, p}
-    ctx.clearRect(0, 0, width, height);
-    
+    const data = marketData[symbol]; 
     if(!data || data.length === 0) return;
 
-    // === 2. 计算极值与看板数据 ===
+    // === A. 计算基础数据 ===
+    // 这里的 data 是按照时间顺序排列的数组
+    
+    // 计算极值
     let minP = Infinity, maxP = -Infinity;
     data.forEach(d => {
         if(d.p < minP) minP = d.p;
         if(d.p > maxP) maxP = d.p;
     });
     
-    // 扩展 Y 轴范围，防止顶格
-    const rangeBuffer = (maxP - minP) === 0 ? maxP * 0.1 : (maxP - minP); // 防止一条直线时除以0
-    const yMin = minP - rangeBuffer * 0.2; 
-    const yMax = maxP + rangeBuffer * 0.2;
+    // Y轴范围 (上下各留 15% 缓冲)
+    const paddingVal = (maxP - minP) === 0 ? maxP * 0.1 : (maxP - minP);
+    const yMin = Math.floor(minP - paddingVal * 0.3);
+    const yMax = Math.ceil(maxP + paddingVal * 0.3);
     const yRange = yMax - yMin;
 
-    const currentPrice = data[data.length - 1].p;
-    // 开盘价取后端传来的 dayOpen，如果没传则取当前图表最早的一个点兜底
-    const openPrice = window.marketOpens ? window.marketOpens[symbol] : data[0].p;
+    // 布局边距
+    const pad = { top: 30, right: 60, bottom: 30, left: 60 }; // 右侧留宽点给价格标签
+    const chartW = width - pad.left - pad.right;
+    const chartH = height - pad.top - pad.bottom;
 
-    // 更新 HTML 看板
-    document.getElementById('stockHigh').innerText = maxP;
-    document.getElementById('stockLow').innerText = minP;
-    document.getElementById('stockOpen').innerText = openPrice;
-    
-    const curEl = document.getElementById('stockCurrent');
-    curEl.innerText = currentPrice;
-    // 现价颜色：比开盘高则红/绿(看涨跌颜色习惯，赛博风通常 绿=涨/好，红=跌/坏，或者反过来)
-    // 这里设定：大于开盘价为绿色(#0f0)，小于为红色(#f33)
-    curEl.style.color = currentPrice >= openPrice ? '#0f0' : '#f33'; 
+    // 颜色定义
     const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    const themeColor = colorMap[symbol];
 
-    // === 3. 绘制坐标轴网格 ===
+    // === B. 更新顶部数据看板 (修复不显示问题) ===
+    // 只有当鼠标不在图表上时，才更新为最新数据（避免闪烁）
+    if (!mousePos) {
+        const openP = marketOpens[symbol] || data[0].p;
+        const currP = data[data.length - 1].p;
+        
+        document.getElementById('stockOpen').innerText = openP;
+        document.getElementById('stockHigh').innerText = maxP;
+        document.getElementById('stockLow').innerText = minP;
+        const curEl = document.getElementById('stockCurrent');
+        curEl.innerText = currP;
+        curEl.style.color = currP >= openP ? '#0f0' : '#f33';
+    }
+
+    // === C. 绘制网格与坐标轴 ===
+    ctx.clearRect(0, 0, width, height);
     ctx.lineWidth = 1;
-    ctx.font = '12px JetBrains Mono';
-    ctx.fillStyle = '#888';
+    ctx.font = '10px JetBrains Mono';
     
-    // 3.1 横线 (价格轴) - 画 5 条
+    // C1. 横线 (价格轴)
     const ySteps = 5;
     for (let i = 0; i <= ySteps; i++) {
-        const val = yMin + (yRange / ySteps) * i;
-        const y = padding.top + chartH - ((val - yMin) / yRange * chartH);
+        const price = yMin + (yRange / ySteps) * i;
+        const y = pad.top + chartH - ((price - yMin) / yRange * chartH);
         
-        // 线
+        // 网格线
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.moveTo(padding.left, y);
-        ctx.lineTo(width - padding.right, y);
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
         ctx.stroke();
 
-        // 文字 (价格)
+        // 刻度文字 (左侧)
+        ctx.fillStyle = '#666';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
-        ctx.fillText(Math.floor(val), padding.left - 5, y);
+        ctx.fillText(Math.floor(price), pad.left - 5, y);
     }
 
-    // 3.2 竖线 (时间轴) - 每 5 个点画一条
+    // C2. 竖线 (时间轴)
     const xStep = chartW / (data.length - 1);
-    for (let i = 0; i < data.length; i += 5) {
-        const x = padding.left + (i * xStep);
+    const xStepsCount = 6; // 显示6个时间点
+    const timeInterval = Math.floor((data.length - 1) / (xStepsCount - 1));
+
+    for (let i = 0; i < data.length; i += timeInterval) {
+        const x = pad.left + (i * xStep);
         
-        // 线
+        // 网格线
         ctx.beginPath();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.moveTo(x, padding.top);
-        ctx.lineTo(x, height - padding.bottom);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.moveTo(x, pad.top);
+        ctx.lineTo(x, height - pad.bottom);
         ctx.stroke();
 
-        // 文字 (时间 HH:mm)
+        // 时间文字
         const date = new Date(data[i].t);
         const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
-        
+        ctx.fillStyle = '#666';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(timeStr, x, height - padding.bottom + 5);
+        ctx.fillText(timeStr, x, height - pad.bottom + 5);
     }
 
-    // === 4. 绘制折线图 ===
-    ctx.strokeStyle = colorMap[symbol] || '#fff';
-    ctx.lineWidth = 2;
+    // C3. 绘制轴说明 (Axis Labels)
+    ctx.fillStyle = '#aaa';
+    ctx.font = 'bold 12px JetBrains Mono';
+    
+    // 纵轴标题
+    ctx.textAlign = 'center';
+    ctx.save();
+    ctx.translate(15, height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("PRICE (i币)", 0, 0);
+    ctx.restore();
+
+    // 横轴标题
+    ctx.textAlign = 'right';
+    ctx.fillText("TIME (时间)", width - 10, height - 10);
+
+
+    // === D. 绘制主折线 ===
     ctx.beginPath();
+    ctx.strokeStyle = themeColor;
+    ctx.lineWidth = 2;
+    // 添加阴影增加霓虹感
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = themeColor;
 
     data.forEach((d, i) => {
-        const x = padding.left + (i * xStep);
-        const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
-        
+        const x = pad.left + (i * xStep);
+        const y = pad.top + chartH - ((d.p - yMin) / yRange * chartH);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
     });
     ctx.stroke();
+    // 重置阴影
+    ctx.shadowBlur = 0;
 
-    // === 5. 绘制最后一个点的光标 (呼吸灯效果) ===
-    const lastX = padding.left + ((data.length - 1) * xStep);
-    const lastY = padding.top + chartH - ((currentPrice - yMin) / yRange * chartH);
+
+    // === E. 交互层 (十字光标 & 悬停数据) ===
     
-    ctx.beginPath();
-    ctx.fillStyle = colorMap[symbol];
-    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 加个虚线指向右边
-    ctx.beginPath();
-    ctx.setLineDash([5, 5]);
-    ctx.moveTo(padding.left, lastY);
-    ctx.lineTo(width - padding.right, lastY);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.stroke();
-    ctx.setLineDash([]); // 重置
+    if (mousePos) {
+        // E1. 找到离鼠标最近的数据点
+        // 鼠标X 对应的数组索引
+        let index = Math.round((mousePos.x - pad.left) / xStep);
+        // 边界限制
+        if (index < 0) index = 0;
+        if (index >= data.length) index = data.length - 1;
+
+        const target = data[index];
+        const pointX = pad.left + (index * xStep);
+        const pointY = pad.top + chartH - ((target.p - yMin) / yRange * chartH);
+
+        // E2. 绘制十字准星
+        ctx.beginPath();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]); // 虚线
+        
+        // 竖线
+        ctx.moveTo(pointX, pad.top);
+        ctx.lineTo(pointX, height - pad.bottom);
+        // 横线
+        ctx.moveTo(pad.left, pointY);
+        ctx.lineTo(width - pad.right, pointY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // E3. 绘制焦点圆圈
+        ctx.beginPath();
+        ctx.fillStyle = '#fff';
+        ctx.arc(pointX, pointY, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // E4. 绘制数据浮窗 (Tooltip)
+        const date = new Date(target.t);
+        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
+        const infoText = `${timeStr} | ¥${target.p}`;
+        
+        // 浮窗背景
+        const textWidth = ctx.measureText(infoText).width + 20;
+        let boxX = pointX + 10;
+        let boxY = pointY - 30;
+        
+        // 防止浮窗超出右边界
+        if (boxX + textWidth > width) boxX = pointX - textWidth - 10;
+        // 防止超出上边界
+        if (boxY < 0) boxY = pointY + 20;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(boxX, boxY, textWidth, 24);
+        ctx.strokeStyle = themeColor;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(boxX, boxY, textWidth, 24);
+
+        // 浮窗文字
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(infoText, boxX + 10, boxY + 12);
+
+    } else {
+        // 如果没有鼠标悬停，在最后一个点画一个呼吸点
+        const lastIdx = data.length - 1;
+        const lastX = pad.left + (lastIdx * xStep);
+        const lastY = pad.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
+        
+        ctx.beginPath();
+        ctx.fillStyle = themeColor;
+        ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 指示线
+        ctx.beginPath();
+        ctx.setLineDash([2, 4]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.moveTo(pad.left, lastY);
+        ctx.lineTo(width - pad.right, lastY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
 }
 
 function updatePositionUI(symbol) {
@@ -4970,6 +5097,7 @@ window.tradeStock = async function(action) {
         }
     } catch(e) { showToast("交易失败", "error"); }
 };
+
 
 
 
