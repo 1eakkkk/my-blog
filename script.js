@@ -2981,14 +2981,14 @@ window.renderShop = async function(filterType = 'all') {
         }
     } catch(e) {}
 
-    const filtered = filterType === 'all' 
-        ? SHOP_CATALOG 
-        : SHOP_CATALOG.filter(i => {
-            if (filterType === 'vip') return i.type === 'vip';
-            if (filterType === 'consumable') return i.type === 'consumable';
-            if (filterType === 'decoration') return i.type === 'decoration' || i.type === 'timed';
-            return i.type === filterType;
-        });
+    // 修改为：
+    const filtered = (filterType === 'all' ? SHOP_CATALOG : SHOP_CATALOG.filter(i => {
+        if (filterType === 'vip') return i.type === 'vip';
+        if (filterType === 'consumable') return i.type === 'consumable';
+        if (filterType === 'decoration') return i.type === 'decoration' || i.type === 'timed';
+        return i.type === filterType;
+    }))
+    .filter(i => i.type !== 'material');
 
     container.innerHTML = '';
     
@@ -4329,6 +4329,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
