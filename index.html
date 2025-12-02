@@ -572,65 +572,64 @@
                             </div>
                             <!-- 在 biz-dashboard 里，资本运作卡片下方添加 -->
 
+                            <!-- index.html 股市区域重构 -->
+
                             <div class="glass-card" style="margin-top:20px; border-color:#00f3ff; min-height:400px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                                     <h3 style="color:#00f3ff; margin:0;">📊 二级市场 / STOCK EXCHANGE</h3>
                                     <button onclick="loadStockMarket()" class="mini-action-btn">🔄 刷新行情</button>
                                 </div>
                             
+                                <!-- 顶部数据看板 -->
                                 <div class="stock-stats-row" style="display:flex; justify-content:space-between; margin-bottom:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:4px; border:1px solid #333;">
-                                    <div class="stat-box">
-                                        <div class="label">OPEN (开盘)</div>
-                                        <div class="val" id="stockOpen">--</div>
+                                    <div class="stat-box"><div class="label">OPEN</div><div class="val" id="stockOpen">--</div></div>
+                                    <div class="stat-box"><div class="label">HIGH</div><div class="val" id="stockHigh" style="color:#0f0;">--</div></div>
+                                    <div class="stat-box"><div class="label">LOW</div><div class="val" id="stockLow" style="color:#f33;">--</div></div>
+                                    <div class="stat-box"><div class="label">CURRENT</div><div class="val" id="stockCurrent" style="font-size:1.2rem; font-weight:bold;">--</div></div>
+                                </div>
+                            
+                                <!-- 核心区域：左右分栏 -->
+                                <div class="stock-main-layout">
+                                    <!-- 左侧：K线图 -->
+                                    <div class="stock-chart-wrapper">
+                                        <canvas id="stockCanvas"></canvas>
+                                        <div id="marketClosedMask" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); color:#f33; align-items:center; justify-content:center; flex-direction:column; font-size:1.5rem; font-weight:bold;">
+                                            <div>🚫 MARKET CLOSED</div>
+                                            <div style="font-size:0.8rem; color:#fff; margin-top:5px;">06:00 - 02:00</div>
+                                        </div>
                                     </div>
-                                    <div class="stat-box">
-                                        <div class="label">HIGH (最高)</div>
-                                        <div class="val" id="stockHigh" style="color:#0f0;">--</div>
-                                    </div>
-                                    <div class="stat-box">
-                                        <div class="label">LOW (最低)</div>
-                                        <div class="val" id="stockLow" style="color:#f33;">--</div>
-                                    </div>
-                                    <div class="stat-box">
-                                        <div class="label">CURRENT (现价)</div>
-                                        <div class="val" id="stockCurrent" style="font-size:1.2rem; font-weight:bold;">--</div>
+                            
+                                    <!-- 右侧：交易日志 -->
+                                    <div class="stock-log-wrapper">
+                                        <div class="log-header">📢 市场动态 / LOGS</div>
+                                        <div id="stockLogList" class="log-list">
+                                            <div class="log-item system">正在连接交易所数据流...</div>
+                                        </div>
                                     </div>
                                 </div>
                             
-                                <div class="stock-chart-container" style="height:220px; border:1px solid #333; background:rgba(0,0,0,0.8); position:relative; overflow:hidden; margin-bottom:15px;">
-                                    <canvas id="stockCanvas"></canvas>
-                                    <div id="marketClosedMask" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); color:#f33; align-items:center; justify-content:center; flex-direction:column; font-size:1.5rem; font-weight:bold;">
-                                        <div>🚫 MARKET CLOSED</div>
-                                        <div style="font-size:0.8rem; color:#fff; margin-top:5px;">TRADING HOURS: 06:00 - 02:00</div>
-                                    </div>
-                                </div>
-                            
-                                <!-- 股票切换 Tab -->
+                                <!-- 下方 Tab 和 交易操作区保持不变... -->
                                 <div class="shop-tabs-container" style="margin:15px 0;">
                                     <button class="stock-tab active" onclick="switchStock('BLUE')">🛡️ 蓝盾 (稳健)</button>
                                     <button class="stock-tab" onclick="switchStock('GOLD')">⚡ 神经元 (成长)</button>
                                     <button class="stock-tab" onclick="switchStock('RED')">💥 荒坂 (高危)</button>
                                 </div>
                             
-                                <!-- 交易操作区 -->
                                 <div style="display:flex; gap:20px; flex-wrap:wrap;">
-                                    <!-- 左侧：当前持仓 -->
                                     <div style="flex:1; min-width:200px; padding:10px; background:rgba(255,255,255,0.05); border-radius:4px;">
                                         <div style="font-size:0.8rem; color:#aaa;">当前持仓 (POSITION)</div>
                                         <div id="myStockAmount" style="font-size:1.2rem; font-weight:bold;">0 股</div>
                                         <div id="myStockProfit" style="font-size:0.9rem;">浮动盈亏: --</div>
                                     </div>
-                            
-                                    <!-- 右侧：买卖 -->
                                     <div style="flex:1; min-width:200px; display:flex; gap:5px; align-items:center;">
                                         <input type="number" id="stockTradeAmount" class="cyber-input" placeholder="数量" style="width:80px; margin:0;">
                                         <button onclick="tradeStock('buy')" class="cyber-btn" style="margin:0; border-color:#0f0; color:#0f0;">买入</button>
                                         <button onclick="tradeStock('sell')" class="cyber-btn" style="margin:0; border-color:#f33; color:#f33;">卖出</button>
-                                        <!-- 仅限黑域工作室显示的按钮 -->
                                         <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="margin:0; display:none; border-color:gold; color:gold;">平空</button>
                                     </div>
                                 </div>
                             </div>
+                            
                         </div>
                     </div>
                 </div>
@@ -1222,9 +1221,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=8.16"></script>
+    <script src="script.js?v=9.1"></script>
 </body>
 </html>
+
 
 
 
