@@ -3574,6 +3574,21 @@ body.bg-fire {
     box-shadow: 0 0 10px var(--accent-blue);
 }
 
+/* 股市 Tab */
+.stock-tab {
+    background: transparent;
+    border: 1px solid #333;
+    color: #666;
+    padding: 5px 15px;
+    cursor: pointer;
+    font-family: var(--font-tech);
+    margin-right: 5px;
+}
+.stock-tab.active {
+    border-color: #00f3ff;
+    color: #00f3ff;
+    background: rgba(0, 243, 255, 0.1);
+}
 
 
 
