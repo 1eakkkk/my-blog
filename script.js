@@ -4918,15 +4918,6 @@ function drawInteractiveChart(symbol, mousePos) {
             elCurr.style.color = currentPrice >= openPrice ? '#0f0' : '#f33';
         }
     }
-    const isMobile = width < 400;
-    const padding = { top: 20, right: 10, bottom: 20, left: 50 };
-    const chartW = width - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
-    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
-    const themeColor = colorMap[symbol];
-
-    const currentPrice = data[data.length - 1].p;
-    const openPrice = marketOpens[symbol] || data[0].p;
 
     // 更新看板 (无交互时)
     if (!mousePos) {
@@ -5279,6 +5270,7 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
 
 
 
