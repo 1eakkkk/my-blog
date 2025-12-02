@@ -3283,15 +3283,14 @@ body.bg-fire {
     box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
 }
 
-/* --- 家园系统样式 --- */
-
-/* 九宫格容器 */
 .home-grid-container {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    /* 👇 修改点：改为 2 列 */
+    grid-template-columns: repeat(2, 1fr); 
     gap: 15px;
     margin: 0 auto;
-    max-width: 600px;
+    /* 👇 修改点：缩小最大宽度，防止地块变得巨大 */
+    max-width: 400px; 
 }
 
 /* 每一个槽位 */
@@ -3540,6 +3539,7 @@ body.bg-fire {
     cursor: pointer;
     border-radius: 4px;
 }
+
 
 
 
