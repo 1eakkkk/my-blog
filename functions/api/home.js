@@ -13,17 +13,17 @@ export async function onRequest(context) {
 
     const method = request.method;
 
-    // === 配置常量 (后端校验用) ===
+    // === 配置常量 ===
     const SEEDS = {
-        'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_coins: 150, reward_xp: 120 },
-        'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_coins: 280, reward_xp: 180 },
-        'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 600, reward_xp: 450 }
+        'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_coins: 50, reward_xp: 20 },
+        'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_coins: 180, reward_xp: 80 },
+        'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 400, reward_xp: 200 }
     };
     
     const WORKS = {
-        'cleaning': { name: '数据清理', duration: 2 * 60 * 1000, reward: 15 },    // 2分钟
-        'sorting':  { name: '缓存整理', duration: 10 * 60 * 1000, reward: 80 },   // 10分钟
-        'debug':    { name: '黑盒调试', duration: 60 * 60 * 1000, reward: 500 }   // 1小时
+        'cleaning': { name: '数据清理', duration: 2 * 60 * 1000, reward: 15 },
+        'sorting':  { name: '缓存整理', duration: 10 * 60 * 1000, reward: 80 },
+        'debug':    { name: '黑盒调试', duration: 60 * 60 * 1000, reward: 500 }
     };
 
     // === GET: 获取家园和打工状态 ===
@@ -51,21 +51,18 @@ export async function onRequest(context) {
             const seedConfig = SEEDS[seedId];
             if (!seedConfig) return Response.json({ success: false, error: '无效的种子类型' });
 
-            // 检查背包 (inventory 表)
-            // 注意：你的 user_items 表结构可能有差异，这里假设是 inventory 逻辑
-            // 如果你的表名是 user_items 且 item_id 是字符串，请保留如下
+            // 检查背包
             const hasSeed = await db.prepare("SELECT id, quantity FROM user_items WHERE user_id = ? AND item_id = ? AND quantity > 0").bind(user.id, seedId).first();
-            
-            if (!hasSeed) return Response.json({ success: false, error: '背包内缺少该种子，请去商城购买' });
+            if (!hasSeed) return Response.json({ success: false, error: '背包内缺少该种子' });
 
-            // 检查槽位是否被占用
+            // 检查槽位
             const occupied = await db.prepare("SELECT id FROM home_items WHERE user_id = ? AND slot_index = ?").bind(user.id, slotIndex).first();
             if (occupied) return Response.json({ success: false, error: '该槽位已有植物' });
 
             // 事务：扣除种子 -> 种植
             const batch = [
                 db.prepare("UPDATE user_items SET quantity = quantity - 1 WHERE id = ?").bind(hasSeed.id),
-                db.prepare("DELETE FROM user_items WHERE id = ? AND quantity <= 0").bind(hasSeed.id), // 数量为0删除
+                db.prepare("DELETE FROM user_items WHERE id = ? AND quantity <= 0").bind(hasSeed.id),
                 db.prepare("INSERT INTO home_items (user_id, slot_index, item_id, created_at, harvest_at) VALUES (?, ?, ?, ?, ?)")
                   .bind(user.id, slotIndex, seedId, now, now + seedConfig.duration)
             ];
@@ -74,7 +71,7 @@ export async function onRequest(context) {
             return Response.json({ success: true, message: `正在编译: ${seedConfig.name}` });
         }
 
-        // --- 2. 收获 (Harvest) ---
+        // --- 2. 收获 (Harvest) - 含掉落逻辑 ---
         if (action === 'harvest') {
             const { slotIndex } = body;
             const item = await db.prepare("SELECT * FROM home_items WHERE user_id = ? AND slot_index = ?").bind(user.id, slotIndex).first();
@@ -83,51 +80,37 @@ export async function onRequest(context) {
             if (now < item.harvest_at) return Response.json({ success: false, error: '算法尚未运行完毕' });
 
             const config = SEEDS[item.item_id];
-            const DROP_RATE = 0.15;
+            if (!config) {
+                await db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id).run();
+                return Response.json({ success: false, error: '数据异常，已重置槽位' });
+            }
+
+            // === 掉落概率计算 ===
+            const DROP_RATE = 0.15; // 15% 概率
             const dropRandom = Math.random();
             let dropMessage = "";
+            
+            // 初始化 batch (这是唯一一次定义 batch)
             const batch = [
-                // 1. 基础奖励
                 db.prepare("UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id = ?").bind(config.reward_coins, config.reward_xp, user.id),
-                // 2. 删除植物
                 db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id)
             ];
 
+            // 如果触发掉落
             if (dropRandom < DROP_RATE) {
-                // 检查用户是否已有该物品 (如果是可堆叠的)
-                // 这里假设 user_items 表结构: id, user_id, item_id, quantity, category...
-                // 我们尝试插入或更新 (UPSERT 逻辑对于 SQLite 稍微复杂，这里用简单的查-改逻辑或 INSERT ON CONFLICT)
-                
-                // 简单方案：直接插入或更新数量
-                // 假设 user_items 表有唯一约束 UNIQUE(user_id, item_id)
-                // 如果没有唯一约束，需要先查一下
                 const existingItem = await db.prepare("SELECT id FROM user_items WHERE user_id = ? AND item_id = 'item_algo_frag'").bind(user.id).first();
                 
                 if (existingItem) {
                     batch.push(db.prepare("UPDATE user_items SET quantity = quantity + 1 WHERE id = ?").bind(existingItem.id));
                 } else {
-                    // 新增物品 (注意 category 填 'consumable')
                     batch.push(db.prepare("INSERT INTO user_items (user_id, item_id, quantity, type, category, created_at) VALUES (?, 'item_algo_frag', 1, 'consumable', 'consumable', ?)")
                         .bind(user.id, now));
                 }
-                
                 dropMessage = " 🎁 获得: 加速算法碎片!";
             }
-            
-            if (!config) {
-                // 异常数据清除
-                await db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id).run();
-                return Response.json({ success: false, error: '数据异常，已重置槽位' });
-            }
 
-            // 事务：加钱/XP -> 删除植物
-            const batch = [
-                db.prepare("UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id = ?").bind(config.reward_coins, config.reward_xp, user.id),
-                db.prepare("DELETE FROM home_items WHERE id = ?").bind(item.id)
-            ];
             await db.batch(batch);
-
-            return Response.json({ success: true, message: `收获成功: +${config.reward_coins} i币, +${config.reward_xp} XP` });
+            return Response.json({ success: true, message: `收获成功: +${config.reward_coins} i币, +${config.reward_xp} XP${dropMessage}` });
         }
 
         // --- 3. 开始打工 (Start Work) ---
@@ -157,6 +140,7 @@ export async function onRequest(context) {
 
             const config = WORKS[current.work_type];
             
+            // 这里定义的是一个新的 batch 变量，因为在不同的 if 块中，所以是合法的
             const batch = [
                 db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(config.reward, user.id),
                 db.prepare("DELETE FROM user_works WHERE user_id = ?").bind(user.id)
