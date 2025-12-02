@@ -3251,22 +3251,24 @@ window.exploreNode = async function() {
     }
 };
 
-// --- script.js 新增函数 ---
-
 window.multiExploreNode = async function() {
     const btn = document.getElementById('multiExploreBtn');
     const centerBtn = document.getElementById('centralNode');
     
     if(btn.disabled) return;
     
-    if(!confirm("确定消耗 250 i币 进行 5 次快速检索吗？")) return;
+    // === 修改点 1: 删除了 confirm 弹窗确认 ===
+    // if(!confirm("确定消耗 250 i币 进行 5 次快速检索吗？")) return; 
 
     btn.disabled = true;
     centerBtn.classList.add('scanning'); 
-    addNodeLog("INITIATING RAPID SCAN SEQUENCE...", "info");
+    
+    // === 修改点 2: 立即打印连接日志，仿照单抽风格 ===
+    // 使用 addNodeLog 会自动添加 "> " 前缀
+    addNodeLog("ESTABLISHING HIGH-SPEED CONNECTION...", "info"); 
 
     try {
-        await new Promise(r => setTimeout(r, 500)); // 稍短一点的延迟
+        await new Promise(r => setTimeout(r, 800)); // 稍微增加一点延迟感，更有“连接中”的感觉
 
         const res = await fetch(`${API_BASE}/node`, {
             method: 'POST',
@@ -3287,7 +3289,6 @@ window.multiExploreNode = async function() {
             // 2. 打印 5 条日志
             data.summary.forEach((msg, idx) => {
                 setTimeout(() => {
-                    // 简单的稀有度颜色判断
                     let type = '';
                     if (msg.includes('[EPIC]')) type = 'rarity-epic';
                     else if (msg.includes('[LEGENDARY]')) type = 'rarity-legendary';
@@ -3295,7 +3296,7 @@ window.multiExploreNode = async function() {
                     else if (msg.includes('[GLITCH]')) type = 'rarity-glitch';
                     
                     addNodeLog(msg, type);
-                }, idx * 200); // 每条间隔 0.2 秒显示
+                }, idx * 200); 
             });
 
             // 3. 更新 UI
@@ -3307,7 +3308,7 @@ window.multiExploreNode = async function() {
             const coinEl = document.getElementById('coinCount');
             if (coinEl) coinEl.innerText = data.new_coins;
             
-            // 刷新经验条 (复用之前的逻辑)
+            // 刷新经验条
             const xpText = document.getElementById('xpText');
             const xpBar = document.getElementById('xpBar');
             if (xpText && xpBar) {
@@ -3325,7 +3326,7 @@ window.multiExploreNode = async function() {
         }
     } catch (e) {
         centerBtn.classList.remove('scanning');
-        addNodeLog("CRITICAL FAILURE", "error");
+        addNodeLog("CRITICAL FAILURE: NETWORK LOST", "error");
         console.error(e);
     } finally {
         btn.disabled = false;
@@ -4324,6 +4325,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
