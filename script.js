@@ -1288,17 +1288,16 @@ function initApp() {
         });
     }
 
-    // === 修复版：移动端右滑打开侧边栏 (解决冲突) ===
+   // === 修复版：移动端侧边栏滑动逻辑 (高灵敏度版) ===
     let touchStartX = 0;
     let touchStartY = 0;
-    let isSwipingScrollable = false; // 标记：是否正在滑动可滚动的区域
+    let isSwipingScrollable = false;
 
     document.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
         touchStartY = e.changedTouches[0].screenY;
         
-        // === 关键修复：检测是否按在了分类栏或其他横向滚动区域上 ===
-        // 如果点击的目标也是 .shop-tabs-container 或其子元素，则标记为 true
+        // 检测是否按在了横向滚动区域上 (如分类栏、表格)
         if (e.target.closest('.shop-tabs-container') || e.target.closest('.table-responsive')) {
             isSwipingScrollable = true;
         } else {
@@ -1307,7 +1306,6 @@ function initApp() {
     }, {passive: true});
 
     document.addEventListener('touchend', (e) => {
-        // 如果刚才是在滑分类栏，直接忽略侧边栏逻辑
         if (isSwipingScrollable) return;
 
         const touchEndX = e.changedTouches[0].screenX;
@@ -1315,17 +1313,24 @@ function initApp() {
         
         const sidebar = document.getElementById('sidebar');
         
+        // 计算滑动的水平和垂直距离
+        const diffX = touchEndX - touchStartX;
+        const diffY = Math.abs(touchEndY - touchStartY);
+
         // 逻辑：向右滑 (打开)
-        // 条件：起点靠左(前50px)，滑动距离>80，垂直偏移<60
-        if (touchStartX < 50 && (touchEndX - touchStartX > 80) && Math.abs(touchEndY - touchStartY) < 60) {
+        // 优化点：
+        // 1. 起点范围扩大到 80px (更容易触发)
+        // 2. 滑动距离降低到 50px (更省力)
+        // 3. 垂直容差增加到 100px (允许斜着滑)
+        if (touchStartX < 80 && diffX > 50 && diffY < 100) {
             if (sidebar && !sidebar.classList.contains('open')) {
                 sidebar.classList.add('open');
             }
         }
         
         // 逻辑：向左滑 (关闭)
-        // 条件：滑动距离>80
-        if (sidebar && sidebar.classList.contains('open') && (touchStartX - touchEndX > 80)) {
+        // 优化点：任意位置只要向左滑超过 50px 且不是垂直滚动，就关闭
+        if (sidebar && sidebar.classList.contains('open') && (-diffX > 50) && (diffY < 100)) {
             sidebar.classList.remove('open');
         }
     }, {passive: true});
@@ -3753,6 +3758,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
