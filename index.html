@@ -355,9 +355,14 @@
                         <!-- 控制面板 -->
                         <div class="node-controls">
                             <p id="nodeCostDisplay">CALIBRATING...</p>
-                            <button id="exploreBtn" onclick="exploreNode()">
-                                START SEQUENCE
-                            </button>
+                            <div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
+                                <button id="exploreBtn" onclick="exploreNode()" class="cyber-btn" style="width:auto; min-width:160px;">
+                                    启动扫描程序
+                                </button>
+                                <button id="multiExploreBtn" onclick="multiExploreNode()" class="cyber-btn" style="width:auto; min-width:160px; border-color:#bd00ff; color:#bd00ff;">
+                                快速检索 x5 (-250)
+                                </button>
+                            </div>
                         </div>
                 
                         <!-- 日志终端 -->
@@ -1033,6 +1038,7 @@
     <script src="script.js?v=8.14"></script>
 </body>
 </html>
+
 
 
 
