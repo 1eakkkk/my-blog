@@ -1494,6 +1494,7 @@ async function handleRoute() {
             loadAdminFeedbacks();
             loadAdminBanList();
             if(typeof loadAdminBroadcasts === 'function') loadAdminBroadcasts(); 
+            if(typeof loadRechargeRequests === 'function') loadRechargeRequests();
         }
     } 
 }
@@ -3956,6 +3957,7 @@ window.reviewRecharge = async function(id, decision) {
         showToast(d.error, "error");
     }
 };
+
 
 
 
