@@ -4852,9 +4852,6 @@ function drawInteractiveChart(symbol, mousePos) {
     if (!canvas || !container) return;
     
     const ctx = canvas.getContext('2d');
-    let cssWidth = container.clientWidth || 600;
-    let cssHeight = container.clientHeight || 220;
-    
     const dpr = window.devicePixelRatio || 1;
     
     const rect = container.getBoundingClientRect();
@@ -5282,6 +5279,7 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
 
 
 
