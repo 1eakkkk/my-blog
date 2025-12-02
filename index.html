@@ -163,6 +163,14 @@
             <div class="logo">1EAK<span class="dot">.</span>COOL</div>
             
             <div class="user-card" id="userCard">
+                <div class="sidebar-actions-row">
+                    <button id="checkInBtn" class="cyber-btn action-btn">
+                        📅 签到
+                    </button>
+                    <button onclick="doLuckyDraw()" class="cyber-btn action-btn" style="border-color:#bc13fe; color:#bc13fe;">
+                        🎲 抽奖
+                    </button>
+                </div>
                 <div class="user-header-row">
                     <div id="avatarContainer"></div>
                     <div class="user-info">
@@ -292,8 +300,6 @@
                     <span>i 币</span>
                     <span class="value blue" id="coinCount">-</span>
                 </div>
-                <button id="checkInBtn" class="cyber-btn">每日签到 (+XP)</button>
-                <button onclick="doLuckyDraw()" class="lucky-draw-btn">🎲 每日幸运抽奖</button>
             </div>
         </aside>
 
@@ -727,8 +733,6 @@
                     </div>
                 </div>
 
-                <!-- 在 index.html 的 view-settings 区域，把"修改昵称"卡片上方或内部加入账号显示 -->
-                <!-- 替换 view-settings 部分 -->
                 <div id="view-settings" class="view-section" style="display:none;">
                     <h2>// PROFILE SETTINGS</h2>
     
@@ -755,6 +759,15 @@
                         </div>
                     </div>
 
+                    <!-- 3. 侧边栏排序设置 -->
+                    <div class="glass-card" style="margin-top: 20px; border-color: #00f3ff;">
+                        <h3>导航菜单排序</h3>
+                        <p style="color:#666; font-size:0.9rem;">点击箭头调整侧边栏菜单顺序。</p>
+                        <div id="navSortList" style="margin-top:10px;">
+                            <!-- JS 动态生成 -->
+                        </div>
+                        <button onclick="resetNavOrder()" class="mini-action-btn" style="margin-top:10px; border-color:#f33; color:#f33;">重置默认顺序</button>
+                    </div>
 
                     <!-- 新增：自定义头像上传 -->
                     <div class="glass-card" style="margin-top: 20px;">
@@ -1031,6 +1044,24 @@
         <img class="lightbox-content" id="lightboxImg" onclick="event.stopPropagation()">
     </div>
 
+    <!-- 2. 商品预览弹窗 -->
+    <div id="preview-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card glass-card" style="max-width:350px; width:90%;">
+            <h3>效果预览 / PREVIEW</h3>
+            <p style="color:#666; font-size:0.8rem; margin-bottom:15px;">此处仅为视觉演示，实际效果以购买后为准。</p>
+            
+            <!-- 预览容器 -->
+            <div id="previewContainer" class="preview-stage">
+                <!-- 动态内容 -->
+            </div>
+    
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button onclick="closePreviewModal()" class="cyber-btn" style="border-color:#666; color:#888;">关闭</button>
+                <button id="previewBuyBtn" class="cyber-btn" style="border-color:#0f0; color:#0f0;">立即购买</button>
+            </div>
+        </div>
+    </div>                    
+
     <!-- 移动端底部快捷发帖按钮 (仿微博) -->
     <div id="mobile-post-btn" onclick="window.location.hash='#write'">
         <svg viewBox="0 0 24 24" width="30" height="30" fill="white">
@@ -1041,5 +1072,6 @@
     <script src="script.js?v=8.15"></script>
 </body>
 </html>
+
 
 
