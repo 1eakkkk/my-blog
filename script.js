@@ -1631,7 +1631,7 @@ async function loadSinglePost(id, targetCommentId = null) {
         // 这里移除了 style="background:transparent" 这种可能导致问题的代码
         // 并强制给 container 添加一个默认颜色，防止被主题覆盖成黑色文字
         container.innerHTML = `
-            <div class="post-card full-view ${postStyleClass}" style="min-height: 200px; padding: 25px; position:relative; overflow:hidden;">
+            <div class="post-card full-view ${postStyleClass}" style="min-height: 200px; padding: 30px; position:relative; overflow:hidden; width: 100%;">
                 
                 <div class="post-header-row" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
                     <div class="post-author-info" style="display:flex; align-items:center; gap:15px;">
@@ -3753,6 +3753,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
