@@ -2924,11 +2924,50 @@ const SHOP_CATALOG = [
 // === 渲染商城函数 (优化版：显示已购买状态) ===
 window.renderShop = async function(filterType = 'all') {
     const container = document.getElementById('shop-list');
+    const rechargeArea = document.getElementById('recharge-area');
+    
     if(!container) return;
     
+    // 1. 处理充值 Tab 的特殊显示
+    if (filterType === 'recharge') {
+        if(rechargeArea) rechargeArea.style.display = 'block'; // 显示卡密框
+        
+        // 渲染充值档位卡片
+        container.innerHTML = '';
+        
+        // 定义充值档位
+        const rechargePacks = [
+            { id: 'pack_small', price: '0.10', coins: 600, bonus: 50, name: '微型能量包', icon: '🔋', color: '#00ccff' },
+            { id: 'pack_large', price: '0.60', coins: 4000, bonus: 300, name: '高能反应堆', icon: '☢️', color: '#ffd700' }
+        ];
+
+        rechargePacks.forEach(pack => {
+            const total = pack.coins + pack.bonus;
+            const div = document.createElement('div');
+            div.className = 'glass-card shop-item';
+            div.style.borderColor = pack.color;
+            div.innerHTML = `
+                <div class="item-icon" style="text-shadow:0 0 10px ${pack.color}">${pack.icon}</div>
+                <h3 style="margin:5px 0; color:${pack.color}">${pack.name}</h3>
+                <div style="font-size:1.2rem; font-weight:bold; margin:10px 0;">
+                    ${pack.coins} <span style="font-size:0.8rem">+${pack.bonus}</span> i币
+                </div>
+                <div class="price" style="color:#fff">￥ ${pack.price}</div>
+                <button onclick="buyRechargePack('${pack.name}', '${pack.price}')" class="cyber-btn" style="width:100%; border-color:${pack.color}; color:${pack.color}">
+                    获取卡密
+                </button>
+            `;
+            container.appendChild(div);
+        });
+        return;
+    } 
+    
+    // 非充值 Tab，隐藏兑换区
+    if(rechargeArea) rechargeArea.style.display = 'none';
+
+    // ... (以下是原有的背包逻辑，保持不变) ...
     container.innerHTML = '<div class="loading">Loading Shop Data...</div>';
     
-    // 1. 先获取用户当前的背包数据，用于判断是否已购买
     let ownedItemIds = [];
     try {
         const res = await fetch(`${API_BASE}/inventory`);
@@ -2936,12 +2975,8 @@ window.renderShop = async function(filterType = 'all') {
         if(data.success && data.list) {
             ownedItemIds = data.list.map(item => item.item_id);
         }
-    } catch(e) {
-        console.error("无法获取背包数据用于比对", e);
-    }
+    } catch(e) {}
 
-    // 2. 筛选商品
-    // 注意：filterType === 'decoration' 时，我们要把 'timed' (时效性装饰如名字颜色) 也算进去，方便用户查找
     const filtered = filterType === 'all' 
         ? SHOP_CATALOG 
         : SHOP_CATALOG.filter(i => {
@@ -2959,31 +2994,24 @@ window.renderShop = async function(filterType = 'all') {
     }
 
     filtered.forEach(item => {
+        // ... (保持原有的渲染逻辑不变) ...
         const div = document.createElement('div');
         div.className = `glass-card shop-item ${item.rarity || ''}`;
         
-        // === 核心逻辑：判断按钮状态 ===
         let btnHtml = '';
         const isOwned = ownedItemIds.includes(item.id);
 
         if (item.type === 'vip') {
-            // VIP 始终可以购买(续费)
             btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买 / 续费</button>`;
-        } 
-        else if (item.type === 'consumable') {
-            // 消耗品始终可以购买(叠加)
+        } else if (item.type === 'consumable') {
             btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
-        } 
-        else if (item.type === 'decoration') {
-            // 永久装饰品：如果已拥有，显示“已拥有”并禁用
+        } else if (item.type === 'decoration') {
             if (isOwned) {
                 btnHtml = `<button class="cyber-btn" disabled style="width:100%; border-color:#333; color:#666; cursor:not-allowed;">✓ 已拥有</button>`;
             } else {
                 btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%;">购买</button>`;
             }
-        }
-        else if (item.type === 'timed') {
-            // 时效性装饰：如果已拥有，显示“续费”
+        } else if (item.type === 'timed') {
             if (isOwned) {
                 btnHtml = `<button onclick="buyItem('${item.id}')" class="cyber-btn" style="width:100%; border-color:gold; color:gold;">续费 (+${item.days}天)</button>`;
             } else {
@@ -3760,6 +3788,52 @@ window.watchReplay = async function(id) {
     }
 };
 
+// === 充值相关逻辑 ===
+
+// 点击“获取卡密”按钮
+window.buyRechargePack = function(name, price) {
+    // 这里你需要填入你的发卡网地址或者收款码说明
+    const shopUrl = "https://你的发卡网地址.com"; // 替换成你的链接
+    
+    if(confirm(`即将跳转购买【${name}】\n价格：${price} 元\n\n请在购买后复制卡密，回到这里进行兑换。`)) {
+        // window.open(shopUrl, '_blank'); // 如果有链接，取消注释这行
+        showToast("请联系管理员获取卡密 (暂未配置自动发卡)", "info");
+    }
+};
+
+// 兑换卡密
+window.redeemCdk = async function() {
+    const input = document.getElementById('cdkInput');
+    const cdk = input.value.trim();
+    
+    if (!cdk) return showToast("请输入卡密", "error");
+    
+    const btn = document.querySelector('#recharge-area button');
+    btn.disabled = true;
+    btn.innerText = "Verifying...";
+    
+    try {
+        const res = await fetch(`${API_BASE}/recharge`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'redeem', cdk: cdk })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            input.value = '';
+            checkSecurity(); // 刷新余额
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络连接错误", "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "兑换";
+    }
+};
 
 
 
