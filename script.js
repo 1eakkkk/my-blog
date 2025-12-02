@@ -45,7 +45,7 @@ const LEVEL_TABLE = [
 const SEED_CATALOG = [
     { id: 'seed_moss', name: '低频缓存苔藓', timeStr: '4小时', img: 'https://img.1eak.cool/dipintaixian.png', cost: '20 i' },
     { id: 'seed_quantum', name: '量子枝条', timeStr: '12小时', img: 'https://img.1eak.cool/liangzizhitiao.png', cost: '100 i' },
-    { id: 'seed_vine', name: '修复算法藤', timeStr: '24小时', img: 'https://img.1eak.cool/suanfateng.png, cost: '300 i' }
+    { id: 'seed_vine', name: '修复算法藤', timeStr: '24小时', img: 'https://img.1eak.cool/suanfateng.png', cost: '300 i' }
 ];
 
 // 打工配置
@@ -4243,6 +4243,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
