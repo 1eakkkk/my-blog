@@ -4592,8 +4592,9 @@ async function loadBusiness() {
                 // 如果有新财报，弹个 Toast
                 showToast(`今日财报: ${sign}${r.profit} i币`, r.profit>=0 ? 'success':'error');
                 checkSecurity(); // 刷新余额
-                loadStockMarket();
+                
             }
+            loadStockMarket();
 
             // 更新策略按钮状态
             document.querySelectorAll('.strategy-selector button').forEach(b => b.classList.remove('active'));
@@ -5248,6 +5249,7 @@ function addUserLog(msg, actionType) {
     // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
+
 
 
 
