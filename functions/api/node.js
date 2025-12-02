@@ -1,13 +1,8 @@
 // --- functions/api/node.js ---
 
 // ==========================================
-// 🌌 N.O.D.E 数字宇宙 - 完整事件库 (80+ Events)
+// 🌌 N.O.D.E 数字宇宙 - 完整事件库 (去任务优化版)
 // ==========================================
-// rarity 对应前端特效:
-// 'common' (灰/绿) | 'rare' (蓝光) | 'epic' (紫光+全服广播) 
-// 'legendary' (金光+震屏+全服广播) | 'glitch' (红光故障)
-// ==========================================
-
 const EVENTS = [
     // ----------------------------------------------------------------
     // ⚪ [Tier 1] 氛围组与垃圾数据 (Empty/Flavor)
@@ -47,7 +42,6 @@ const EVENTS = [
     { rarity: 'common', prob: 45, type: 'reward_coin', min: 50, max: 100, msg: "节点 AI 今天心情好，它发了你一点零花钱。" },
     { rarity: 'common', prob: 50, type: 'reward_coin', min: 50, max: 50, msg: "今天好像是什么疯狂星期四，按照传统惯例，我是不是该给你...50？" },
     
-    
     { rarity: 'common', prob: 100, type: 'reward_xp', min: 20, max: 40, msg: "阅读了一份旧报纸的电子版，了解了些许历史。" },
     { rarity: 'common', prob: 100, type: 'reward_xp', min: 15, max: 55, msg: "观察了一次数据流的潮汐，若有所思。" },
     { rarity: 'common', prob: 100, type: 'reward_xp', min: 25, max: 50, msg: "练习了一次基础代码输入，熟练度提升。" },
@@ -62,48 +56,49 @@ const EVENTS = [
     // ----------------------------------------------------------------
     // 🔵 [Tier 3] 稀有收益 (Rare Rewards)
     // ----------------------------------------------------------------
-    { rarity: 'rare', prob: 55, type: 'reward_coin', min: 40, max: 150, msg: "破解了一个被遗忘的加密钱包！" },
-    { rarity: 'rare', prob: 55, type: 'reward_coin', min: 65, max: 113, msg: "帮助一个流浪 AI 修复了逻辑漏洞，支付报酬。" },
-    { rarity: 'rare', prob: 55, type: 'reward_coin', min: 70, max: 90, msg: "黑入了一台自动贩卖机，成功退款。" },
-    { rarity: 'rare', prob: 55, type: 'reward_coin', min: 70, max: 110, msg: "参与了一次分布式算力挖矿，收益到账。" },
+    // 概率已调高 (原任务的概率加到了这里)
+    { rarity: 'rare', prob: 60, type: 'reward_coin', min: 40, max: 150, msg: "破解了一个被遗忘的加密钱包！" },
+    { rarity: 'rare', prob: 60, type: 'reward_coin', min: 65, max: 113, msg: "帮助一个流浪 AI 修复了逻辑漏洞，支付报酬。" },
+    { rarity: 'rare', prob: 60, type: 'reward_coin', min: 70, max: 90, msg: "黑入了一台自动贩卖机，成功退款。" },
+    { rarity: 'rare', prob: 60, type: 'reward_coin', min: 70, max: 110, msg: "参与了一次分布式算力挖矿，收益到账。" },
     { rarity: 'rare', prob: 15, type: 'reward_coin', min: 1, max: 1, msg: "收到一条转账备注：'多喝热水'。虽然只有 1 i币，但很暖心。" },
-    { rarity: 'rare', prob: 45, type: 'reward_coin', min: 100, max: 180, msg: "你回收了一段被删掉的广告预算，得到了一笔可疑的资金。" },
-    { rarity: 'rare', prob: 35, type: 'reward_coin', min: 77, max: 177, msg: "你找到了一个被反复复制的 bug，对它征税收了点钱。" },
-    { rarity: 'rare', prob: 8,  type: 'reward_coin', min: 314, max: 314, msg: "你在深处扫描到了神秘常数 π，它回赠你 314 i币。" },
-    { rarity: 'rare', prob: 40, type: 'reward_coin', min: 80, max: 120, msg: "你遇到一个自称来自未来的你。他往你手里塞了点钱，然后跑了。" },
-    { rarity: 'rare', prob: 20, type: 'reward_coin', min: 130, max: 180, msg: "诈骗犯给你打电话，你成功反骗了他，对方气得给你打钱。" },
-    { rarity: 'rare', prob: 11, type: 'reward_coin', min: 333, max: 666, msg: "一个量子 bug 自行修复后，顺便给你掉了点钱。" },
-    { rarity: 'rare', prob: 11, type: 'reward_coin', min: 222, max: 888, msg: "星际考古队探索到2025年12月2日张锦瑞正在玩群星，突然张锦瑞爆金币了，吐出了一点钱。" },
+    { rarity: 'rare', prob: 50, type: 'reward_coin', min: 100, max: 180, msg: "你回收了一段被删掉的广告预算，得到了一笔可疑的资金。" },
+    { rarity: 'rare', prob: 40, type: 'reward_coin', min: 77, max: 177, msg: "你找到了一个被反复复制的 bug，对它征税收了点钱。" },
+    { rarity: 'rare', prob: 10,  type: 'reward_coin', min: 314, max: 314, msg: "你在深处扫描到了神秘常数 π，它回赠你 314 i币。" },
+    { rarity: 'rare', prob: 45, type: 'reward_coin', min: 80, max: 120, msg: "你遇到一个自称来自未来的你。他往你手里塞了点钱，然后跑了。" },
+    { rarity: 'rare', prob: 25, type: 'reward_coin', min: 130, max: 180, msg: "诈骗犯给你打电话，你成功反骗了他，对方气得给你打钱。" },
+    { rarity: 'rare', prob: 15, type: 'reward_coin', min: 333, max: 666, msg: "一个量子 bug 自行修复后，顺便给你掉了点钱。" },
+    { rarity: 'rare', prob: 15, type: 'reward_coin', min: 222, max: 888, msg: "星际考古队探索到2025年12月2日张锦瑞正在玩群星，突然张锦瑞爆金币了，吐出了一点钱。" },
     
-    { rarity: 'rare', prob: 30, type: 'reward_xp', min: 200, max: 260, msg: "你临时接入了一间地下聊天室，偷听别人吵架，经验莫名增加。" },
-    { rarity: 'rare', prob: 30, type: 'reward_xp', min: 150, max: 200, msg: "下载了一份《中级骇客指南》，思维升级。" },
-    { rarity: 'rare', prob: 25, type: 'reward_xp', min: 180, max: 220, msg: "接入到了军用级训练模拟器，反应速度提升。" },
-    { rarity: 'rare', prob: 40, type: 'reward_xp', min: 100, max: 150, msg: "通过了图灵测试，你甚至开始怀疑自己是不是人类。" },
-    { rarity: 'rare', prob: 35, type: 'reward_xp', min: 120, max: 180, msg: "你发现了一个未被记录的后门接口。" },
-    { rarity: 'rare', prob: 18, type: 'reward_xp', min: 120, max: 220, msg: "你尝试向服务器发送 'sudo give me money'，它居然赏你一点经验。" },
-    { rarity: 'rare', prob: 12, type: 'reward_xp', min: 180, max: 320, msg: "你在墙缝里发现别人掉落的一张便条：‘快来社区签到！’" },
-    { rarity: 'rare', prob: 25, type: 'reward_xp', min: 120, max: 200, msg: "你意外点击了一份哲学病毒，它不断问你：'什么是自我？' 你获得顿悟。" },
-    { rarity: 'rare', prob: 20, type: 'reward_xp', min: 160, max: 220, msg: "你进入一个 10 年没人说话的聊天室，结果听到了自己的回声，精神力提升。" },
+    { rarity: 'rare', prob: 40, type: 'reward_xp', min: 200, max: 260, msg: "你临时接入了一间地下聊天室，偷听别人吵架，经验莫名增加。" },
+    { rarity: 'rare', prob: 40, type: 'reward_xp', min: 150, max: 200, msg: "下载了一份《中级骇客指南》，思维升级。" },
+    { rarity: 'rare', prob: 30, type: 'reward_xp', min: 180, max: 220, msg: "接入到了军用级训练模拟器，反应速度提升。" },
+    { rarity: 'rare', prob: 45, type: 'reward_xp', min: 100, max: 150, msg: "通过了图灵测试，你甚至开始怀疑自己是不是人类。" },
+    { rarity: 'rare', prob: 40, type: 'reward_xp', min: 120, max: 180, msg: "你发现了一个未被记录的后门接口。" },
+    { rarity: 'rare', prob: 20, type: 'reward_xp', min: 120, max: 220, msg: "你尝试向服务器发送 'sudo give me money'，它居然赏你一点经验。" },
+    { rarity: 'rare', prob: 15, type: 'reward_xp', min: 180, max: 320, msg: "你在墙缝里发现别人掉落的一张便条：‘快来社区签到！’" },
+    { rarity: 'rare', prob: 30, type: 'reward_xp', min: 120, max: 200, msg: "你意外点击了一份哲学病毒，它不断问你：'什么是自我？' 你获得顿悟。" },
+    { rarity: 'rare', prob: 25, type: 'reward_xp', min: 160, max: 220, msg: "你进入一个 10 年没人说话的聊天室，结果听到了自己的回声，精神力提升。" },
 
     // ----------------------------------------------------------------
     // 🟣 [Tier 4] 史诗奇遇 (Epic - 全服广播) 
     // ----------------------------------------------------------------
-    { rarity: 'epic', prob: 20, type: 'reward_coin', min: 350, max: 650, msg: "🎉 意外截获了巨型企业的避税资金流！大丰收！" },
-    { rarity: 'epic', prob: 15, type: 'reward_coin', min: 555, max: 888, msg: "💎 发现了一个未标记的黑市数据节点！" },
-    { rarity: 'epic', prob: 12, type: 'reward_coin', min: 777, max: 999, msg: "曾诗杰十连抽第五人格出金了！给大伙发点奖励！" },
+    { rarity: 'epic', prob: 25, type: 'reward_coin', min: 350, max: 650, msg: "🎉 意外截获了巨型企业的避税资金流！大丰收！" },
+    { rarity: 'epic', prob: 20, type: 'reward_coin', min: 555, max: 888, msg: "💎 发现了一个未标记的黑市数据节点！" },
+    { rarity: 'epic', prob: 15, type: 'reward_coin', min: 777, max: 999, msg: "曾诗杰十连抽第五人格出金了！给大伙发点奖励！" },
     
-    { rarity: 'epic', prob: 20, type: 'reward_xp', min: 380, max: 720, msg: "🧠 与赛博空间的“幽灵”进行了一次深度对话。" },
-    { rarity: 'epic', prob: 15, type: 'reward_xp', min: 666, max: 888, msg: "⚡ 你的意识短暂飞升，看见了代码的本质。" },
-    { rarity: 'epic', prob: 8, type: 'reward_xp', min: 404, max: 606, msg: "你追逐一个404的影子，它转身给你讲了一课存在主义。" },
+    { rarity: 'epic', prob: 25, type: 'reward_xp', min: 380, max: 720, msg: "🧠 与赛博空间的“幽灵”进行了一次深度对话。" },
+    { rarity: 'epic', prob: 20, type: 'reward_xp', min: 666, max: 888, msg: "⚡ 你的意识短暂飞升，看见了代码的本质。" },
+    { rarity: 'epic', prob: 10, type: 'reward_xp', min: 404, max: 606, msg: "你追逐一个404的影子，它转身给你讲了一课存在主义。" },
 
     // 史诗道具
-    { rarity: 'epic', prob: 15, type: 'item', items: ['rename_card'], msg: "在数据废墟深处，翻到一张未刮开的【改名卡】。" },
-    { rarity: 'epic', prob: 10, type: 'item', items: ['rename_card'], msg: "你抓住了一只跑错目录的小程序，它吓得把【改名卡】交给你。" },
-    { rarity: 'epic', prob: 10, type: 'item', items: ['top_card'],    msg: "黑进了广告系统后台，获取管理员权限【置顶卡】！" },
-    { rarity: 'epic', prob: 5,  type: 'item', items: ['top_card', 'rename_card'], msg: "破解了走私船的货柜，双重道具惊喜！" },
-    { rarity: 'epic', prob: 15, type: 'item', items: ['broadcast_low'],    msg: "不小心爬到管理员的床上，恳求管理员给了一张基础信标卡！" },
-    { rarity: 'epic', prob: 15, type: 'item_vip',    days: 7, msg: "六百六十六！你捡到了管理员不要的【VIP 7天体验卡】！" },
-    { rarity: 'epic', prob: 12, type: 'item_vip',    days: 14, msg: "🌟🌟🌟  欧皇附体！你捡到了管理员遗失的【VIP 14天体验卡】！" },
+    { rarity: 'epic', prob: 18, type: 'item', items: ['rename_card'], msg: "在数据废墟深处，翻到一张未刮开的【改名卡】。" },
+    { rarity: 'epic', prob: 12, type: 'item', items: ['rename_card'], msg: "你抓住了一只跑错目录的小程序，它吓得把【改名卡】交给你。" },
+    { rarity: 'epic', prob: 12, type: 'item', items: ['top_card'],    msg: "黑进了广告系统后台，获取管理员权限【置顶卡】！" },
+    { rarity: 'epic', prob: 8,  type: 'item', items: ['top_card', 'rename_card'], msg: "破解了走私船的货柜，双重道具惊喜！" },
+    { rarity: 'epic', prob: 18, type: 'item', items: ['broadcast_low'],    msg: "不小心爬到管理员的床上，恳求管理员给了一张基础信标卡！" },
+    { rarity: 'epic', prob: 18, type: 'item_vip',    days: 7, msg: "六百六十六！你捡到了管理员不要的【VIP 7天体验卡】！" },
+    { rarity: 'epic', prob: 15, type: 'item_vip',    days: 14, msg: "🌟🌟🌟  欧皇附体！你捡到了管理员遗失的【VIP 14天体验卡】！" },
 
     // ----------------------------------------------------------------
     // 🟡 [Tier 5] 传说大奖 (Legendary - 全服广播) 
@@ -139,15 +134,7 @@ const EVENTS = [
     { rarity: 'glitch', prob: 8, type: 'glitch', lose_min: 30, lose_max: 90, msg: "调试面板突然弹出并疯狂报错：'变量 undefined'。你为了关掉它，付出了惨痛代价。" },
     { rarity: 'glitch', prob: 10, type: 'glitch', lose_min: 50, lose_max: 120, msg: "你看到未来自己删库跑路的录像，吓得你赶紧买保险，花了不少钱。" },
     { rarity: 'glitch', prob: 25, type: 'glitch', lose_min: 5, lose_max: 30, msg: "你吃了个过期的酱肉包，结果拉肚子，花钱买药。" },
-    { rarity: 'glitch', prob: 10, type: 'glitch', lose_min: 20, lose_max: 100, msg: "你刚打开一个知识库，结果又弹出一个付费墙，你有点遗憾没多花点钱装义脑。" },
-
-
-    // ----------------------------------------------------------------
-    // 📜 [Tier 7] 任务触发 (Mission) 
-    // ----------------------------------------------------------------
-    { rarity: 'rare', prob: 20, type: 'mission', msg: "收到加密频道的求救信号：'这里太冷清了，谁来说句话？'" },
-    { rarity: 'rare', prob: 15, type: 'mission', msg: "系统检测到你的存在感过低，建议立即执行交互协议。" },
-    { rarity: 'rare', prob: 10, type: 'mission', msg: "赏金猎人公会发布了新的悬赏令！" }
+    { rarity: 'glitch', prob: 10, type: 'glitch', lose_min: 20, lose_max: 100, msg: "你刚打开一个知识库，结果又弹出一个付费墙，你有点遗憾没多花点钱装义脑。" }
 ];
 
 function rollEvent() {
@@ -159,7 +146,7 @@ function rollEvent() {
 
 // 模拟处理单个事件，返回处理结果 (不直接操作数据库，而是返回指令)
 function processEvent(event, currentCoins) {
-    let result = { msg: event.msg, coins: 0, xp: 0, item: null, vip: 0, mission: null, log: null };
+    let result = { msg: event.msg, coins: 0, xp: 0, item: null, vip: 0, log: null };
     
     if (event.type === 'reward_coin') {
         const amount = Math.floor(Math.random() * (event.max - event.min + 1)) + event.min;
@@ -187,15 +174,6 @@ function processEvent(event, currentCoins) {
         result.vip = event.days;
         result.msg += ` (VIP时长 +${event.days}天)`;
     }
-    else if (event.type === 'mission') {
-        const tasks = [
-            {code: 'node_post_1', desc: '紧急任务：发布 1 条情报 (帖子)', target: 1, xp: 100, coin: 50},
-            {code: 'node_like_10', desc: '紧急任务：校准 10 个数据点 (点赞)', target: 10, xp: 80, coin: 40},
-            {code: 'node_comment_5', desc: '紧急任务：建立 5 次神经连接 (评论)', target: 5, xp: 120, coin: 60}
-        ];
-        result.mission = tasks[Math.floor(Math.random() * tasks.length)];
-        result.msg += ` [已接受任务]`;
-    }
 
     if (event.rarity === 'epic' || event.rarity === 'legendary') {
         result.log = { rarity: event.rarity, msg: result.msg };
@@ -220,7 +198,7 @@ export async function onRequestPost(context) {
     // === 获取全服日志 (用于跑马灯) ===
     if (reqBody.action === 'get_logs') {
         const now = Date.now();
-        // 修复：筛选有效期内的日志 (Legendary 24h, Epic 12h)
+        // 筛选有效期内的日志 (Legendary 24h, Epic 12h)
         const timeLegendary = now - (24 * 60 * 60 * 1000);
         const timeEpic = now - (12 * 60 * 60 * 1000);
 
@@ -280,12 +258,6 @@ export async function onRequestPost(context) {
                 let newExpire = (user.vip_expires_at > now ? user.vip_expires_at : now) + (res.vip * 86400 * 1000);
                 updates.push(db.prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE id = ?').bind(newExpire, user.id));
             }
-            // 处理任务
-            if (res.mission) {
-                const t = res.mission;
-                const periodKey = `mission_${Date.now()}_${i}`;
-                updates.push(db.prepare(`INSERT INTO user_tasks (user_id, task_code, category, description, target, reward_xp, reward_coins, period_key, status, created_at) VALUES (?, ?, 'node_mission', ?, ?, ?, ?, ?, 0, ?)`).bind(user.id, t.code, t.desc, t.target, t.xp, t.coin, periodKey, now));
-            }
             // 处理日志
             if (res.log) {
                 updates.push(db.prepare('INSERT INTO node_public_logs (username, event_type, message, created_at) VALUES (?, ?, ?, ?)').bind(user.nickname||user.username, res.log.rarity, res.log.msg, now));
@@ -307,7 +279,7 @@ export async function onRequestPost(context) {
         }));
     }
 
-    // === 单次探索 (原逻辑) ===
+    // === 单次探索 ===
     const isFree = (user.last_node_explore_date !== today);
     const cost = isFree ? 0 : 50;
 
@@ -344,11 +316,6 @@ export async function onRequestPost(context) {
     if (res.vip > 0) {
         let newExpire = (user.vip_expires_at > now ? user.vip_expires_at : now) + (res.vip * 86400 * 1000);
         updates.push(db.prepare('UPDATE users SET is_vip = 1, vip_expires_at = ? WHERE id = ?').bind(newExpire, user.id));
-    }
-    if (res.mission) {
-        const t = res.mission;
-        const periodKey = `mission_${Date.now()}`;
-        updates.push(db.prepare(`INSERT INTO user_tasks (user_id, task_code, category, description, target, reward_xp, reward_coins, period_key, status, created_at) VALUES (?, ?, 'node_mission', ?, ?, ?, ?, ?, 0, ?)`).bind(user.id, t.code, t.desc, t.target, t.xp, t.coin, periodKey, now));
     }
     if (res.log) {
         updates.push(db.prepare('INSERT INTO node_public_logs (username, event_type, message, created_at) VALUES (?, ?, ?, ?)').bind(user.nickname||user.username, res.log.rarity, res.log.msg, now));
