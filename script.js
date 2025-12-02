@@ -4738,6 +4738,7 @@ window.loadStockMarket = async function() {
             marketData = data.market;
             myPositions = data.positions;
             marketOpens = data.opens || {}; 
+            renderStockLogs(data.news);
             companyInfo = { capital: data.capital, type: data.companyType };
             
             const mask = document.getElementById('marketClosedMask');
@@ -5129,6 +5130,7 @@ window.tradeStock = async function(action) {
         if (data.success) {
             showToast("交易成功", "success");
             document.getElementById('stockTradeAmount').value = '';
+            addStockLog(data.log, action === 'buy' || action === 'cover' ? 'buy' : 'sell');
             loadStockMarket(); // 刷新数据
         } else {
             showToast(data.error, "error");
@@ -5136,6 +5138,41 @@ window.tradeStock = async function(action) {
     } catch(e) { showToast("交易失败", "error"); }
 };
 
+// === 股市日志渲染 ===
+
+function renderStockLogs(newsList) {
+    const list = document.getElementById('stockLogList');
+    list.innerHTML = ''; 
+    
+    if (newsList && newsList.length > 0) {
+        newsList.forEach(n => {
+            const date = new Date(n.time);
+            const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
+            const className = n.type === 'good' ? 'news-good' : 'news-bad';
+            const icon = n.type === 'good' ? '🚀' : '📉';
+            
+            const div = document.createElement('div');
+            div.className = `log-item ${className}`;
+            div.innerHTML = `<span class="log-time">[${timeStr}]</span> ${icon} ${n.msg}`;
+            list.appendChild(div);
+        });
+    } else {
+        list.innerHTML = `<div class="log-item system">市场平稳，暂无重大新闻。</div>`;
+    }
+}
+
+function addStockLog(msg, type) {
+    const list = document.getElementById('stockLogList');
+    const now = new Date();
+    const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
+    
+    const div = document.createElement('div');
+    div.className = `log-item ${type}`; // type: 'buy' or 'sell'
+    div.innerHTML = `<span class="log-time">[${timeStr}]</span> 👤 ${msg}`;
+    
+    // 插入到最前面
+    list.insertBefore(div, list.firstChild);
+}
 
 
 
