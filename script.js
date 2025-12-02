@@ -2013,15 +2013,28 @@ async function doPost(e) {
     let c = document.getElementById('postContent').value.trim(); 
     const cat = document.getElementById('postCategory').value; 
     const btn = document.querySelector('#postForm button'); 
+    
+    // 1. 基础校验：两个都空肯定不行
     if (!t && !c) {
         return showToast("标题和内容不能同时为空", "error");
+    }
+
+    // === 核心优化：互补逻辑 ===
+    // 如果标题空，截取正文前30个字
+    if (!t) {
+        t = c.substring(0, 30);
+        if (c.length > 30) t += "...";
+    }
+    // 如果正文空，直接复制标题
+    if (!c) {
+        c = t;
     }
     
     btn.disabled = true; 
     try { 
         let url = `${API_BASE}/posts`; 
         let method = 'POST'; 
-        // 这里的 body 会把空字符串传给后端
+        // 使用处理后的 t 和 c 发送给后端
         let body = { title: t, content: c, category: cat }; 
         
         if (isEditingPost) { 
@@ -2038,6 +2051,9 @@ async function doPost(e) {
                 localStorage.removeItem('draft_title'); 
                 localStorage.removeItem('draft_content'); 
                 localStorage.removeItem('draft_cat'); 
+                // 清空输入框
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postContent').value = '';
             } 
             cancelEditPost(); 
             
@@ -3737,6 +3753,7 @@ window.watchReplay = async function(id) {
         showToast("回放系统连接超时", 'error');
     }
 };
+
 
 
 
