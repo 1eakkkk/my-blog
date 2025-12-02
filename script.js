@@ -3837,10 +3837,32 @@ window.redeemCdk = async function() {
 
 // === 充值逻辑 (人工审核版) ===
 
-window.selectRechargeOption = function(type, el) {
+// === 充值逻辑 (修复切换版) ===
+
+// 定义你的收款码图片地址
+const QR_CODES = {
+    'small': 'https://img.1eak.cool/wechat_pay_0.1.JPG', // 0.1元收款码
+    'large': 'https://img.1eak.cool/wechat_pay_0.6.JPG'  // 0.6元收款码
+};
+
+window.selectRechargeOption = function(type) {
+    // 1. 更新隐藏域
     document.getElementById('selectedRechargeType').value = type;
-    document.querySelectorAll('.recharge-option').forEach(d => d.classList.remove('active'));
-    el.classList.add('active');
+    
+    // 2. 更新按钮样式
+    document.querySelectorAll('.recharge-option').forEach(el => el.classList.remove('active'));
+    document.getElementById(`option-${type}`).classList.add('active');
+    
+    // 3. 切换二维码图片
+    const qrImg = document.getElementById('qrImage');
+    if (QR_CODES[type]) {
+        qrImg.src = QR_CODES[type];
+    }
+    
+    // 4. 更新文字提示
+    const amountSpan = document.getElementById('payAmountDisplay');
+    if (type === 'small') amountSpan.innerText = "0.10";
+    if (type === 'large') amountSpan.innerText = "0.60";
 };
 
 // 1. 上传支付截图
@@ -3963,6 +3985,7 @@ window.reviewRecharge = async function(id, decision) {
         showToast(d.error, "error");
     }
 };
+
 
 
 
