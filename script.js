@@ -1370,6 +1370,7 @@ const views = {
     tasks: document.getElementById('view-tasks'),
     node: document.getElementById('view-node'),
     duel: document.getElementById('view-duel'),
+    cabin: document.getElementById('view-cabin'), 
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     shop: document.getElementById('view-shop'),
@@ -1476,16 +1477,15 @@ async function handleRoute() {
         const allInvBtn = document.querySelector('.inv-tab-btn[onclick="switchInventoryTab(\'all\')"]');
         if(allInvBtn) allInvBtn.classList.add('active');
         loadInventory('all');
-     } else if (hash === '#home') {
-        if (document.getElementById('view-home')) {
-            document.getElementById('view-home').style.display = 'block';
-            // 找到侧边栏链接并高亮
+    } else if (hash === '#cabin') {
+        if (views.cabin) {
+            views.cabin.style.display = 'block'; // 显示家园视图
+            // 高亮侧边栏
             document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-            // 这里我们用 href 属性来查找，因为这个链接是新加的
-            const homeLink = document.querySelector('a[href="#home"]');
-            if(homeLink) homeLink.classList.add('active');
-            
-            loadHomeSystem(); // 加载数据
+            const cabinLink = document.querySelector('a[href="#cabin"]'); // 查找新的链接
+            if (cabinLink) cabinLink.classList.add('active');
+            // 加载数据
+            loadHomeSystem(); 
         }
     } else if (hash === '#settings') {
         if(views.settings) views.settings.style.display = 'block';
@@ -4243,6 +4243,7 @@ window.cancelWork = async function() {
     });
     loadHomeSystem();
 };
+
 
 
 
