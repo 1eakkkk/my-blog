@@ -3618,6 +3618,10 @@ body.bg-fire {
     }
 }
 
+#stockCanvas {
+    cursor: crosshair; /* 鼠标放上去变成十字准星 */
+}
+
 
 
 
