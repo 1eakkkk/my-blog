@@ -3622,6 +3622,13 @@ body.bg-fire {
     cursor: crosshair; /* 鼠标放上去变成十字准星 */
 }
 
+#stockCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+    touch-action: none; /* 关键：禁止在图表上滑动时触发页面滚动 */
+}
 
 
 
