@@ -7,9 +7,15 @@ const CATALOG = {
     'vip_14': { cost: 120, name: 'VIP 进阶卡', type: 'vip', days: 14, icon: '⚡', rarity: 'rare' },
     'vip_30': { cost: 210, name: 'VIP 尊享月卡', type: 'vip', days: 30, icon: '👑', rarity: 'epic' },
 
+    // === 🌱 家园种子 (Seeds) - 新增部分 ===
+    'seed_moss':    { cost: 20,  name: '种子:低频苔藓', type: 'consumable', category: 'consumable', icon: '🌿', desc: '家园基础作物，4小时成熟', rarity: 'common' },
+    'seed_quantum': { cost: 100, name: '种子:量子枝条', type: 'consumable', category: 'consumable', icon: '🎋', desc: '中级作物，12小时成熟', rarity: 'rare' },
+    'seed_vine':    { cost: 300, name: '种子:修复算法藤', type: 'consumable', category: 'consumable', icon: '🧬', desc: '高级作物，24小时成熟', rarity: 'epic' },
+
     // === 💳 功能道具 ===
     'rename_card': { cost: 100, name: '改名卡', type: 'consumable', category: 'consumable', icon: '💳', desc: '修改一次昵称', rarity: 'common' },
     'top_card':    { cost: 500, name: '置顶卡(24h)', type: 'consumable', category: 'consumable', icon: '📌', desc: '将帖子置顶24小时', rarity: 'rare' },
+    
     // === 📢 全服播报卡 (Broadcast) ===
     'broadcast_low': { 
         cost: 500, 
@@ -17,7 +23,7 @@ const CATALOG = {
         type: 'consumable', 
         category: 'consumable', 
         icon: '📡', 
-        desc: '全服广播(系统预设)，持续24h，每次进站展示3秒。需审核。', 
+        desc: '全服广播(系统预设)，持续24h。需审核。', 
         rarity: 'rare' 
     },
     'broadcast_high': { 
@@ -26,7 +32,7 @@ const CATALOG = {
         type: 'consumable', 
         category: 'consumable', 
         icon: '🛰️', 
-        desc: '自定义全服广播(支持幻彩)，持续24h，每次进站展示5秒。需审核。', 
+        desc: '自定义全服广播(支持幻彩)，持续24h。需审核。', 
         rarity: 'legendary' 
     },
 
@@ -59,13 +65,23 @@ const CATALOG = {
 };
 
 export async function onRequestPost(context) {
-    // ... (鉴权代码保持不变) ...
-    const db = context.env.DB;
-    const cookie = context.request.headers.get('Cookie');
+    const { request, env } = context;
+    const db = env.DB;
+
+    // 1. 鉴权
+    const cookie = request.headers.get('Cookie');
+    if (!cookie || !cookie.includes('session_id')) {
+        return new Response(JSON.stringify({ error: 'Login required' }), { status: 401 });
+    }
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
     const user = await db.prepare(`SELECT * FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
+    
+    if (!user) return new Response(JSON.stringify({ error: 'Invalid session' }), { status: 401 });
 
-    const { action, itemId } = await context.request.json();
+    // 2. 获取请求
+    let body = {};
+    try { body = await request.json(); } catch(e) {}
+    const { action, itemId } = body;
     const item = CATALOG[itemId];
 
     if (!item) return new Response(JSON.stringify({ success: false, error: '商品不存在' }));
@@ -73,18 +89,19 @@ export async function onRequestPost(context) {
 
     // === 购买 VIP ===
     if (item.type === 'vip') {
-        // ... (保留之前的 VIP 逻辑) ...
          const now = Date.now();
          let newExpire = now;
          if (user.vip_expires_at > now) newExpire = user.vip_expires_at + (item.days * 86400 * 1000);
          else newExpire = now + (item.days * 86400 * 1000);
-         await db.prepare('UPDATE users SET coins = coins - ?, vip_expires_at = ?, is_vip = 1 WHERE id = ?').bind(item.cost, newExpire, user.id).run();
+         
+         await db.batch([
+             db.prepare('UPDATE users SET coins = coins - ?, vip_expires_at = ?, is_vip = 1 WHERE id = ?').bind(item.cost, newExpire, user.id)
+         ]);
          return new Response(JSON.stringify({ success: true, message: 'VIP 充值成功' }));
     }
 
-    // === 购买消耗品 (如改名卡) ===
+    // === 购买消耗品 (改名卡、置顶卡、种子) ===
     if (item.type === 'consumable') {
-        // 检查背包是否已有，有则加数量，无则插入
         const existing = await db.prepare('SELECT id, quantity FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, itemId).first();
         
         await db.batch([
@@ -98,10 +115,8 @@ export async function onRequestPost(context) {
     
     // === 购买装饰/时效道具 ===
     if (item.type === 'decoration' || item.type === 'timed') {
-        // 装饰品通常不能重复购买 (除非是时效的续费)
         const existing = await db.prepare('SELECT id FROM user_items WHERE user_id = ? AND item_id = ?').bind(user.id, itemId).first();
         
-        // 如果是永久装饰且已有
         if (existing && item.type === 'decoration') {
             return new Response(JSON.stringify({ success: false, error: '你已经拥有该物品了' }));
         }
@@ -109,15 +124,16 @@ export async function onRequestPost(context) {
         let expireTime = 0;
         if (item.type === 'timed') {
             expireTime = Date.now() + (item.days * 86400 * 1000);
-            // 如果已有，可以做续费逻辑，这里简单处理为插入新的或更新时间
         }
 
         await db.batch([
              db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(item.cost, user.id),
+             // 简单处理：如果是时效物品且已有，这里会插入重复记录或者需要在表结构设唯一约束。
+             // 建议：先删后加，或者前端控制。这里采用通用插入。
              db.prepare('INSERT INTO user_items (user_id, item_id, category, expires_at, created_at) VALUES (?, ?, ?, ?, ?)').bind(user.id, itemId, item.category, expireTime, Date.now())
         ]);
         return new Response(JSON.stringify({ success: true, message: `购买成功: ${item.name}` }));
     }
     
-    return new Response(JSON.stringify({ success: false }));
+    return new Response(JSON.stringify({ success: false, error: '未知商品类型' }));
 }
