@@ -4545,23 +4545,28 @@ window.resetNavOrder = function() {
 
 // === 创业系统逻辑 ===
 
+// --- script.js 修复版 loadBusiness (括号层级已校对) ---
+
 async function loadBusiness() {
     const createPanel = document.getElementById('biz-create-panel');
     const dashboard = document.getElementById('biz-dashboard');
     const marketTicker = document.getElementById('marketTicker');
     
     // Loading
-    marketTicker.innerText = "CONNECTING TO STOCK MARKET...";
+    if(marketTicker) marketTicker.innerText = "CONNECTING TO STOCK MARKET...";
     
     try {
         const res = await fetch(`${API_BASE}/business`);
         const data = await res.json();
         
         // 1. 显示市场行情
-        const trendIcon = data.market.val > 0 ? '📈' : '📉';
-        marketTicker.innerText = `${trendIcon} ${data.market.name}`;
-        marketTicker.style.color = data.market.val > 0 ? '#0f0' : (data.market.val < 0 ? '#f33' : '#fff');
+        if(marketTicker) {
+            const trendIcon = data.market.val > 0 ? '📈' : '📉';
+            marketTicker.innerText = `${trendIcon} ${data.market.name}`;
+            marketTicker.style.color = data.market.val > 0 ? '#0f0' : (data.market.val < 0 ? '#f33' : '#fff');
+        }
 
+        // 2. 破产判定
         if (data.bankrupt) {
             alert(`💔 噩耗：\n${data.report.msg}\n\n公司已破产清算，剩余资金归零。请重新创业。`);
             createPanel.style.display = 'block';
@@ -4569,39 +4574,49 @@ async function loadBusiness() {
             return;
         }
 
+        // 3. 正常状态
         if (data.hasCompany) {
             // 显示仪表盘
             createPanel.style.display = 'none';
             dashboard.style.display = 'block';
             
             const c = data.company;
-            document.getElementById('bizCapital').innerText = c.capital.toLocaleString();
+            if(document.getElementById('bizCapital')) {
+                document.getElementById('bizCapital').innerText = c.capital.toLocaleString();
+            }
             
             // 翻译类型
             const typeNames = {'shell':'数据作坊', 'startup':'科技独角兽', 'blackops':'黑域工作室'};
-            document.getElementById('bizTypeDisplay').innerText = typeNames[c.type];
+            if(document.getElementById('bizTypeDisplay')) {
+                document.getElementById('bizTypeDisplay').innerText = typeNames[c.type];
+            }
 
             // 每日财报弹窗/显示
             if (data.todayReport) {
                 const r = data.todayReport;
                 const color = r.profit >= 0 ? '#0f0' : '#f33';
                 const sign = r.profit >= 0 ? '+' : '';
-                document.getElementById('bizLastSettle').innerHTML = 
-                    `<span style="color:${color}">${r.msg} (${sign}${r.rate}%) 盈亏: ${sign}${r.profit}</span>`;
+                const settleEl = document.getElementById('bizLastSettle');
+                if(settleEl) {
+                    settleEl.innerHTML = `<span style="color:${color}">${r.msg} (${sign}${r.rate}%) 盈亏: ${sign}${r.profit}</span>`;
+                }
                 
-                // 如果有新财报，弹个 Toast
                 showToast(`今日财报: ${sign}${r.profit} i币`, r.profit>=0 ? 'success':'error');
                 checkSecurity(); // 刷新余额
+            } 
+            // --- 关键点：loadStockMarket 必须在 if (todayReport) 的花括号外面 ---
+            
+            // 加载股市数据
+            if (typeof loadStockMarket === 'function') {
+                loadStockMarket();
             }
-            loadStockMarket();
 
             // 更新策略按钮状态
             document.querySelectorAll('.strategy-selector button').forEach(b => b.classList.remove('active'));
-            const map = {'safe':'btn-strat-safe', 'normal':'btn-strat-normal', 'risky':'btn-strat-risky'};
-
+            
             let currentStrat = c.strategy; 
-            if(currentStrat === 'conservative') currentStrat = 'safe'; // 兼容
-            if(currentStrat === 'aggressive') currentStrat = 'risky'; // 兼容
+            if(currentStrat === 'conservative') currentStrat = 'safe'; 
+            if(currentStrat === 'aggressive') currentStrat = 'risky'; 
             
             const btnId = `btn-strat-${currentStrat}`;
             if(document.getElementById(btnId)) document.getElementById(btnId).classList.add('active');
@@ -4872,8 +4887,8 @@ function drawInteractiveChart(symbol, mousePos) {
     // === 1. 强制尺寸计算 (核心修复) ===
     // 优先取容器的 rect，如果为 0 (隐藏状态)，则尝试取 clientWidth，再不行就给个默认值 600
     const rect = container.getBoundingClientRect();
-    let cssWidth = rect.width > 0 ? rect.width : (container.clientWidth || 600);
-    let cssHeight = rect.height > 0 ? rect.height : (container.clientHeight || 220);
+    const cssWidth = rect.width || 600;
+    const cssHeight = rect.height || 220;
     
     const dpr = window.devicePixelRatio || 1;
     
@@ -5248,6 +5263,7 @@ function addUserLog(msg, actionType) {
     // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
+
 
 
 
