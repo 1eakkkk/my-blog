@@ -1505,8 +1505,11 @@ async function handleRoute() {
         const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
         loadNotifications();
     } else if (hash === '#business') {
-        if(views.business) document.getElementById('view-business').style.display = 'block'; // 假设你已把 view-business 加到 views 对象里，没加的话直接用 getElementById
-        loadBusiness();
+        const bizView = document.getElementById('view-business');if (bizView) bizView.style.display = 'block';
+        const link = document.querySelector('a[href="#business"]');if (link) link.classList.add('active');
+        if (typeof loadBusiness === 'function') {
+            loadBusiness();
+        }
     } else if (hash.startsWith('#profile?u=')) {
         if(views.profile) document.getElementById('view-profile').style.display = 'block'; // 注意这里 HTML ID 是 view-profile
         const u = hash.split('=')[1];
@@ -4590,25 +4593,13 @@ async function loadBusiness() {
                 // 如果有新财报，弹个 Toast
                 showToast(`今日财报: ${sign}${r.profit} i币`, r.profit>=0 ? 'success':'error');
                 checkSecurity(); // 刷新余额
+                loadStockMarket();
             }
 
             // 更新策略按钮状态
             document.querySelectorAll('.strategy-selector button').forEach(b => b.classList.remove('active'));
             const map = {'safe':'btn-strat-safe', 'normal':'btn-strat-normal', 'risky':'btn-strat-risky'};
-            // 注意数据库存的是 'conservative' 等，要做个映射或者后端统一
-            // 后端存的是 safe/normal/risky 吗？回头看代码...
-            // 后端存的是 conservative/normal/aggressive? 
-            // 修正：前端按钮传参 safe/normal/risky，后端存的也是这个。
-            // 检查后端代码：
-            // 后端代码第80行：strategy === 'conservative' ...
-            // 后端代码第125行：if (!['safe', 'normal', 'risky'].includes(strategy))
-            
-            // --- 修正后端代码的小笔误 ---
-            // 后端接收 safe，但逻辑里写的是 conservative。
-            // **重要修正**：请确保后端 `business.js` 第 80 行左右判断的是 `safe` 和 `risky`，或者前端传 `conservative`。
-            // 建议：统一用 safe, normal, risky。
-            
-            // 假设后端已修复为 safe/risky，前端高亮：
+
             let currentStrat = c.strategy; 
             if(currentStrat === 'conservative') currentStrat = 'safe'; // 兼容
             if(currentStrat === 'aggressive') currentStrat = 'risky'; // 兼容
@@ -4721,6 +4712,163 @@ window.bizWithdraw = async function() {
     }
 };
 
+// === 股市逻辑 ===
+
+let currentStockSymbol = 'BLUE';
+let marketData = {};
+let myPositions = [];
+let companyInfo = {}; // 存类型和资金
+
+window.loadStockMarket = async function() {
+    const canvas = document.getElementById('stockCanvas');
+    if(!canvas) return; // 没在界面上
+
+    try {
+        const res = await fetch(`${API_BASE}/stock`);
+        const data = await res.json();
+        
+        if (data.success) {
+            marketData = data.market;
+            myPositions = data.positions;
+            companyInfo = { capital: data.capital, type: data.companyType };
+            
+            // 刷新当前选中的股票
+            switchStock(currentStockSymbol);
+            
+            // 刷新公司资金显示 (顶部仪表盘的)
+            document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
+        }
+    } catch(e) { console.error(e); }
+};
+
+window.switchStock = function(symbol) {
+    currentStockSymbol = symbol;
+    
+    // UI 高亮
+    document.querySelectorAll('.stock-tab').forEach(b => b.classList.remove('active'));
+    // 简单粗暴根据文本找按钮，或者你可以给按钮加 id
+    const btns = document.querySelectorAll('.stock-tab');
+    if(symbol==='BLUE') btns[0].classList.add('active');
+    if(symbol==='GOLD') btns[1].classList.add('active');
+    if(symbol==='RED') btns[2].classList.add('active');
+
+    renderStockChart(symbol);
+    updatePositionUI(symbol);
+};
+
+function renderStockChart(symbol) {
+    const ctx = document.getElementById('stockCanvas').getContext('2d');
+    const width = 600;
+    const height = 200;
+    const data = marketData[symbol]; // Array of {t, p}
+    
+    // 清空
+    ctx.clearRect(0, 0, width, height);
+    
+    if(!data || data.length === 0) return;
+
+    // 找最大最小值以定比例
+    let minP = Infinity, maxP = -Infinity;
+    data.forEach(d => {
+        if(d.p < minP) minP = d.p;
+        if(d.p > maxP) maxP = d.p;
+    });
+    // 留点边距
+    const padding = (maxP - minP) * 0.1;
+    minP -= padding; maxP += padding;
+    const range = maxP - minP;
+
+    // 颜色
+    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    ctx.strokeStyle = colorMap[symbol];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    // 绘制折线
+    const stepX = width / (data.length - 1);
+    data.forEach((d, i) => {
+        const x = i * stepX;
+        const y = height - ((d.p - minP) / range * height);
+        if (i===0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // 显示最新价格
+    const currentPrice = data[0].p; 
+
+    const latestPrice = data[data.length - 1].p;
+    
+    const label = document.getElementById('stockPriceLabel');
+    label.innerText = latestPrice;
+    label.style.color = colorMap[symbol];
+}
+
+function updatePositionUI(symbol) {
+    const pos = myPositions.find(p => p.stock_symbol === symbol);
+    const amountEl = document.getElementById('myStockAmount');
+    const profitEl = document.getElementById('myStockProfit');
+    const btnCover = document.getElementById('btnShortCover');
+    
+    // 获取当前价
+    const history = marketData[symbol];
+    const currentPrice = history[history.length - 1].p;
+
+    if (pos) {
+        amountEl.innerText = `${pos.amount} 股`;
+        
+        // 盈亏计算
+        let profit = 0;
+        if (pos.amount > 0) {
+            // 做多盈亏 = (现价 - 均价) * 数量
+            profit = (currentPrice - pos.avg_price) * pos.amount;
+            btnCover.style.display = 'none'; // 隐藏平空按钮
+        } else {
+            // 做空盈亏 = (均价 - 现价) * 绝对值数量
+            profit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
+            btnCover.style.display = 'inline-block'; // 显示平空按钮
+        }
+        
+        const sign = profit >= 0 ? '+' : '';
+        const color = profit >= 0 ? '#0f0' : '#f33';
+        profitEl.innerHTML = `浮动盈亏: <span style="color:${color}">${sign}${Math.floor(profit)}</span>`;
+    } else {
+        amountEl.innerText = "0 股";
+        profitEl.innerText = "浮动盈亏: --";
+        btnCover.style.display = 'none';
+    }
+}
+
+window.tradeStock = async function(action) {
+    const amountVal = document.getElementById('stockTradeAmount').value;
+    const amount = parseInt(amountVal);
+    
+    if (!amount || amount <= 0) return showToast("请输入有效数量", "error");
+    
+    // 简单的前端校验
+    if (action === 'sell' && companyInfo.type !== 'blackops') {
+        // 非黑域公司，卖出时检查是否有持仓
+        const pos = myPositions.find(p => p.stock_symbol === currentStockSymbol);
+        if (!pos || pos.amount < amount) return showToast("持仓不足，无法卖出", "error");
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/stock`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action, symbol: currentStockSymbol, amount })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast("交易成功", "success");
+            document.getElementById('stockTradeAmount').value = '';
+            loadStockMarket(); // 刷新数据
+        } else {
+            showToast(data.error, "error");
+        }
+    } catch(e) { showToast("交易失败", "error"); }
+};
 
 
 
