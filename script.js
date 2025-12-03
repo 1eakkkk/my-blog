@@ -34,11 +34,11 @@ const LEVEL_TABLE = [
     { lv: 3,  xp: 1200,  title: '观察者' },
     { lv: 4,  xp: 2000,  title: '骇客' },
     { lv: 5,  xp: 5000,  title: '执政官' },
-    { lv: 6,  xp: 10000, title: '领主' },
-    { lv: 7,  xp: 20000, title: '宗师' },
-    { lv: 8,  xp: 35000, title: '传奇' },
-    { lv: 9,  xp: 60000, title: '半神' },
-    { lv: 10, xp: 90000, title: '赛博神' }
+    { lv: 6,  xp: 15000, title: '领主' },
+    { lv: 7,  xp: 50000, title: '宗师' },
+    { lv: 8,  xp: 99999, title: '传奇' },
+    { lv: 9,  xp: 345678, title: '半神' },
+    { lv: 10, xp: 1234567, title: '赛博神' }
 ];
 
 // 种子配置 (对应后端)
@@ -5244,4 +5244,5 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
 
