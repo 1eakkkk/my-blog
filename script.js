@@ -4715,7 +4715,7 @@ window.bizInvest = async function() {
 
 // 提现
 window.bizWithdraw = async function() {
-    const amount = prompt("请输入提现金额 (收取10%手续费):");
+    const amount = prompt("请输入提现金额 (收取5%手续费):");
     if(!amount) return;
     
     const res = await fetch(`${API_BASE}/business`, {
@@ -5453,6 +5453,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
