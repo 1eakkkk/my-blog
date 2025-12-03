@@ -4907,32 +4907,31 @@ function disableTrading(disabled) {
     els.forEach(e => e.disabled = disabled);
 }
 
-// --- script.js 修复版 switchStock (含遮罩即时刷新) ---
-
 window.switchStock = function(symbol) {
+    // 1. 立即更新状态变量
     currentStockSymbol = symbol;
     
-    // 1. Tab 高亮切换
+    // 2. 【优先】UI 视觉切换 (Tab 高亮)
+    // 必须最先执行，让用户感觉到“点到了”
     document.querySelectorAll('.stock-tab').forEach(b => b.classList.remove('active'));
     const btns = document.querySelectorAll('.stock-tab');
     if(symbol==='BLUE' && btns[0]) btns[0].classList.add('active');
     if(symbol==='GOLD' && btns[1]) btns[1].classList.add('active');
     if(symbol==='RED' && btns[2]) btns[2].classList.add('active');
 
-    // 2. 立即重绘图表 (使用本地缓存，视觉零延迟)
+    // 3. 【优先】使用本地缓存重绘图表 (视觉零延迟)
+    // 只要本地有数据，图表会瞬间切换，不需要等网络
     drawInteractiveChart(symbol, null);
     
-    // 3. 立即刷新持仓 UI
+    // 4. 【优先】刷新持仓文字
     if (typeof updatePositionUI === 'function') {
         updatePositionUI(symbol);
     }
     
-    // 4. 【核心修复】立即更新“停牌/休市”遮罩状态
-    // 之前漏了这一步，导致切换后遮罩不刷新
+    // 5. 【优先】更新遮罩状态 (停牌/休市)
     const mask = document.getElementById('marketClosedMask');
     const maskText = mask ? mask.querySelector('div:first-child') : null;
     
-    // 优先检查全局变量 stockMeta (本地缓存)
     if (window.stockMeta && window.stockMeta[symbol] && window.stockMeta[symbol].suspended === 1) {
         if(mask) {
             mask.style.display = 'flex';
@@ -4940,21 +4939,26 @@ window.switchStock = function(symbol) {
         }
         disableTrading(true);
     } else {
-        // 如果没有停牌，且当前不是全场休市时间(简单判断)，则隐藏
-        // 注意：这里暂时隐藏，loadStockMarket 会再次确认全场休市状态
+        // 先隐藏，避免视觉干扰，稍后 loadStockMarket 会根据全场状态再次判断
         if(mask) mask.style.display = 'none';
         disableTrading(false);
-    }
-
-    // 5. 立即触发网络刷新 (获取最新数据)
-    // 这样如果刚刚发生了退市，用户切换过来能马上看到，不用等倒计时
-    if (typeof loadStockMarket === 'function') {
-        loadStockMarket();
     }
     
     // 6. 清空输入框
     const input = document.getElementById('stockTradeAmount');
     if(input) input.value = '';
+
+    // ================================================
+    // 🚀 核心优化：将网络请求推迟到 10ms 后执行
+    // ================================================
+    // 这会让浏览器先完成上述的 UI 渲染（按钮变色、图表切换），
+    // 待界面完全响应后，再在后台悄悄发起网络请求。
+    // 用户会感觉切换是“瞬间”完成的。
+    setTimeout(() => {
+        if (typeof loadStockMarket === 'function') {
+            loadStockMarket();
+        }
+    }, 10);
 };
 
 // 3. 鼠标移动处理
@@ -5443,6 +5447,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
