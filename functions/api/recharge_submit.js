@@ -15,8 +15,8 @@ export async function onRequestPost(context) {
 
     // 金额映射
     const amountMap = {
-        'small': '0.1元 (650币)',
-        'large': '0.6元 (4300币)'
+        'small': '0.1元 (6500币)',
+        'large': '0.6元 (43000币)'
     };
     
     if (!amountMap[type] || !proofUrl) {
