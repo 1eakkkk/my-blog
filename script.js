@@ -4870,13 +4870,19 @@ window.loadStockMarket = async function() {
     }
     
     // 7. 自动刷新
+    // 7. 紧急省流模式：确保自动刷新定时器存活
     if (!stockAutoRefreshTimer) {
+        console.log("Starting Market Auto-Refresh (Power Saving Mode)...");
         stockAutoRefreshTimer = setInterval(() => {
+            // 1. 如果页面最小化/切后台，绝对不请求！省数据库！
+            if (document.visibilityState === 'hidden') return;
+
+            // 2. 只有当页面位于创业中心时才刷新
             const bizView = document.getElementById('view-business');
             if (bizView && bizView.style.display !== 'none') {
                 loadStockMarket();
             }
-        }, 10000); 
+        }, 60000); // <--- 🚨 紧急修改：改成 60000 (60秒) 刷新一次
     }
 };
 // 辅助：窗口大小改变时重绘
@@ -5414,6 +5420,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
