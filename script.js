@@ -4885,23 +4885,31 @@ function disableTrading(disabled) {
     els.forEach(e => e.disabled = disabled);
 }
 
-// 2. 切换股票
+// --- script.js 修复版 switchStock ---
+
 window.switchStock = function(symbol) {
     currentStockSymbol = symbol;
     
-    // Tab 高亮
+    // 1. Tab 高亮切换
     document.querySelectorAll('.stock-tab').forEach(b => b.classList.remove('active'));
-    // 简单的根据文本匹配来高亮，或者你可以给HTML加ID
     const btns = document.querySelectorAll('.stock-tab');
+    // 根据 symbol 简单映射索引 (0:BLUE, 1:GOLD, 2:RED)
     if(symbol==='BLUE' && btns[0]) btns[0].classList.add('active');
     if(symbol==='GOLD' && btns[1]) btns[1].classList.add('active');
     if(symbol==='RED' && btns[2]) btns[2].classList.add('active');
 
-    // 绘制图表 (无鼠标位置，显示默认状态)
+    // 2. 立即重绘图表
     drawInteractiveChart(symbol, null);
     
-    // 更新持仓面板
-    (symbol);
+    // 3. 【核心修复】立即刷新持仓 UI
+    // 之前这里漏写了函数名，导致必须等10秒自动刷新才能看到持仓
+    if (typeof updatePositionUI === 'function') {
+        updatePositionUI(symbol);
+    }
+    
+    // 4. 同时更新输入框状态（可选优化：切换股票时清空输入框，防止误操作）
+    const input = document.getElementById('stockTradeAmount');
+    if(input) input.value = '';
 };
 
 // 3. 鼠标移动处理
@@ -5356,6 +5364,7 @@ window.addUserLog = function(msg, actionType) {
         }
     }
 };
+
 
 
 
