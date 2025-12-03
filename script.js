@@ -4718,7 +4718,7 @@ window.bizWithdraw = async function() {
     const amount = prompt("请输入提现金额 (收取5%手续费):");
     if(!amount) return;
     
-    const res = await fetch(`${API_BASE}/business`, {
+    const res = await fetch(`${API_BASE}/stock`, {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ action: 'withdraw', amount })
@@ -5453,6 +5453,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
