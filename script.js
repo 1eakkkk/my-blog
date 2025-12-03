@@ -4747,6 +4747,13 @@ window.loadStockMarket = async function() {
 
     try {
         const res = await fetch(`${API_BASE}/stock`);
+        
+        // === 修复：增加非 JSON 响应的拦截 ===
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Server Error: 数据库结构可能未更新 (500)");
+        }
+
         const data = await res.json();
         
         if (data.success) {
@@ -4756,7 +4763,7 @@ window.loadStockMarket = async function() {
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 1. 更新右上角 Ticker (修复一直显示 Connecting 的问题)
+            // 1. 更新右上角 Ticker
             if (marketTicker) {
                 const curData = marketData[currentStockSymbol];
                 if (curData && curData.length > 0) {
@@ -4780,9 +4787,9 @@ window.loadStockMarket = async function() {
                 }
             }
 
-            // 2. 日志处理
-            if (typeof mergeLogs === 'function') {
-                globalLogs = data.news || [];
+            // 2. 日志处理 (直接使用后端返回的日志，不再合并)
+            if (typeof renderAllLogs === 'function') {
+                window.globalLogs = data.news || [];
                 renderAllLogs();
             }
             
@@ -4791,14 +4798,12 @@ window.loadStockMarket = async function() {
             const maskText = mask ? mask.querySelector('div:first-child') : null;
             
             if (data.status && !data.status.isOpen) {
-                // 全场休市
                 if(mask) {
                     mask.style.display = 'flex';
                     if(maskText) maskText.innerText = "🚫 MARKET CLOSED (02:00-06:00)";
                 }
                 disableTrading(true);
             } else {
-                // 个股停牌检测
                 if (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].suspended === 1) {
                     if(mask) {
                         mask.style.display = 'flex';
@@ -4811,12 +4816,12 @@ window.loadStockMarket = async function() {
                 }
             }
 
-            // 4. 刷新资金显示
+            // 4. 刷新资金
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
 
-            // 5. 绑定图表事件 (防重复绑定)
+            // 5. 绑定事件
             if (canvas && !canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -4828,24 +4833,34 @@ window.loadStockMarket = async function() {
                 window.addEventListener('resize', resizeStockChart);
             }
 
-            // 6. 重新绘制图表
+            // 6. 重绘
             if (typeof switchStock === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
-                (currentStockSymbol);
+                updatePositionUI(currentStockSymbol);
             }
         }
-    } catch(e) { console.error("Stock Load Error:", e); }
+    } catch(e) { 
+        console.error("Stock Load Error:", e);
+        // === 修复：出错时更新 UI 提示，不再一直转圈 ===
+        if (marketTicker) {
+            marketTicker.innerText = "SERVER ERROR (请检查数据库)";
+            marketTicker.style.color = "#f33";
+        }
+        // 如果日志区域还在显示“正在连接...”，清空它
+        const logList = document.getElementById('stockLogList');
+        if (logList && logList.innerText.includes('正在连接')) {
+            logList.innerHTML = '<div style="color:#f33;padding:10px;">连接中断，请稍后重试</div>';
+        }
+    }
     
-    // 7. 确保自动刷新定时器存活
+    // 7. 自动刷新
     if (!stockAutoRefreshTimer) {
-        console.log("Starting Market Auto-Refresh...");
         stockAutoRefreshTimer = setInterval(() => {
-            // 只有当页面位于创业中心时才刷新
             const bizView = document.getElementById('view-business');
             if (bizView && bizView.style.display !== 'none') {
                 loadStockMarket();
             }
-        }, 10000); // 10秒刷新一次
+        }, 10000); 
     }
 };
 // 辅助：窗口大小改变时重绘
@@ -5341,6 +5356,7 @@ window.addUserLog = function(msg, actionType) {
         }
     }
 };
+
 
 
 
