@@ -4809,24 +4809,30 @@ window.loadStockMarket = async function() {
                 }
             }
             
-            // 3. 休市/停牌 UI 处理
+            // 3. 休市/停牌 UI 处理 (精准文案优化)
             const mask = document.getElementById('marketClosedMask');
-            const maskText = mask ? mask.querySelector('div:first-child') : null;
+            const maskTitle = document.getElementById('maskTitle');
+            const maskSubtitle = document.getElementById('maskSubtitle');
             
             if (data.status && !data.status.isOpen) {
+                // === 情况 A: 全场休市 (02:00 - 06:00) ===
                 if(mask) {
                     mask.style.display = 'flex';
-                    if(maskText) maskText.innerText = "🚫 MARKET CLOSED (02:00-06:00)";
+                    if(maskTitle) maskTitle.innerText = "💤 休市中 / MARKET CLOSED";
+                    if(maskSubtitle) maskSubtitle.innerText = "交易所维护时间: 02:00 - 06:00"; // 明确告知是维护时间
                 }
                 disableTrading(true);
             } else {
+                // === 情况 B: 个股停牌 (退市) ===
                 if (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].suspended === 1) {
                     if(mask) {
                         mask.style.display = 'flex';
-                        if(maskText) maskText.innerText = "⚠️ SUSPENDED / 退市停牌";
+                        if(maskTitle) maskTitle.innerText = "⚠️ 退市整理 / SUSPENDED";
+                        if(maskSubtitle) maskSubtitle.innerText = "股价触底，等待明日 06:00 重组"; // 明确告知恢复时间
                     }
                     disableTrading(true);
                 } else {
+                    // === 情况 C: 正常交易 ===
                     if(mask) mask.style.display = 'none';
                     disableTrading(false);
                 }
@@ -4930,16 +4936,19 @@ window.switchStock = function(symbol) {
     
     // 5. 【优先】更新遮罩状态 (停牌/休市)
     const mask = document.getElementById('marketClosedMask');
-    const maskText = mask ? mask.querySelector('div:first-child') : null;
+    const maskTitle = document.getElementById('maskTitle');
+    const maskSubtitle = document.getElementById('maskSubtitle');
     
+    // 逻辑：优先判断个股停牌
     if (window.stockMeta && window.stockMeta[symbol] && window.stockMeta[symbol].suspended === 1) {
         if(mask) {
             mask.style.display = 'flex';
-            if(maskText) maskText.innerText = "⚠️ SUSPENDED / 退市停牌";
+            if(maskTitle) maskTitle.innerText = "⚠️ 退市整理 / SUSPENDED";
+            if(maskSubtitle) maskSubtitle.innerText = "股价触底，等待明日 06:00 重组";
         }
         disableTrading(true);
     } else {
-        // 先隐藏，避免视觉干扰，稍后 loadStockMarket 会根据全场状态再次判断
+        // 先隐藏，稍后 loadStockMarket 会检查全场休市
         if(mask) mask.style.display = 'none';
         disableTrading(false);
     }
@@ -5447,6 +5456,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
