@@ -4724,11 +4724,11 @@ let myPositions = [];
 let marketOpens = {}; // 存开盘价
 let companyInfo = {};
 let globalLogs = [];
+let stockMeta = {}; 
 window.loadStockMarket = async function() {
     const canvas = document.getElementById('stockCanvas');
     if(!canvas) return; 
 
-    // Loading 提示
     const curEl = document.getElementById('stockCurrent');
     if(curEl && curEl.innerText === '--') curEl.innerText = "Loading...";
 
@@ -4739,30 +4739,47 @@ window.loadStockMarket = async function() {
         if (data.success) {
             marketData = data.market;
             myPositions = data.positions;
-            marketOpens = data.opens || {}; 
+            stockMeta = data.meta || {}; // 获取开盘价和停牌状态
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 1. 处理日志 (使用 mergeLogs)
+            // 1. 日志
             if (typeof mergeLogs === 'function') {
                 mergeLogs(data.news, 'news');
             }
             
-            // 2. 处理休市
+            // 2. 处理休市 (02:00-06:00)
             const mask = document.getElementById('marketClosedMask');
+            const maskText = mask ? mask.querySelector('div:first-child') : null;
+            
             if (data.status && !data.status.isOpen) {
-                if(mask) mask.style.display = 'flex';
+                if(mask) {
+                    mask.style.display = 'flex';
+                    if(maskText) maskText.innerText = "🚫 MARKET CLOSED (02:00-06:00)";
+                }
                 disableTrading(true);
             } else {
+                // 如果休市遮罩打开，先关掉
                 if(mask) mask.style.display = 'none';
-                disableTrading(false);
+                
+                // 3. 处理个股停牌 (退市整理)
+                // 检查当前选中的股票是否停牌
+                if (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].suspended === 1) {
+                    if(mask) {
+                        mask.style.display = 'flex';
+                        if(maskText) maskText.innerText = "⚠️ SUSPENDED / 退市停牌";
+                    }
+                    disableTrading(true);
+                } else {
+                    disableTrading(false);
+                }
             }
 
-            // 3. 更新资金
+            // 4. 更新资金
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
 
-            // 4. 绑定事件 (只绑一次)
+            // 5. 绑定事件
             if (!canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -4770,20 +4787,20 @@ window.loadStockMarket = async function() {
                 canvas.addEventListener('touchmove', handleTouch, {passive: false});
                 canvas.addEventListener('touchend', handleChartLeave);
                 canvas.dataset.listening = "true";
-                
                 window.removeEventListener('resize', resizeStockChart);
                 window.addEventListener('resize', resizeStockChart);
             }
 
-            // 5. 渲染
+            // 6. 渲染
             switchStock(currentStockSymbol);
         }
     } catch(e) { console.error("Stock Load Error:", e); }
     
-    // 自动刷新机制
+    // 确保自动刷新 (10秒)
     if (!window.stockAutoRefreshTimer) {
         window.stockAutoRefreshTimer = setInterval(() => {
             const stockView = document.getElementById('view-business');
+            // 只有当页面可见且 canvas 存在时才刷新
             if (stockView && stockView.style.display !== 'none' && document.getElementById('stockCanvas')) {
                 loadStockMarket();
             }
@@ -4844,7 +4861,6 @@ function handleChartLeave() {
     drawInteractiveChart(currentStockSymbol, null);
 }
 
-// --- script.js 修复版 drawInteractiveChart ---
 
 function drawInteractiveChart(symbol, mousePos) {
     const canvas = document.getElementById('stockCanvas');
@@ -4908,8 +4924,12 @@ function drawInteractiveChart(symbol, mousePos) {
 
     // 4. 更新看板 (无交互时)
     if (!mousePos) {
-        // 防止数据不足时的报错
-        const openPrice = (window.marketOpens && window.marketOpens[symbol]) ? window.marketOpens[symbol] : data[0].p;
+        // 使用后端返回的准确开盘价
+        let openPrice = data[0].p; // 默认第一点
+        if (stockMeta && stockMeta[symbol]) {
+            openPrice = stockMeta[symbol].open; // 如果有记录，用记录值
+        }
+        
         const currentPrice = data[data.length - 1].p;
         
         const elOpen = document.getElementById('stockOpen');
@@ -5237,6 +5257,7 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
 
 
 
