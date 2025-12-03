@@ -73,28 +73,15 @@ function pickWeightedNews(symbol) {
     return list[0];
 }
 
-// === 计算持仓的当前清算价值 (用于判断是否破产) ===
+// 计算持仓价值
 function calculatePositionValue(pos, currentPrice) {
     const qty = pos.amount;
     const avg = pos.avg_price;
     const lev = pos.leverage || 1;
-    
-    // 1. 计算原始保证金 (Principal)
-    // 注意：qty 可能是负数(空单)，计算保证金要用绝对值
     const principal = (avg * Math.abs(qty)) / lev;
-    
-    // 2. 计算盈亏 (Profit)
     let profit = 0;
-    if (qty > 0) {
-        // 多单盈亏: (现价 - 均价) * 数量
-        profit = (currentPrice - avg) * qty;
-    } else {
-        // 空单盈亏: (均价 - 现价) * 绝对数量
-        profit = (avg - currentPrice) * Math.abs(qty);
-    }
-    
-    // 3. 净值 = 本金 + 盈亏
-    // 如果亏损超过本金，这就变成负数了（穿仓）
+    if (qty > 0) profit = (currentPrice - avg) * qty;
+    else profit = (avg - currentPrice) * Math.abs(qty);
     return Math.floor(principal + profit);
 }
 
@@ -113,7 +100,6 @@ async function getOrUpdateMarket(db) {
         for (let sym in STOCKS_CONFIG) {
             let p = generateBasePrice() + 50;
             batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time) VALUES (?, ?, ?, ?, 0, ?, ?)").bind(sym, p, p, now, p, now));
-            batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
             batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, p, now));
             marketMap[sym] = { p: p, base: p, t: now, open: p, suspended: 0, last_news: now };
         }
@@ -185,7 +171,6 @@ async function getOrUpdateMarket(db) {
 
             if (curP < st.base * 0.05) {
                 const refund = curP;
-                // 退市逻辑：清理持仓并返还
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refund, sym, sym));
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
                 
@@ -220,7 +205,10 @@ export async function onRequest(context) {
     const cookie = request.headers.get('Cookie');
     if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-    const user = await db.prepare('SELECT id, coins FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+    
+    // === 核心修改：查询用户时，必须带上 username 和 nickname ===
+    const user = await db.prepare('SELECT users.id, users.coins, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+    
     if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
 
     const company = await db.prepare("SELECT * FROM user_companies WHERE user_id = ?").bind(user.id).first();
@@ -231,32 +219,24 @@ export async function onRequest(context) {
         const hasCompany = !!company;
         let positions = [];
         
-        // === 破产检测逻辑升级 (核心修复) ===
         if (hasCompany) {
             positions = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
             
-            // 1. 计算总净值 (Total Equity) = 现金 + 所有持仓的当前价值
             let totalEquity = company.capital; 
-            
             positions.forEach(pos => {
                 const currentP = market[pos.stock_symbol].p;
-                // 如果股票停牌，按当前价(退市价)结算
-                // 调用上面的辅助函数计算价值
                 const val = calculatePositionValue(pos, currentP);
                 totalEquity += val;
             });
 
-            // 2. 只有当 总净值 < 100 时，才强制破产
-            // 注意：如果 totalEquity < 0 (穿仓)，也算破产
             if (totalEquity < 100) {
-                const refund = Math.max(0, Math.floor(totalEquity * 0.2)); // 残值返还，如果是负资产则返还0
-                
+                const refund = Math.max(0, Math.floor(totalEquity * 0.2));
                 await db.batch([
                     db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
                     db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
                     db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(refund, user.id)
                 ]);
-                return Response.json({ success: true, bankrupt: true, report: { msg: `公司资不抵债 (净值: ${totalEquity})，强制破产清算。` } });
+                return Response.json({ success: true, bankrupt: true, report: { msg: `资不抵债 (净值: ${totalEquity})，强制清算。` } });
             }
         }
 
@@ -286,6 +266,9 @@ export async function onRequest(context) {
         const body = await request.json();
         const { action, symbol, amount, leverage = 1 } = body;
 
+        // 获取用户显示名 (优先用昵称)
+        const userNameDisplay = user.nickname || user.username;
+
         if (action === 'create') {
              if (company) return Response.json({ error: '已有公司' });
             if (user.coins < 3000) return Response.json({ error: '余额不足' });
@@ -297,9 +280,7 @@ export async function onRequest(context) {
         }
         if (!company) return Response.json({ error: '无公司' });
         
-        // 手动破产逻辑也需要更新：检查净值是否大于 500
         if (action === 'bankrupt') {
-            // 获取最新持仓计算净值
             const allPos = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
             let totalEquity = company.capital;
             allPos.forEach(p => {
@@ -347,7 +328,8 @@ export async function onRequest(context) {
                 } else {
                     batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev));
                 }
-                logMsg = `买入 ${qty} 股 ${symbol} (x${lev})`;
+                // === 修改日志格式 ===
+                logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
             }
             else if (action === 'sell') {
                 if (curHold <= 0) { 
@@ -364,7 +346,8 @@ export async function onRequest(context) {
                     } else {
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev));
                     }
-                    logMsg = `做空 ${qty} 股 ${symbol} (x${lev})`;
+                    // === 修改日志格式 ===
+                    logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol} (x${lev})`;
                 } else { 
                     if (qty > curHold) return Response.json({ error: '持仓不足' });
                     const prin = (pos.avg_price * qty) / pos.leverage;
@@ -373,7 +356,8 @@ export async function onRequest(context) {
                     batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                     if (qty === curHold) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                     else batch.push(db.prepare("UPDATE company_positions SET amount=amount-? WHERE id=?").bind(qty, pos.id));
-                    logMsg = `卖出 ${qty} 股 ${symbol}`;
+                    // === 修改日志格式 ===
+                    logMsg = `[${userNameDisplay}] 卖出 ${qty} 股 ${symbol}`;
                 }
             }
             else if (action === 'cover') {
@@ -385,7 +369,8 @@ export async function onRequest(context) {
                 batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                 if (qty === Math.abs(curHold)) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                 else batch.push(db.prepare("UPDATE company_positions SET amount=amount+? WHERE id=?").bind(qty, pos.id));
-                logMsg = `平空 ${qty} 股 ${symbol}`;
+                // === 修改日志格式 ===
+                logMsg = `[${userNameDisplay}] 平空 ${qty} 股 ${symbol}`;
             }
 
             batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
