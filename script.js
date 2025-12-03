@@ -5311,6 +5311,30 @@ window.renderAllLogs = function() {
     });
 };
 
+// 修复报错：补充缺失的日志记录函数
+window.addUserLog = function(msg, actionType) {
+    const now = Date.now();
+    const logItem = {
+        time: now,
+        msg: msg,
+        source: 'user', // 标记为用户操作
+        actionType: actionType // 'buy' 或 'sell'
+    };
+    
+    // 确保全局日志数组存在
+    window.globalLogs = window.globalLogs || [];
+    
+    // 调用合并函数 (前提是 mergeLogs 已存在，之前的更新中已提供)
+    if (typeof window.mergeLogs === 'function') {
+        window.mergeLogs([logItem], 'user');
+    } else {
+        // 兜底逻辑：如果 mergeLogs 也没定义，直接推入并渲染
+        window.globalLogs.push(logItem);
+        if (typeof window.renderAllLogs === 'function') {
+            window.renderAllLogs();
+        }
+    }
+};
 
 
 
