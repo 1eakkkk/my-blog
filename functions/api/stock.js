@@ -43,7 +43,7 @@ const NEWS_DB = {
     'RED': [
         { weight: 10, factor: 0.08, msg: "荒坂安保部门成功镇压了一起局部暴乱。" },
         { weight: 10, factor: 0.08, msg: "荒坂安保部门宣布与蓝盾安全达成协议，合作共赢。" },
-        { weight: 10, factor: 0.08, msg: "荒坂安保部门被曝出内部人员关系混乱。" },
+        { weight: 10, factor: -0.08, msg: "荒坂安保部门被曝出内部人员关系混乱。" },
         { weight: 10, factor: 0.05, msg: "荒坂军工发布新一季度的雇佣兵招募计划。" },
         { weight: 10, factor: -0.07, msg: "反战组织在荒坂分部大楼下拉横幅抗议。" },
         { weight: 10, factor: -0.05, msg: "一批常规弹药在运输途中被流浪者劫持。" },
@@ -351,16 +351,51 @@ export async function onRequest(context) {
 
         if (!company) return Response.json({ error: '无公司' });
         
-        // === 3. 注资 (消耗 k_coins) ===
+        // === 3. 注资 (智能混合扣费：优先 K币，不足部分扣 i币) ===
         if (action === 'invest') {
             const num = parseInt(amount);
-            if (num < 100) return Response.json({ error: '最小注资 100 k' });
-            if ((user.k_coins || 0) < num) return Response.json({ error: 'k币余额不足' });
+            if (num < 100) return Response.json({ error: '最小注资 100' });
+            
+            const kBalance = user.k_coins || 0;
+            const iBalance = user.coins || 0;
+            
+            let deductK = 0;
+            let deductI = 0;
+            
+            // 核心逻辑：优先扣 K
+            if (kBalance >= num) {
+                // K币 足够全额支付
+                deductK = num;
+            } else {
+                // K币 不够，先扣光 K，剩下用 i 补
+                deductK = kBalance;
+                deductI = num - kBalance;
+            }
+            
+            // 检查 i币 是否足够支付剩余部分
+            if (iBalance < deductI) {
+                return Response.json({ error: `资金不足 (缺 ${deductI - iBalance} i币)` });
+            }
+            
+            // 执行扣费和注资
             await db.batch([
-                db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(num, user.id),
+                // 扣除 K币
+                db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(deductK, user.id),
+                // 扣除 i币
+                db.prepare("UPDATE users SET coins = coins - ? WHERE id = ?").bind(deductI, user.id),
+                // 增加公司资金
                 db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(num, company.id)
             ]);
-            return Response.json({ success: true, message: `注资成功 (+${num} k)` });
+            
+            // 生成提示信息
+            let msg = `注资成功 (+${num})`;
+            if (deductI > 0) {
+                msg += ` [消耗: ${deductK}k + ${deductI}i]`;
+            } else {
+                msg += ` [消耗: ${deductK}k]`;
+            }
+            
+            return Response.json({ success: true, message: msg });
         }
 
         // === 4. 提现 (公司 -> coins, 扣税) ===
