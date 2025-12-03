@@ -282,7 +282,7 @@ export async function onRequest(context) {
                     db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
                     db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(refund, user.id)
                 ]);
-                return Response.json({ success: true, bankrupt: true, report: { msg: `资不抵债 (净值: ${totalEquity})，强制清算。` } });
+                return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: `资不抵债 (净值: ${totalEquity})，强制清算。` } });
             }
         }
 
