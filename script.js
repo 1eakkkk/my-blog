@@ -4844,7 +4844,7 @@ function handleChartLeave() {
     drawInteractiveChart(currentStockSymbol, null);
 }
 
-// --- script.js 核心绘图函数 (防白屏版) ---
+// --- script.js 修复版 drawInteractiveChart ---
 
 function drawInteractiveChart(symbol, mousePos) {
     const canvas = document.getElementById('stockCanvas');
@@ -4855,31 +4855,29 @@ function drawInteractiveChart(symbol, mousePos) {
     
     const ctx = canvas.getContext('2d');
     
-    // === 1. 强制尺寸计算 (核心修复) ===
-    // 优先取容器的 rect，如果为 0 (隐藏状态)，则尝试取 clientWidth，再不行就给个默认值 600
+    // 1. 尺寸计算
     const rect = container.getBoundingClientRect();
-    const cssWidth = rect.width || 600;
+    // 修复：如果容器隐藏(width=0)，给一个默认宽度防止报错
+    const cssWidth = rect.width || 600; 
     const cssHeight = rect.height || 220;
     
     const dpr = window.devicePixelRatio || 1;
     
-    // 设置物理像素
-    canvas.width = cssWidth * dpr;
-    canvas.height = cssHeight * dpr;
-    ctx.scale(dpr, dpr);
+    // 避免重复设置导致闪烁，仅当尺寸变化时调整
+    if (canvas.width !== cssWidth * dpr || canvas.height !== cssHeight * dpr) {
+        canvas.width = cssWidth * dpr;
+        canvas.height = cssHeight * dpr;
+        ctx.scale(dpr, dpr);
+    }
 
-    // 逻辑宽高
     const width = cssWidth;
     const height = cssHeight;
 
     // 清空画布
     ctx.clearRect(0, 0, width, height);
 
-    // === 2. 数据检查 ===
-    // 打印日志方便调试，如果控制台有数据但屏幕没图，说明是绘图逻辑问题
+    // 2. 数据检查
     if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
-        console.warn(`[Stock] ${symbol} 无数据，等待中...`);
-        
         ctx.fillStyle = '#666';
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
@@ -4890,21 +4888,27 @@ function drawInteractiveChart(symbol, mousePos) {
 
     const data = marketData[symbol]; 
 
-    // === 3. 计算极值 ===
+    // 3. 计算极值
     let minP = Infinity, maxP = -Infinity;
     data.forEach(d => {
         if(d.p < minP) minP = d.p;
         if(d.p > maxP) maxP = d.p;
     });
     
-    const rangeBuffer = (maxP - minP) === 0 ? maxP * 0.1 : (maxP - minP);
+    // 防止最大最小值相等导致除以0
+    if (maxP === minP) {
+        maxP = minP * 1.1; // 强行拉开间距
+        minP = minP * 0.9;
+    }
+    
+    const rangeBuffer = (maxP - minP);
     const yMin = Math.floor(minP - rangeBuffer * 0.2); 
     const yMax = Math.ceil(maxP + rangeBuffer * 0.2);
-    const yRange = yMax - yMin;
+    const yRange = Math.max(1, yMax - yMin); // 确保 yRange 不为 0
 
-    // === 4. 更新看板 (无交互时) ===
+    // 4. 更新看板 (无交互时)
     if (!mousePos) {
-        // 防止 marketOpens 未定义报错
+        // 防止数据不足时的报错
         const openPrice = (window.marketOpens && window.marketOpens[symbol]) ? window.marketOpens[symbol] : data[0].p;
         const currentPrice = data[data.length - 1].p;
         
@@ -4925,7 +4929,7 @@ function drawInteractiveChart(symbol, mousePos) {
     const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
     const themeColor = colorMap[symbol];
 
-    // === 5. 绘制坐标轴 (移动端简化) ===
+    // 5. 绘制坐标轴
     const isMobile = width < 400;
     const padding = { 
         top: 20, 
@@ -4939,7 +4943,7 @@ function drawInteractiveChart(symbol, mousePos) {
     ctx.lineWidth = 1;
     ctx.font = '10px JetBrains Mono';
     
-    // 横线
+    // 横线 (价格轴)
     const ySteps = 5;
     for (let i = 0; i <= ySteps; i++) {
         const val = yMin + (yRange / ySteps) * i;
@@ -4957,47 +4961,64 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText(Math.floor(val), padding.left - 5, y);
     }
 
-    // 竖线
-    const xStep = chartW / (data.length - 1);
-    const xStepsCount = isMobile ? 3 : 6; 
-    const timeInterval = Math.floor((data.length - 1) / (xStepsCount - 1));
-
-    for (let i = 0; i < data.length; i += timeInterval) {
-        const x = padding.left + (i * xStep);
+    // 竖线 (时间轴) - 🚨 关键修复点 🚨
+    // 只有当数据点大于1个时才画线，否则除数为0导致Infinity或间隔计算错误
+    if (data.length > 1) {
+        const xStep = chartW / (data.length - 1);
+        const xStepsCount = isMobile ? 3 : 6; 
         
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.moveTo(x, padding.top);
-        ctx.lineTo(x, height - padding.bottom);
-        ctx.stroke();
+        // 关键修复：防止除以0或产生0间隔导致的死循环
+        let timeInterval = Math.floor((data.length - 1) / (xStepsCount - 1));
+        if (timeInterval < 1) timeInterval = 1; // 强制最小间隔为1
 
-        const date = new Date(data[i].t);
-        const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
-        
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillText(timeStr, x, height - padding.bottom + 5);
+        for (let i = 0; i < data.length; i += timeInterval) {
+            const x = padding.left + (i * xStep);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, height - padding.bottom);
+            ctx.stroke();
+
+            const date = new Date(data[i].t);
+            const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+            
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(timeStr, x, height - padding.bottom + 5);
+        }
     }
 
-    // === 6. 绘制折线 ===
+    // 6. 绘制折线
     ctx.beginPath();
     ctx.strokeStyle = themeColor;
     ctx.lineWidth = 2;
     ctx.shadowBlur = 10;
     ctx.shadowColor = themeColor;
 
-    data.forEach((d, i) => {
-        const x = padding.left + (i * xStep);
-        const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    });
+    if (data.length === 1) {
+        // 只有一个点，画一条直线或者一个点
+        const x = padding.left + (chartW / 2); // 居中
+        const y = padding.top + chartH - ((data[0].p - yMin) / yRange * chartH);
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+    } else {
+        const xStep = chartW / (data.length - 1);
+        data.forEach((d, i) => {
+            const x = padding.left + (i * xStep);
+            const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+    }
+    
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // === 7. 交互显示 ===
-    if (mousePos) {
+    // 7. 交互显示 (Crosshair)
+    if (mousePos && data.length > 1) {
+        const xStep = chartW / (data.length - 1);
         let index = Math.round((mousePos.x - padding.left) / xStep);
         if (index < 0) index = 0;
         if (index >= data.length) index = data.length - 1;
@@ -5020,7 +5041,7 @@ function drawInteractiveChart(symbol, mousePos) {
 
         // 浮窗
         const date = new Date(target.t);
-        const timeStr = `${date.getHours()}:${date.getMinutes().toString().padStart(2,'0')}`;
+        const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
         const infoText = `${timeStr} | ¥${target.p}`;
         
         ctx.font = '12px sans-serif';
@@ -5028,7 +5049,6 @@ function drawInteractiveChart(symbol, mousePos) {
         let boxX = pointX + 10;
         let boxY = pointY - 30;
         
-        // 边界处理
         if (boxX + textWidth > width) boxX = pointX - textWidth - 10;
         if (boxY < 0) boxY = pointY + 20;
 
@@ -5041,10 +5061,17 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.textAlign = 'left';
         ctx.fillText(infoText, boxX + 10, boxY + 12);
 
-    } else {
-        // 最后一个点
+    } else if (data.length > 0) {
+        // 显示最后一个点
         const lastIdx = data.length - 1;
-        const lastX = padding.left + (lastIdx * xStep);
+        let lastX = padding.left;
+        if (data.length > 1) {
+            const xStep = chartW / (data.length - 1);
+            lastX += (lastIdx * xStep);
+        } else {
+            lastX += (chartW / 2); // 居中
+        }
+        
         const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
         
         ctx.beginPath();
@@ -5210,6 +5237,7 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
 
 
 
