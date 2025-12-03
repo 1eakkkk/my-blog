@@ -3766,6 +3766,31 @@ body.bg-fire {
     display: block; 
 }
 
+/* 杠杆按钮样式 */
+.lev-btn {
+    flex: 1;
+    margin: 0;
+    padding: 5px 0;
+    font-size: 0.8rem;
+    border-color: #444;
+    color: #888;
+}
+.lev-btn.active {
+    border-color: #00f3ff;
+    color: #00f3ff;
+    background: rgba(0, 243, 255, 0.1);
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+}
+
+/* 适配移动端：按钮不换行，文字缩小 */
+@media (max-width: 768px) {
+    .leverage-selector {
+        gap: 5px;
+    }
+    .lev-btn {
+        font-size: 0.75rem;
+    }
+}
 
 
 
