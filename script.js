@@ -4882,7 +4882,7 @@ window.loadStockMarket = async function() {
             if (bizView && bizView.style.display !== 'none') {
                 loadStockMarket();
             }
-        }, 60000); // <--- 🚨 紧急修改：改成 60000 (60秒) 刷新一次
+        }, 10000); // <--- 🚨 紧急修改：改成 60000 (60秒) 刷新一次
     }
 };
 // 辅助：窗口大小改变时重绘
@@ -5420,6 +5420,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
