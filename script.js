@@ -4882,7 +4882,7 @@ window.loadStockMarket = async function() {
             if (bizView && bizView.style.display !== 'none') {
                 loadStockMarket();
             }
-        }, 10000); // <--- 🚨 紧急修改：改成 60000 (60秒) 刷新一次
+        }, 5000); // <--- 自动刷新时间 5000--5秒，数据库压力不大就5000，压力大就60000（一分钟）
     }
 };
 // 辅助：窗口大小改变时重绘
@@ -4907,7 +4907,7 @@ function disableTrading(disabled) {
     els.forEach(e => e.disabled = disabled);
 }
 
-// --- script.js 修复版 switchStock ---
+// --- script.js 修复版 switchStock (含遮罩即时刷新) ---
 
 window.switchStock = function(symbol) {
     currentStockSymbol = symbol;
@@ -4915,21 +4915,44 @@ window.switchStock = function(symbol) {
     // 1. Tab 高亮切换
     document.querySelectorAll('.stock-tab').forEach(b => b.classList.remove('active'));
     const btns = document.querySelectorAll('.stock-tab');
-    // 根据 symbol 简单映射索引 (0:BLUE, 1:GOLD, 2:RED)
     if(symbol==='BLUE' && btns[0]) btns[0].classList.add('active');
     if(symbol==='GOLD' && btns[1]) btns[1].classList.add('active');
     if(symbol==='RED' && btns[2]) btns[2].classList.add('active');
 
-    // 2. 立即重绘图表
+    // 2. 立即重绘图表 (使用本地缓存，视觉零延迟)
     drawInteractiveChart(symbol, null);
     
-    // 3. 【核心修复】立即刷新持仓 UI
-    // 之前这里漏写了函数名，导致必须等10秒自动刷新才能看到持仓
+    // 3. 立即刷新持仓 UI
     if (typeof updatePositionUI === 'function') {
         updatePositionUI(symbol);
     }
     
-    // 4. 同时更新输入框状态（可选优化：切换股票时清空输入框，防止误操作）
+    // 4. 【核心修复】立即更新“停牌/休市”遮罩状态
+    // 之前漏了这一步，导致切换后遮罩不刷新
+    const mask = document.getElementById('marketClosedMask');
+    const maskText = mask ? mask.querySelector('div:first-child') : null;
+    
+    // 优先检查全局变量 stockMeta (本地缓存)
+    if (window.stockMeta && window.stockMeta[symbol] && window.stockMeta[symbol].suspended === 1) {
+        if(mask) {
+            mask.style.display = 'flex';
+            if(maskText) maskText.innerText = "⚠️ SUSPENDED / 退市停牌";
+        }
+        disableTrading(true);
+    } else {
+        // 如果没有停牌，且当前不是全场休市时间(简单判断)，则隐藏
+        // 注意：这里暂时隐藏，loadStockMarket 会再次确认全场休市状态
+        if(mask) mask.style.display = 'none';
+        disableTrading(false);
+    }
+
+    // 5. 立即触发网络刷新 (获取最新数据)
+    // 这样如果刚刚发生了退市，用户切换过来能马上看到，不用等倒计时
+    if (typeof loadStockMarket === 'function') {
+        loadStockMarket();
+    }
+    
+    // 6. 清空输入框
     const input = document.getElementById('stockTradeAmount');
     if(input) input.value = '';
 };
@@ -5420,6 +5443,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
