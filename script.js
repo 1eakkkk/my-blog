@@ -4830,7 +4830,7 @@ window.loadStockMarket = async function() {
             // 6. 重新绘制图表
             if (typeof switchStock === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
-                updatePositionUI(currentStockSymbol);
+                (currentStockSymbol);
             }
         }
     } catch(e) { console.error("Stock Load Error:", e); }
@@ -4885,7 +4885,7 @@ window.switchStock = function(symbol) {
     drawInteractiveChart(symbol, null);
     
     // 更新持仓面板
-    updatePositionUI(symbol);
+    (symbol);
 };
 
 // 3. 鼠标移动处理
@@ -5140,15 +5140,18 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fill();
     }
 }
-
 function updatePositionUI(symbol) {
     const pos = myPositions.find(p => p.stock_symbol === symbol);
     const amountEl = document.getElementById('myStockAmount');
     const profitEl = document.getElementById('myStockProfit');
     const btnCover = document.getElementById('btnShortCover');
     
-    // 当前价 (后端返回的是只有一个点的数组，取第0个)
-    const currentPrice = marketData[symbol][0].p; 
+    // 安全检查
+    if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
+        if(amountEl) amountEl.innerText = "Loading...";
+        return; 
+    }
+    const currentPrice = marketData[symbol][marketData[symbol].length - 1].p; 
 
     if (pos) {
         const avgPrice = Math.floor(pos.avg_price);
@@ -5156,14 +5159,15 @@ function updatePositionUI(symbol) {
         
         amountEl.innerHTML = `${pos.amount} 股 ${levStr} <span style="font-size:0.8rem; color:#888;">(均价: ${avgPrice})</span>`;
         
-        // 盈亏计算 (注意：后端已处理了杠杆在资金扣除时的逻辑，这里显示的是名义盈亏)
-        // 实际盈亏 = (当前价 - 均价) * 数量
-        // 无论几倍杠杆，每一股涨跌带来的绝对值收益是一样的，只是本金投入少了
+        // 盈亏计算
         let profit = 0;
         if (pos.amount > 0) {
+            // 做多盈亏 = (现价 - 均价) * 数量
+            // 注意：盈亏只与价差和数量有关，与杠杆无关。杠杆只影响你的本金(保证金)投入。
             profit = (currentPrice - pos.avg_price) * pos.amount;
             btnCover.style.display = 'none'; 
         } else {
+            // 做空盈亏 = (均价 - 现价) * 数量的绝对值
             profit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
             btnCover.style.display = 'inline-block'; 
         }
@@ -5172,12 +5176,11 @@ function updatePositionUI(symbol) {
         const color = profit >= 0 ? '#0f0' : '#f33';
         profitEl.innerHTML = `浮动盈亏: <span style="color:${color}">${sign}${Math.floor(profit)}</span>`;
     } else {
-        amountEl.innerText = "0 股";
-        profitEl.innerText = "浮动盈亏: --";
-        btnCover.style.display = 'none';
+        if(amountEl) amountEl.innerText = "0 股";
+        if(profitEl) profitEl.innerText = "浮动盈亏: --";
+        if(btnCover) btnCover.style.display = 'none';
     }
 }
-
 window.tradeStock = async function(action) {
     const amountVal = document.getElementById('stockTradeAmount').value;
     const amount = parseInt(amountVal);
@@ -5307,6 +5310,7 @@ window.renderAllLogs = function() {
         list.appendChild(div);
     });
 };
+
 
 
 
