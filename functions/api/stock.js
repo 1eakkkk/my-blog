@@ -207,7 +207,7 @@ export async function onRequest(context) {
 
     if (method === 'GET') {
         const hasCompany = !!company;
-        if (hasCompany && company.capital < 100) {
+        if (hasCompany && company.capital < 0) {
             // 破产逻辑省略，保持原样...
              const refund = Math.floor(company.capital * 0.2);
             await db.batch([
