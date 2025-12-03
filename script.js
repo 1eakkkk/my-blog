@@ -4548,91 +4548,80 @@ window.resetNavOrder = function() {
     location.reload();
 };
 
-// === 创业系统逻辑 ===
-
-// --- script.js 修复版 loadBusiness (括号层级已校对) ---
-
 async function loadBusiness() {
     const createPanel = document.getElementById('biz-create-panel');
     const dashboard = document.getElementById('biz-dashboard');
     const marketTicker = document.getElementById('marketTicker');
     
-    // Loading
     if(marketTicker) marketTicker.innerText = "CONNECTING TO STOCK MARKET...";
     
     try {
-        const res = await fetch(`${API_BASE}/business`);
+        const res = await fetch(`${API_BASE}/stock`); // 使用 stock 接口获取所有信息
         const data = await res.json();
         
-        // 1. 显示市场行情
-        if(marketTicker) {
-            const trendIcon = data.market.val > 0 ? '📈' : '📉';
-            marketTicker.innerText = `${trendIcon} ${data.market.name}`;
-            marketTicker.style.color = data.market.val > 0 ? '#0f0' : (data.market.val < 0 ? '#f33' : '#fff');
-        }
-
-        // 2. 破产判定
-        if (data.bankrupt) {
-            alert(`💔 噩耗：\n${data.report.msg}\n\n公司已破产清算，剩余资金归零。请重新创业。`);
+        // 破产/未创建
+        if (!data.hasCompany) {
+            if (data.bankrupt) {
+                alert(`💔 破产通知：\n${data.report.msg}`);
+            }
             createPanel.style.display = 'block';
             dashboard.style.display = 'none';
             return;
         }
 
-        // 3. 正常状态
-        if (data.hasCompany) {
-            // 显示仪表盘
-            createPanel.style.display = 'none';
-            dashboard.style.display = 'block';
-            
-            const c = data.company;
-            if(document.getElementById('bizCapital')) {
-                document.getElementById('bizCapital').innerText = c.capital.toLocaleString();
-            }
-            
-            // 翻译类型
-            const typeNames = {'shell':'数据作坊', 'startup':'科技独角兽', 'blackops':'黑域工作室'};
-            if(document.getElementById('bizTypeDisplay')) {
-                document.getElementById('bizTypeDisplay').innerText = typeNames[c.type];
-            }
-
-            // 每日财报弹窗/显示
-            if (data.todayReport) {
-                const r = data.todayReport;
-                const color = r.profit >= 0 ? '#0f0' : '#f33';
-                const sign = r.profit >= 0 ? '+' : '';
-                const settleEl = document.getElementById('bizLastSettle');
-                if(settleEl) {
-                    settleEl.innerHTML = `<span style="color:${color}">${r.msg} (${sign}${r.rate}%) 盈亏: ${sign}${r.profit}</span>`;
-                }
-                
-                showToast(`今日财报: ${sign}${r.profit} i币`, r.profit>=0 ? 'success':'error');
-                checkSecurity(); // 刷新余额
-            } 
-            // 加载股市数据
-            loadStockMarket();
-
-            // 更新策略按钮状态
-            document.querySelectorAll('.strategy-selector button').forEach(b => b.classList.remove('active'));
-            
-            let currentStrat = c.strategy; 
-            if(currentStrat === 'conservative') currentStrat = 'safe'; 
-            if(currentStrat === 'aggressive') currentStrat = 'risky'; 
-            
-            const btnId = `btn-strat-${currentStrat}`;
-            if(document.getElementById(btnId)) document.getElementById(btnId).classList.add('active');
-
-        } else {
-            // 显示创建页
-            createPanel.style.display = 'block';
-            dashboard.style.display = 'none';
+        // 正常显示
+        createPanel.style.display = 'none';
+        dashboard.style.display = 'block';
+        
+        // 填充数据
+        if(document.getElementById('bizCapital')) {
+            document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
         }
+        
+        // 手动破产按钮逻辑
+        const bankruptBtn = document.getElementById('btnBankrupt');
+        if (bankruptBtn) {
+            if (data.capital < 500) {
+                bankruptBtn.style.display = 'inline-block';
+                bankruptBtn.onclick = () => confirmBankrupt();
+            } else {
+                bankruptBtn.style.display = 'none';
+            }
+        }
+
+        // 加载股市 (将 API 返回的数据存入全局变量)
+        marketData = data.market; // 现在的结构是 { BLUE: [{t, p}], ... }
+        myPositions = data.positions;
+        globalLogs = data.news || [];
+        companyInfo = { capital: data.capital, type: data.companyType };
+        
+        renderAllLogs();
+        switchStock(currentStockSymbol); // 刷新图表
 
     } catch(e) {
         console.error(e);
         showToast("无法连接交易所", "error");
     }
 }
+
+// 新增：手动破产函数
+window.confirmBankrupt = async function() {
+    if(!confirm("⚠️ 警告：申请破产将清空所有持仓并注销公司。\n仅返还 20% 剩余资金。\n\n确定要放弃吗？")) return;
+    try {
+        const res = await fetch(`${API_BASE}/stock`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'bankrupt' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) { showToast("网络错误"); }
+};
 
 // 选择创业方案
 window.selectBizPlan = function(type) {
@@ -4642,18 +4631,18 @@ window.selectBizPlan = function(type) {
     document.getElementById('selectedBizType').value = type;
 };
 
-// 创建公司
 window.createCompany = async function() {
     const type = document.getElementById('selectedBizType').value;
     const name = document.getElementById('newCompanyName').value.trim();
     
-    if(!type) return showToast("请选择一种创业方案", "error");
+    if(!type) return showToast("请选择一种创业风格", "error");
     if(!name) return showToast("请输入公司名称", "error");
     
-    if(!confirm(`确定花费 i币 创建 [${name}] 吗？`)) return;
+    // Requirements 2: 统一 3000
+    if(!confirm(`确定花费 3000 i币 创建 [${name}] 吗？`)) return;
 
     try {
-        const res = await fetch(`${API_BASE}/business`, {
+        const res = await fetch(`${API_BASE}/stock`, { // 注意：API路径改为了 stock 因为合并了逻辑
             method: 'POST',
             headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ action: 'create', type, name })
@@ -5071,33 +5060,23 @@ function updatePositionUI(symbol) {
     const profitEl = document.getElementById('myStockProfit');
     const btnCover = document.getElementById('btnShortCover');
     
-    // 1. 安全检查：防止 DOM 元素不存在导致报错
-    if (!amountEl || !profitEl || !btnCover) return;
-
-    // 2. 安全检查：防止数据未加载导致报错
-    if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
-        amountEl.innerText = "Loading...";
-        return; 
-    }
-
-    // 获取当前价
-    const history = marketData[symbol];
-    const currentPrice = history[history.length - 1].p;
+    // 当前价 (后端返回的是只有一个点的数组，取第0个)
+    const currentPrice = marketData[symbol][0].p; 
 
     if (pos) {
-        // === 优化点：把均价显示出来 ===
-        // 使用 innerHTML 插入带样式的辅助文字
         const avgPrice = Math.floor(pos.avg_price);
-        amountEl.innerHTML = `${pos.amount} 股 <span style="font-size:0.8rem; color:#888; margin-left:10px;">(均价: ${avgPrice})</span>`;
+        const levStr = pos.leverage > 1 ? `<span style="color:#ff00de; margin-left:5px;">x${pos.leverage}</span>` : '';
         
-        // 盈亏计算
+        amountEl.innerHTML = `${pos.amount} 股 ${levStr} <span style="font-size:0.8rem; color:#888;">(均价: ${avgPrice})</span>`;
+        
+        // 盈亏计算 (注意：后端已处理了杠杆在资金扣除时的逻辑，这里显示的是名义盈亏)
+        // 实际盈亏 = (当前价 - 均价) * 数量
+        // 无论几倍杠杆，每一股涨跌带来的绝对值收益是一样的，只是本金投入少了
         let profit = 0;
         if (pos.amount > 0) {
-            // 做多盈亏
             profit = (currentPrice - pos.avg_price) * pos.amount;
             btnCover.style.display = 'none'; 
         } else {
-            // 做空盈亏
             profit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
             btnCover.style.display = 'inline-block'; 
         }
@@ -5106,50 +5085,37 @@ function updatePositionUI(symbol) {
         const color = profit >= 0 ? '#0f0' : '#f33';
         profitEl.innerHTML = `浮动盈亏: <span style="color:${color}">${sign}${Math.floor(profit)}</span>`;
     } else {
-        // 无持仓状态
         amountEl.innerText = "0 股";
         profitEl.innerText = "浮动盈亏: --";
         btnCover.style.display = 'none';
     }
 }
 
-// === 1. 交易函数 (优化版) ===
 window.tradeStock = async function(action) {
     const amountVal = document.getElementById('stockTradeAmount').value;
     const amount = parseInt(amountVal);
+    const leverage = parseInt(document.getElementById('stockLeverage').value); // 获取杠杆
     
-    // 基础校验
     if (!amount || amount <= 0) return showToast("请输入有效数量", "error");
     
-    // 安全检查：防止 companyInfo 未加载时报错
-    if (typeof companyInfo === 'undefined' || !companyInfo.type) {
-        return showToast("正在同步公司数据，请稍后...", "error");
-    }
-
-    // 卖出/做空 校验
-    if (action === 'sell' && companyInfo.type !== 'blackops') {
-        // 非黑域公司，卖出时检查是否有持仓
-        const pos = myPositions.find(p => p.stock_symbol === currentStockSymbol);
-        if (!pos || pos.amount < amount) return showToast("持仓不足，无法卖出", "error");
-    }
-
     try {
         const res = await fetch(`${API_BASE}/stock`, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ action, symbol: currentStockSymbol, amount })
+            body: JSON.stringify({ 
+                action, 
+                symbol: currentStockSymbol, 
+                amount, 
+                leverage: leverage // 传给后端
+            })
         });
         const data = await res.json();
         
         if (data.success) {
-            showToast("交易成功", "success");
+            showToast(data.message, "success");
             document.getElementById('stockTradeAmount').value = '';
-            
-            // 核心：使用新的日志系统记录操作
             addUserLog(data.log, (action === 'buy' || action === 'cover') ? 'buy' : 'sell');
-            
-            // 稍后刷新数据以更新 K 线和持仓
-            setTimeout(loadStockMarket, 500); 
+            loadBusiness(); // 刷新全页数据
         } else {
             showToast(data.error, "error");
         }
@@ -5244,5 +5210,6 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
 
 
