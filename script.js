@@ -4553,13 +4553,14 @@ async function loadBusiness() {
     const dashboard = document.getElementById('biz-dashboard');
     const marketTicker = document.getElementById('marketTicker');
     
-    if(marketTicker) marketTicker.innerText = "CONNECTING TO STOCK MARKET...";
+    // 重置状态提示
+    if(marketTicker) marketTicker.innerText = "SYNCING MARKET DATA...";
     
     try {
-        const res = await fetch(`${API_BASE}/stock`); // 使用 stock 接口获取所有信息
+        const res = await fetch(`${API_BASE}/stock`);
         const data = await res.json();
         
-        // 破产/未创建
+        // 1. 破产/未创建处理
         if (!data.hasCompany) {
             if (data.bankrupt) {
                 alert(`💔 破产通知：\n${data.report.msg}`);
@@ -4569,18 +4570,24 @@ async function loadBusiness() {
             return;
         }
 
-        // 正常显示
+        // 2. 正常显示仪表盘
         createPanel.style.display = 'none';
         dashboard.style.display = 'block';
         
-        // 填充数据
+        // 3. 填充基础信息
         if(document.getElementById('bizCapital')) {
             document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
         }
         
-        // 手动破产按钮逻辑
+        const typeNames = {'shell':'数据作坊', 'startup':'科技独角兽', 'blackops':'黑域工作室'};
+        if(document.getElementById('bizTypeDisplay')) {
+            document.getElementById('bizTypeDisplay').innerText = typeNames[data.companyType] || '未知企业';
+        }
+
+        // 4. 处理手动破产按钮
         const bankruptBtn = document.getElementById('btnBankrupt');
         if (bankruptBtn) {
+            // 资金低于 500 显示破产按钮
             if (data.capital < 500) {
                 bankruptBtn.style.display = 'inline-block';
                 bankruptBtn.onclick = () => confirmBankrupt();
@@ -4589,17 +4596,18 @@ async function loadBusiness() {
             }
         }
 
-        // 加载股市 (将 API 返回的数据存入全局变量)
-        marketData = data.market; // 现在的结构是 { BLUE: [{t, p}], ... }
-        myPositions = data.positions;
-        globalLogs = data.news || [];
-        companyInfo = { capital: data.capital, type: data.companyType };
-        
-        renderAllLogs();
-        switchStock(currentStockSymbol); // 刷新图表
+        // 5. 初始化股市数据
+        loadStockMarket(); 
+
+        // 6. 更新策略按钮状态
+        const companyRes = await fetch(`${API_BASE}/business`); // 单独拉取策略信息(或者你可以让stock接口也返回strategy)
 
     } catch(e) {
         console.error(e);
+        if(marketTicker) {
+            marketTicker.innerText = "CONNECTION LOST";
+            marketTicker.style.color = "#f33";
+        }
         showToast("无法连接交易所", "error");
     }
 }
@@ -4724,45 +4732,72 @@ let myPositions = [];
 let marketOpens = {}; // 存开盘价
 let companyInfo = {};
 let globalLogs = [];
+// --- script.js 修复 loadStockMarket ---
+
+// 确保全局变量存在
 let stockMeta = {}; 
+let stockAutoRefreshTimer = null;
+
 window.loadStockMarket = async function() {
     const canvas = document.getElementById('stockCanvas');
-    if(!canvas) return; 
+    // 如果不在商业页面，不执行刷新
+    if(!document.getElementById('view-business') || document.getElementById('view-business').style.display === 'none') return;
 
-    const curEl = document.getElementById('stockCurrent');
-    if(curEl && curEl.innerText === '--') curEl.innerText = "Loading...";
+    const marketTicker = document.getElementById('marketTicker');
 
     try {
         const res = await fetch(`${API_BASE}/stock`);
         const data = await res.json();
         
         if (data.success) {
+            // 更新全局数据
             marketData = data.market;
             myPositions = data.positions;
-            stockMeta = data.meta || {}; // 获取开盘价和停牌状态
+            stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 1. 日志
+            // 1. 更新右上角 Ticker (修复一直显示 Connecting 的问题)
+            if (marketTicker) {
+                const curData = marketData[currentStockSymbol];
+                if (curData && curData.length > 0) {
+                    const curPrice = curData[curData.length - 1].p;
+                    // 获取今日开盘价
+                    const openPrice = (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].open) ? stockMeta[currentStockSymbol].open : curData[0].p;
+                    
+                    const diff = curPrice - openPrice;
+                    const percent = ((diff / openPrice) * 100).toFixed(2);
+                    const sign = diff >= 0 ? '+' : '';
+                    const color = diff >= 0 ? '#0f0' : '#f33';
+                    const icon = diff >= 0 ? '📈' : '📉';
+                    
+                    // 获取股票中文名
+                    const nameMap = {'BLUE':'蓝盾安全', 'GOLD':'神经元', 'RED':'荒坂军工'};
+                    const stockName = nameMap[currentStockSymbol] || currentStockSymbol;
+
+                    marketTicker.innerHTML = `<span style="color:${color}">${icon} ${stockName} ${sign}${percent}%</span>`;
+                } else {
+                    marketTicker.innerText = "MARKET OPEN";
+                }
+            }
+
+            // 2. 日志处理
             if (typeof mergeLogs === 'function') {
                 mergeLogs(data.news, 'news');
             }
             
-            // 2. 处理休市 (02:00-06:00)
+            // 3. 休市/停牌 UI 处理
             const mask = document.getElementById('marketClosedMask');
             const maskText = mask ? mask.querySelector('div:first-child') : null;
             
             if (data.status && !data.status.isOpen) {
+                // 全场休市
                 if(mask) {
                     mask.style.display = 'flex';
                     if(maskText) maskText.innerText = "🚫 MARKET CLOSED (02:00-06:00)";
                 }
                 disableTrading(true);
             } else {
-                // 如果休市遮罩打开，先关掉
-                if(mask) mask.style.display = 'none';
-                
-                // 3. 处理个股停牌 (退市整理)
-                // 检查当前选中的股票是否停牌
+                // 个股停牌检测
                 if (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].suspended === 1) {
                     if(mask) {
                         mask.style.display = 'flex';
@@ -4770,17 +4805,18 @@ window.loadStockMarket = async function() {
                     }
                     disableTrading(true);
                 } else {
+                    if(mask) mask.style.display = 'none';
                     disableTrading(false);
                 }
             }
 
-            // 4. 更新资金
+            // 4. 刷新资金显示
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
 
-            // 5. 绑定事件
-            if (!canvas.dataset.listening) {
+            // 5. 绑定图表事件 (防重复绑定)
+            if (canvas && !canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
                 canvas.addEventListener('touchstart', handleTouch, {passive: false});
@@ -4791,20 +4827,24 @@ window.loadStockMarket = async function() {
                 window.addEventListener('resize', resizeStockChart);
             }
 
-            // 6. 渲染
-            switchStock(currentStockSymbol);
+            // 6. 重新绘制图表
+            if (typeof switchStock === 'function') {
+                drawInteractiveChart(currentStockSymbol, null);
+                updatePositionUI(currentStockSymbol);
+            }
         }
     } catch(e) { console.error("Stock Load Error:", e); }
     
-    // 确保自动刷新 (10秒)
-    if (!window.stockAutoRefreshTimer) {
-        window.stockAutoRefreshTimer = setInterval(() => {
-            const stockView = document.getElementById('view-business');
-            // 只有当页面可见且 canvas 存在时才刷新
-            if (stockView && stockView.style.display !== 'none' && document.getElementById('stockCanvas')) {
+    // 7. 确保自动刷新定时器存活
+    if (!stockAutoRefreshTimer) {
+        console.log("Starting Market Auto-Refresh...");
+        stockAutoRefreshTimer = setInterval(() => {
+            // 只有当页面位于创业中心时才刷新
+            const bizView = document.getElementById('view-business');
+            if (bizView && bizView.style.display !== 'none') {
                 loadStockMarket();
             }
-        }, 10000); 
+        }, 10000); // 10秒刷新一次
     }
 };
 // 辅助：窗口大小改变时重绘
@@ -5257,6 +5297,7 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
 
 
 
