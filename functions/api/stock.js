@@ -113,6 +113,7 @@ async function getOrUpdateMarket(db) {
         for (let sym in STOCKS_CONFIG) {
             let p = generateBasePrice() + 50;
             batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time) VALUES (?, ?, ?, ?, 0, ?, ?)").bind(sym, p, p, now, p, now));
+            batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
             batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, p, now));
             marketMap[sym] = { p: p, base: p, t: now, open: p, suspended: 0, last_news: now };
         }
