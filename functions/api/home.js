@@ -16,9 +16,9 @@ export async function onRequest(context) {
 
         // 配置常量 (Seeds & Works)
         const SEEDS = {
-            'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_coins: 50, reward_xp: 20 },
-            'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_coins: 180, reward_xp: 80 },
-            'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 400, reward_xp: 200 }
+            'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_coins: 120, reward_xp: 300 },
+            'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_coins: 280, reward_xp: 500 },
+            'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 600, reward_xp: 800 }
         };
         const WORKS = {
             'cleaning': { name: '数据清理', duration: 10 * 60 * 1000, reward: 20 },
