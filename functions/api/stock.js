@@ -1,4 +1,4 @@
-// --- START OF FILE functions/api/stock.js ---
+// --- START OF FILE functions/api/stock.js (KV + K-Coin Merged Version) ---
 
 const STOCKS_CONFIG = {
     'BLUE': { name: '蓝盾安全', color: '#00f3ff' },
@@ -73,7 +73,6 @@ function pickWeightedNews(symbol) {
     return list[0];
 }
 
-// 计算持仓价值
 function calculatePositionValue(pos, currentPrice) {
     const qty = pos.amount;
     const avg = pos.avg_price;
@@ -85,14 +84,36 @@ function calculatePositionValue(pos, currentPrice) {
     return Math.floor(principal + profit);
 }
 
-async function getOrUpdateMarket(db) {
+// === 核心优化：基于 KV 的行情获取 ===
+// 逻辑：优先读 KV -> KV 没有或过期 -> 读 D1 -> 计算新价格 -> 写 D1 -> 写 KV
+async function getOrUpdateMarket(env, db) {
     const now = Date.now();
+    const CACHE_KEY = "market_data_v2"; // 升级 Key 版本防止旧缓存干扰
+    
+    // 1. 尝试从 KV 读取缓存
+    let cachedData = null;
+    if (env.KV) {
+        try {
+            cachedData = await env.KV.get(CACHE_KEY, { type: "json" });
+        } catch (e) { console.error("KV Read Error", e); }
+    }
+
+    // 如果缓存有效，且距离上次计算不超过 10 秒，直接返回缓存
+    if (cachedData && (now - cachedData.timestamp < 10000)) {
+        return cachedData.payload;
+    }
+
+    // ==========================================
+    // === 以下是 D1 计算逻辑 (缓存失效时执行) ===
+    // ==========================================
+    
     const bjHour = getBJHour(now);
     const isMarketClosed = (bjHour >= 2 && bjHour < 6);
 
     let states = await db.prepare("SELECT * FROM market_state").all();
     let marketMap = {};
     let updates = [];
+    let logsToWrite = []; 
 
     // 初始化
     if (states.results.length === 0) {
@@ -127,7 +148,7 @@ async function getOrUpdateMarket(db) {
             if (st.suspended === 1) {
                 newBase = generateBasePrice(); newP = newBase; newSusp = 0;
                 updates.push(db.prepare("DELETE FROM market_history WHERE symbol = ?").bind(sym));
-                updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【新股上市】${STOCKS_CONFIG[sym].name} 重组挂牌。`, 'good', now));
+                logsToWrite.push({sym, msg: `【新股上市】${STOCKS_CONFIG[sym].name} 重组挂牌。`, type: 'good', t: now});
             }
             updates.push(db.prepare("UPDATE market_state SET open_price=?, current_price=?, initial_base=?, is_suspended=?, last_update=? WHERE symbol=?").bind(newP, newP, newBase, newSusp, now, sym));
             st.p = newP; st.base = newBase; st.open = newP; st.suspended = newSusp; st.t = now;
@@ -136,7 +157,9 @@ async function getOrUpdateMarket(db) {
 
     if (isMarketClosed) {
         if (updates.length > 0) await db.batch(updates);
-        return { market: marketMap, status: { isOpen: false } };
+        const result = { market: marketMap, status: { isOpen: false } };
+        if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
+        return result;
     }
 
     // 追赶逻辑
@@ -162,7 +185,7 @@ async function getOrUpdateMarket(db) {
                     const news = pickWeightedNews(sym);
                     if (news) {
                         change += news.factor;
-                        updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `[${STOCKS_CONFIG[sym].name}] ${news.msg}`, news.factor > 0 ? 'good' : 'bad', simT));
+                        logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${news.msg}`, type: news.factor > 0 ? 'good' : 'bad', t: simT});
                     }
                 }
             }
@@ -176,7 +199,7 @@ async function getOrUpdateMarket(db) {
                 
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(refund, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, refund, simT));
-                updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【停牌】${STOCKS_CONFIG[sym].name} 触及红线，强制清算。`, 'bad', simT));
+                logsToWrite.push({sym, msg: `【停牌】${STOCKS_CONFIG[sym].name} 触及红线，强制清算。`, type: 'bad', t: simT});
                 st.suspended = 1; st.p = refund;
                 break;
             }
@@ -189,14 +212,33 @@ async function getOrUpdateMarket(db) {
             st.p = curP; st.t = simT; st.last_news = nextNewsT;
         }
         
-        updates.push(db.prepare("DELETE FROM market_history WHERE symbol=? AND id NOT IN (SELECT id FROM market_history WHERE symbol=? ORDER BY created_at DESC LIMIT 120)").bind(sym, sym));
+        // 限制历史记录删除频率 (5%概率执行)，减少写操作
+        if (Math.random() < 0.05) {
+             updates.push(db.prepare("DELETE FROM market_history WHERE symbol=? AND id NOT IN (SELECT id FROM market_history WHERE symbol=? ORDER BY created_at DESC LIMIT 120)").bind(sym, sym));
+        }
     }
     
-    const expireTime = now - (15 * 60 * 1000);
-    updates.push(db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(expireTime));
+    // 批量写入日志
+    logsToWrite.forEach(l => {
+        updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(l.sym, l.msg, l.type, l.t));
+    });
+
+    // 限制日志清理频率
+    if (Math.random() < 0.05) {
+        const expireTime = now - (15 * 60 * 1000);
+        updates.push(db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(expireTime));
+    }
 
     if (updates.length > 0) await db.batch(updates);
-    return { market: marketMap, status: { isOpen: true } };
+    
+    const result = { market: marketMap, status: { isOpen: true } };
+    
+    // 写入 KV 缓存
+    if (env.KV) {
+        await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
+    }
+    
+    return result;
 }
 
 export async function onRequest(context) {
@@ -206,14 +248,16 @@ export async function onRequest(context) {
     if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
     
-    // === 核心修改：查询用户时，必须带上 username 和 nickname ===
-    const user = await db.prepare('SELECT users.id, users.coins, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+    // 查询 user (包含 k_coins, coins, xp)
+    const user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
     
     if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
 
     const company = await db.prepare("SELECT * FROM user_companies WHERE user_id = ?").bind(user.id).first();
     const method = request.method;
-    const { market, status } = await getOrUpdateMarket(db);
+    
+    // 传入 env 以支持 KV
+    const { market, status } = await getOrUpdateMarket(env, db);
 
     if (method === 'GET') {
         const hasCompany = !!company;
@@ -225,8 +269,7 @@ export async function onRequest(context) {
             let totalEquity = company.capital; 
             positions.forEach(pos => {
                 const currentP = market[pos.stock_symbol].p;
-                const val = calculatePositionValue(pos, currentP);
-                totalEquity += val;
+                totalEquity += calculatePositionValue(pos, currentP);
             });
 
             if (totalEquity < 100) {
@@ -242,7 +285,9 @@ export async function onRequest(context) {
 
         const chartData = {};
         const stockMeta = {};
-        const historyResults = await db.prepare("SELECT symbol, price as p, created_at as t FROM market_history ORDER BY created_at ASC").all();
+        
+        // 限制 K 线查询范围 (2小时内)
+        const historyResults = await db.prepare("SELECT symbol, price as p, created_at as t FROM market_history WHERE created_at > ? ORDER BY created_at ASC").bind(Date.now() - 7200000).all();
         
         for (let sym in STOCKS_CONFIG) {
             chartData[sym] = historyResults.results.filter(r => r.symbol === sym);
@@ -250,7 +295,7 @@ export async function onRequest(context) {
             stockMeta[sym] = { open: market[sym].open, suspended: market[sym].suspended };
         }
 
-        const logsRes = await db.prepare("SELECT * FROM market_logs ORDER BY created_at DESC LIMIT 50").all();
+        const logsRes = await db.prepare("SELECT * FROM market_logs ORDER BY created_at DESC LIMIT 20").all();
         const logs = logsRes.results.map(l => ({ time: l.created_at, msg: l.msg, type: l.type }));
 
         return Response.json({
@@ -258,6 +303,8 @@ export async function onRequest(context) {
             market: chartData, meta: stockMeta, news: logs, positions,
             capital: hasCompany ? company.capital : 0,
             companyType: hasCompany ? company.type : 'none',
+            userK: user.k_coins || 0,
+            userExp: user.xp || 0,
             status
         });
     }
@@ -265,20 +312,69 @@ export async function onRequest(context) {
     if (method === 'POST') {
         const body = await request.json();
         const { action, symbol, amount, leverage = 1 } = body;
-
-        // 获取用户显示名 (优先用昵称)
         const userNameDisplay = user.nickname || user.username;
 
+        // === 1. 货币兑换逻辑 (i -> k, exp -> k) ===
+        if (action === 'convert') {
+            const { type, val } = body; 
+            const num = parseInt(val);
+            if (isNaN(num) || num <= 0) return Response.json({ error: '无效数量' });
+
+            if (type === 'i_to_k') {
+                if (user.coins < num) return Response.json({ error: 'i币余额不足' });
+                await db.batch([
+                    db.prepare("UPDATE users SET coins = coins - ?, k_coins = k_coins + ? WHERE id = ?").bind(num, num, user.id)
+                ]);
+                return Response.json({ success: true, message: `兑换成功: -${num} i币, +${num} k币` });
+            } 
+            else if (type === 'exp_to_k') {
+                const costExp = num * 4;
+                if (user.xp < costExp) return Response.json({ error: `经验不足 (需 ${costExp} XP)` });
+                await db.batch([
+                    db.prepare("UPDATE users SET xp = xp - ?, k_coins = k_coins + ? WHERE id = ?").bind(costExp, num, user.id)
+                ]);
+                return Response.json({ success: true, message: `转化成功: -${costExp} XP, +${num} k币` });
+            }
+            return Response.json({ error: '未知兑换类型' });
+        }
+
+        // === 2. 创建公司 (消耗 k_coins) ===
         if (action === 'create') {
-             if (company) return Response.json({ error: '已有公司' });
-            if (user.coins < 3000) return Response.json({ error: '余额不足' });
+            if (company) return Response.json({ error: '已有公司' });
+            if ((user.k_coins || 0) < 3000) return Response.json({ error: 'k币不足 (需 3000 k)' });
             await db.batch([
-                db.prepare("UPDATE users SET coins = coins - ? WHERE id = ?").bind(3000, user.id),
+                db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(3000, user.id),
                 db.prepare("INSERT INTO user_companies (user_id, name, type, capital, strategy) VALUES (?, ?, ?, ?, ?)").bind(user.id, body.name, body.type, 3000, 'normal')
             ]);
-            return Response.json({ success: true, message: '注册成功' });
+            return Response.json({ success: true, message: '注册成功 (消耗 3000 k币)' });
         }
+
         if (!company) return Response.json({ error: '无公司' });
+        
+        // === 3. 注资 (消耗 k_coins) ===
+        if (action === 'invest') {
+            const num = parseInt(amount);
+            if (num < 100) return Response.json({ error: '最小注资 100 k' });
+            if ((user.k_coins || 0) < num) return Response.json({ error: 'k币余额不足' });
+            await db.batch([
+                db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(num, user.id),
+                db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(num, company.id)
+            ]);
+            return Response.json({ success: true, message: `注资成功 (+${num} k)` });
+        }
+
+        // === 4. 提现 (公司 -> coins, 扣税) ===
+        if (action === 'withdraw') {
+            const num = parseInt(amount);
+            if (company.capital < num) return Response.json({ error: '公司资金不足' });
+            const tax = Math.floor(num * 0.15); 
+            const actual = num - tax;
+            await db.batch([
+                db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(num, company.id),
+                db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(actual, user.id)
+            ]);
+            return Response.json({ success: true, message: `提现成功 (税 ${tax} i, 实得 ${actual} i)` });
+        }
         
         if (action === 'bankrupt') {
             const allPos = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
@@ -295,7 +391,7 @@ export async function onRequest(context) {
                 db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
                 db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(refund, user.id)
             ]);
-            return Response.json({ success: true, message: `已破产，返还 ${refund}` });
+            return Response.json({ success: true, message: `已破产，返还 ${refund} i币` });
         }
 
         if (['buy', 'sell', 'cover'].includes(action)) {
@@ -328,7 +424,6 @@ export async function onRequest(context) {
                 } else {
                     batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev));
                 }
-                // === 修改日志格式 ===
                 logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
             }
             else if (action === 'sell') {
@@ -346,7 +441,6 @@ export async function onRequest(context) {
                     } else {
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev));
                     }
-                    // === 修改日志格式 ===
                     logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol} (x${lev})`;
                 } else { 
                     if (qty > curHold) return Response.json({ error: '持仓不足' });
@@ -356,7 +450,6 @@ export async function onRequest(context) {
                     batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                     if (qty === curHold) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                     else batch.push(db.prepare("UPDATE company_positions SET amount=amount-? WHERE id=?").bind(qty, pos.id));
-                    // === 修改日志格式 ===
                     logMsg = `[${userNameDisplay}] 卖出 ${qty} 股 ${symbol}`;
                 }
             }
@@ -369,13 +462,16 @@ export async function onRequest(context) {
                 batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                 if (qty === Math.abs(curHold)) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                 else batch.push(db.prepare("UPDATE company_positions SET amount=amount+? WHERE id=?").bind(qty, pos.id));
-                // === 修改日志格式 ===
                 logMsg = `[${userNameDisplay}] 平空 ${qty} 股 ${symbol}`;
             }
 
             batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
 
             await db.batch(batch);
+            
+            // 交易成功，清理 KV 缓存
+            if (env.KV) await env.KV.delete("market_data_v2");
+            
             return Response.json({ success: true, message: 'OK', log: logMsg });
         }
         return Response.json({ error: 'Action error' });
