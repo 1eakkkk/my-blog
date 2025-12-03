@@ -5212,92 +5212,101 @@ window.tradeStock = async function(action) {
     }
 };
 
-// === 2. 新版日志系统 (合并渲染) ===
+// =========================================
+// === 修复版：市场动态日志系统 (script.js) ===
+// =========================================
 
-// 合并日志到全局数组 (核心逻辑)
-function mergeLogs(newItems, source) {
-    // 确保全局变量已定义，防止报错
-    if (typeof globalLogs === 'undefined') window.globalLogs = [];
+// 1. 确保全局变量存在
+window.globalLogs = window.globalLogs || [];
 
-    if (!newItems || newItems.length === 0) return;
-
+// 2. 合并日志 (核心逻辑修复)
+window.mergeLogs = function(newItems, source) {
     let hasChange = false;
-    newItems.forEach(item => {
-        // 构造唯一标识 (时间戳+内容) 防止重复添加后端传来的新闻
-        const uniqueKey = item.time + item.msg;
-        
-        // 检查是否已存在
-        const exists = globalLogs.some(log => (log.time + log.msg) === uniqueKey);
-        
-        if (!exists) {
-            // 标记来源
-            item.source = source || 'news'; 
-            globalLogs.push(item);
-            hasChange = true;
-        }
-    });
 
-    // 如果有新数据，或者强制为用户操作，则重新排序并渲染
-    if (hasChange || source === 'user') {
-        // 按时间倒序排列 (最新的在上面)
-        globalLogs.sort((a, b) => b.time - a.time);
-        
-        // 性能优化：只保留最近 50 条
-        if (globalLogs.length > 50) globalLogs = globalLogs.slice(0, 50);
-        
-        renderAllLogs();
+    // 如果有新数据传入
+    if (newItems && newItems.length > 0) {
+        newItems.forEach(item => {
+            // 构造唯一标识 (防止重复)
+            const uniqueKey = item.time + item.msg;
+            const exists = window.globalLogs.some(log => (log.time + log.msg) === uniqueKey);
+            
+            if (!exists) {
+                item.source = source || 'news';
+                window.globalLogs.push(item);
+                hasChange = true;
+            }
+        });
     }
-}
 
-// 渲染所有日志 (UI 逻辑)
-function renderAllLogs() {
+    // 重点修复：无论是否有新日志，只要调用了这个函数，就说明数据加载完成了
+    // 必须强制刷新 UI，把“正在连接...”去掉
+    renderAllLogs();
+};
+
+// 3. 渲染日志 (UI 修复)
+window.renderAllLogs = function() {
     const list = document.getElementById('stockLogList');
-    if (!list) return;
+    if (!list) return; // 没找到容器就不渲染
     
+    // 按时间倒序排列 (最新的在上面)
+    window.globalLogs.sort((a, b) => b.time - a.time);
+    
+    // 只保留最近 50 条
+    if (window.globalLogs.length > 50) {
+        window.globalLogs = window.globalLogs.slice(0, 50);
+    }
+
+    // === 核心修复点：清空容器 ===
+    // 这一步会把 HTML 里写死的 "正在连接..." 删掉
     list.innerHTML = '';
     
-    if (globalLogs.length === 0) {
-        list.innerHTML = `<div class="log-item system">暂无市场动态...</div>`;
+    // 如果没有日志，显示“暂无动态”
+    if (window.globalLogs.length === 0) {
+        list.innerHTML = `<div class="log-item system" style="color:#666; text-align:center; padding:10px;">暂无市场波动 ...</div>`;
         return;
     }
     
-    globalLogs.forEach(n => {
+    // 渲染列表
+    window.globalLogs.forEach(n => {
         const date = new Date(n.time);
-        // 修复：小时数也要补零 (09:05 而不是 9:05)
         const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
         
-        let className = 'log-item';
-        let icon = '';
-        
+        let className = 'log-item'; // CSS 类名
+        let icon = '📢'; // 默认图标
+        let colorStyle = '';
+
         if (n.source === 'user') {
-            // 用户操作
+            // 用户操作 (买卖)
             className += n.actionType === 'buy' ? ' buy' : ' sell';
-            icon = '👤'; // 用户图标
+            icon = '👤'; 
+            colorStyle = n.actionType === 'buy' ? 'color:#0f0' : 'color:#f33';
         } else {
             // 系统新闻
-            className += n.type === 'good' ? ' news-good' : ' news-bad';
-            icon = n.type === 'good' ? '🚀' : '📉';
+            if (n.type === 'good') {
+                className += ' news-good';
+                icon = '🚀';
+                colorStyle = 'color:#0f0'; // 利好绿色
+            } else {
+                className += ' news-bad';
+                icon = '📉';
+                colorStyle = 'color:#ff3333'; // 利空红色
+            }
         }
         
         const div = document.createElement('div');
-        div.className = className;
-        div.innerHTML = `<span class="log-time">[${timeStr}]</span> ${icon} ${n.msg}`;
+        // 使用内联样式确保颜色生效，防止 CSS 没加载
+        div.style.borderBottom = "1px dashed #333";
+        div.style.padding = "5px 0";
+        div.style.fontSize = "0.85rem";
+        
+        div.innerHTML = `
+            <span style="color:#666; font-family:monospace; margin-right:5px;">[${timeStr}]</span> 
+            <span>${icon}</span> 
+            <span style="${colorStyle}">${n.msg}</span>
+        `;
         list.appendChild(div);
     });
-}
-
-// 添加用户操作日志 (辅助函数)
-function addUserLog(msg, actionType) {
-    const now = Date.now();
-    const logItem = {
-        time: now,
-        msg: msg,
-        source: 'user', // 标记为用户来源
-        actionType: actionType // 'buy' or 'sell'
-    };
-    mergeLogs([logItem], 'user');
-}
-
+};
 
 
 
