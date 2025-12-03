@@ -416,7 +416,7 @@ export async function onRequest(context) {
         if (action === 'withdraw') {
             const num = parseInt(amount);
             if (company.capital < num) return Response.json({ error: '公司资金不足' });
-            const tax = Math.floor(num * 0.15); 
+            const tax = Math.floor(num * 0.05); 
             const actual = num - tax;
             await db.batch([
                 db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(num, company.id),
