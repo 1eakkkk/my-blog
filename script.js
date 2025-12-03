@@ -4762,6 +4762,10 @@ window.loadStockMarket = async function() {
             myPositions = data.positions;
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
+            const kDisplay = document.getElementById('userKCoinsDisplay');
+            if (kDisplay) {
+                kDisplay.innerText = (data.userK || 0).toLocaleString();
+            }
             
             // 1. 更新右上角 Ticker
             if (marketTicker) {
@@ -5367,7 +5371,40 @@ window.addUserLog = function(msg, actionType) {
     renderAllLogs();
 };
 
+// === 新增：货币兑换函数 ===
+window.convertCoin = async function(type) {
+    let inputId = type === 'i_to_k' ? 'convertAmountI' : 'convertAmountExp';
+    let val = document.getElementById(inputId).value;
+    
+    if (!val || parseInt(val) <= 0) return showToast("请输入有效数量", "error");
+    
+    // 确认提示
+    let confirmMsg = "";
+    if (type === 'i_to_k') confirmMsg = `确认将 ${val} i币 兑换为 ${val} k币吗？\n(不可逆)`;
+    if (type === 'exp_to_k') confirmMsg = `确认消耗 ${val*4} XP 兑换 ${val} k币吗？\n(比率 4:1)`;
+    
+    if (!confirm(confirmMsg)) return;
 
+    try {
+        const res = await fetch(`${API_BASE}/stock`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'convert', type, val })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            document.getElementById(inputId).value = '';
+            checkSecurity(); // 刷新侧边栏余额
+            loadStockMarket(); // 刷新 K币显示
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络错误", "error");
+    }
+};
 
 
 
