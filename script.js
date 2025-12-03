@@ -4782,7 +4782,8 @@ window.loadStockMarket = async function() {
 
             // 2. 日志处理
             if (typeof mergeLogs === 'function') {
-                mergeLogs(data.news, 'news');
+                globalLogs = data.news || [];
+                renderAllLogs();
             }
             
             // 3. 休市/停牌 UI 处理
@@ -5140,6 +5141,7 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fill();
     }
 }
+// === 1. 修复持仓显示 (updatePositionUI) ===
 function updatePositionUI(symbol) {
     const pos = myPositions.find(p => p.stock_symbol === symbol);
     const amountEl = document.getElementById('myStockAmount');
@@ -5151,36 +5153,75 @@ function updatePositionUI(symbol) {
         if(amountEl) amountEl.innerText = "Loading...";
         return; 
     }
+
+    // 获取最新价格
     const currentPrice = marketData[symbol][marketData[symbol].length - 1].p; 
 
     if (pos) {
         const avgPrice = Math.floor(pos.avg_price);
-        const levStr = pos.leverage > 1 ? `<span style="color:#ff00de; margin-left:5px;">x${pos.leverage}</span>` : '';
+        const levStr = pos.leverage > 1 ? `<span style="color:#ff00de; font-size:0.8rem; margin-left:5px; border:1px solid #ff00de; padding:0 4px; border-radius:3px;">x${pos.leverage}</span>` : '';
         
-        amountEl.innerHTML = `${pos.amount} 股 ${levStr} <span style="font-size:0.8rem; color:#888;">(均价: ${avgPrice})</span>`;
-        
-        // 盈亏计算
+        // --- 修复点：判断空单 ---
+        let amountText = "";
         let profit = 0;
+        
         if (pos.amount > 0) {
-            // 做多盈亏 = (现价 - 均价) * 数量
-            // 注意：盈亏只与价差和数量有关，与杠杆无关。杠杆只影响你的本金(保证金)投入。
+            // 多单
+            amountText = `<span style="color:#0f0">多单</span> ${pos.amount} 股`;
             profit = (currentPrice - pos.avg_price) * pos.amount;
-            btnCover.style.display = 'none'; 
+            if(btnCover) btnCover.style.display = 'none';
         } else {
-            // 做空盈亏 = (均价 - 现价) * 数量的绝对值
+            // 空单 (pos.amount 是负数)
+            amountText = `<span style="color:#f33">空单</span> ${Math.abs(pos.amount)} 股`;
             profit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
-            btnCover.style.display = 'inline-block'; 
+            if(btnCover) btnCover.style.display = 'inline-block'; // 显示平空按钮
         }
+
+        if(amountEl) amountEl.innerHTML = `${amountText} ${levStr} <div style="font-size:0.8rem; color:#888; margin-top:3px;">均价: ${avgPrice}</div>`;
         
         const sign = profit >= 0 ? '+' : '';
         const color = profit >= 0 ? '#0f0' : '#f33';
-        profitEl.innerHTML = `浮动盈亏: <span style="color:${color}">${sign}${Math.floor(profit)}</span>`;
+        if(profitEl) profitEl.innerHTML = `浮动盈亏: <span style="color:${color}">${sign}${Math.floor(profit)}</span>`;
+        
     } else {
-        if(amountEl) amountEl.innerText = "0 股";
-        if(profitEl) profitEl.innerText = "浮动盈亏: --";
+        if(amountEl) amountEl.innerText = "--";
+        if(profitEl) profitEl.innerText = "无持仓";
         if(btnCover) btnCover.style.display = 'none';
     }
 }
+
+// === 2. 杠杆设置函数 ===
+window.setLeverage = function(val, btn) {
+    document.getElementById('stockLeverage').value = val;
+    // UI 高亮
+    document.querySelectorAll('.lev-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+};
+
+// === 3. 快捷数量计算 ===
+window.setTradeAmount = function(mode) {
+    // 检查数据完整性
+    if (!companyInfo || !marketData || !marketData[currentStockSymbol]) return;
+    
+    const currentPrice = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
+    const capital = companyInfo.capital;
+    const leverage = parseInt(document.getElementById('stockLeverage').value) || 1;
+    
+    // 计算最大可买数量 (预留 100 i币防止手续费误差)
+    // 保证金 = (价格 * 数量) / 杠杆  =>  数量 = (本金 * 杠杆) / 价格
+    const maxAfford = Math.floor(((capital - 100) * leverage) / currentPrice);
+    
+    if (maxAfford <= 0) {
+        showToast("资金不足");
+        return;
+    }
+
+    let finalAmount = maxAfford;
+    if (mode === 'half') finalAmount = Math.floor(maxAfford / 2);
+    
+    document.getElementById('stockTradeAmount').value = finalAmount;
+};
+
 window.tradeStock = async function(action) {
     const amountVal = document.getElementById('stockTradeAmount').value;
     const amount = parseInt(amountVal);
@@ -5249,68 +5290,33 @@ window.mergeLogs = function(newItems, source) {
 // 3. 渲染日志 (UI 修复)
 window.renderAllLogs = function() {
     const list = document.getElementById('stockLogList');
-    if (!list) return; // 没找到容器就不渲染
+    if (!list) return;
     
-    // 按时间倒序排列 (最新的在上面)
-    window.globalLogs.sort((a, b) => b.time - a.time);
-    
-    // 只保留最近 50 条
-    if (window.globalLogs.length > 50) {
-        window.globalLogs = window.globalLogs.slice(0, 50);
-    }
-
-    // === 核心修复点：清空容器 ===
-    // 这一步会把 HTML 里写死的 "正在连接..." 删掉
     list.innerHTML = '';
-    
-    // 如果没有日志，显示“暂无动态”
-    if (window.globalLogs.length === 0) {
-        list.innerHTML = `<div class="log-item system" style="color:#666; text-align:center; padding:10px;">暂无市场波动 ...</div>`;
+    if (!globalLogs || globalLogs.length === 0) {
+        list.innerHTML = `<div class="log-item system" style="color:#666; text-align:center; padding:10px;">暂无波动 (15min)</div>`;
         return;
     }
     
-    // 渲染列表
-    window.globalLogs.forEach(n => {
+    globalLogs.forEach(n => {
         const date = new Date(n.time);
         const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
         
-        let className = 'log-item'; // CSS 类名
-        let icon = '📢'; // 默认图标
-        let colorStyle = '';
-
-        if (n.source === 'user') {
-            // 用户操作 (买卖)
-            className += n.actionType === 'buy' ? ' buy' : ' sell';
-            icon = '👤'; 
-            colorStyle = n.actionType === 'buy' ? 'color:#0f0' : 'color:#f33';
-        } else {
-            // 系统新闻
-            if (n.type === 'good') {
-                className += ' news-good';
-                icon = '🚀';
-                colorStyle = 'color:#0f0'; // 利好绿色
-            } else {
-                className += ' news-bad';
-                icon = '📉';
-                colorStyle = 'color:#ff3333'; // 利空红色
-            }
-        }
+        let style = "color:#ccc";
+        let icon = "📢";
+        
+        if (n.type === 'good') { style = "color:#0f0"; icon = "🚀"; }
+        else if (n.type === 'bad') { style = "color:#f33"; icon = "📉"; }
+        else if (n.type === 'user') { style = "color:#00f3ff"; icon = "👤"; }
         
         const div = document.createElement('div');
-        // 使用内联样式确保颜色生效，防止 CSS 没加载
         div.style.borderBottom = "1px dashed #333";
         div.style.padding = "5px 0";
         div.style.fontSize = "0.85rem";
-        
-        div.innerHTML = `
-            <span style="color:#666; font-family:monospace; margin-right:5px;">[${timeStr}]</span> 
-            <span>${icon}</span> 
-            <span style="${colorStyle}">${n.msg}</span>
-        `;
+        div.innerHTML = `<span style="color:#666; font-family:monospace;">[${timeStr}]</span> ${icon} <span style="${style}">${n.msg}</span>`;
         list.appendChild(div);
     });
 };
-
 // 修复报错：补充缺失的日志记录函数
 window.addUserLog = function(msg, actionType) {
     const now = Date.now();
@@ -5335,6 +5341,7 @@ window.addUserLog = function(msg, actionType) {
         }
     }
 };
+
 
 
 
