@@ -4788,9 +4788,12 @@ window.loadStockMarket = async function() {
             }
 
             // 2. 日志处理 (直接使用后端返回的日志，不再合并)
-            if (typeof renderAllLogs === 'function') {
-                window.globalLogs = data.news || [];
-                renderAllLogs();
+            if (data.news) {
+                window.globalLogs = data.news; 
+                // 如果渲染函数存在，立即刷新界面
+                if (typeof window.renderAllLogs === 'function') {
+                    window.renderAllLogs();
+                }
             }
             
             // 3. 休市/停牌 UI 处理
@@ -5315,22 +5318,27 @@ window.renderAllLogs = function() {
     const list = document.getElementById('stockLogList');
     if (!list) return;
     
+    // 清空列表
     list.innerHTML = '';
-    if (!globalLogs || globalLogs.length === 0) {
+    
+    // 如果没有数据
+    if (!window.globalLogs || window.globalLogs.length === 0) {
         list.innerHTML = `<div class="log-item system" style="color:#666; text-align:center; padding:10px;">暂无波动 (15min)</div>`;
         return;
     }
     
-    globalLogs.forEach(n => {
+    // 遍历渲染
+    window.globalLogs.forEach(n => {
         const date = new Date(n.time);
         const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
         
-        let style = "color:#ccc";
+        let style = "color:#ccc"; // 默认灰
         let icon = "📢";
         
+        // 根据类型设置颜色
         if (n.type === 'good') { style = "color:#0f0"; icon = "🚀"; }
         else if (n.type === 'bad') { style = "color:#f33"; icon = "📉"; }
-        else if (n.type === 'user') { style = "color:#00f3ff"; icon = "👤"; }
+        else if (n.type === 'user') { style = "color:#00f3ff"; icon = "👤"; } // 用户操作显示蓝色
         
         const div = document.createElement('div');
         div.style.borderBottom = "1px dashed #333";
@@ -5340,29 +5348,23 @@ window.renderAllLogs = function() {
         list.appendChild(div);
     });
 };
-// 修复报错：补充缺失的日志记录函数
+
+// --- 用户操作日志 (临时乐观更新) ---
 window.addUserLog = function(msg, actionType) {
     const now = Date.now();
     const logItem = {
         time: now,
         msg: msg,
-        source: 'user', // 标记为用户操作
-        actionType: actionType // 'buy' 或 'sell'
+        type: 'user', // 标记类型为 user
+        actionType: actionType
     };
     
-    // 确保全局日志数组存在
     window.globalLogs = window.globalLogs || [];
+    // 插入到数组最前面（或者最后面，取决于你的排序逻辑，通常后端返回的是倒序，前端unshift比较好）
+    // 但因为 renderAllLogs 里没有重排，建议直接 push 然后让 loadStockMarket 覆盖
+    window.globalLogs.unshift(logItem); 
     
-    // 调用合并函数 (前提是 mergeLogs 已存在，之前的更新中已提供)
-    if (typeof window.mergeLogs === 'function') {
-        window.mergeLogs([logItem], 'user');
-    } else {
-        // 兜底逻辑：如果 mergeLogs 也没定义，直接推入并渲染
-        window.globalLogs.push(logItem);
-        if (typeof window.renderAllLogs === 'function') {
-            window.renderAllLogs();
-        }
-    }
+    renderAllLogs();
 };
 
 
