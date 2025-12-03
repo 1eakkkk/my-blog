@@ -1505,10 +1505,15 @@ async function handleRoute() {
         const link = document.getElementById('navNotify'); if(link) link.classList.add('active');
         loadNotifications();
     } else if (hash === '#business') {
-        const bizView = document.getElementById('view-business');if (bizView) bizView.style.display = 'block';
-        const link = document.querySelector('a[href="#business"]');if (link) link.classList.add('active');
+        const bizView = document.getElementById('view-business');
+        if (bizView) bizView.style.display = 'block';
+        
+        const link = document.querySelector('a[href="#business"]');
+        if (link) link.classList.add('active');
+        
         if (typeof loadBusiness === 'function') {
-        loadBusiness();
+            loadBusiness();
+        } 
     } else if (hash.startsWith('#profile?u=')) {
         if(views.profile) document.getElementById('view-profile').style.display = 'block'; // 注意这里 HTML ID 是 view-profile
         const u = hash.split('=')[1];
@@ -4730,31 +4735,17 @@ let myPositions = [];
 let marketOpens = {}; // 存开盘价
 let companyInfo = {};
 let globalLogs = [];
-// --- script.js 调试版 loadStockMarket ---
-
 window.loadStockMarket = async function() {
-    console.log("[Stock] 开始加载股市数据..."); // 调试日志 1
-
     const canvas = document.getElementById('stockCanvas');
-    if(!canvas) {
-        console.error("[Stock] 找不到 canvas 元素，停止加载。"); // 调试日志 2
-        return; 
-    }
+    if(!canvas) return; 
 
+    // Loading 提示
     const curEl = document.getElementById('stockCurrent');
     if(curEl && curEl.innerText === '--') curEl.innerText = "Loading...";
 
     try {
-        console.log("[Stock] 发起 API 请求..."); // 调试日志 3
         const res = await fetch(`${API_BASE}/stock`);
-        
-        if (!res.ok) {
-            console.error("[Stock] API 请求失败:", res.status); // 调试日志 4
-            return;
-        }
-
         const data = await res.json();
-        console.log("[Stock] API 返回数据:", data); // 调试日志 5
         
         if (data.success) {
             marketData = data.market;
@@ -4762,14 +4753,12 @@ window.loadStockMarket = async function() {
             marketOpens = data.opens || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 处理日志
+            // 1. 处理日志 (使用 mergeLogs)
             if (typeof mergeLogs === 'function') {
                 mergeLogs(data.news, 'news');
-            } else {
-                console.warn("[Stock] mergeLogs 函数未定义！");
             }
             
-            // 处理休市
+            // 2. 处理休市
             const mask = document.getElementById('marketClosedMask');
             if (data.status && !data.status.isOpen) {
                 if(mask) mask.style.display = 'flex';
@@ -4779,12 +4768,12 @@ window.loadStockMarket = async function() {
                 disableTrading(false);
             }
 
-            // 更新资金
+            // 3. 更新资金
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
 
-            // 绑定事件
+            // 4. 绑定事件 (只绑一次)
             if (!canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -4797,19 +4786,16 @@ window.loadStockMarket = async function() {
                 window.addEventListener('resize', resizeStockChart);
             }
 
-            console.log("[Stock] 开始绘制图表..."); // 调试日志 6
+            // 5. 渲染
             switchStock(currentStockSymbol);
-        } else {
-            console.error("[Stock] 后端返回错误:", data.error);
         }
     } catch(e) { console.error("Stock Load Error:", e); }
     
-    // 自动刷新
+    // 自动刷新机制
     if (!window.stockAutoRefreshTimer) {
         window.stockAutoRefreshTimer = setInterval(() => {
             const stockView = document.getElementById('view-business');
-            // 只有当 view-business 显示时才刷新
-            if (stockView && stockView.style.display !== 'none') {
+            if (stockView && stockView.style.display !== 'none' && document.getElementById('stockCanvas')) {
                 loadStockMarket();
             }
         }, 10000); 
@@ -5258,3 +5244,4 @@ function addUserLog(msg, actionType) {
     };
     mergeLogs([logItem], 'user');
 }
+
