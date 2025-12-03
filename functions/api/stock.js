@@ -192,7 +192,7 @@ async function getOrUpdateMarket(env, db) {
 
             curP = Math.max(1, Math.floor(curP * (1 + change)));
 
-            if (curP < st.base * 0.05) {
+            if (curP < st.base * 0.1) {
                 const refund = curP;
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refund, sym, sym));
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
