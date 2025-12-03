@@ -493,28 +493,60 @@
                         <h2>BUSINESS CORP // 商业帝国</h2>
                         <div id="marketTicker" class="node-status" style="border-color:gold; color:gold;">MARKET: ANALYZING...</div>
                     </div>
+
+                    <!-- k币兑换面板 -->
+                    <div class="glass-card" style="margin-bottom:20px; border-color:gold;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="color:gold; margin:0;">🏦 投资银行 / K-BANK</h3>
+                            <div style="text-align:right;">
+                                <div style="font-size:0.7rem; color:#888;">MY K-COINS</div>
+                                <div id="userKCoinsDisplay" style="font-size:1.5rem; font-weight:bold; color:#fff;">--</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
+                            <!-- i 转 k -->
+                            <div style="flex:1; border:1px solid #333; padding:10px; border-radius:4px;">
+                                <div style="font-size:0.8rem; color:#00f3ff; margin-bottom:5px;">i 币 ➔ k 币 (1:1)</div>
+                                <div style="display:flex; gap:5px;">
+                                    <input type="number" id="convertAmountI" class="cyber-input" placeholder="数量" style="margin:0; width:100px;">
+                                    <button onclick="convertCoin('i_to_k')" class="mini-action-btn" style="flex:1;">兑换</button>
+                                </div>
+                            </div>
+                            
+                            <!-- exp 转 k -->
+                            <div style="flex:1; border:1px solid #333; padding:10px; border-radius:4px;">
+                                <div style="font-size:0.8rem; color:#bd00ff; margin-bottom:5px;">EXP ➔ k 币 (4:1)</div>
+                                <div style="display:flex; gap:5px;">
+                                    <input type="number" id="convertAmountExp" class="cyber-input" placeholder="k数量" style="margin:0; width:100px;">
+                                    <button onclick="convertCoin('exp_to_k')" class="mini-action-btn" style="flex:1;">转化</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size:0.7rem; color:#666; margin-top:10px;">* k币为专用投资货币，不可逆向兑换回i币。只能通过公司经营提现 (收税15%)。</div>
+                    </div>
                 
                     <div id="biz-create-panel" style="display:none;">
                         <p style="color:#ccc; margin-bottom:20px; text-align:center;">
                             创建一家壳公司进入资本市场。<br>
-                            <span style="color:#FFD700">统一注册资金：3,000 i币</span>
+                            <span style="color:#FFD700">统一注册资金：3,000 k币</span>
                         </p>
                         <div class="biz-plans-grid">
                             <!-- 方案只剩皮囊，功能一致 -->
                             <div class="glass-card plan-card" onclick="selectBizPlan('shell')">
                                 <div class="plan-icon">🏚️</div>
                                 <h3>数据作坊</h3>
-                                <div class="plan-cost">3,000 i</div>
+                                <div class="plan-cost">3,000 k</div>
                             </div>
                             <div class="glass-card plan-card" onclick="selectBizPlan('startup')">
                                 <div class="plan-icon">🏢</div>
                                 <h3>科技独角兽</h3>
-                                <div class="plan-cost">3,000 i</div>
+                                <div class="plan-cost">3,000 k</div>
                             </div>
                             <div class="glass-card plan-card" onclick="selectBizPlan('blackops')">
                                 <div class="plan-icon">🏴‍☠️</div>
                                 <h3>黑域工作室</h3>
-                                <div class="plan-cost">3,000 i</div>
+                                <div class="plan-cost">3,000 k</div>
                             </div>
                         </div>
                         
@@ -1249,9 +1281,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=9.7"></script>
+    <script src="script.js?v=9.8"></script>
 </body>
 </html>
+
 
 
 
