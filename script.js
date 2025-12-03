@@ -5256,7 +5256,5 @@ function addUserLog(msg, actionType) {
         source: 'user', // 标记为用户来源
         actionType: actionType // 'buy' or 'sell'
     };
-    // 这里的 'user' 参数会强制触发重新排序和渲染
     mergeLogs([logItem], 'user');
 }
-
