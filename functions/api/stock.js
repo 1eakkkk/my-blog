@@ -73,6 +73,31 @@ function pickWeightedNews(symbol) {
     return list[0];
 }
 
+// === 计算持仓的当前清算价值 (用于判断是否破产) ===
+function calculatePositionValue(pos, currentPrice) {
+    const qty = pos.amount;
+    const avg = pos.avg_price;
+    const lev = pos.leverage || 1;
+    
+    // 1. 计算原始保证金 (Principal)
+    // 注意：qty 可能是负数(空单)，计算保证金要用绝对值
+    const principal = (avg * Math.abs(qty)) / lev;
+    
+    // 2. 计算盈亏 (Profit)
+    let profit = 0;
+    if (qty > 0) {
+        // 多单盈亏: (现价 - 均价) * 数量
+        profit = (currentPrice - avg) * qty;
+    } else {
+        // 空单盈亏: (均价 - 现价) * 绝对数量
+        profit = (avg - currentPrice) * Math.abs(qty);
+    }
+    
+    // 3. 净值 = 本金 + 盈亏
+    // 如果亏损超过本金，这就变成负数了（穿仓）
+    return Math.floor(principal + profit);
+}
+
 async function getOrUpdateMarket(db) {
     const now = Date.now();
     const bjHour = getBJHour(now);
@@ -144,15 +169,12 @@ async function getOrUpdateMarket(db) {
             simT += 60000;
             let change = (Math.random() - 0.5) * 0.2; // +/- 10%
             
-            // 新闻判定
             if (simT - nextNewsT >= 300000) {
                 nextNewsT = simT;
                 if (Math.random() < 0.4) {
                     const news = pickWeightedNews(sym);
                     if (news) {
                         change += news.factor;
-                        // 仅最后一次或者重大新闻写入日志，防止数据库爆炸
-                        // 这里我们写入所有触发的新闻
                         updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `[${STOCKS_CONFIG[sym].name}] ${news.msg}`, news.factor > 0 ? 'good' : 'bad', simT));
                     }
                 }
@@ -160,11 +182,12 @@ async function getOrUpdateMarket(db) {
 
             curP = Math.max(1, Math.floor(curP * (1 + change)));
 
-            // 退市
             if (curP < st.base * 0.05) {
                 const refund = curP;
+                // 退市逻辑：清理持仓并返还
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refund, sym, sym));
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
+                
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(refund, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, refund, simT));
                 updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【停牌】${STOCKS_CONFIG[sym].name} 触及红线，强制清算。`, 'bad', simT));
@@ -180,11 +203,9 @@ async function getOrUpdateMarket(db) {
             st.p = curP; st.t = simT; st.last_news = nextNewsT;
         }
         
-        // 清理旧历史(2h)和旧日志(15min)
         updates.push(db.prepare("DELETE FROM market_history WHERE symbol=? AND id NOT IN (SELECT id FROM market_history WHERE symbol=? ORDER BY created_at DESC LIMIT 120)").bind(sym, sym));
     }
     
-    // 清理 15 分钟前的日志
     const expireTime = now - (15 * 60 * 1000);
     updates.push(db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(expireTime));
 
@@ -207,15 +228,35 @@ export async function onRequest(context) {
 
     if (method === 'GET') {
         const hasCompany = !!company;
-        if (hasCompany && company.capital < 0) {
-            // 破产逻辑省略，保持原样...
-             const refund = Math.floor(company.capital * 0.2);
-            await db.batch([
-                db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
-                db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
-                db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(refund, user.id)
-            ]);
-            return Response.json({ success: true, bankrupt: true, report: { msg: `破产清算，返还 ${refund}` } });
+        let positions = [];
+        
+        // === 破产检测逻辑升级 (核心修复) ===
+        if (hasCompany) {
+            positions = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
+            
+            // 1. 计算总净值 (Total Equity) = 现金 + 所有持仓的当前价值
+            let totalEquity = company.capital; 
+            
+            positions.forEach(pos => {
+                const currentP = market[pos.stock_symbol].p;
+                // 如果股票停牌，按当前价(退市价)结算
+                // 调用上面的辅助函数计算价值
+                const val = calculatePositionValue(pos, currentP);
+                totalEquity += val;
+            });
+
+            // 2. 只有当 总净值 < 100 时，才强制破产
+            // 注意：如果 totalEquity < 0 (穿仓)，也算破产
+            if (totalEquity < 100) {
+                const refund = Math.max(0, Math.floor(totalEquity * 0.2)); // 残值返还，如果是负资产则返还0
+                
+                await db.batch([
+                    db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
+                    db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
+                    db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(refund, user.id)
+                ]);
+                return Response.json({ success: true, bankrupt: true, report: { msg: `公司资不抵债 (净值: ${totalEquity})，强制破产清算。` } });
+            }
         }
 
         const chartData = {};
@@ -228,14 +269,8 @@ export async function onRequest(context) {
             stockMeta[sym] = { open: market[sym].open, suspended: market[sym].suspended };
         }
 
-        // 获取最近的日志 (15分钟内)
         const logsRes = await db.prepare("SELECT * FROM market_logs ORDER BY created_at DESC LIMIT 50").all();
         const logs = logsRes.results.map(l => ({ time: l.created_at, msg: l.msg, type: l.type }));
-
-        let positions = [];
-        if (hasCompany) {
-            positions = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
-        }
 
         return Response.json({
             success: true, hasCompany, bankrupt: false,
@@ -250,7 +285,7 @@ export async function onRequest(context) {
         const body = await request.json();
         const { action, symbol, amount, leverage = 1 } = body;
 
-        if (action === 'create') { /* ...保持原样... */ 
+        if (action === 'create') {
              if (company) return Response.json({ error: '已有公司' });
             if (user.coins < 3000) return Response.json({ error: '余额不足' });
             await db.batch([
@@ -260,9 +295,19 @@ export async function onRequest(context) {
             return Response.json({ success: true, message: '注册成功' });
         }
         if (!company) return Response.json({ error: '无公司' });
-        if (action === 'bankrupt') { /* ...保持原样... */ 
-             if (company.capital >= 500) return Response.json({ error: '资金充足' });
-            const refund = Math.floor(company.capital * 0.2);
+        
+        // 手动破产逻辑也需要更新：检查净值是否大于 500
+        if (action === 'bankrupt') {
+            // 获取最新持仓计算净值
+            const allPos = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
+            let totalEquity = company.capital;
+            allPos.forEach(p => {
+                totalEquity += calculatePositionValue(p, market[p.stock_symbol].p);
+            });
+
+            if (totalEquity >= 500) return Response.json({ error: `净值尚足 (${totalEquity} > 500)，禁止恶意破产` });
+            
+            const refund = Math.max(0, Math.floor(totalEquity * 0.2));
             await db.batch([
                 db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
                 db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
@@ -286,12 +331,10 @@ export async function onRequest(context) {
             const batch = [];
             let logMsg = "";
 
-            // --- 交易逻辑 ---
             if (action === 'buy') {
                 const margin = Math.floor((curP * qty) / lev);
-                if (company.capital < margin) return Response.json({ error: '保证金不足' });
-                // 修复逻辑：如果有空单，禁止直接 Buy，必须先 Cover
-                if (pos && curHold < 0) return Response.json({ error: '检测到空单，请点击“平空”' });
+                if (company.capital < margin) return Response.json({ error: '资金(保证金)不足' });
+                if (pos && curHold < 0) return Response.json({ error: '检测到空单，请先平空' });
                 if (pos && curHold > 0 && curLev !== lev) return Response.json({ error: '杠杆倍率不一致' });
 
                 batch.push(db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(margin, company.id));
@@ -306,22 +349,22 @@ export async function onRequest(context) {
                 logMsg = `买入 ${qty} 股 ${symbol} (x${lev})`;
             }
             else if (action === 'sell') {
-                if (curHold <= 0) { // 做空
+                if (curHold <= 0) { 
                     const margin = Math.floor((curP * qty) / lev);
-                    if (company.capital < margin) return Response.json({ error: '保证金不足' });
+                    if (company.capital < margin) return Response.json({ error: '资金(保证金)不足' });
                     if (pos && curHold < 0 && curLev !== lev) return Response.json({ error: '杠杆倍率不一致' });
 
                     batch.push(db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(margin, company.id));
                     if (pos) {
                         const totalVal = (Math.abs(curHold) * pos.avg_price) + (qty * curP);
-                        const newQty = Math.abs(curHold) + qty; // 存储为负数前先算绝对值
+                        const newQty = Math.abs(curHold) + qty;
                         const newAvg = totalVal / newQty;
                         batch.push(db.prepare("UPDATE company_positions SET amount=?, avg_price=?, leverage=? WHERE id=?").bind(-newQty, newAvg, lev, pos.id));
                     } else {
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev));
                     }
                     logMsg = `做空 ${qty} 股 ${symbol} (x${lev})`;
-                } else { // 平多
+                } else { 
                     if (qty > curHold) return Response.json({ error: '持仓不足' });
                     const prin = (pos.avg_price * qty) / pos.leverage;
                     const prof = (curP - pos.avg_price) * qty;
@@ -344,7 +387,6 @@ export async function onRequest(context) {
                 logMsg = `平空 ${qty} 股 ${symbol}`;
             }
 
-            // 写入交易日志
             batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
 
             await db.batch(batch);
