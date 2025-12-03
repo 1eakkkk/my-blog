@@ -1,4 +1,4 @@
-// --- START OF FILE functions/api/stock.js (KV + K-Coin Merged Version) ---
+// --- START OF FILE functions/api/stock.js ---
 
 const STOCKS_CONFIG = {
     'BLUE': { name: '蓝盾安全', color: '#00f3ff' },
@@ -20,7 +20,6 @@ const NEWS_DB = {
         { weight: 5, factor: -0.15, msg: "服务器遭受大规模 DDoS 攻击，服务短暂中断！" },
         { weight: 5, factor: -0.12, msg: "首席架构师涉嫌私下交易用户数据被捕。" },
         { weight: 5, factor: 0.18, msg: "竞争对手的数据中心发生物理熔断，蓝盾市场份额激增。" },
-        { weight: 3, factor: 0.22, msg: "张锦瑞为周炜杰的网站捐赠了一个月的数据库plus，管理员高兴，大手一挥直接涨股价！" },
         { weight: 1, factor: 0.30, msg: "【重磅】夜之城市政厅宣布蓝盾为唯一指定安全供应商！" },
         { weight: 1, factor: -0.30, msg: "【突发】蓝盾核心数据库遭 0-day 漏洞攻破，数亿数据泄露！" },
         { weight: 1, factor: -0.25, msg: "【丑闻】蓝盾被曝协助大企业非法监控员工脑机接口。" }
@@ -37,7 +36,6 @@ const NEWS_DB = {
         { weight: 5, factor: -0.20, msg: "数千名用户因芯片固件故障陷入精神错乱。" },
         { weight: 5, factor: -0.15, msg: "被曝在贫民窟进行非法活体实验。" },
         { weight: 5, factor: 0.18, msg: "‘数字永生’项目取得突破，记忆备份仅需5秒。" },
-        { weight: 3, factor: 0.22, msg: "张锦瑞为周炜杰的网站捐赠了一个月的数据库plus，管理员高兴，大手一挥直接涨股价！" },
         { weight: 1, factor: 0.35, msg: "【跨时代】神经元科技宣布实现完美意识上传！股价飞升！" },
         { weight: 1, factor: -0.35, msg: "【灾难】核心 AI 产生自我意识并试图控制人类，已被物理断网！" },
         { weight: 1, factor: -0.28, msg: "【制裁】生物伦理委员会叫停其克隆人计划，罚款百亿。" }
@@ -54,7 +52,6 @@ const NEWS_DB = {
         { weight: 5, factor: -0.20, msg: "国际法庭宣布冻结荒坂在欧非的海外资产。" },
         { weight: 5, factor: -0.25, msg: "荒坂总部大楼遭战术核弹袭击！大楼主体受损！" },
         { weight: 5, factor: 0.22, msg: "成功试爆微型反物质炸弹，技术遥遥领先。" },
-        { weight: 3, factor: 0.22, msg: "张锦瑞为周炜杰的网站捐赠了一个月的数据库plus，管理员高兴，大手一挥直接涨股价！" },
         { weight: 1, factor: 0.40, msg: "【战争】第四次企业战争全面爆发！荒坂股价火箭式暴涨！" },
         { weight: 1, factor: -0.40, msg: "【覆灭】荒坂内部爆发夺权内战，全球业务陷入瘫痪！" },
         { weight: 1, factor: -0.30, msg: "【泄密】荒坂被曝双面军火交易，同时资助反叛军。" }
@@ -88,10 +85,9 @@ function calculatePositionValue(pos, currentPrice) {
 }
 
 // === 核心优化：基于 KV 的行情获取 ===
-// 逻辑：优先读 KV -> KV 没有或过期 -> 读 D1 -> 计算新价格 -> 写 D1 -> 写 KV
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_data_v2"; // 升级 Key 版本防止旧缓存干扰
+    const CACHE_KEY = "market_data_v4"; // 升级 Key 版本
     
     // 1. 尝试从 KV 读取缓存
     let cachedData = null;
@@ -101,13 +97,12 @@ async function getOrUpdateMarket(env, db) {
         } catch (e) { console.error("KV Read Error", e); }
     }
 
-    // 如果缓存有效，且距离上次计算不超过 10 秒，直接返回缓存
     if (cachedData && (now - cachedData.timestamp < 10000)) {
         return cachedData.payload;
     }
 
     // ==========================================
-    // === 以下是 D1 计算逻辑 (缓存失效时执行) ===
+    // === D1 计算逻辑 ===
     // ==========================================
     
     const bjHour = getBJHour(now);
@@ -139,22 +134,58 @@ async function getOrUpdateMarket(env, db) {
         };
     });
 
-    // 每日重置
+    // 每日重置 (检测是否跨过了 06:00 开市线)
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000);
+    
     if (isNewDay) {
+        let totalDividends = 0;
+
         for (let sym in STOCKS_CONFIG) {
             let st = marketMap[sym];
-            let newP = st.p;
             let newBase = st.base;
+            let newP = st.p;
             let newSusp = st.suspended;
             
+            // 如果是退市股，重组上市，生成新价格
             if (st.suspended === 1) {
-                newBase = generateBasePrice(); newP = newBase; newSusp = 0;
+                newBase = generateBasePrice(); 
+                newP = newBase; 
+                newSusp = 0;
                 updates.push(db.prepare("DELETE FROM market_history WHERE symbol = ?").bind(sym));
                 logsToWrite.push({sym, msg: `【新股上市】${STOCKS_CONFIG[sym].name} 重组挂牌。`, type: 'good', t: now});
             }
+
+            // === 💰 每日分红逻辑 (含通知) ===
+            const holders = await db.prepare(`
+                SELECT uc.user_id, cp.amount 
+                FROM company_positions cp 
+                JOIN user_companies uc ON cp.company_id = uc.id 
+                WHERE cp.stock_symbol = ? AND cp.amount > 0
+            `).bind(sym).all();
+
+            for (const h of holders.results) {
+                // 分红 = 持仓股数 * 当前开盘价 * 3%
+                const dividend = Math.floor(h.amount * newP * 0.03);
+                if (dividend > 0) {
+                    // 1. 发钱
+                    updates.push(db.prepare("UPDATE users SET k_coins = COALESCE(k_coins, 0) + ? WHERE id = ?").bind(dividend, h.user_id));
+                    // 2. 发通知 (新增)
+                    updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, is_read, created_at, link) VALUES (?, 'system', ?, 0, ?, '#business')")
+                        .bind(h.user_id, `【股市分红】您持有的 ${STOCKS_CONFIG[sym].name} 发放分红: +${dividend} k币`, now));
+                    
+                    totalDividends += dividend;
+                }
+            }
+
+            // 更新市场状态
             updates.push(db.prepare("UPDATE market_state SET open_price=?, current_price=?, initial_base=?, is_suspended=?, last_update=? WHERE symbol=?").bind(newP, newP, newBase, newSusp, now, sym));
+            
             st.p = newP; st.base = newBase; st.open = newP; st.suspended = newSusp; st.t = now;
+        }
+
+        // 全服日志
+        if (totalDividends > 0) {
+            logsToWrite.push({sym: 'SYSTEM', msg: `【每日分红】股市开盘，向持仓股东发放共计 ${totalDividends} k币分红 (3%)。`, type: 'good', t: now});
         }
     }
 
@@ -195,7 +226,7 @@ async function getOrUpdateMarket(env, db) {
 
             curP = Math.max(1, Math.floor(curP * (1 + change)));
 
-            if (curP < st.base * 0.1) {
+            if (curP < st.base * 0.1) { // 10% 退市
                 const refund = curP;
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refund, sym, sym));
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
@@ -215,18 +246,15 @@ async function getOrUpdateMarket(env, db) {
             st.p = curP; st.t = simT; st.last_news = nextNewsT;
         }
         
-        // 限制历史记录删除频率 (5%概率执行)，减少写操作
         if (Math.random() < 0.05) {
              updates.push(db.prepare("DELETE FROM market_history WHERE symbol=? AND id NOT IN (SELECT id FROM market_history WHERE symbol=? ORDER BY created_at DESC LIMIT 120)").bind(sym, sym));
         }
     }
     
-    // 批量写入日志
     logsToWrite.forEach(l => {
         updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(l.sym, l.msg, l.type, l.t));
     });
 
-    // 限制日志清理频率
     if (Math.random() < 0.05) {
         const expireTime = now - (15 * 60 * 1000);
         updates.push(db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(expireTime));
@@ -236,7 +264,6 @@ async function getOrUpdateMarket(env, db) {
     
     const result = { market: marketMap, status: { isOpen: true } };
     
-    // 写入 KV 缓存
     if (env.KV) {
         await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     }
@@ -251,7 +278,6 @@ export async function onRequest(context) {
     if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
     
-    // 查询 user (包含 k_coins, coins, xp)
     const user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
     
     if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
@@ -259,7 +285,6 @@ export async function onRequest(context) {
     const company = await db.prepare("SELECT * FROM user_companies WHERE user_id = ?").bind(user.id).first();
     const method = request.method;
     
-    // 传入 env 以支持 KV
     const { market, status } = await getOrUpdateMarket(env, db);
 
     if (method === 'GET') {
@@ -282,14 +307,13 @@ export async function onRequest(context) {
                     db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
                     db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(refund, user.id)
                 ]);
-                return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: `资不抵债 (净值: ${totalEquity})，强制清算。` } });
+                return Response.json({ success: true, bankrupt: true, report: { msg: `资不抵债 (净值: ${totalEquity})，强制清算。` } });
             }
         }
 
         const chartData = {};
         const stockMeta = {};
         
-        // 限制 K 线查询范围 (2小时内)
         const historyResults = await db.prepare("SELECT symbol, price as p, created_at as t FROM market_history WHERE created_at > ? ORDER BY created_at ASC").bind(Date.now() - 7200000).all();
         
         for (let sym in STOCKS_CONFIG) {
@@ -317,7 +341,6 @@ export async function onRequest(context) {
         const { action, symbol, amount, leverage = 1 } = body;
         const userNameDisplay = user.nickname || user.username;
 
-        // === 1. 货币兑换逻辑 (i -> k, exp -> k) ===
         if (action === 'convert') {
             const { type, val } = body; 
             const num = parseInt(val);
@@ -341,7 +364,6 @@ export async function onRequest(context) {
             return Response.json({ error: '未知兑换类型' });
         }
 
-        // === 2. 创建公司 (消耗 k_coins) ===
         if (action === 'create') {
             if (company) return Response.json({ error: '已有公司' });
             if ((user.k_coins || 0) < 3000) return Response.json({ error: 'k币不足 (需 3000 k)' });
@@ -354,54 +376,37 @@ export async function onRequest(context) {
 
         if (!company) return Response.json({ error: '无公司' });
         
-        // === 3. 注资 (智能混合扣费：优先 K币，不足部分扣 i币) ===
         if (action === 'invest') {
             const num = parseInt(amount);
             if (num < 100) return Response.json({ error: '最小注资 100' });
             
             const kBalance = user.k_coins || 0;
             const iBalance = user.coins || 0;
-            
             let deductK = 0;
             let deductI = 0;
             
-            // 核心逻辑：优先扣 K
             if (kBalance >= num) {
-                // K币 足够全额支付
                 deductK = num;
             } else {
-                // K币 不够，先扣光 K，剩下用 i 补
                 deductK = kBalance;
                 deductI = num - kBalance;
             }
             
-            // 检查 i币 是否足够支付剩余部分
-            if (iBalance < deductI) {
-                return Response.json({ error: `资金不足 (缺 ${deductI - iBalance} i币)` });
-            }
+            if (iBalance < deductI) return Response.json({ error: `资金不足 (缺 ${deductI - iBalance} i币)` });
             
-            // 执行扣费和注资
             await db.batch([
-                // 扣除 K币
                 db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(deductK, user.id),
-                // 扣除 i币
                 db.prepare("UPDATE users SET coins = coins - ? WHERE id = ?").bind(deductI, user.id),
-                // 增加公司资金
                 db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(num, company.id)
             ]);
             
-            // 生成提示信息
             let msg = `注资成功 (+${num})`;
-            if (deductI > 0) {
-                msg += ` [消耗: ${deductK}k + ${deductI}i]`;
-            } else {
-                msg += ` [消耗: ${deductK}k]`;
-            }
+            if (deductI > 0) msg += ` [消耗: ${deductK}k + ${deductI}i]`;
+            else msg += ` [消耗: ${deductK}k]`;
             
             return Response.json({ success: true, message: msg });
         }
 
-        // === 4. 提现 (公司 -> coins, 扣税) ===
         if (action === 'withdraw') {
             const num = parseInt(amount);
             if (company.capital < num) return Response.json({ error: '公司资金不足' });
@@ -507,8 +512,7 @@ export async function onRequest(context) {
 
             await db.batch(batch);
             
-            // 交易成功，清理 KV 缓存
-            if (env.KV) await env.KV.delete("market_data_v2");
+            if (env.KV) await env.KV.delete("market_data_v4");
             
             return Response.json({ success: true, message: 'OK', log: logMsg });
         }
