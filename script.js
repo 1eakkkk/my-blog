@@ -4684,23 +4684,32 @@ window.setStrategy = async function(strat) {
     } catch(e) { showToast("操作失败"); }
 };
 
-// 注资
+// 注资 (前端提示优化)
 window.bizInvest = async function() {
-    const amount = prompt("请输入追加投资金额 (至少 100):");
+    // 获取当前 K币余额以提示用户 (从页面 DOM 获取，假设 loadStockMarket 已运行)
+    const kDisplay = document.getElementById('userKCoinsDisplay');
+    const currentK = kDisplay ? kDisplay.innerText : '?';
+
+    const amount = prompt(`请输入注资 i币/k币 数量 (至少 100):\n\n* 系统将优先扣除您的 K币 (${currentK}) \n* 不足部分自动消耗 i币 补齐`);
+    
     if(!amount) return;
     
-    const res = await fetch(`${API_BASE}/business`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: 'invest', amount })
-    });
-    const data = await res.json();
-    if(data.success) {
-        showToast(data.message, "success");
-        checkSecurity();
-        loadBusiness();
-    } else {
-        showToast(data.error, "error");
+    try {
+        const res = await fetch(`${API_BASE}/stock`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'invest', amount })
+        });
+        const data = await res.json();
+        if(data.success) {
+            showToast(data.message, "success");
+            checkSecurity(); // 刷新侧边栏钱包
+            loadStockMarket(); // 刷新 K币显示和公司资金
+        } else {
+            showToast(data.error, "error");
+        }
+    } catch(e) {
+        showToast("网络错误", "error");
     }
 };
 
@@ -5405,6 +5414,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
