@@ -494,30 +494,27 @@
                         <div id="marketTicker" class="node-status" style="border-color:gold; color:gold;">MARKET: ANALYZING...</div>
                     </div>
                 
-                    <!-- 状态 1: 没有公司 (显示创建面板) -->
                     <div id="biz-create-panel" style="display:none;">
-                        <p style="color:#ccc; margin-bottom:20px;">投资实体产业，承担市场波动，赢取超额回报。请选择你的赛道：</p>
+                        <p style="color:#ccc; margin-bottom:20px; text-align:center;">
+                            创建一家壳公司进入资本市场。<br>
+                            <span style="color:#FFD700">统一注册资金：3,000 i币</span>
+                        </p>
                         <div class="biz-plans-grid">
-                            <!-- 方案 A -->
+                            <!-- 方案只剩皮囊，功能一致 -->
                             <div class="glass-card plan-card" onclick="selectBizPlan('shell')">
                                 <div class="plan-icon">🏚️</div>
                                 <h3>数据作坊</h3>
-                                <div class="plan-cost">2,500 i</div>
-                                <p>低风险，低回报。适合新手练手。</p>
+                                <div class="plan-cost">3,000 i</div>
                             </div>
-                            <!-- 方案 B -->
                             <div class="glass-card plan-card" onclick="selectBizPlan('startup')">
                                 <div class="plan-icon">🏢</div>
                                 <h3>科技独角兽</h3>
-                                <div class="plan-cost">6,000 i</div>
-                                <p>中等风险，成长性高。主流选择。</p>
+                                <div class="plan-cost">3,000 i</div>
                             </div>
-                            <!-- 方案 C -->
                             <div class="glass-card plan-card" onclick="selectBizPlan('blackops')">
                                 <div class="plan-icon">🏴‍☠️</div>
                                 <h3>黑域工作室</h3>
-                                <div class="plan-cost">12,000 i</div>
-                                <p>极高风险，极高波动。赌狗天堂。</p>
+                                <div class="plan-cost">3,000 i</div>
                             </div>
                         </div>
                         
@@ -568,6 +565,7 @@
                                 <div style="display:flex; gap:10px;">
                                     <button onclick="bizInvest()" class="cyber-btn" style="border-color:#0f0; color:#0f0;">追加投资</button>
                                     <button onclick="bizWithdraw()" class="cyber-btn" style="border-color:#f33; color:#f33;">提现 (含税)</button>
+                                    <button id="btnBankrupt" class="mini-action-btn" style="color:#666; border-color:#666; margin-top:10px; width:100%; display:none;">🏳️ 申请破产清算</button>
                                 </div>
                             </div>
                         </div>
@@ -622,11 +620,20 @@
                                     <div id="myStockAmount" style="font-size:1.2rem; font-weight:bold;">0 股</div>
                                     <div id="myStockProfit" style="font-size:0.9rem;">浮动盈亏: --</div>
                                 </div>
-                                <div style="flex:1; min-width:200px; display:flex; gap:5px; align-items:center;">
+                                <div style="flex:1; min-width:200px; display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+                                    <select id="stockLeverage" class="cyber-input" style="width:70px; margin:0; padding:5px;">
+                                        <option value="1">x1</option>
+                                        <option value="2">x2</option>
+                                        <option value="5">x5</option>
+                                        <option value="10">x10</option>
+                                    </select>
                                     <input type="number" id="stockTradeAmount" class="cyber-input" placeholder="数量" style="width:80px; margin:0;">
-                                    <button onclick="tradeStock('buy')" class="cyber-btn" style="margin:0; border-color:#0f0; color:#0f0;">买入</button>
-                                    <button onclick="tradeStock('sell')" class="cyber-btn" style="margin:0; border-color:#f33; color:#f33;">卖出</button>
-                                    <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="margin:0; display:none; border-color:gold; color:gold;">平空</button>
+                                    
+                                    <div style="display:flex; gap:5px; width:100%;">
+                                        <button onclick="tradeStock('buy')" class="cyber-btn" style="margin:0; flex:1; border-color:#0f0; color:#0f0;">买入</button>
+                                        <button onclick="tradeStock('sell')" class="cyber-btn" style="margin:0; flex:1; border-color:#f33; color:#f33;">卖出/空</button>
+                                        <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="margin:0; flex:1; display:none; border-color:gold; color:gold;">平空</button>
+                                    </div>
                                 </div>
                             </div>     
                         </div>
@@ -1220,18 +1227,9 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=9.3"></script>
+    <script src="script.js?v=9.4"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
 
 
 
