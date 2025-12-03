@@ -4741,7 +4741,7 @@ let myPositions = [];
 let marketOpens = {}; // 存开盘价
 let companyInfo = {};
 let globalLogs = [];
-// --- script.js 修复 loadStockMarket ---
+// --- script.js 修复版 loadStockMarket (增加破产检测) ---
 
 // 确保全局变量存在
 let stockMeta = {}; 
@@ -4757,7 +4757,7 @@ window.loadStockMarket = async function() {
     try {
         const res = await fetch(`${API_BASE}/stock`);
         
-        // === 修复：增加非 JSON 响应的拦截 ===
+        // 检查 Content-Type 防止非 JSON 响应
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
             throw new Error("Server Error: 数据库结构可能未更新 (500)");
@@ -4765,16 +4765,26 @@ window.loadStockMarket = async function() {
 
         const data = await res.json();
         
+        // === 🚨 核心修复：这里增加了破产检测 🚨 ===
+        if (data.bankrupt) {
+            // 1. 停止图表刷新，防止报错
+            if (canvas) canvas.dataset.listening = "false"; 
+            
+            // 2. 弹窗提示
+            alert(`💔 破产通知：\n\n${data.report.msg}\n\n点击确定重新创业。`);
+            
+            // 3. 切换回创建页面
+            loadBusiness(); 
+            return; // 终止后续绘图逻辑
+        }
+        // ===========================================
+        
         if (data.success) {
             // 更新全局数据
             marketData = data.market;
             myPositions = data.positions;
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
-            const kDisplay = document.getElementById('userKCoinsDisplay');
-            if (kDisplay) {
-                kDisplay.innerText = (data.userK || 0).toLocaleString();
-            }
             
             // 1. 更新右上角 Ticker
             if (marketTicker) {
@@ -4790,7 +4800,6 @@ window.loadStockMarket = async function() {
                     const color = diff >= 0 ? '#0f0' : '#f33';
                     const icon = diff >= 0 ? '📈' : '📉';
                     
-                    // 获取股票中文名
                     const nameMap = {'BLUE':'蓝盾安全', 'GOLD':'神经元', 'RED':'荒坂军工'};
                     const stockName = nameMap[currentStockSymbol] || currentStockSymbol;
 
@@ -4800,39 +4809,33 @@ window.loadStockMarket = async function() {
                 }
             }
 
-            // 2. 日志处理 (直接使用后端返回的日志，不再合并)
-            if (data.news) {
-                window.globalLogs = data.news; 
-                // 如果渲染函数存在，立即刷新界面
-                if (typeof window.renderAllLogs === 'function') {
-                    window.renderAllLogs();
-                }
+            // 2. 日志处理
+            if (typeof renderAllLogs === 'function') {
+                window.globalLogs = data.news || [];
+                renderAllLogs();
             }
             
-            // 3. 休市/停牌 UI 处理 (精准文案优化)
+            // 3. 休市/停牌 UI 处理
             const mask = document.getElementById('marketClosedMask');
             const maskTitle = document.getElementById('maskTitle');
             const maskSubtitle = document.getElementById('maskSubtitle');
             
             if (data.status && !data.status.isOpen) {
-                // === 情况 A: 全场休市 (02:00 - 06:00) ===
                 if(mask) {
                     mask.style.display = 'flex';
                     if(maskTitle) maskTitle.innerText = "💤 休市中 / MARKET CLOSED";
-                    if(maskSubtitle) maskSubtitle.innerText = "交易所维护时间: 02:00 - 06:00"; // 明确告知是维护时间
+                    if(maskSubtitle) maskSubtitle.innerText = "交易所维护时间: 02:00 - 06:00";
                 }
                 disableTrading(true);
             } else {
-                // === 情况 B: 个股停牌 (退市) ===
                 if (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].suspended === 1) {
                     if(mask) {
                         mask.style.display = 'flex';
                         if(maskTitle) maskTitle.innerText = "⚠️ 退市整理 / SUSPENDED";
-                        if(maskSubtitle) maskSubtitle.innerText = "股价触底，等待明日 06:00 重组"; // 明确告知恢复时间
+                        if(maskSubtitle) maskSubtitle.innerText = "股价触底，等待明日 06:00 重组";
                     }
                     disableTrading(true);
                 } else {
-                    // === 情况 C: 正常交易 ===
                     if(mask) mask.style.display = 'none';
                     disableTrading(false);
                 }
@@ -4841,6 +4844,11 @@ window.loadStockMarket = async function() {
             // 4. 刷新资金
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
+            }
+            // 刷新 K币
+            const kDisplay = document.getElementById('userKCoinsDisplay');
+            if (kDisplay && data.userK !== undefined) {
+                kDisplay.innerText = data.userK.toLocaleString();
             }
 
             // 5. 绑定事件
@@ -4863,32 +4871,21 @@ window.loadStockMarket = async function() {
         }
     } catch(e) { 
         console.error("Stock Load Error:", e);
-        // === 修复：出错时更新 UI 提示，不再一直转圈 ===
         if (marketTicker) {
-            marketTicker.innerText = "SERVER ERROR (请检查数据库)";
+            marketTicker.innerText = "SERVER ERROR (请检查网络)";
             marketTicker.style.color = "#f33";
-        }
-        // 如果日志区域还在显示“正在连接...”，清空它
-        const logList = document.getElementById('stockLogList');
-        if (logList && logList.innerText.includes('正在连接')) {
-            logList.innerHTML = '<div style="color:#f33;padding:10px;">连接中断，请稍后重试</div>';
         }
     }
     
     // 7. 自动刷新
-    // 7. 紧急省流模式：确保自动刷新定时器存活
     if (!stockAutoRefreshTimer) {
-        console.log("Starting Market Auto-Refresh (Power Saving Mode)...");
         stockAutoRefreshTimer = setInterval(() => {
-            // 1. 如果页面最小化/切后台，绝对不请求！省数据库！
             if (document.visibilityState === 'hidden') return;
-
-            // 2. 只有当页面位于创业中心时才刷新
             const bizView = document.getElementById('view-business');
             if (bizView && bizView.style.display !== 'none') {
                 loadStockMarket();
             }
-        }, 5000); // <--- 自动刷新时间 5000--5秒，数据库压力不大就5000，压力大就60000（一分钟）
+        }, 5000); // 建议设为 5000 或 10000
     }
 };
 // 辅助：窗口大小改变时重绘
@@ -5456,6 +5453,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
