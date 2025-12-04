@@ -4153,6 +4153,7 @@ window.reviewRecharge = async function(id, decision) {
     }
 };
 
+let serverTimeOffset = 0;
 async function loadHomeSystem() {
     const grid = document.getElementById('home-grid');
     
@@ -4166,6 +4167,11 @@ async function loadHomeSystem() {
         if (data.success) {
             // === 插入操作按钮栏 ===
             // 找到或创建操作栏容器 (插入在 grid 之前)
+            if (data.serverTime) {
+                serverTimeOffset = data.serverTime - Date.now();
+                // 打印一下差异，方便调试 (单位毫秒)
+                console.log("Time Offset:", serverTimeOffset); 
+            }
             let actionBar = document.getElementById('cabin-action-bar');
             if (!actionBar) {
                 actionBar = document.createElement('div');
@@ -4205,35 +4211,43 @@ async function loadHomeSystem() {
     }
 }
 
-// --- 修改 script.js 中的 renderHomeGrid ---
 function renderHomeGrid(items) {
     const grid = document.getElementById('home-grid');
     grid.innerHTML = '';
     
-    // 改为 9 个槽位
+    // 🟢 核心修复：使用校准后的服务器时间，而不是本地时间
+    const now = Date.now() + (window.serverTimeOffset || 0);
+    
+    // 遍历 9 个格子
     for (let i = 0; i < 9; i++) {
         const item = items.find(it => it.slot_index === i);
         const div = document.createElement('div');
         
         if (item) {
-            const config = SEED_CATALOG.find(s => s.id === item.item_id) || { name: '未知', img: '' };
-            const now = Date.now();
+            // 有植物状态
+            const config = SEED_CATALOG.find(s => s.id === item.item_id) || { name: '未知作物', img: '' };
             const isReady = now >= item.harvest_at;
             
-            // 计算进度
-            const total = item.harvest_at - item.created_at;
-            const passed = now - item.created_at;
-            let percent = Math.floor((passed / total) * 100);
-            if (percent > 100) percent = 100;
-            
             let statusHtml = '';
+            
             if (isReady) {
+                // 已成熟
                 div.className = 'home-slot ready-glow';
                 div.onclick = () => harvestSeed(i); // 点击收获
                 statusHtml = `<div style="color:#0f0; font-weight:bold; font-size:0.7rem; margin-top:5px;">[可收获]</div>`;
             } else {
+                // 生长中
                 div.className = 'home-slot';
+                // 计算剩余分钟
                 const leftMin = Math.ceil((item.harvest_at - now) / 60000);
+                
+                // 计算进度条
+                const totalTime = item.harvest_at - item.created_at;
+                const passedTime = now - item.created_at;
+                let percent = Math.floor((passedTime / totalTime) * 100);
+                if (percent > 100) percent = 100;
+                if (percent < 0) percent = 0;
+
                 statusHtml = `
                     <div class="xp-bar-bg" style="width:80%; height:3px; margin-top:5px; background:#333;">
                         <div class="xp-bar-fill" style="width:${percent}%; background:orange;"></div>
@@ -4248,11 +4262,12 @@ function renderHomeGrid(items) {
                 ${statusHtml}
             `;
         } else {
+            // 空闲状态
             div.className = 'home-slot empty';
             div.onclick = () => openSeedSelector(i); // 点击种植
             div.innerHTML = `
                 <div style="font-size:1.5rem; opacity:0.3;">+</div>
-                <div style="font-size:0.7rem; color:#444;">${i+1}</div>
+                <div style="font-size:0.7rem; color:#444;">${i + 1}</div>
             `;
         }
         
@@ -4260,48 +4275,59 @@ function renderHomeGrid(items) {
     }
 }
 
-// === 渲染打工状态 ===
 function renderWorkStatus(work) {
     const box = document.getElementById('work-status-box');
     
-    if (workTicker) clearInterval(workTicker); // 清除旧定时器
+    // 清理旧的定时器防止重叠
+    if (window.workTicker) clearInterval(window.workTicker);
     
     if (work) {
-        // 正在打工或已完成
-        const config = WORK_CATALOG[work.work_type];
-        const now = Date.now();
+        // === 当前有任务 ===
+        const config = WORK_CATALOG[work.work_type] || { name: '未知任务', reward: 0 };
         
-        if (now >= work.end_time) {
-            // 完成状态
+        // 🟢 核心修复：初始判断使用校准时间
+        let currentNow = Date.now() + (window.serverTimeOffset || 0);
+        
+        if (currentNow >= work.end_time) {
+            // 任务已完成
             box.innerHTML = `
                 <div class="glass-card" style="border-color:#0f0; text-align:center;">
                     <h3 style="color:#0f0; margin:0 0 10px 0;">✅ 任务完成: ${config.name}</h3>
-                    <button onclick="claimWorkResult()" class="cyber-btn" style="border-color:#0f0; color:#0f0;">领取报酬 (${config.reward} i)</button>
+                    <p style="font-size:0.8rem; color:#ccc;">报酬: ${config.reward} i币</p>
+                    <button onclick="claimWorkResult()" class="cyber-btn" style="border-color:#0f0; color:#0f0;">领取报酬</button>
                 </div>
             `;
         } else {
-            // 进行中
+            // 任务进行中
             const total = work.end_time - work.start_time;
             
-            // 启动倒计时刷新
+            // 定义倒计时刷新函数
             const updateTimer = () => {
-                const currentNow = Date.now();
-                if (currentNow >= work.end_time) {
-                    renderWorkStatus(work); // 刷新为完成态
+                // 🟢 核心修复：每次滴答都用校准时间
+                const tickNow = Date.now() + (window.serverTimeOffset || 0);
+                
+                if (tickNow >= work.end_time) {
+                    renderWorkStatus(work); // 时间到了，重新渲染为完成态
                     return;
                 }
-                const leftSec = Math.ceil((work.end_time - currentNow) / 1000);
-                const percent = Math.min(100, ((currentNow - work.start_time) / total) * 100);
                 
-                document.getElementById('work-timer-text').innerText = `${leftSec} s`;
-                document.getElementById('work-progress-bar').style.width = `${percent}%`;
+                const leftSec = Math.ceil((work.end_time - tickNow) / 1000);
+                let percent = ((tickNow - work.start_time) / total) * 100;
+                if (percent > 100) percent = 100;
+                
+                const timerText = document.getElementById('work-timer-text');
+                const progBar = document.getElementById('work-progress-bar');
+                
+                if(timerText) timerText.innerText = `${leftSec} s`;
+                if(progBar) progBar.style.width = `${percent}%`;
             };
             
+            // 渲染基本结构
             box.innerHTML = `
                 <div class="glass-card" style="text-align:center;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                         <span style="color:#00f3ff;">⚡ 正在运行: ${config.name}</span>
-                        <span id="work-timer-text" style="font-family:monospace;">...</span>
+                        <span id="work-timer-text" style="font-family:monospace;">计算中...</span>
                     </div>
                     <div class="xp-bar-bg" style="height:4px; margin-bottom:15px;">
                         <div id="work-progress-bar" class="xp-bar-fill rainbow-bar" style="width:0%"></div>
@@ -4309,11 +4335,13 @@ function renderWorkStatus(work) {
                     <button onclick="cancelWork()" class="mini-action-btn" style="color:#ff3333; border-color:#ff3333;">终止进程 (无收益)</button>
                 </div>
             `;
-            workTicker = setInterval(updateTimer, 1000);
-            updateTimer(); // 立即执行一次
+            
+            // 启动定时器
+            window.workTicker = setInterval(updateTimer, 1000);
+            updateTimer(); // 立即执行一次，避免显示1秒的“计算中”
         }
     } else {
-        // 空闲状态：显示任务列表
+        // === 当前无任务，显示列表 ===
         let html = '';
         for (const [key, val] of Object.entries(WORK_CATALOG)) {
             html += `
@@ -4329,11 +4357,6 @@ function renderWorkStatus(work) {
         box.innerHTML = html;
     }
 }
-
-// === 交互函数 ===
-
-// --- 修改 script.js ---
-
 // 1. 打开选择器 (slotIndex 为 -1 时表示一键种植)
 window.openSeedSelector = function(slotIndex) {
     const list = document.getElementById('seed-list');
@@ -5571,6 +5594,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
