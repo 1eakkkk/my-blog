@@ -2,37 +2,26 @@
 
 // === 1. 核心配置 ===
 const STOCKS_CONFIG = {
-    'BLUE': { 
-        name: '蓝盾安全', color: '#00f3ff', 
-        share_range: [1500000, 2000000], 
-        price_range: [800, 1200] 
-    },
-    'GOLD': { 
-        name: '神经元科技', color: '#ffd700', 
-        share_range: [1000000, 1500000], 
-        price_range: [2000, 3000] 
-    },
-    'RED':  { 
-        name: '荒坂军工', color: '#ff3333', 
-        share_range: [600000, 900000],   
-        price_range: [3500, 5000] 
-    }
+    'BLUE': { name: '蓝盾安全', color: '#00f3ff', share_range: [1500000, 2000000], price_range: [800, 1200] },
+    'GOLD': { name: '神经元科技', color: '#ffd700', share_range: [1000000, 1500000], price_range: [2000, 3000] },
+    'RED':  { name: '荒坂军工', color: '#ff3333', share_range: [600000, 900000], price_range: [3500, 5000] }
 };
 
-// === 2. 风控与交易限制 ===
-const TRADE_COOLDOWN = 45 * 1000;     
-const SHORT_HOLD_MIN = 60 * 1000;     
-const BASE_FEE_RATE = 0.01;           
-const MAX_HOLDING_PCT = 0.05;         
-const MAX_ORDER_PCT = 0.005;          
-const BANKRUPT_PCT = 0.2;             
+// === 2. 宏观纪元 (Macro Eras) ===
+// 每 3 天切换一次，影响全市场参数
+const MACRO_ERAS = [
+    { code: 'NEON_AGE', name: '霓虹盛世', desc: '科技繁荣，全市场波动率降低，利好科技股。', buff: { vol: 0.8, gold_bias: 1.2, red_bias: 0.8 } },
+    { code: 'CORP_WAR', name: '企业战争', desc: '局势动荡，军工股暴涨，消费股暴跌。', buff: { vol: 1.5, gold_bias: 0.7, red_bias: 1.3 } },
+    { code: 'DATA_CRASH', name: '数据大崩塌', desc: '大萧条，流动性枯竭，极易发生踩踏。', buff: { vol: 0.5, gold_bias: 0.9, red_bias: 0.9 } }
+];
 
-const MARKET_MODES = {
-    0: { name: '平衡市', code: 'NORMAL', depth_mod: 1.0, volatility: 1.0, icon: '🌤️' },
-    1: { name: '牛市',   code: 'BULL',   depth_mod: 1.5, volatility: 0.8, icon: '🔥' },
-    2: { name: '熊市',   code: 'BEAR',   depth_mod: 0.8, volatility: 1.2, icon: '❄️' },
-    3: { name: '低波市', code: 'QUIET',  depth_mod: 0.5, volatility: 0.5, icon: '🌫️' }
-};
+const TRADE_COOLDOWN = 45 * 1000;
+const SHORT_HOLD_MIN = 60 * 1000;
+const BASE_FEE_RATE = 0.01;
+const MAX_HOLDING_PCT = 0.05;
+const MAX_ORDER_PCT = 0.005;
+const BANKRUPT_PCT = 0.2;
+const INSIDER_COST_24H = 5000; // 订阅情报费用 (K币)
 
 const COMPANY_LEVELS = {
     0: { name: "皮包公司", margin_rate: 1.0, cost: 0 },
@@ -41,110 +30,92 @@ const COMPANY_LEVELS = {
     3: { name: "金融巨鳄", margin_rate: 0.85, cost: 50000 }
 };
 
+const MARKET_MODES = {
+    0: { name: '平衡市', code: 'NORMAL', depth_mod: 1.0, icon: '🌤️' },
+    1: { name: '牛市',   code: 'BULL',   depth_mod: 1.5, icon: '🔥' },
+    2: { name: '熊市',   code: 'BEAR',   depth_mod: 0.8, icon: '❄️' },
+    3: { name: '低波市', code: 'QUIET',  depth_mod: 0.5, icon: '🌫️' }
+};
+
+// 新闻库 (Factor: >1 利好, <1 利空)
 const NEWS_DB = {
     'BLUE': [
-        { weight: 20, factor: 1.1, msg: "季度财报显示现金流稳健。" },
-        { weight: 20, factor: 0.9, msg: "服务器维护成本略高于预期。" },
-        { weight: 10, factor: 1.3, msg: "获得政府防火墙二期工程订单。" },
-        { weight: 10, factor: 0.7, msg: "部分用户投诉误报率上升。" },
-        { weight: 5, factor: 1.6, msg: "发布量子加密算法，黑客渗透率归零。" },
-        { weight: 5, factor: 0.4, msg: "核心数据库遭受 DDoS 攻击，服务中断！" },
-        { weight: 1, factor: 2.0, msg: "【重磅】市政厅宣布其为唯一安全供应商！" },
-        { weight: 1, factor: 0.1, msg: "【突发】0-day 漏洞数据泄露，面临巨额索赔！" }
+        { weight: 20, factor: 1.1, msg: "季度财报显示现金流稳健。" }, { weight: 20, factor: 0.9, msg: "服务器维护成本略高于预期。" },
+        { weight: 10, factor: 1.3, msg: "获得政府防火墙二期工程订单。" }, { weight: 10, factor: 0.7, msg: "部分用户投诉误报率上升。" },
+        { weight: 5, factor: 1.6, msg: "发布量子加密算法，渗透率归零。" }, { weight: 5, factor: 0.4, msg: "核心数据库遭受 DDoS 攻击！" },
+        { weight: 1, factor: 2.0, msg: "【重磅】市政厅宣布其为唯一安全供应商！" }, { weight: 1, factor: 0.1, msg: "【突发】0-day 漏洞数据泄露，面临巨额索赔！" }
     ],
     'GOLD': [
-        { weight: 20, factor: 1.1, msg: "义体原材料成本下降。" },
-        { weight: 20, factor: 0.9, msg: "医保法案推迟，影响报销。" },
-        { weight: 10, factor: 1.4, msg: "新款义体‘赫尔墨斯’销量增长。" },
-        { weight: 10, factor: 0.6, msg: "数千名用户投诉芯片过热。" },
-        { weight: 5, factor: 1.7, msg: "排异反应抑制剂通过临床三期！" },
-        { weight: 5, factor: 0.3, msg: "被曝在贫民窟进行非法实验。" },
-        { weight: 1, factor: 2.5, msg: "【神迹】宣布实现完美意识上传！" },
-        { weight: 1, factor: 0.05, msg: "【灾难】核心 AI 产生自我意识并反叛！" }
+        { weight: 20, factor: 1.1, msg: "义体原材料成本下降。" }, { weight: 20, factor: 0.9, msg: "医保法案推迟，影响报销。" },
+        { weight: 10, factor: 1.4, msg: "新款义体‘赫尔墨斯’销量增长。" }, { weight: 10, factor: 0.6, msg: "数千名用户投诉芯片过热。" },
+        { weight: 5, factor: 1.7, msg: "排异反应抑制剂通过临床三期！" }, { weight: 5, factor: 0.3, msg: "被曝在贫民窟进行非法实验。" },
+        { weight: 1, factor: 2.5, msg: "【神迹】宣布实现完美意识上传！" }, { weight: 1, factor: 0.05, msg: "【灾难】核心 AI 产生自我意识并反叛！" }
     ],
     'RED': [
-        { weight: 20, factor: 1.1, msg: "边境摩擦带来少量订单。" },
-        { weight: 20, factor: 0.9, msg: "一批常规弹药运输延误。" },
-        { weight: 10, factor: 1.4, msg: "成功镇压局部暴乱。" },
-        { weight: 10, factor: 0.6, msg: "反战组织举行大规模抗议。" },
-        { weight: 5, factor: 1.8, msg: "发布‘半人马’机甲，威慑力拉满。" },
-        { weight: 5, factor: 0.2, msg: "国际法庭冻结其海外资产。" },
-        { weight: 1, factor: 3.0, msg: "【战争】第四次企业战争爆发！订单激增！" },
-        { weight: 1, factor: 0.05, msg: "【覆灭】内部爆发夺权内战，业务瘫痪！" }
+        { weight: 20, factor: 1.1, msg: "边境摩擦带来少量订单。" }, { weight: 20, factor: 0.9, msg: "一批常规弹药运输延误。" },
+        { weight: 10, factor: 1.4, msg: "成功镇压局部暴乱。" }, { weight: 10, factor: 0.6, msg: "反战组织举行大规模抗议。" },
+        { weight: 5, factor: 1.8, msg: "发布‘半人马’机甲，威慑力拉满。" }, { weight: 5, factor: 0.2, msg: "国际法庭冻结其海外资产。" },
+        { weight: 1, factor: 3.0, msg: "【战争】第四次企业战争爆发！" }, { weight: 1, factor: 0.05, msg: "【覆灭】内部爆发夺权内战，业务瘫痪！" }
     ]
 };
 
 function randRange(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function getBJTime(ts) { return new Date(ts + (8 * 60 * 60 * 1000)); }
 function getBJHour(ts) { return getBJTime(ts).getUTCHours(); }
-
 function calculatePositionValue(pos, currentPrice) {
-    const qty = pos.amount;
-    const avg = pos.avg_price;
-    const lev = pos.leverage || 1;
+    const qty = pos.amount; const avg = pos.avg_price; const lev = pos.leverage || 1;
     const principal = (avg * Math.abs(qty)) / lev;
-    let profit = 0;
-    if (qty > 0) profit = (currentPrice - avg) * qty;
-    else profit = (avg - currentPrice) * Math.abs(qty);
+    let profit = (qty > 0) ? (currentPrice - avg) * qty : (avg - currentPrice) * Math.abs(qty);
     return Math.floor(principal + profit);
+}
+
+// 计算当前宏观纪元
+function getCurrentEra(now) {
+    // 每 3 天 (72小时) 切换一次
+    const dayIndex = Math.floor(now / (1000 * 60 * 60 * 24 * 3));
+    return MACRO_ERAS[dayIndex % MACRO_ERAS.length];
 }
 
 function getMarketMode(symbol, now) {
     const dateStr = new Date(now + 8*3600*1000).toISOString().split('T')[0];
-    let hash = 0;
-    const seed = dateStr + symbol;
+    let hash = 0; const seed = dateStr + symbol;
     for (let i = 0; i < seed.length; i++) { hash = seed.charCodeAt(i) + ((hash << 5) - hash); }
-    const modeIndex = Math.abs(hash) % 4;
-    return MARKET_MODES[modeIndex];
+    return MARKET_MODES[Math.abs(hash) % 4];
 }
 
 function pickWeightedNews(symbol) {
-    const list = NEWS_DB[symbol];
-    if (!list) return null;
+    const list = NEWS_DB[symbol]; if (!list) return null;
     let total = list.reduce((a, b) => a + b.weight, 0);
     let r = Math.random() * total;
-    for (let item of list) {
-        r -= item.weight;
-        if (r <= 0) return item;
-    }
+    for (let item of list) { r -= item.weight; if (r <= 0) return item; }
     return list[0];
 }
 
 async function ensureSchema(db) {
-    try { await db.prepare("SELECT total_shares FROM market_state LIMIT 1").first(); } 
-    catch (e) { 
-        try { 
-            await db.batch([
-                db.prepare("ALTER TABLE market_state ADD COLUMN accumulated_pressure INTEGER DEFAULT 0"),
-                db.prepare("ALTER TABLE market_state ADD COLUMN last_news_time INTEGER DEFAULT 0"),
-                db.prepare("ALTER TABLE market_state ADD COLUMN total_shares INTEGER DEFAULT 1000000"),
-                db.prepare("ALTER TABLE market_state ADD COLUMN issuance_price INTEGER DEFAULT 1000")
-            ]); 
-        } catch (err) {} 
-    }
-    try { await db.prepare("SELECT id FROM market_logs LIMIT 1").first(); } 
-    catch (e) { try { await db.prepare(`CREATE TABLE IF NOT EXISTS market_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, msg TEXT, type TEXT, created_at INTEGER)`).run(); } catch(err) {} }
-    try { await db.prepare("SELECT strategy FROM user_companies LIMIT 1").first(); } 
-    catch (e) { try { await db.prepare("ALTER TABLE user_companies ADD COLUMN strategy TEXT DEFAULT '{\"risk\":\"normal\",\"level\":0}'").run(); } catch(err) {} }
-    try { await db.prepare("SELECT last_trade_time FROM company_positions LIMIT 1").first(); }
-    catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN last_trade_time INTEGER DEFAULT 0").run(); } catch(err) {} }
+    try { await db.prepare("SELECT total_shares FROM market_state LIMIT 1").first(); } catch (e) { try { await db.batch([db.prepare("ALTER TABLE market_state ADD COLUMN accumulated_pressure INTEGER DEFAULT 0"), db.prepare("ALTER TABLE market_state ADD COLUMN last_news_time INTEGER DEFAULT 0"), db.prepare("ALTER TABLE market_state ADD COLUMN total_shares INTEGER DEFAULT 1000000"), db.prepare("ALTER TABLE market_state ADD COLUMN issuance_price INTEGER DEFAULT 1000")]); } catch (err) {} }
+    try { await db.prepare("SELECT id FROM market_logs LIMIT 1").first(); } catch (e) { try { await db.prepare(`CREATE TABLE IF NOT EXISTS market_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, msg TEXT, type TEXT, created_at INTEGER)`).run(); } catch(err) {} }
+    try { await db.prepare("SELECT strategy FROM user_companies LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE user_companies ADD COLUMN strategy TEXT DEFAULT '{\"risk\":\"normal\",\"level\":0}'").run(); } catch(err) {} }
+    try { await db.prepare("SELECT last_trade_time FROM company_positions LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN last_trade_time INTEGER DEFAULT 0").run(); } catch(err) {} }
+    try { await db.prepare("SELECT insider_exp FROM users LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE users ADD COLUMN insider_exp INTEGER DEFAULT 0").run(); } catch(err) {} }
 }
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v9_stable"; 
+    const CACHE_KEY = "market_v10_final"; // Key Update
     let cachedData = null;
     if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
 
     const bjHour = getBJHour(now);
     const isMarketClosed = (bjHour >= 2 && bjHour < 6);
+    const currentEra = getCurrentEra(now);
 
     let states = await db.prepare("SELECT * FROM market_state").all();
     let marketMap = {};
     let updates = [];
     let logsToWrite = []; 
 
+    // 初始化
     if (states.results.length === 0) {
         const batch = [];
         for (let sym in STOCKS_CONFIG) {
@@ -156,9 +127,10 @@ async function getOrUpdateMarket(env, db) {
             marketMap[sym] = { p: price, base: price, shares, issue_p: price, t: now, open: price, suspended: 0, pressure: 0, mode: getMarketMode(sym, now) };
         }
         await db.batch(batch);
-        return { market: marketMap, status: { isOpen: !isMarketClosed } };
+        return { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
     }
 
+    // 每日结算
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000);
     if (isNewDay) {
         let totalDividends = 0;
@@ -168,10 +140,9 @@ async function getOrUpdateMarket(env, db) {
                 const conf = STOCKS_CONFIG[sym];
                 const newShares = randRange(conf.share_range[0], conf.share_range[1]);
                 const newPrice = randRange(conf.price_range[0], conf.price_range[1]);
-                updates.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0, total_shares=?, issuance_price=? WHERE symbol=?")
-                    .bind(newPrice, newPrice, newPrice, now, newShares, newPrice, sym));
+                updates.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0, total_shares=?, issuance_price=? WHERE symbol=?").bind(newPrice, newPrice, newPrice, now, newShares, newPrice, sym));
                 updates.push(db.prepare("DELETE FROM market_history WHERE symbol = ?").bind(sym));
-                logsToWrite.push({sym, msg: `【重组上市】${STOCKS_CONFIG[sym].name} 完成资产重组，重新挂牌。`, type: 'good', t: now});
+                logsToWrite.push({sym, msg: `【重组上市】${STOCKS_CONFIG[sym].name} 完成重组，进入 ${currentEra.name} 纪元。`, type: 'good', t: now});
                 continue;
             }
             const holders = await db.prepare(`SELECT uc.user_id, cp.amount FROM company_positions cp JOIN user_companies uc ON cp.company_id = uc.id WHERE cp.stock_symbol = ? AND cp.amount > 0`).bind(sym).all();
@@ -189,9 +160,10 @@ async function getOrUpdateMarket(env, db) {
 
     if (isMarketClosed) {
         if (updates.length > 0) await db.batch(updates);
-        return { market: {}, status: { isOpen: false } };
+        return { market: {}, status: { isOpen: false }, era: currentEra };
     }
 
+    // === 核心模拟 ===
     for (let s of states.results) {
         const sym = s.symbol;
         const mode = getMarketMode(sym, now);
@@ -222,56 +194,63 @@ async function getOrUpdateMarket(env, db) {
             simT += 60000;
             const isCatchUp = (i < missed - 1); 
 
-            let buyDepth = totalShares * 0.01 * mode.depth_mod;
-            let sellDepth = totalShares * 0.01 * mode.depth_mod;
+            // 1. 深度基准 (受宏观纪元影响)
+            let eraBias = 1.0;
+            if (sym === 'GOLD') eraBias = currentEra.buff.gold_bias;
+            if (sym === 'RED') eraBias = currentEra.buff.red_bias;
+            
+            let buyDepth = totalShares * 0.01 * mode.depth_mod * eraBias;
+            let sellDepth = totalShares * 0.01 * mode.depth_mod * eraBias;
             let newsMsg = null;
 
+            // 2. 新闻 (受宏观波动率影响)
             if (!isCatchUp && (simT - nextNewsT >= 300000)) {
                 if (Math.random() < 0.15) { 
                     nextNewsT = simT;
                     const news = pickWeightedNews(sym);
                     if (news) {
                         newsMsg = news;
-                        if (news.factor > 1) { 
-                            buyDepth *= news.factor; 
-                            sellDepth *= (1 / news.factor);
-                        } else { 
-                            sellDepth *= (1 / news.factor); 
-                            buyDepth *= news.factor;
-                        }
+                        if (news.factor > 1) { buyDepth *= news.factor; sellDepth *= (1 / news.factor); } 
+                        else { sellDepth *= (1 / news.factor); buyDepth *= news.factor; }
                     }
                 }
             }
 
+            // 3. 做市商机器人 (Market Maker) - 注入微小流动性，防止僵尸股
+            if (!isCatchUp && currentPressure === 0 && !newsMsg) {
+                // 随机制造一点点多空不平衡
+                const botVol = (Math.random() - 0.5) * totalShares * 0.0005; // 万分之5的波动
+                if (botVol > 0) buyDepth += botVol;
+                else sellDepth += Math.abs(botVol);
+            }
+
+            // 4. 玩家压力
             if (i === 0) {
                 if (currentPressure > 0) buyDepth += currentPressure;
                 else sellDepth += Math.abs(currentPressure);
             }
 
-            const delta = (buyDepth - sellDepth) / totalShares * 2.0; 
+            // 5. 撮合
+            const delta = (buyDepth - sellDepth) / totalShares * 2.0 * currentEra.buff.vol; // 宏观波动率
             const clampedDelta = Math.max(-0.1, Math.min(0.1, delta));
             const noise = (Math.random() - 0.5) * 0.004;
-
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
 
             if (newsMsg) {
                 logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 1 ? 'good' : 'bad', t: simT});
             }
 
+            // 6. 破产
             if (curP < issuePrice * BANKRUPT_PCT) {
                 const refundRate = 0.3; 
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * avg_price * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refundRate, sym, sym));
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
-                
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(curP, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
-                
-                logsToWrite.push({sym, msg: `【破产清算】股价击穿红线，强制退市。所有持仓按 30% 退回。`, type: 'bad', t: simT});
-                
+                logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。持仓按 30% 退回。`, type: 'bad', t: simT});
                 marketMap[sym].suspended = 1; marketMap[sym].p = curP;
                 break;
             }
-
             updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
         }
 
@@ -285,7 +264,7 @@ async function getOrUpdateMarket(env, db) {
     if (Math.random() < 0.05) updates.push(db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(now - 3600000));
     if (updates.length > 0) await db.batch(updates);
 
-    const result = { market: marketMap, status: { isOpen: true } };
+    const result = { market: marketMap, status: { isOpen: true }, era: currentEra };
     if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     return result;
 }
@@ -302,7 +281,7 @@ export async function onRequest(context) {
         
         let user = null;
         try {
-            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
         } catch (e) {
             user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
             if (user) user.role = 'user';
@@ -311,16 +290,15 @@ export async function onRequest(context) {
 
         const company = await db.prepare("SELECT * FROM user_companies WHERE user_id = ?").bind(user.id).first();
         const method = request.method;
-        const { market, status } = await getOrUpdateMarket(env, db);
+        const { market, status, era } = await getOrUpdateMarket(env, db);
 
-        let companyData = null;
-        let companyLevel = 0;
+        // 检查情报订阅状态
+        const isInsider = user.insider_exp > Date.now();
+
+        let companyData = null; let companyLevel = 0;
         if (company) {
-            try {
-                const stratObj = JSON.parse(company.strategy || "{}");
-                companyData = stratObj;
-                companyLevel = stratObj.level || 0;
-            } catch(e) { companyData = { risk: company.strategy, level: 0 }; }
+            try { const stratObj = JSON.parse(company.strategy || "{}"); companyData = stratObj; companyLevel = stratObj.level || 0; } 
+            catch(e) { companyData = { risk: company.strategy, level: 0 }; }
         }
 
         if (method === 'GET') {
@@ -329,12 +307,8 @@ export async function onRequest(context) {
             if (hasCompany) {
                 positions = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
                 let totalEquity = company.capital; 
-                positions.forEach(pos => {
-                    const currentP = market[pos.stock_symbol] ? market[pos.stock_symbol].p : 0;
-                    totalEquity += calculatePositionValue(pos, currentP);
-                });
-                const bankruptLine = 0;
-                if (totalEquity <= bankruptLine) {
+                positions.forEach(pos => { totalEquity += calculatePositionValue(pos, market[pos.stock_symbol] ? market[pos.stock_symbol].p : 0); });
+                if (totalEquity <= 0) {
                     await db.batch([db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id), db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id)]);
                     return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: `公司净值归零，宣告破产。` } });
                 }
@@ -345,11 +319,21 @@ export async function onRequest(context) {
             for (let sym in STOCKS_CONFIG) {
                 chartData[sym] = historyResults.results.filter(r => r.symbol === sym);
                 if (chartData[sym].length === 0 && market[sym]) chartData[sym] = [{ t: market[sym].t, p: market[sym].p }];
+                
+                // === 情报系统核心：如果不是Insider，隐藏真实压力值 ===
+                let pressureVal = market[sym] ? market[sym].pressure : 0;
+                if (!isInsider) {
+                    // 普通人只能看到模糊的趋势 (-1, 0, 1)
+                    if (pressureVal > 500) pressureVal = 999; 
+                    else if (pressureVal < -500) pressureVal = -999;
+                    else pressureVal = 0;
+                }
+
                 stockMeta[sym] = { 
                     open: market[sym] ? market[sym].open : 0, 
                     suspended: market[sym] ? market[sym].suspended : 0,
                     mode: market[sym] ? market[sym].mode : MARKET_MODES[0],
-                    pressure: market[sym] ? market[sym].pressure : 0,
+                    pressure: pressureVal, 
                     shares: market[sym] ? market[sym].shares : 1000000,
                     issue_p: market[sym] ? market[sym].issue_p : 1000
                 };
@@ -357,7 +341,7 @@ export async function onRequest(context) {
             const logsRes = await db.prepare("SELECT * FROM market_logs WHERE created_at < ? ORDER BY created_at DESC LIMIT 20").bind(Date.now()).all();
             const logs = logsRes.results.map(l => ({ time: l.created_at, msg: l.msg, type: l.type }));
 
-            return Response.json({ success: true, hasCompany, bankrupt: false, market: chartData, meta: stockMeta, news: logs, positions, capital: hasCompany ? company.capital : 0, companyType: hasCompany ? company.type : 'none', companyLevel: companyLevel, userK: user.k_coins || 0, userExp: user.xp || 0, status });
+            return Response.json({ success: true, hasCompany, bankrupt: false, market: chartData, meta: stockMeta, news: logs, positions, capital: hasCompany ? company.capital : 0, companyType: hasCompany ? company.type : 'none', companyLevel: companyLevel, userK: user.k_coins || 0, userExp: user.xp || 0, status, era, isInsider });
         }
 
         if (method === 'POST') {
@@ -365,9 +349,13 @@ export async function onRequest(context) {
             const { action, symbol, amount, leverage = 1 } = body;
             const userNameDisplay = user.nickname || user.username;
 
-            // === 1. 优先处理不需要公司存在的操作 ===
-            
-            // 管理员重置
+            if (action === 'buy_insider') {
+                if (user.k_coins < INSIDER_COST_24H) return Response.json({ error: `K币不足 (需 ${INSIDER_COST_24H} k)` });
+                const newExp = Date.now() + 24 * 60 * 60 * 1000;
+                await db.prepare("UPDATE users SET k_coins = k_coins - ?, insider_exp = ? WHERE id = ?").bind(INSIDER_COST_24H, newExp, user.id).run();
+                return Response.json({ success: true, message: "已接入情报网络，持续24小时。" });
+            }
+
             if (action === 'admin_reset') {
                 if (user.role !== 'admin') return Response.json({ error: '权限不足' }, { status: 403 });
                 const now = Date.now();
@@ -379,19 +367,16 @@ export async function onRequest(context) {
                     const conf = STOCKS_CONFIG[sym];
                     const newShares = randRange(conf.share_range[0], conf.share_range[1]);
                     const newPrice = randRange(conf.price_range[0], conf.price_range[1]);
-                    
-                    batch.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0, total_shares=?, issuance_price=? WHERE symbol=?")
-                        .bind(newPrice, newPrice, newPrice, now, newShares, newPrice, sym));
+                    batch.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0, total_shares=?, issuance_price=? WHERE symbol=?").bind(newPrice, newPrice, newPrice, now, newShares, newPrice, sym));
                     batch.push(db.prepare("DELETE FROM market_history WHERE symbol = ?").bind(sym));
                     batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, newPrice, now));
                     batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【管理员】${conf.name} 强制重组上市。`, 'good', now));
                 }
-                if (env.KV) await env.KV.delete("market_v9_stable");
+                if (env.KV) await env.KV.delete("market_v10_final");
                 await db.batch(batch);
                 return Response.json({ success: true, message: '重组完成' });
             }
 
-            // 货币兑换 (i -> k, exp -> k)
             if (action === 'convert') {
                  const { type, val } = body; const num = parseInt(val);
                  if (type === 'i_to_k') {
@@ -404,7 +389,6 @@ export async function onRequest(context) {
                  return Response.json({ success: true, message: '兑换成功' });
             }
 
-            // 创建公司
             if (action === 'create') {
                 if (company) return Response.json({ error: '已有公司' });
                 if ((user.k_coins || 0) < 3000) return Response.json({ error: 'k币不足' });
@@ -416,7 +400,6 @@ export async function onRequest(context) {
                 return Response.json({ success: true, message: '注册成功' });
             }
 
-            // === 2. 之后的操作必须有公司 ===
             if (!company) return Response.json({ error: '无公司' });
 
             if (action === 'upgrade_company') {
@@ -499,7 +482,7 @@ export async function onRequest(context) {
                 if (action === 'buy') {
                     const margin = Math.floor((curP * qty) / lev * marginRate);
                     const totalCost = margin + fee;
-                    if (company.capital < totalCost) return Response.json({ error: `公司账户余额不足 (需 ${totalCost})` });
+                    if (company.capital < totalCost) return Response.json({ error: `公司账户余额不足 (需 ${totalCost} i, 含税)` });
                     if (pos && curHold < 0) return Response.json({ error: '请先平空' });
                     
                     batch.push(db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(totalCost, company.id));
@@ -515,10 +498,10 @@ export async function onRequest(context) {
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
                 }
                 else if (action === 'sell') {
-                    if (curHold <= 0) { // 开空
+                    if (curHold <= 0) { 
                         const margin = Math.floor((curP * qty) / lev * marginRate);
                         const totalCost = margin + fee;
-                        if (company.capital < totalCost) return Response.json({ error: `公司账户余额不足 (需 ${totalCost}, 含税)` });
+                        if (company.capital < totalCost) return Response.json({ error: `公司账户余额不足 (需 ${totalCost} i, 含税)` });
                         
                         batch.push(db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(totalCost, company.id));
                         if (pos) {
@@ -531,7 +514,7 @@ export async function onRequest(context) {
                         }
                         logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol}`;
                         batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
-                    } else { // 平多
+                    } else { 
                         if (qty > curHold) return Response.json({ error: '持仓不足' });
                         const prin = (pos.avg_price * qty) / pos.leverage * marginRate;
                         const prof = (curP - pos.avg_price) * qty;
@@ -543,7 +526,7 @@ export async function onRequest(context) {
                         batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
                     }
                 }
-                else if (action === 'cover') { // 平空
+                else if (action === 'cover') { 
                     if (curHold >= 0) return Response.json({ error: '无空单' });
                     if (qty > Math.abs(curHold)) return Response.json({ error: '超出持仓' });
                     const prin = (pos.avg_price * qty) / pos.leverage * marginRate;
@@ -558,7 +541,7 @@ export async function onRequest(context) {
 
                 batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
                 await db.batch(batch);
-                if (env.KV) await env.KV.delete("market_v9_stable");
+                if (env.KV) await env.KV.delete("market_v10_final");
                 return Response.json({ success: true, message: `交易成功 (滑点费率 ${(feeRate*100).toFixed(2)}%)`, log: logMsg });
             }
             
