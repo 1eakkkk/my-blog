@@ -4992,17 +4992,17 @@ window.loadStockMarket = async function() {
             // 8. 刷新资金显示 (分离 现金 和 净值)
             if(document.getElementById('bizCapital')) {
                 // 现金 (可用资金)
-                document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
+                document.getElementById('bizCapital').innerText = Math.floor(data.capital).toLocaleString();
             }
             if(document.getElementById('bizTotalEquity')) {
                 // 净值 (现金 + 持仓)
                 const equity = data.totalEquity !== undefined ? data.totalEquity : data.capital;
-                document.getElementById('bizTotalEquity').innerText = equity.toLocaleString();
+                document.getElementById('bizTotalEquity').innerText = Math.floor(equity).toLocaleString();
             }
             
             // 刷新 K 币
             const kDisplay = document.getElementById('userKCoinsDisplay');
-            if (kDisplay && data.userK !== undefined) kDisplay.innerText = data.userK.toLocaleString();
+            if (kDisplay && data.userK !== undefined) kDisplay.innerText = Math.floor(data.userK).toLocaleString();
 
             // 9. 绑定图表交互事件 (防止多次绑定)
             if (canvas && !canvas.dataset.listening) {
@@ -5081,7 +5081,7 @@ function handleTouch(e) {
 }
 
 function disableTrading(disabled) {
-    const els = document.querySelectorAll('#stockTradeAmount, button[onclick^="tradeStock"]');
+    const els = document.querySelectorAll('#stockTradeAmount, button[onclick^=""]');
     els.forEach(e => e.disabled = disabled);
 }
 
@@ -5184,7 +5184,19 @@ function drawInteractiveChart(symbol, mousePos) {
         return; 
     }
 
-    const data = marketData[symbol]; 
+    const rawData = marketData[symbol];
+    const uniqueMap = new Map();
+    
+    rawData.forEach(d => {
+        // 将时间戳抹平到分钟 (去掉秒和毫秒)
+        // 例如 14:38:15 -> 14:38:00
+        const minuteKey = Math.floor(d.t / 60000) * 60000;
+        // Map 会自动覆盖旧值，所以最后留下的就是该分钟最新的点
+        uniqueMap.set(minuteKey, { t: minuteKey, p: d.p });
+    });
+    
+    // 转回数组并按时间排序
+    const data = Array.from(uniqueMap.values()).sort((a, b) => a.t - b.t);
 
     // 3. 计算极值
     let minP = Infinity, maxP = -Infinity;
@@ -5539,13 +5551,64 @@ window.setLeverage = function(val, btn) {
 };
 
 
+// === 交易核心函数 (增加确认弹窗) ===
 window.tradeStock = async function(action) {
+    // 1. 获取输入数据
     const amountVal = document.getElementById('stockTradeAmount').value;
     const amount = parseInt(amountVal);
     const leverage = parseInt(document.getElementById('stockLeverage').value); // 获取杠杆
     
+    // 2. 基础校验
     if (!amount || amount <= 0) return showToast("请输入有效数量", "error");
+    if (!currentStockSymbol) return showToast("请先选择股票", "error");
+
+    // 3. 计算预估数据 (用于弹窗)
+    // 确保 marketData 存在
+    if (!marketData || !marketData[currentStockSymbol] || marketData[currentStockSymbol].length === 0) {
+        return showToast("正在同步行情，请稍后...", "error");
+    }
+    const curP = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
+    const orderVal = curP * amount;
     
+    // 估算手续费 (含滑点)
+    const meta = stockMeta[currentStockSymbol];
+    const totalShares = meta ? meta.shares : 1000000;
+    const slippage = (amount / totalShares) * 5; 
+    const feeRate = 0.005 + slippage;
+    const fee = Math.floor(orderVal * feeRate);
+    
+    // 计算总资金占用 (如果是买入/开空，需算保证金)
+    const marginRate = 1.0; // 简化显示，或者从 companyInfo 获取等级折扣
+    const margin = Math.floor((orderVal / leverage) * marginRate);
+    const totalCost = margin + fee;
+
+    // 4. 构建确认文案
+    const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
+    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+    
+    let confirmMsg = `【交易确认】\n\n`;
+    confirmMsg += `标的：${nameMap[currentStockSymbol]} (${currentStockSymbol})\n`;
+    confirmMsg += `方向：${actionMap[action]}\n`;
+    confirmMsg += `数量：${amount.toLocaleString()} 股\n`;
+    confirmMsg += `现价：${curP}\n`;
+    confirmMsg += `----------------\n`;
+    
+    if (action === 'buy' || (action === 'sell' && (!myPositions || !myPositions.find(p=>p.stock_symbol===currentStockSymbol && p.amount>0)))) {
+        // 开仓类操作
+        confirmMsg += `预估保证金：${margin.toLocaleString()} i\n`;
+        confirmMsg += `预估手续费：${fee.toLocaleString()} i (${(feeRate*100).toFixed(2)}%)\n`;
+        confirmMsg += `总计扣款：${totalCost.toLocaleString()} i\n`;
+    } else {
+        // 平仓类操作
+        confirmMsg += `预估手续费：${fee.toLocaleString()} i\n`;
+    }
+    
+    confirmMsg += `\n确认执行吗？`;
+
+    // 5. 弹出确认框
+    if (!confirm(confirmMsg)) return;
+
+    // 6. 发送请求
     try {
         const res = await fetch(`${API_BASE}/stock`, {
             method: 'POST',
@@ -5554,16 +5617,21 @@ window.tradeStock = async function(action) {
                 action, 
                 symbol: currentStockSymbol, 
                 amount, 
-                leverage: leverage // 传给后端
+                leverage: leverage 
             })
         });
         const data = await res.json();
         
         if (data.success) {
             showToast(data.message, "success");
+            // 清空输入框并添加日志
             document.getElementById('stockTradeAmount').value = '';
-            addUserLog(data.log, (action === 'buy' || action === 'cover') ? 'buy' : 'sell');
-            loadBusiness(); // 刷新全页数据
+            // 乐观更新日志 (可选)
+            if(typeof addUserLog === 'function') {
+                addUserLog(data.log, (action === 'buy' || action === 'cover') ? 'buy' : 'sell');
+            }
+            // 立即刷新数据
+            loadStockMarket(); 
         } else {
             showToast(data.error, "error");
         }
@@ -6344,6 +6412,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
