@@ -1,37 +1,36 @@
 // --- START OF FILE functions/api/stock.js ---
 
-// === 1. 核心配置 (数值策划) ===
+// === 1. 核心配置 ===
 const STOCKS_CONFIG = {
     'BLUE': { 
         name: '蓝盾安全', color: '#00f3ff', 
-        share_range: [1500000, 2000000], // 大盘股
+        share_range: [1500000, 2000000], 
         price_range: [800, 1200] 
     },
     'GOLD': { 
         name: '神经元科技', color: '#ffd700', 
-        share_range: [1000000, 1500000], // 中盘股
+        share_range: [1000000, 1500000], 
         price_range: [2000, 3000] 
     },
     'RED':  { 
         name: '荒坂军工', color: '#ff3333', 
-        share_range: [600000, 900000],   // 小盘股 (易暴涨暴跌)
+        share_range: [600000, 900000],   
         price_range: [3500, 5000] 
     }
 };
 
-// === 2. 风控与交易限制 (致命漏洞补丁) ===
-const TRADE_COOLDOWN = 45 * 1000;     // 交易冷却 45s
-const SHORT_HOLD_MIN = 60 * 1000;     // 做空锁仓 60s
-const BASE_FEE_RATE = 0.01;           // 基础手续费 1%
-const MAX_HOLDING_PCT = 0.05;         // 单人最大持仓 5% (反垄断)
-const MAX_ORDER_PCT = 0.005;          // 单笔最大交易量 0.5% (防瞬间击穿)
-const BANKRUPT_PCT = 0.2;             // 破产线：发行价的 20%
+// === 2. 风控与交易限制 ===
+const TRADE_COOLDOWN = 45 * 1000;     
+const SHORT_HOLD_MIN = 60 * 1000;     
+const BASE_FEE_RATE = 0.01;           
+const MAX_HOLDING_PCT = 0.05;         
+const MAX_ORDER_PCT = 0.005;          
+const BANKRUPT_PCT = 0.2;             
 
-// 市场天气 (影响波动率和深度)
 const MARKET_MODES = {
     0: { name: '平衡市', code: 'NORMAL', depth_mod: 1.0, volatility: 1.0, icon: '🌤️' },
-    1: { name: '牛市',   code: 'BULL',   depth_mod: 1.5, volatility: 0.8, icon: '🔥' }, // 深度深，难砸盘
-    2: { name: '熊市',   code: 'BEAR',   depth_mod: 0.8, volatility: 1.2, icon: '❄️' }, // 深度浅，易暴跌
+    1: { name: '牛市',   code: 'BULL',   depth_mod: 1.5, volatility: 0.8, icon: '🔥' },
+    2: { name: '熊市',   code: 'BEAR',   depth_mod: 0.8, volatility: 1.2, icon: '❄️' },
     3: { name: '低波市', code: 'QUIET',  depth_mod: 0.5, volatility: 0.5, icon: '🌫️' }
 };
 
@@ -42,7 +41,6 @@ const COMPANY_LEVELS = {
     3: { name: "金融巨鳄", margin_rate: 0.85, cost: 50000 }
 };
 
-// 新闻库 (Factor = 深度乘数。 >1 利好买盘增厚， <1 利空卖盘增厚)
 const NEWS_DB = {
     'BLUE': [
         { weight: 20, factor: 1.1, msg: "季度财报显示现金流稳健。" },
@@ -124,14 +122,17 @@ async function ensureSchema(db) {
             ]); 
         } catch (err) {} 
     }
-    // 其他表检查略，假设已存在
+    try { await db.prepare("SELECT id FROM market_logs LIMIT 1").first(); } 
+    catch (e) { try { await db.prepare(`CREATE TABLE IF NOT EXISTS market_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, msg TEXT, type TEXT, created_at INTEGER)`).run(); } catch(err) {} }
+    try { await db.prepare("SELECT strategy FROM user_companies LIMIT 1").first(); } 
+    catch (e) { try { await db.prepare("ALTER TABLE user_companies ADD COLUMN strategy TEXT DEFAULT '{\"risk\":\"normal\",\"level\":0}'").run(); } catch(err) {} }
     try { await db.prepare("SELECT last_trade_time FROM company_positions LIMIT 1").first(); }
     catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN last_trade_time INTEGER DEFAULT 0").run(); } catch(err) {} }
 }
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v9_stable"; // Key Update
+    const CACHE_KEY = "market_v9_stable"; 
     let cachedData = null;
     if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
@@ -144,7 +145,6 @@ async function getOrUpdateMarket(env, db) {
     let updates = [];
     let logsToWrite = []; 
 
-    // 初始化
     if (states.results.length === 0) {
         const batch = [];
         for (let sym in STOCKS_CONFIG) {
@@ -159,13 +159,12 @@ async function getOrUpdateMarket(env, db) {
         return { market: marketMap, status: { isOpen: !isMarketClosed } };
     }
 
-    // 每日重置/分红
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000);
     if (isNewDay) {
         let totalDividends = 0;
         for (let s of states.results) {
             const sym = s.symbol;
-            if (s.is_suspended === 1) { // 破产重组
+            if (s.is_suspended === 1) { 
                 const conf = STOCKS_CONFIG[sym];
                 const newShares = randRange(conf.share_range[0], conf.share_range[1]);
                 const newPrice = randRange(conf.price_range[0], conf.price_range[1]);
@@ -175,7 +174,6 @@ async function getOrUpdateMarket(env, db) {
                 logsToWrite.push({sym, msg: `【重组上市】${STOCKS_CONFIG[sym].name} 完成资产重组，重新挂牌。`, type: 'good', t: now});
                 continue;
             }
-            // 简单分红 0.3%
             const holders = await db.prepare(`SELECT uc.user_id, cp.amount FROM company_positions cp JOIN user_companies uc ON cp.company_id = uc.id WHERE cp.stock_symbol = ? AND cp.amount > 0`).bind(sym).all();
             for (const h of holders.results) {
                 const dividend = Math.floor(h.amount * s.current_price * 0.003);
@@ -194,7 +192,6 @@ async function getOrUpdateMarket(env, db) {
         return { market: {}, status: { isOpen: false } };
     }
 
-    // === 核心模拟引擎 (深度撮合) ===
     for (let s of states.results) {
         const sym = s.symbol;
         const mode = getMarketMode(sym, now);
@@ -214,7 +211,7 @@ async function getOrUpdateMarket(env, db) {
 
         let missed = Math.floor((now - s.last_update) / 60000);
         if (missed <= 0) continue;
-        if (missed > 30) { s.last_update = now - 1800000; missed = 30; } // 追赶上限
+        if (missed > 30) { s.last_update = now - 1800000; missed = 30; }
 
         let curP = s.current_price;
         let simT = s.last_update;
@@ -223,27 +220,22 @@ async function getOrUpdateMarket(env, db) {
 
         for (let i = 0; i < missed; i++) {
             simT += 60000;
-            const isCatchUp = (i < missed - 1); // 是否为追赶过程
+            const isCatchUp = (i < missed - 1); 
 
-            // --- A. 基础深度模型 ---
-            // 大盘股深度深，小盘股深度浅
-            // 基础挂单量 = 总股本 * 1% * 天气修正
             let buyDepth = totalShares * 0.01 * mode.depth_mod;
             let sellDepth = totalShares * 0.01 * mode.depth_mod;
-            
             let newsMsg = null;
 
-            // --- B. 新闻影响 (追赶期间不生成新闻，防止鬼畜) ---
             if (!isCatchUp && (simT - nextNewsT >= 300000)) {
                 if (Math.random() < 0.15) { 
                     nextNewsT = simT;
                     const news = pickWeightedNews(sym);
                     if (news) {
                         newsMsg = news;
-                        if (news.factor > 1) { // 利好
+                        if (news.factor > 1) { 
                             buyDepth *= news.factor; 
                             sellDepth *= (1 / news.factor);
-                        } else { // 利空
+                        } else { 
                             sellDepth *= (1 / news.factor); 
                             buyDepth *= news.factor;
                         }
@@ -251,22 +243,13 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            // --- C. 玩家真实挂单 (Pressure) ---
-            // 仅在当前时间片计算玩家压力，且压力会随着时间衰减
             if (i === 0) {
                 if (currentPressure > 0) buyDepth += currentPressure;
                 else sellDepth += Math.abs(currentPressure);
             }
 
-            // --- D. 价格撮合公式 ---
-            // Delta = (买单 - 卖单) / 总股本 * 敏感度系数
-            // 敏感度：小盘股更敏感 (股本越小，分母越小，波动越大)
             const delta = (buyDepth - sellDepth) / totalShares * 2.0; 
-            
-            // 限制单分钟最大波动 ±10% (软熔断)
             const clampedDelta = Math.max(-0.1, Math.min(0.1, delta));
-            
-            // 自然噪音 (0.2%)
             const noise = (Math.random() - 0.5) * 0.004;
 
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
@@ -275,7 +258,6 @@ async function getOrUpdateMarket(env, db) {
                 logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 1 ? 'good' : 'bad', t: simT});
             }
 
-            // --- E. 破产熔断 (价格 < 发行价 20%) ---
             if (curP < issuePrice * BANKRUPT_PCT) {
                 const refundRate = 0.3; 
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * avg_price * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refundRate, sym, sym));
@@ -383,6 +365,9 @@ export async function onRequest(context) {
             const { action, symbol, amount, leverage = 1 } = body;
             const userNameDisplay = user.nickname || user.username;
 
+            // === 1. 优先处理不需要公司存在的操作 ===
+            
+            // 管理员重置
             if (action === 'admin_reset') {
                 if (user.role !== 'admin') return Response.json({ error: '权限不足' }, { status: 403 });
                 const now = Date.now();
@@ -406,20 +391,20 @@ export async function onRequest(context) {
                 return Response.json({ success: true, message: '重组完成' });
             }
 
-            if (action === 'upgrade_company') {
-                if (!company) return Response.json({ error: '无公司' });
-                const nextLv = companyLevel + 1;
-                const conf = COMPANY_LEVELS[nextLv];
-                if (!conf) return Response.json({ error: '已达到最高等级' });
-                if ((user.k_coins || 0) < conf.cost) return Response.json({ error: `K币不足 (需 ${conf.cost} k)` });
-                const newStrat = { ...companyData, level: nextLv };
-                await db.batch([
-                    db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(conf.cost, user.id),
-                    db.prepare("UPDATE user_companies SET strategy = ? WHERE id = ?").bind(JSON.stringify(newStrat), company.id)
-                ]);
-                return Response.json({ success: true, message: `公司升级成功！当前等级: ${conf.name}` });
+            // 货币兑换 (i -> k, exp -> k)
+            if (action === 'convert') {
+                 const { type, val } = body; const num = parseInt(val);
+                 if (type === 'i_to_k') {
+                     if (user.coins < num) return Response.json({ error: '余额不足' });
+                     await db.batch([db.prepare("UPDATE users SET coins = coins - ?, k_coins = k_coins + ? WHERE id = ?").bind(num, num, user.id)]);
+                 } else {
+                     if (user.xp < num * 4) return Response.json({ error: '经验不足' });
+                     await db.batch([db.prepare("UPDATE users SET xp = xp - ?, k_coins = k_coins + ? WHERE id = ?").bind(num * 4, num, user.id)]);
+                 }
+                 return Response.json({ success: true, message: '兑换成功' });
             }
 
+            // 创建公司
             if (action === 'create') {
                 if (company) return Response.json({ error: '已有公司' });
                 if ((user.k_coins || 0) < 3000) return Response.json({ error: 'k币不足' });
@@ -431,7 +416,21 @@ export async function onRequest(context) {
                 return Response.json({ success: true, message: '注册成功' });
             }
 
+            // === 2. 之后的操作必须有公司 ===
             if (!company) return Response.json({ error: '无公司' });
+
+            if (action === 'upgrade_company') {
+                const nextLv = companyLevel + 1;
+                const conf = COMPANY_LEVELS[nextLv];
+                if (!conf) return Response.json({ error: '已达到最高等级' });
+                if ((user.k_coins || 0) < conf.cost) return Response.json({ error: `K币不足 (需 ${conf.cost} k)` });
+                const newStrat = { ...companyData, level: nextLv };
+                await db.batch([
+                    db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(conf.cost, user.id),
+                    db.prepare("UPDATE user_companies SET strategy = ? WHERE id = ?").bind(JSON.stringify(newStrat), company.id)
+                ]);
+                return Response.json({ success: true, message: `公司升级成功！当前等级: ${conf.name}` });
+            }
 
             if (action === 'invest') {
                 const num = parseInt(amount);
@@ -448,18 +447,6 @@ export async function onRequest(context) {
                 ]);
                 return Response.json({ success: true, message: '注资成功' });
             }
-            
-            if (action === 'convert') {
-                 const { type, val } = body; const num = parseInt(val);
-                 if (type === 'i_to_k') {
-                     if (user.coins < num) return Response.json({ error: '余额不足' });
-                     await db.batch([db.prepare("UPDATE users SET coins = coins - ?, k_coins = k_coins + ? WHERE id = ?").bind(num, num, user.id)]);
-                 } else {
-                     if (user.xp < num * 4) return Response.json({ error: '经验不足' });
-                     await db.batch([db.prepare("UPDATE users SET xp = xp - ?, k_coins = k_coins + ? WHERE id = ?").bind(num * 4, num, user.id)]);
-                 }
-                 return Response.json({ success: true, message: '兑换成功' });
-            }
 
             if (['buy', 'sell', 'cover'].includes(action)) {
                 if (!status.isOpen) return Response.json({ error: '休市' });
@@ -473,7 +460,6 @@ export async function onRequest(context) {
                 const totalShares = market[symbol].shares;
                 const pos = await db.prepare("SELECT * FROM company_positions WHERE company_id = ? AND stock_symbol = ?").bind(company.id, symbol).first();
                 
-                // === 🛡️ 风控：交易冷却 45s ===
                 const lastTrade = pos ? (pos.last_trade_time || 0) : 0;
                 const now = Date.now();
                 if (now - lastTrade < TRADE_COOLDOWN) {
@@ -481,24 +467,19 @@ export async function onRequest(context) {
                     return Response.json({ error: `操作频繁，请等待 ${left} 秒` });
                 }
 
-                // === 🛡️ 风控：做空锁仓 60s ===
                 if (action === 'cover') {
                     if (now - lastTrade < SHORT_HOLD_MIN) return Response.json({ error: '做空需锁仓 1 分钟' });
                 }
 
-                // === 🛡️ 风控：持仓上限 5% ===
                 const currentHold = pos ? Math.abs(pos.amount) : 0;
-                // 买入或做空都会增加持仓绝对值
                 if (action !== 'cover' && action !== 'sell' && (currentHold + qty) > (totalShares * MAX_HOLDING_PCT)) {
                     return Response.json({ error: `持仓超限！最多持有 ${Math.floor(totalShares * MAX_HOLDING_PCT)} 股` });
                 }
 
-                // === 🛡️ 风控：单笔限额 0.5% ===
                 if (qty > totalShares * MAX_ORDER_PCT) {
                     return Response.json({ error: `单笔过大！限额 ${Math.floor(totalShares * MAX_ORDER_PCT)} 股` });
                 }
 
-                // === 🛡️ 风控：低价禁止做空 ===
                 if (action === 'sell' && (!pos || pos.amount <= 0)) {
                     const issuePrice = market[symbol].issue_p;
                     if (curP < issuePrice * 0.3) return Response.json({ error: '股价过低，禁止做空' });
@@ -510,9 +491,7 @@ export async function onRequest(context) {
                 const batch = [];
                 let logMsg = "";
 
-                // === 动态滑点与手续费 ===
-                // 交易额越大，滑点越高，模拟吃单成本 (基础1% + 滑点)
-                const slippage = (qty / totalShares) * 5; // 0.5% 交易量带来 2.5% 滑点
+                const slippage = (qty / totalShares) * 5; 
                 const feeRate = BASE_FEE_RATE + slippage;
                 const orderVal = curP * qty;
                 const fee = Math.floor(orderVal * feeRate);
