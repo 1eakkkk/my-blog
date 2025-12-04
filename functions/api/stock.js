@@ -89,7 +89,6 @@ function getMarketMode(symbol, now) {
     return MARKET_MODES[modeIndex];
 }
 
-// 自动修补表结构 (加了 try-catch 防止报错)
 async function ensureSchema(db) {
     try {
         await db.prepare("SELECT accumulated_pressure FROM market_state LIMIT 1").first();
@@ -101,8 +100,6 @@ async function ensureSchema(db) {
             ]);
         } catch (err) {}
     }
-    
-    // 检查日志表是否存在，不存在则创建
     try {
         await db.prepare("SELECT id FROM market_logs LIMIT 1").first();
     } catch (e) {
@@ -127,7 +124,7 @@ async function getOrUpdateMarket(env, db) {
         try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {}
     }
 
-    if (cachedData && (now - cachedData.timestamp < 5000)) {
+    if (cachedData && (now - cachedData.timestamp < 10000)) { // 增加内存缓存时间容错
         return cachedData.payload;
     }
 
@@ -282,11 +279,11 @@ async function getOrUpdateMarket(env, db) {
     if (updates.length > 0) await db.batch(updates);
 
     const result = { market: marketMap, status: { isOpen: true } };
-    if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 10 });
+    // === 核心修正：KV 缓存时间至少 60 秒 ===
+    if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     return result;
 }
 
-// === 入口函数 (包裹了全局错误处理) ===
 export async function onRequest(context) {
     try {
         const { request, env } = context;
@@ -298,7 +295,6 @@ export async function onRequest(context) {
         if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
         const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
         
-        // 安全获取用户
         let user = null;
         try {
             user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
@@ -558,12 +554,10 @@ export async function onRequest(context) {
             return Response.json({ error: 'Invalid' });
         }
     } catch (err) {
-        // === 全局错误捕获 (解决 500 JSON 解析失败问题) ===
-        // 将后端报错以 JSON 形式返回，方便前端查看具体原因
         return Response.json({
             success: false,
             error: "SYSTEM ERROR: " + err.message,
             stack: err.stack
-        }, { status: 200 }); // 返回 200 确保前端能解析 JSON 并 toast 显示
+        }, { status: 200 }); 
     }
 }
