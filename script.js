@@ -5624,6 +5624,37 @@ window.adminResetStock = async function() {
     }
 };
 
+window.upgradeCompany = async function() {
+    // 简单的等级费用表 (仅前端展示用，后端校验)
+    const costs = ["5,000", "15,000", "50,000"];
+    
+    // 获取当前等级文本推断下级 (这只是个简单的交互优化)
+    const currentText = document.getElementById('companyLevelDisplay').innerText;
+    let costHint = "???";
+    if (currentText.includes("Level 0")) costHint = costs[0];
+    else if (currentText.includes("Level 1")) costHint = costs[1];
+    else if (currentText.includes("Level 2")) costHint = costs[2];
+    
+    if(!confirm(`确认消耗 ${costHint} k币 升级公司架构吗？\n\n升级后将降低交易保证金比例，提高资金利用率。`)) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/stock`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'upgrade_company' })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            loadBusiness(); // 刷新界面
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("请求失败", "error");
+    }
+};
 
 
 
