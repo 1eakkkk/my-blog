@@ -4899,7 +4899,7 @@ let stockMeta = {};
 let stockAutoRefreshTimer = null;
 
 window.loadStockMarket = async function() {
-    startRefreshTimer(); 
+    startRealtimeCountdown(); 
     const canvas = document.getElementById('stockCanvas');
     // 如果不在商业页面，不执行刷新
     if(!document.getElementById('view-business') || document.getElementById('view-business').style.display === 'none') return;
@@ -5762,6 +5762,9 @@ window.renderStockDashboard = function(symbol) {
     const meta = stockMeta[symbol];
     
     if (dataList.length === 0) return;
+    
+    const lastKLineTime = dataList[dataList.length - 1].t;
+    targetNextUpdateTime = lastKLineTime + 60000;
 
     // --- 1. 基础数据 (Top 4) ---
     let maxP = -Infinity, minP = Infinity;
@@ -5967,21 +5970,51 @@ let autoTradeState = {
     leverage: 1
 };
 
-let refreshCountdown = 5.0;
-let refreshInterval = null;
+// === 真实股市倒计时控制器 (60s 周期) ===
+let stockTimerInterval = null;
+let targetNextUpdateTime = 0; // 下一次刷新的具体时间戳
 
-// 1. 倒计时动画 (UI Only)
-function startRefreshTimer() {
-    if (refreshInterval) clearInterval(refreshInterval);
-    refreshCountdown = 5.0;
+window.startRealtimeCountdown = function() {
+    // 防止重复启动
+    if (stockTimerInterval) return;
+
     const timerEl = document.getElementById('marketTimer');
     
-    refreshInterval = setInterval(() => {
-        refreshCountdown -= 0.1;
-        if (refreshCountdown <= 0) refreshCountdown = 0;
-        if (timerEl) timerEl.innerText = refreshCountdown.toFixed(1) + 's';
-    }, 100);
-}
+    stockTimerInterval = setInterval(() => {
+        if (!timerEl) return;
+        
+        // 如果还没获取到数据，显示等待
+        if (targetNextUpdateTime === 0) {
+            timerEl.innerText = "--";
+            return;
+        }
+
+        const now = Date.now();
+        // 计算剩余秒数
+        let diff = Math.ceil((targetNextUpdateTime - now) / 1000);
+
+        // 修正逻辑：
+        // 1. 如果时间到了(<=0)，说明服务器正在计算，显示 "UPDATING" 或 "0"
+        // 2. 如果客户端时间不准导致 diff > 60，修正为 60
+        if (diff < 0) diff = 0;
+        if (diff > 60) diff = 60;
+
+        // 颜色变化：最后 10秒 变红
+        if (diff <= 10) {
+            timerEl.style.color = '#ff3333'; // 红色紧迫感
+            // 倒数3秒加闪烁
+            if (diff <= 3 && diff > 0) timerEl.style.opacity = (Date.now() % 500 < 250) ? '0' : '1';
+            else timerEl.style.opacity = '1';
+        } else {
+            timerEl.style.color = '#00f3ff'; // 正常青色
+            timerEl.style.opacity = '1';
+        }
+
+        // 显示整数秒
+        timerEl.innerText = diff;
+        
+    }, 1000); // 每秒刷新一次 UI 即可
+};
 
 // 2. 切换面板显示
 window.toggleAutoTradePanel = function() {
@@ -6072,6 +6105,7 @@ function checkAutoTrigger(currentPrice) {
         }
     }
 }
+
 
 
 
