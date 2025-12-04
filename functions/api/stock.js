@@ -171,7 +171,7 @@ async function getOrUpdateMarket(env, db) {
 
             for (const h of holders.results) {
                 // 分红 = 持仓股数 * 当前开盘价 * 3%
-                const dividend = Math.floor(h.amount * newP * 0.03);
+                const dividend = Math.round(h.amount * newP * 0.03);
                 if (dividend > 0) {
                     // 1. 发钱
                     updates.push(db.prepare("UPDATE users SET k_coins = COALESCE(k_coins, 0) + ? WHERE id = ?").bind(dividend, h.user_id));
@@ -230,7 +230,7 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            curP = Math.max(1, Math.floor(curP * (1 + change)));
+            curP = Math.max(1, Math.round(curP * (1 + change + 0.001)));
 
             if (curP < st.base * 0.1) { // 10% 退市
                 const refund = curP;
@@ -306,8 +306,8 @@ export async function onRequest(context) {
                 totalEquity += calculatePositionValue(pos, currentP);
             });
 
-            if (totalEquity < 100) {
-                const refund = Math.max(0, Math.floor(totalEquity * 0.2));
+            if (totalEquity <= 0) {
+                const refund = 0;
                 await db.batch([
                     db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
                     db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
