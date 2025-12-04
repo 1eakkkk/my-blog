@@ -1108,90 +1108,100 @@
                             <!-- JS 动态生成 -->
                         </tbody>
                     </table>
+                    <!-- 👇👇👇 将以下代码复制到 view-about 的经验表格下方 👇👇👇 -->
+
                     <div style="margin-top: 40px; border-top: 1px dashed #333; padding-top: 20px;">
-                        <h2 style="color: #00f3ff;">// FINANCIAL PROTOCOLS & REGULATIONS</h2>
+                        <h2 style="color: #00f3ff; letter-spacing: 2px;">// N.E.T. FINANCIAL PROTOCOLS v3.0</h2>
                         <p style="color: #888; font-size: 0.9rem; margin-bottom: 20px;">
-                            警告：本市场接入 [N.E.T.] 真实流动性模拟系统。<br>
-                            所有交易行为受以下协议约束，违规操作将被系统自动拦截。
+                            本交易所接入全息模拟系统。所有资本行为受 [N.E.T.] 核心算法监管。<br>
+                            <span style="color:#ff3333">警告：市场具有极高风险，请理性参与。</span>
                         </p>
                     
-                        <!-- 1. 交易限制卡片 -->
+                        <!-- 1. 宏观与股票架构 -->
+                        <div class="glass-card" style="margin-bottom: 20px; border-left: 3px solid #00f3ff;">
+                            <h3 style="color: #fff;">🌍 宏观纪元与标的 (Macro & Assets)</h3>
+                            <p style="font-size: 0.85rem; color: #ccc; margin-bottom: 10px;">
+                                世界状态每 <strong>12小时</strong> 轮转一次，直接决定全市场的底层物理规则。
+                            </p>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:0.8rem;">
+                                <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:4px;">
+                                    <strong style="color:#00f3ff">🔵 霓虹盛世 (NEON AGE)</strong><br>
+                                    科技繁荣，全市场波动降低，利好科技股 (GOLD)。
+                                </div>
+                                <div style="background:rgba(255,51,51,0.1); padding:10px; border-radius:4px;">
+                                    <strong style="color:#ff3333">🔴 企业战争 (CORP WAR)</strong><br>
+                                    动荡加剧，军工股 (RED) 波动率翻倍，避险情绪高涨。
+                                </div>
+                                <div style="background:rgba(100,100,100,0.1); padding:10px; border-radius:4px;">
+                                    <strong style="color:#888">⚫ 数据大崩塌 (DATA CRASH)</strong><br>
+                                    大萧条模式，流动性枯竭，极易发生踩踏式暴跌。
+                                </div>
+                            </div>
+                            <div style="margin-top:15px; border-top:1px dashed #333; padding-top:10px; font-size:0.8rem; color:#aaa;">
+                                <p>🛡️ <strong>蓝盾安全 (BLUE)：</strong> 大盘蓝筹，股本约 200万，波动稳健。</p>
+                                <p>⚡ <strong>神经元科技 (GOLD)：</strong> 中盘成长，股本约 100万，跟随科技周期。</p>
+                                <p>💥 <strong>荒坂军工 (RED)：</strong> 小盘妖股，股本约 60万，极易被资金拉爆。</p>
+                            </div>
+                        </div>
+                    
+                        <!-- 2. 风控红线 (核心规则) -->
                         <div class="glass-card" style="margin-bottom: 20px; border-color: #ff3333;">
-                            <h3 style="color: #ff3333;">🛡️ 风控与防刷限制 (SEC-LEVEL 5)</h3>
+                            <h3 style="color: #ff3333;">🛡️ 监管局风控红线 (SEC-LEVEL 5)</h3>
+                            <p style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">触发以下规则将被系统自动熔断或驳回交易。</p>
                             <ul style="list-style: none; padding: 0; color: #ccc; font-size: 0.9rem; line-height: 1.8;">
-                                <li>🔴 <strong>交易冷却 (CD)：</strong> 同一只股票，每 <strong>45秒</strong> 只能操作一次（买/卖/空/平）。</li>
-                                <li>🔴 <strong>做空锁仓 (T+1)：</strong> 建立空单后，必须持有至少 <strong>60秒</strong> 方可平仓。</li>
-                                <li>🔴 <strong>持仓上限：</strong> 单个公司持仓不得超过该股票流通盘的 <strong>5%</strong>。</li>
-                                <li>🔴 <strong>单笔限额：</strong> 单笔下单量不得超过流通盘的 <strong>0.5%</strong>（防止瞬间击穿深度）。</li>
-                                <li>🔴 <strong>做空熔断：</strong> 当股价低于发行价的 <strong>30%</strong> 时，监管局将禁止做空。</li>
-                                <li>💸 <strong>交易成本：</strong> 基础手续费 <strong>1%</strong> (双边)，大额交易会产生额外滑点。</li>
+                                <li>⏱️ <strong>交易冷却 (CD)：</strong> 同一只股票，每 <strong>30秒</strong> 只能操作一次。</li>
+                                <li>🔒 <strong>做空锁仓 (T+1)：</strong> 建立空单后，必须持有至少 <strong>60秒</strong> 方可平仓。</li>
+                                <li>🐳 <strong>反垄断限制：</strong> 单个公司持仓不得超过流通盘的 <strong>20%</strong>。</li>
+                                <li>⚡ <strong>防击穿限制：</strong> 单笔下单量不得超过流通盘的 <strong>1.0%</strong>。</li>
+                                <li>⛔ <strong>做空熔断：</strong> 当股价低于发行价的 <strong>30%</strong> 时，禁止做空。</li>
+                                <li>💸 <strong>动态成本：</strong> 基础手续费 <strong>0.5%</strong>。大额交易将触发滑点惩罚。</li>
                             </ul>
                         </div>
                     
-                        <!-- 2. 市场与破产机制 -->
+                        <!-- 3. 公司与情报 -->
                         <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
-                            <div class="glass-card" style="flex: 1; min-width: 300px;">
-                                <h3 style="color: gold;">📉 破产与重组 (Liquidation)</h3>
-                                <p style="font-size: 0.9rem; color: #ccc;">当股价击穿红线时，公司将被强制退市。</p>
-                                <div style="margin-top: 10px; font-size: 0.85rem; color: #888;">
-                                    <p><strong>触发条件：</strong> 股价 < <span style="color: #f33;">发行价 × 20%</span></p>
-                                    <p><strong>清算流程：</strong> 股票停牌 -> 强制平仓 -> 返还市值的 <span style="color: #00f3ff;">30%</span> 资金。</p>
-                                    <p><strong>资产重组：</strong> 次日 00:00，该股票将以全新的股本和价格重新上市。</p>
-                                </div>
+                            <!-- 公司升级 -->
+                            <div class="glass-card" style="flex: 1; min-width: 300px; border-color:gold;">
+                                <h3 style="color: gold;">🏗️ 公司架构与杠杆</h3>
+                                <p style="font-size: 0.8rem; color: #ccc;">消耗 K币 升级公司，获取更低的保证金率 (更高的资金利用率)。</p>
+                                <table class="tech-table" style="font-size:0.8rem;">
+                                    <thead><tr><th>等级</th><th>架构</th><th>保证金</th></tr></thead>
+                                    <tbody>
+                                        <tr><td>Lv.0</td><td>皮包公司</td><td>100%</td></tr>
+                                        <tr><td>Lv.1</td><td>量化工作室</td><td>95%</td></tr>
+                                        <tr><td>Lv.2</td><td>高频中心</td><td>90%</td></tr>
+                                        <tr><td>Lv.3</td><td>金融巨鳄</td><td>85%</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                     
-                            <div class="glass-card" style="flex: 1; min-width: 300px;">
-                                <h3 style="color: #00f3ff;">🌦️ 市场天气系统 (Sentiment)</h3>
-                                <p style="font-size: 0.9rem; color: #ccc;">市场环境决定了资金的活跃度和人为操盘的难度。</p>
-                                <div style="margin-top: 10px; font-size: 0.85rem;">
-                                    <div style="margin-bottom: 5px;"><span style="font-size:1.2rem">🌤️</span> <strong>平衡市：</strong> 标准波动，多空均衡。</div>
-                                    <div style="margin-bottom: 5px;"><span style="font-size:1.2rem">🔥</span> <strong>牛市：</strong> 买盘深度厚，价格难砸，易涨难跌。</div>
-                                    <div style="margin-bottom: 5px;"><span style="font-size:1.2rem">❄️</span> <strong>熊市：</strong> 卖盘深度厚，恐慌情绪，易跌难涨。</div>
-                                    <div style="margin-bottom: 5px;"><span style="font-size:1.2rem">🌫️</span> <strong>低波市：</strong> 深度极浅，大户极易操纵价格 (高风险)。</div>
-                                </div>
+                            <!-- 情报局 -->
+                            <div class="glass-card" style="flex: 1; min-width: 300px; border-color:#bd00ff;">
+                                <h3 style="color: #bd00ff;">👁️ 情报局 (Insider Net)</h3>
+                                <p style="font-size: 0.85rem; color: #ccc; line-height: 1.6;">
+                                    普通用户只能看到模糊的市场情绪（买盘汹涌/多空平衡）。<br><br>
+                                    <strong style="color:#fff">付费订阅者 (5000k/24h)</strong> 可解锁：
+                                </p>
+                                <ul style="font-size:0.8rem; color:#aaa; margin-top:5px;">
+                                    <li>✓ 精确到个位数的买卖盘净差值</li>
+                                    <li>✓ 识别主力资金流向</li>
+                                    <li>✓ 解锁专属紫色 INSIDER 标识</li>
+                                </ul>
                             </div>
                         </div>
                     
-                        <!-- 3. 公司架构表 -->
-                        <h3 style="color: #fff;">🏗️ 公司架构升级路线</h3>
-                        <p style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">消耗 K币 升级公司等级，可获得更低的保证金比率（更高的资金利用率）。</p>
-                        <div class="table-responsive">
-                            <table class="tech-table">
-                                <thead>
-                                    <tr>
-                                        <th style="color:#00f3ff">等级 (LEVEL)</th>
-                                        <th>架构名称</th>
-                                        <th>保证金率 (Margin)</th>
-                                        <th style="color:gold">升级费用 (Cost)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Lv.0</td>
-                                        <td>皮包公司</td>
-                                        <td>100% (无杠杆)</td>
-                                        <td>-</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lv.1</td>
-                                        <td>量化工作室</td>
-                                        <td>95%</td>
-                                        <td>5,000 k</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lv.2</td>
-                                        <td>高频交易中心</td>
-                                        <td>90%</td>
-                                        <td>15,000 k</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Lv.3</td>
-                                        <td>金融巨鳄</td>
-                                        <td>85%</td>
-                                        <td>50,000 k</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <!-- 4. 破产机制 -->
+                        <div class="glass-card" style="border-top: 3px solid #f33;">
+                            <h3 style="color: #fff;">☠️ 破产清算与重组 (Death & Rebirth)</h3>
+                            <div style="font-size: 0.9rem; color: #aaa; line-height: 1.8;">
+                                <p>当股票价格击穿 <span style="color:#f33">发行价 × 20%</span> 时，触发强制退市程序：</p>
+                                <ol style="margin-left: 20px; padding: 0;">
+                                    <li>股票立即停牌，所有交易终止。</li>
+                                    <li>持有该股票的公司账户被强制平仓。</li>
+                                    <li>系统返还当前市值的 <span style="color:#00f3ff">30%</span> 作为清算残值。</li>
+                                    <li><strong>次日重组：</strong> 该代码将以全新的股本和发行价重新上市 (Reroll)。</li>
+                                </ol>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1428,9 +1438,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.3"></script>
+    <script src="script.js?v=10.4"></script>
 </body>
 </html>
+
 
 
 
