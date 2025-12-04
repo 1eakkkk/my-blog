@@ -728,6 +728,20 @@
                                     <!-- 右侧：交易输入 -->
                                     <div style="flex:1.5; min-width:280px;">
                                         <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">交易数量 / AMOUNT</div>
+                                        <div style="display:flex; gap:15px; margin-bottom:5px; font-size:0.75rem; color:#ccc;">
+                                            <label style="cursor:pointer; display:flex; align-items:center;">
+                                                <input type="radio" name="calcMode" value="capital" checked 
+                                                       onchange="document.getElementById('tradeSlider').value=0; document.getElementById('stockTradeAmount').value='';"
+                                                       style="margin-right:5px;"> 
+                                                按资金 (开仓)
+                                            </label>
+                                            <label style="cursor:pointer; display:flex; align-items:center;">
+                                                <input type="radio" name="calcMode" value="holding" 
+                                                       onchange="document.getElementById('tradeSlider').value=0; document.getElementById('stockTradeAmount').value='';"
+                                                       style="margin-right:5px;"> 
+                                                按持仓 (平仓)
+                                            </label>
+                                        </div>
                                         <input type="range" id="tradeSlider" min="0" max="100" value="0" step="1" 
                                                style="width:100%; margin-bottom:10px; cursor:pointer;" oninput="updateTradeFromSlider(this.value)">
                                         <div style="display:flex; gap:5px; margin-bottom:10px;">
@@ -1438,9 +1452,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.4"></script>
+    <script src="script.js?v=10.5"></script>
 </body>
 </html>
+
 
 
 
