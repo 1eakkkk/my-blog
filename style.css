@@ -3285,12 +3285,28 @@ body.bg-fire {
 
 .home-grid-container {
     display: grid;
-    /* 👇 修改点：改为 2 列 */
-    grid-template-columns: repeat(2, 1fr); 
-    gap: 15px;
+    /* 改为 3 列 */
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 10px;
     margin: 0 auto;
-    /* 👇 修改点：缩小最大宽度，防止地块变得巨大 */
-    max-width: 400px; 
+    /* 稍微调宽一点，容纳3列 */
+    max-width: 500px; 
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .home-grid-container {
+        gap: 8px;
+    }
+    /* 让图标稍微小一点，防止撑破 */
+    .slot-icon { 
+        width: 40px; 
+        height: 40px; 
+    }
+    .slot-name { 
+        font-size: 0.6rem; 
+        transform: scale(0.9); 
+    }
 }
 
 /* 每一个槽位 */
@@ -3358,12 +3374,6 @@ body.bg-fire {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-    .home-grid-container {
-        gap: 10px;
-    }
-    .slot-icon { font-size: 1.5rem; }
-    .slot-name { transform: scale(0.9); }
-    
     .work-card {
         flex-direction: column;
         align-items: flex-start;
@@ -3791,6 +3801,7 @@ body.bg-fire {
         font-size: 0.75rem;
     }
 }
+
 
 
 
