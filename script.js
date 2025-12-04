@@ -5700,44 +5700,55 @@ window.upgradeCompany = async function() {
         showToast("请求失败", "error");
     }
 };
-
-// === 核心渲染：支持 v3.0 情报局与宏观纪元 ===
+// === 核心渲染：支持 v3.0 情报局、宏观纪元与退市遮罩 ===
 window.renderStockDashboard = function(symbol) {
+    // 1. 数据安全检查
     if (!marketData || !marketData[symbol] || !stockMeta || !stockMeta[symbol]) return;
 
     const dataList = marketData[symbol];
     const meta = stockMeta[symbol];
+    
     if (dataList.length === 0) return;
 
-    // 1. 基础数据 (Top 4)
+    // --- 1. 基础数据 (Top 4) ---
     let maxP = -Infinity, minP = Infinity;
     dataList.forEach(d => {
         if (d.p > maxP) maxP = d.p;
         if (d.p < minP) minP = d.p;
     });
+    
     const currentP = dataList[dataList.length - 1].p;
     const openP = meta.open || dataList[0].p;
 
+    const elOpen = document.getElementById('stockOpen');
+    const elHigh = document.getElementById('stockHigh');
+    const elLow = document.getElementById('stockLow');
     const elCurr = document.getElementById('stockCurrent');
-    if (document.getElementById('stockOpen')) document.getElementById('stockOpen').innerText = openP;
-    if (document.getElementById('stockHigh')) document.getElementById('stockHigh').innerText = maxP;
-    if (document.getElementById('stockLow')) document.getElementById('stockLow').innerText = minP;
+    
+    if (elOpen) elOpen.innerText = openP;
+    if (elHigh) elHigh.innerText = maxP;
+    if (elLow) elLow.innerText = minP;
     if (elCurr) {
         elCurr.innerText = currentP;
         elCurr.style.color = currentP >= openP ? '#0f0' : '#f33';
     }
 
-    // 2. 市值与破产线
+    // --- 2. 市值与破产线 ---
     const shares = meta.shares || 1000000;
     const issueP = meta.issue_p || 1000;
-    if (document.getElementById('stockMarketCap')) document.getElementById('stockMarketCap').innerText = `¥ ${(currentP * shares).toLocaleString()}`;
-    if (document.getElementById('stockTotalShares')) document.getElementById('stockTotalShares').innerText = shares.toLocaleString();
+    
+    const mktCapEl = document.getElementById('stockMarketCap');
+    if (mktCapEl) mktCapEl.innerText = `¥ ${(currentP * shares).toLocaleString()}`;
+
+    const sharesEl = document.getElementById('stockTotalShares');
+    if (sharesEl) sharesEl.innerText = shares.toLocaleString();
 
     const bankruptPrice = Math.floor(issueP * 0.2);
     const lineEl = document.getElementById('stockBankruptLine');
     if (lineEl) {
         lineEl.innerText = `≤ ${bankruptPrice}`;
-        if (currentP <= bankruptPrice * 1.1) {
+        // 红色闪烁警报 (如果还没死，但快死了)
+        if (meta.suspended !== 1 && currentP <= bankruptPrice * 1.1) {
             lineEl.style.animation = "pulse-red 1s infinite";
             lineEl.style.color = "#f33";
         } else {
@@ -5746,23 +5757,19 @@ window.renderStockDashboard = function(symbol) {
         }
     }
 
-    // 3. 底部栏：天气 & 压力条 (情报系统核心)
+    // --- 3. 底部栏：天气 & 压力条 ---
     const mode = meta.mode || { name: '-', icon: '', code: 'NORMAL' };
-    let press = meta.pressure || 0; // 这里的 press 可能是模糊值(999) 也可能是 精确值(12500)
+    let press = meta.pressure || 0;
 
-    // 天气显示
     const modeEl = document.getElementById('marketModeDisplay');
     if (modeEl) modeEl.innerHTML = `${mode.icon} ${mode.name} <span style="font-size:0.7rem;color:#666">(${mode.code})</span>`;
 
-    // 压力条可视化
     const bar = document.getElementById('pressureBar');
     const pText = document.getElementById('pressureText');
     if (bar && pText) {
-        // 判断是否为情报员 (通过数值特征判断，后端传给普通人的只有 0, 999, -999)
         const isVague = (Math.abs(press) === 999 || press === 0); 
         
         if (isVague) {
-            // === 普通视角 (模糊) ===
             if (press === 999) {
                 bar.style.width = "80%";
                 bar.style.background = `linear-gradient(90deg, #444 20%, #0f0 100%)`;
@@ -5780,14 +5787,11 @@ window.renderStockDashboard = function(symbol) {
                 pText.style.color = "#aaa";
             }
         } else {
-            // === 情报员视角 (精准数据) ===
-            // 基础 50%，每 2000 股净量偏移 10%
+            // 情报员视角
             let percent = 50 + (press / 2000) * 10; 
             percent = Math.max(5, Math.min(95, percent));
-            
             bar.style.width = `${percent}%`;
             
-            // 加上 "INSIDER" 特效标签
             const insiderTag = `<span style="background:#bd00ff; color:#fff; padding:1px 4px; border-radius:3px; font-size:0.6rem; margin-right:5px;">INSIDER</span>`;
             
             if (press > 0) {
@@ -5805,12 +5809,27 @@ window.renderStockDashboard = function(symbol) {
             }
         }
     }
-    if (elCurr) {
-        const sign = currentP >= openP ? '📈' : '📉';
-        document.title = `${sign} ${currentP} | ${symbol} - 数字基地`;
+
+    // --- 4. 核心修复：控制退市/停牌遮罩 ---
+    const mask = document.getElementById('marketClosedMask');
+    const maskTitle = document.getElementById('maskTitle');
+    const maskSubtitle = document.getElementById('maskSubtitle');
+
+    if (mask) {
+        if (meta.suspended === 1) {
+            // 触发退市遮罩
+            mask.style.display = 'flex';
+            if(maskTitle) maskTitle.innerText = "⚠️ 退市整理 / SUSPENDED";
+            if(maskSubtitle) maskSubtitle.innerText = "股价触底，等待明日 06:00 重组";
+            disableTrading(true); // 禁用按钮
+        } else {
+            // 正常交易状态 (除非全局休市，全局休市由 loadStockMarket 控制，这里先隐藏以防万一)
+            // 注意：如果当前是凌晨2点全局休市，loadStockMarket 会再次覆盖这里的设置
+            mask.style.display = 'none';
+            disableTrading(false); // 启用按钮
+        }
     }
 };
-
 // === 滑动条联动计算 ===
 window.updateTradeFromSlider = function(percent) {
     if (!companyInfo || !marketData || !marketData[currentStockSymbol]) return;
@@ -5828,6 +5847,7 @@ window.updateTradeFromSlider = function(percent) {
     // 填入输入框
     document.getElementById('stockTradeAmount').value = targetAmount;
 };
+
 
 
 
