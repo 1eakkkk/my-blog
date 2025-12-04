@@ -320,7 +320,8 @@ export async function onRequest(context) {
     if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
     
-    const user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+    // === 替换这一行 (增加了 users.role) ===
+    const user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
     
     if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
 
@@ -382,6 +383,44 @@ export async function onRequest(context) {
         const body = await request.json();
         const { action, symbol, amount, leverage = 1 } = body;
         const userNameDisplay = user.nickname || user.username;
+
+        if (action === 'admin_reset') {
+            if (user.role !== 'admin') return Response.json({ error: '权限不足 / Access Denied' }, { status: 403 });
+
+            const now = Date.now();
+            // 查找所有已停牌(is_suspended=1)的股票
+            const suspendedStocks = await db.prepare("SELECT * FROM market_state WHERE is_suspended = 1").all();
+            
+            if (suspendedStocks.results.length === 0) {
+                return Response.json({ success: false, error: '当前没有退市/停牌的股票。' });
+            }
+
+            const batch = [];
+            for (const s of suspendedStocks.results) {
+                // 重新生成随机基准价 (100 - 2000)
+                const newBase = Math.floor(Math.random() * 1900) + 100;
+                const sym = s.symbol;
+                
+                // 1. 重置状态: 价格重置, 解除停牌, 清空积压压力
+                batch.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0 WHERE symbol=?")
+                    .bind(newBase, newBase, newBase, now, sym));
+                    
+                // 2. 清空历史K线 (防止图表从 0 拉直线到新价格，影响观感)
+                batch.push(db.prepare("DELETE FROM market_history WHERE symbol = ?").bind(sym));
+                
+                // 3. 写入新的初始点
+                batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, newBase, now));
+                
+                // 4. 写入市场日志
+                batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【系统干预】管理员强制重组上市，基准价重置为 ${newBase}。`, 'good', now));
+            }
+            
+            // 5. 清除 KV 缓存 (如果有)
+            if (env.KV) await env.KV.delete("market_data_v6");
+            
+            await db.batch(batch);
+            return Response.json({ success: true, message: `成功重置 ${suspendedStocks.results.length} 支股票，市场已恢复。` });
+        }
 
         if (action === 'convert') {
             const { type, val } = body; 
