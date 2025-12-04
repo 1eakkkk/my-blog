@@ -5702,28 +5702,30 @@ window.renderStockDashboard = function(symbol) {
 
     // --- 3. 渲染底部栏 (天气/压力条) ---
     const mode = meta.mode || { name: '-', icon: '', code: 'NORMAL' };
-    const press = meta.pressure || 0;
+    const press = meta.pressure || 0; // 这里的 pressure 其实是本分钟内的净挂单量
 
     // 天气
     const modeEl = document.getElementById('marketModeDisplay');
     if (modeEl) modeEl.innerHTML = `${mode.icon} ${mode.name} <span style="font-size:0.7rem;color:#666">(${mode.code})</span>`;
 
-    // 压力条
+    // 压力条 -> 改为 "多空博弈条"
     const bar = document.getElementById('pressureBar');
     const pText = document.getElementById('pressureText');
     if (bar && pText) {
-        let percent = 50 + (press / 100); 
-        percent = Math.max(10, Math.min(90, percent)); // 限制范围
+        // 计算简单的多空比例演示 (可视化用)
+        // 假设基础平衡是 50%，每 1000 股净买单偏移 5%
+        let percent = 50 + (press / 1000) * 5; 
+        percent = Math.max(10, Math.min(90, percent)); // 限制显示范围
         
         bar.style.width = `${percent}%`;
         
-        if (press > 50) {
+        if (press > 500) {
             bar.style.background = `linear-gradient(90deg, #444 50%, #0f0 100%)`;
-            pText.innerText = `买盘主导 (强度: ${press})`;
+            pText.innerText = `多头强势 (净买入: ${press})`;
             pText.style.color = "#0f0";
-        } else if (press < -50) {
+        } else if (press < -500) {
             bar.style.background = `linear-gradient(90deg, #f33 0%, #444 50%)`;
-            pText.innerText = `卖盘主导 (强度: ${Math.abs(press)})`;
+            pText.innerText = `空头施压 (净抛售: ${Math.abs(press)})`;
             pText.style.color = "#f33";
         } else {
             bar.style.background = "#444";
@@ -5732,6 +5734,7 @@ window.renderStockDashboard = function(symbol) {
         }
     }
 };
+
 
 
 
