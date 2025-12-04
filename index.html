@@ -1098,6 +1098,11 @@
                                 <span class="slider round"></span>
                             </label>
                         </div>
+                        <!-- 在 admin 视图的 SYSTEM CONTROL 卡片里添加 -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px dashed #333; padding-top:10px;">
+                            <span>📉 股市重置 (仅针对已退市股票)</span>
+                            <button onclick="adminResetStock()" class="mini-action-btn" style="border-color:#00f3ff; color:#00f3ff;">执行重组 / RESET</button>
+                        </div>
                     </div>
 
                     <!-- 3. 邀请码管理 (重构) -->
@@ -1285,6 +1290,7 @@
     <script src="script.js?v=9.9"></script>
 </body>
 </html>
+
 
 
 
