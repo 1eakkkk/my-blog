@@ -331,12 +331,25 @@ export async function onRequest(context) {
         if (method === 'GET') {
             const hasCompany = !!company;
             let positions = [];
+            let totalEquity = 0; // 初始化总权益
+
             if (hasCompany) {
                 positions = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
-                let totalEquity = company.capital; 
-                positions.forEach(pos => { totalEquity += calculatePositionValue(pos, market[pos.stock_symbol] ? market[pos.stock_symbol].p : 0); });
-                if (totalEquity <= 0) {
-                    await db.batch([db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id), db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id)]);
+                
+                // 1. 计算总权益 (现金 + 持仓市值)
+                totalEquity = company.capital; 
+                positions.forEach(pos => {
+                    const currentP = market[pos.stock_symbol] ? market[pos.stock_symbol].p : 0;
+                    totalEquity += calculatePositionValue(pos, currentP);
+                });
+
+                // 2. 破产检测
+                const bankruptLine = 0;
+                if (totalEquity <= bankruptLine) {
+                    await db.batch([
+                        db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
+                        db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id)
+                    ]);
                     return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: `公司净值归零，宣告破产。` } });
                 }
             }
@@ -366,7 +379,14 @@ export async function onRequest(context) {
             const logsRes = await db.prepare("SELECT * FROM market_logs WHERE created_at < ? ORDER BY created_at DESC LIMIT 20").bind(Date.now()).all();
             const logs = logsRes.results.map(l => ({ time: l.created_at, msg: l.msg, type: l.type }));
 
-            return Response.json({ success: true, hasCompany, bankrupt: false, market: chartData, meta: stockMeta, news: logs, positions, capital: hasCompany ? company.capital : 0, companyType: hasCompany ? company.type : 'none', companyLevel: companyLevel, userK: user.k_coins || 0, userExp: user.xp || 0, status, era, isInsider });
+            return Response.json({ 
+                success: true, hasCompany, bankrupt: false, market: chartData, meta: stockMeta, news: logs, positions, 
+                capital: hasCompany ? company.capital : 0, // 现金
+                totalEquity: totalEquity,                  // 新增：总净值 (现金+股票)
+                companyType: hasCompany ? company.type : 'none', 
+                companyLevel: companyLevel, 
+                userK: user.k_coins || 0, userExp: user.xp || 0, status, era, isInsider 
+            });
         }
 
         if (method === 'POST') {
