@@ -4963,7 +4963,7 @@ window.loadStockMarket = async function() {
                 renderStockDashboard(currentStockSymbol);
                 if (marketData[currentStockSymbol]) {
                     const curP = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
-                    checkAutoTrigger(curP);
+                    checkAutoTrigger();
                 }
             }
 
@@ -6112,20 +6112,32 @@ window.startRealtimeCountdown = function() {
     }, 1000);
 };
 
-// 2. 切换面板显示
+// === 1. 切换面板显示 (打开时刷新当前股票信息) ===
 window.toggleAutoTradePanel = function() {
     const panel = document.getElementById('autoTradeConfig');
     const arrow = document.getElementById('autoTradeArrow');
+    const display = document.getElementById('autoTargetDisplay');
+    
     if (panel.style.display === 'none') {
         panel.style.display = 'block';
         arrow.innerText = '▲';
+        
+        // 自动填入当前股票信息
+        const nameMap = {'BLUE':'蓝盾安全', 'GOLD':'神经元科技', 'RED':'荒坂军工'};
+        const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+        
+        if (currentStockSymbol && display) {
+            const name = nameMap[currentStockSymbol];
+            const color = colorMap[currentStockSymbol];
+            display.innerHTML = `<span style="color:${color}">${name} (${currentStockSymbol})</span>`;
+        }
     } else {
         panel.style.display = 'none';
         arrow.innerText = '▼';
     }
 };
 
-// 3. 启动挂机
+// === 2. 启动挂机 (锁定目标股票) ===
 window.startAutoTrade = function() {
     const action = document.getElementById('autoAction').value;
     const target = parseInt(document.getElementById('autoPriceTarget').value);
@@ -6139,7 +6151,7 @@ window.startAutoTrade = function() {
     // 锁定状态
     autoTradeState = {
         running: true,
-        symbol: currentStockSymbol,
+        symbol: currentStockSymbol, // 👈 关键：锁死当前这只股票
         action: action,
         targetPrice: target,
         amount: amount,
@@ -6151,11 +6163,125 @@ window.startAutoTrade = function() {
     const statusBox = document.getElementById('autoTradeStatus');
     statusBox.style.display = 'block';
     
+    // 更新状态条信息
+    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    
+    const stockNameEl = document.getElementById('statusStockName');
+    stockNameEl.innerText = nameMap[currentStockSymbol];
+    stockNameEl.style.color = colorMap[currentStockSymbol];
+
+    const actionText = action === 'buy' ? '买入' : '卖出';
+    const actionColor = action === 'buy' ? '#0f0' : '#f33';
+    const typeEl = document.getElementById('statusActionType');
+    typeEl.innerText = actionText;
+    typeEl.style.color = actionColor;
+
     const symbol = action === 'buy' ? '≤' : '≥';
     document.getElementById('statusCondition').innerText = symbol;
     document.getElementById('statusTarget').innerText = target;
     
-    showToast("自动交易机器人已启动", "success");
+    showToast(`挂机已启动：监控 [${nameMap[currentStockSymbol]}]`, "success");
+};
+
+// === 3. 核心：每秒检查价格 (支持跨 Tab 监控) ===
+function checkAutoTrigger(currentPrice_Unused) {
+    if (!autoTradeState.running) return;
+    
+    // 目标股票代号
+    const targetSym = autoTradeState.symbol;
+    
+    // 这里的关键：不仅仅看 currentPrice，而是去 marketData 里找目标股票的最新价
+    // 这样即使你现在在看 BLUE，后台挂机的 RED 依然能触发
+    if (!marketData || !marketData[targetSym] || marketData[targetSym].length === 0) return;
+    
+    const dataList = marketData[targetSym];
+    const realTimePrice = dataList[dataList.length - 1].p;
+
+    let triggered = false;
+
+    // 买入逻辑：价格 <= 目标
+    if (autoTradeState.action === 'buy' && realTimePrice <= autoTradeState.targetPrice) {
+        triggered = true;
+    }
+    // 卖出逻辑：价格 >= 目标
+    else if (autoTradeState.action === 'sell' && realTimePrice >= autoTradeState.targetPrice) {
+        triggered = true;
+    }
+
+    if (triggered) {
+        // 临时把输入框的值改写，确保 tradeStock 读取正确
+        // 注意：因为 tradeStock 依赖 currentStockSymbol，我们需要临时欺骗一下，或者改写 tradeStock
+        // 最稳妥的方法是直接发请求，但为了复用逻辑，我们这里做一个简单的上下文切换
+        
+        const originalSymbol = currentStockSymbol;
+        currentStockSymbol = targetSym; // 临时切换上下文
+        
+        document.getElementById('stockTradeAmount').value = autoTradeState.amount;
+        document.getElementById('stockLeverage').value = autoTradeState.leverage;
+        
+        tradeStock(autoTradeState.action).then(() => {
+            // 交易完成后切回来
+            currentStockSymbol = originalSymbol;
+        });
+        
+        stopAutoTrade();
+        
+        // 强提示
+        const box = document.getElementById('marketTicker');
+        if(box) {
+            const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+            box.innerHTML = `<span style="color:#bd00ff; font-weight:bold; background:rgba(0,0,0,0.8); padding:5px;">🤖 自动交易：${nameMap[targetSym]} 执行成功！</span>`;
+            setTimeout(() => { if(typeof loadStockMarket==='function') loadStockMarket(); }, 2000);
+        }
+    }
+}
+
+// === 2. 启动挂机 (锁定目标股票) ===
+window.startAutoTrade = function() {
+    const action = document.getElementById('autoAction').value;
+    const target = parseInt(document.getElementById('autoPriceTarget').value);
+    const amount = parseInt(document.getElementById('stockTradeAmount').value);
+    const lev = parseInt(document.getElementById('stockLeverage').value) || 1;
+
+    if (!target || target <= 0) return showToast("请输入目标价格", "error");
+    if (!amount || amount <= 0) return showToast("请输入执行数量 (上方输入框)", "error");
+    if (!currentStockSymbol) return;
+
+    // 锁定状态
+    autoTradeState = {
+        running: true,
+        symbol: currentStockSymbol, // 👈 关键：锁死当前这只股票
+        action: action,
+        targetPrice: target,
+        amount: amount,
+        leverage: lev
+    };
+
+    // UI 变更
+    document.getElementById('autoTradeConfig').style.display = 'none';
+    const statusBox = document.getElementById('autoTradeStatus');
+    statusBox.style.display = 'block';
+    
+    // 更新状态条信息
+    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    
+    const stockNameEl = document.getElementById('statusStockName');
+    stockNameEl.innerText = nameMap[currentStockSymbol];
+    stockNameEl.style.color = colorMap[currentStockSymbol];
+
+    const actionText = action === 'buy' ? '买入' : '卖出';
+    const actionColor = action === 'buy' ? '#0f0' : '#f33';
+    const typeEl = document.getElementById('statusActionType');
+    typeEl.innerText = actionText;
+    typeEl.style.color = actionColor;
+
+    const symbol = action === 'buy' ? '≤' : '≥';
+    document.getElementById('statusCondition').innerText = symbol;
+    document.getElementById('statusTarget').innerText = target;
+    
+    showToast(`挂机已启动：监控 [${nameMap[currentStockSymbol]}]`, "success");
 };
 
 // 4. 停止挂机
@@ -6167,36 +6293,53 @@ window.stopAutoTrade = function() {
 };
 
 // 5. 核心：每秒检查价格 (在 loadStockMarket 中调用)
-function checkAutoTrigger(currentPrice) {
+function checkAutoTrigger(currentPrice_Unused) {
     if (!autoTradeState.running) return;
-    if (autoTradeState.symbol !== currentStockSymbol) return; // 防止切台误触
+    
+    // 目标股票代号
+    const targetSym = autoTradeState.symbol;
+    
+    // 这里的关键：不仅仅看 currentPrice，而是去 marketData 里找目标股票的最新价
+    // 这样即使你现在在看 BLUE，后台挂机的 RED 依然能触发
+    if (!marketData || !marketData[targetSym] || marketData[targetSym].length === 0) return;
+    
+    const dataList = marketData[targetSym];
+    const realTimePrice = dataList[dataList.length - 1].p;
 
     let triggered = false;
 
     // 买入逻辑：价格 <= 目标
-    if (autoTradeState.action === 'buy' && currentPrice <= autoTradeState.targetPrice) {
+    if (autoTradeState.action === 'buy' && realTimePrice <= autoTradeState.targetPrice) {
         triggered = true;
     }
     // 卖出逻辑：价格 >= 目标
-    else if (autoTradeState.action === 'sell' && currentPrice >= autoTradeState.targetPrice) {
+    else if (autoTradeState.action === 'sell' && realTimePrice >= autoTradeState.targetPrice) {
         triggered = true;
     }
 
     if (triggered) {
-        // 触发交易
         // 临时把输入框的值改写，确保 tradeStock 读取正确
+        // 注意：因为 tradeStock 依赖 currentStockSymbol，我们需要临时欺骗一下，或者改写 tradeStock
+        // 最稳妥的方法是直接发请求，但为了复用逻辑，我们这里做一个简单的上下文切换
+        
+        const originalSymbol = currentStockSymbol;
+        currentStockSymbol = targetSym; // 临时切换上下文
+        
         document.getElementById('stockTradeAmount').value = autoTradeState.amount;
         document.getElementById('stockLeverage').value = autoTradeState.leverage;
         
-        tradeStock(autoTradeState.action); // 调用原有交易函数
+        tradeStock(autoTradeState.action).then(() => {
+            // 交易完成后切回来
+            currentStockSymbol = originalSymbol;
+        });
         
-        // 触发后停止，防止重复扣款
         stopAutoTrade();
         
-        // 播放提示音或强提示
+        // 强提示
         const box = document.getElementById('marketTicker');
         if(box) {
-            box.innerHTML = `<span style="color:#bd00ff; font-weight:bold;">⚡ 自动交易触发成功！</span>`;
+            const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+            box.innerHTML = `<span style="color:#bd00ff; font-weight:bold; background:rgba(0,0,0,0.8); padding:5px;">🤖 自动交易：${nameMap[targetSym]} 执行成功！</span>`;
             setTimeout(() => { if(typeof loadStockMarket==='function') loadStockMarket(); }, 2000);
         }
     }
