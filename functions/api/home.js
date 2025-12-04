@@ -31,7 +31,12 @@ export async function onRequest(context) {
     if (method === 'GET') {
         const homeItems = await db.prepare("SELECT * FROM home_items WHERE user_id = ?").bind(user.id).all();
         const work = await db.prepare("SELECT * FROM user_works WHERE user_id = ? AND status = 1").bind(user.id).first();
-        return Response.json({ success: true, home: homeItems.results, work: work });
+        return Response.json({ 
+            success: true, 
+            home: homeItems.results, 
+            work: work,
+            serverTime: Date.now() 
+        });
     }
 
     // === POST: 操作 ===
