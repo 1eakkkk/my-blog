@@ -4887,7 +4887,6 @@ let stockAutoRefreshTimer = null;
 
 window.loadStockMarket = async function() {
     const canvas = document.getElementById('stockCanvas');
-    // 如果不在商业页面，不执行刷新
     if(!document.getElementById('view-business') || document.getElementById('view-business').style.display === 'none') return;
 
     const marketTicker = document.getElementById('marketTicker');
@@ -4895,98 +4894,76 @@ window.loadStockMarket = async function() {
     try {
         const res = await fetch(`${API_BASE}/stock`);
         const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            throw new Error("Server Error: 数据库结构可能未更新 (500)");
-        }
+        if (!contentType || !contentType.includes("application/json")) throw new Error("API Error");
 
         const data = await res.json();
         
-        // === 破产检测 ===
         if (data.bankrupt) {
             if (canvas) canvas.dataset.listening = "false"; 
             alert(`💔 破产通知：\n\n${data.report.msg}\n\n点击确定重新创业。`);
-            loadBusiness(); 
-            return; 
+            loadBusiness(); return; 
         }
         
         if (data.success) {
-            // 更新全局数据源
             marketData = data.market;
             myPositions = data.positions;
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 1. 更新公司等级显示
+            // 1. 宏观纪元显示
+            const tickerText = data.era ? `🌍 [${data.era.name}] ${data.era.desc}` : "MARKET OPEN";
+            if (marketTicker) {
+                // 如果当前选了股票，显示股票信息，否则显示宏观信息
+                if (!currentStockSymbol) marketTicker.innerHTML = `<span style="color:#fff">${tickerText}</span>`;
+            }
+
+            // 2. 情报局 UI 更新
+            const insiderBtn = document.getElementById('btnInsider');
+            if (insiderBtn) {
+                if (data.isInsider) {
+                    insiderBtn.innerHTML = "👁️ 深度透视中";
+                    insiderBtn.style.color = "#0f0";
+                    insiderBtn.style.borderColor = "#0f0";
+                    insiderBtn.disabled = true;
+                } else {
+                    insiderBtn.innerHTML = "🕵️ 购买情报 (5k)";
+                    insiderBtn.style.color = "#bd00ff";
+                    insiderBtn.style.borderColor = "#bd00ff";
+                    insiderBtn.onclick = buyInsider;
+                    insiderBtn.disabled = false;
+                }
+            }
+
+            // 3. 公司等级
             const lvEl = document.getElementById('companyLevelDisplay');
             if (lvEl && data.companyLevel !== undefined) {
                 const lvNames = ["皮包公司", "量化工作室", "高频交易中心", "金融巨鳄"];
-                lvEl.innerText = `Lv.${data.companyLevel}: ${lvNames[data.companyLevel] || '未知'}`;
+                lvEl.innerText = `Lv.${data.companyLevel}: ${lvNames[data.companyLevel]}`;
             }
 
-            // 2. 【核心】调用通用渲染函数更新所有面板数据
-            // 这会自动处理 Top4 数据、市值、发行量、破产线、天气、压力条
+            // 4. 渲染面板
             renderStockDashboard(currentStockSymbol);
 
-            // 3. 更新右上角 Ticker (保留此处逻辑)
+            // 5. Ticker 更新 (股票)
             if (marketTicker && marketData[currentStockSymbol]) {
                 const curData = marketData[currentStockSymbol];
                 if (curData.length > 0) {
                     const curPrice = curData[curData.length - 1].p;
                     const openPrice = stockMeta[currentStockSymbol].open || curData[0].p;
-                    
                     const diff = curPrice - openPrice;
                     const percent = ((diff / openPrice) * 100).toFixed(2);
-                    const sign = diff >= 0 ? '+' : '';
                     const color = diff >= 0 ? '#0f0' : '#f33';
                     const icon = diff >= 0 ? '📈' : '📉';
-                    
-                    const nameMap = {'BLUE':'蓝盾安全', 'GOLD':'神经元', 'RED':'荒坂军工'};
-                    const stockName = nameMap[currentStockSymbol] || currentStockSymbol;
-
-                    marketTicker.innerHTML = `<span style="color:${color}">${icon} ${stockName} ${sign}${percent}%</span>`;
-                } else {
-                    marketTicker.innerText = "MARKET OPEN";
+                    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+                    marketTicker.innerHTML = `<span>${tickerText}</span> <span style="margin-left:15px; color:${color}">${icon} ${nameMap[currentStockSymbol]} ${percent}%</span>`;
                 }
             }
 
-            // 4. 日志处理
-            if (typeof renderAllLogs === 'function') {
-                window.globalLogs = data.news || [];
-                renderAllLogs();
-            }
-            
-            // 5. 休市/停牌 UI 处理
-            const mask = document.getElementById('marketClosedMask');
-            const maskTitle = document.getElementById('maskTitle');
-            const maskSubtitle = document.getElementById('maskSubtitle');
-            
-            if (data.status && !data.status.isOpen) {
-                if(mask) {
-                    mask.style.display = 'flex';
-                    if(maskTitle) maskTitle.innerText = "💤 休市中 / MARKET CLOSED";
-                    if(maskSubtitle) maskSubtitle.innerText = "交易所维护时间: 02:00 - 06:00";
-                }
-                disableTrading(true);
-            } else {
-                if (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].suspended === 1) {
-                    if(mask) {
-                        mask.style.display = 'flex';
-                        if(maskTitle) maskTitle.innerText = "⚠️ 退市整理 / SUSPENDED";
-                        if(maskSubtitle) maskSubtitle.innerText = "股价触底，等待明日 06:00 重组";
-                    }
-                    disableTrading(true);
-                } else {
-                    if(mask) mask.style.display = 'none';
-                    disableTrading(false);
-                }
-            }
-
-            // 6. 刷新资金
+            if (typeof renderAllLogs === 'function') { window.globalLogs = data.news || []; renderAllLogs(); }
             if(document.getElementById('bizCapital')) document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             const kDisplay = document.getElementById('userKCoinsDisplay');
             if (kDisplay && data.userK !== undefined) kDisplay.innerText = data.userK.toLocaleString();
 
-            // 7. 绑定图表事件 (防抖动)
             if (canvas && !canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -4997,20 +4974,40 @@ window.loadStockMarket = async function() {
                 window.removeEventListener('resize', resizeStockChart);
                 window.addEventListener('resize', resizeStockChart);
             }
-
-            // 8. 重绘 (网络数据回来后再次刷新图表和持仓)
             if (typeof switchStock === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
                 updatePositionUI(currentStockSymbol);
             }
         }
-    } catch(e) { 
-        console.error("Stock Load Error:", e);
-        if (marketTicker) {
-            marketTicker.innerText = "SERVER ERROR (请检查网络)";
-            marketTicker.style.color = "#f33";
-        }
+    } catch(e) { console.error(e); }
+    
+    if (!stockAutoRefreshTimer) {
+        stockAutoRefreshTimer = setInterval(() => {
+            if (document.visibilityState === 'hidden') return;
+            const bizView = document.getElementById('view-business');
+            if (bizView && bizView.style.display !== 'none') loadStockMarket();
+        }, 5000); 
     }
+};
+
+window.buyInsider = async function() {
+    if(!confirm("🕵️ 确认支付 5,000 K币 接入情报网络？\n\n权益 (24小时)：\n1. 解锁实时压力数值 (不再是模糊条)\n2. 看到精确的买卖盘力量对比")) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/stock`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'buy_insider' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            loadStockMarket();
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) { showToast("网络错误", "error"); }
+};
     
     // 9. 自动刷新
     if (!stockAutoRefreshTimer) {
@@ -5734,6 +5731,7 @@ window.renderStockDashboard = function(symbol) {
         }
     }
 };
+
 
 
 
