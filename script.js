@@ -4874,15 +4874,12 @@ window.bizWithdraw = async function() {
     }
 };
 
-// --- script.js 股市核心逻辑 (交互版) ---
-
 let currentStockSymbol = 'BLUE';
 let marketData = {};
 let myPositions = [];
 let marketOpens = {}; // 存开盘价
 let companyInfo = {};
 let globalLogs = [];
-// --- script.js 修复版 loadStockMarket (增加破产检测) ---
 
 // 确保全局变量存在
 let stockMeta = {}; 
@@ -4906,19 +4903,13 @@ window.loadStockMarket = async function() {
 
         const data = await res.json();
         
-        // === 🚨 核心修复：这里增加了破产检测 🚨 ===
+        // === 破产检测 ===
         if (data.bankrupt) {
-            // 1. 停止图表刷新，防止报错
             if (canvas) canvas.dataset.listening = "false"; 
-            
-            // 2. 弹窗提示
             alert(`💔 破产通知：\n\n${data.report.msg}\n\n点击确定重新创业。`);
-            
-            // 3. 切换回创建页面
             loadBusiness(); 
-            return; // 终止后续绘图逻辑
+            return; 
         }
-        // ===========================================
         
         if (data.success) {
             // 更新全局数据
@@ -4927,7 +4918,63 @@ window.loadStockMarket = async function() {
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 1. 更新右上角 Ticker
+            // ===============================================
+            // 👇👇👇 新增部分：公司等级、天气、压力条 👇👇👇
+            // ===============================================
+
+            // 1. 更新公司等级显示
+            const lvEl = document.getElementById('companyLevelDisplay');
+            if (lvEl && data.companyLevel !== undefined) {
+                const lvNames = ["皮包公司", "量化工作室", "高频交易中心", "金融巨鳄"];
+                lvEl.innerText = `Lv.${data.companyLevel}: ${lvNames[data.companyLevel] || '未知'}`;
+            }
+
+            // 2. 更新市场天气与压力 (针对当前选中的股票)
+            if (currentStockSymbol && stockMeta[currentStockSymbol]) {
+                const meta = stockMeta[currentStockSymbol];
+                const mode = meta.mode || { name: '-', icon: '' };
+                const press = meta.pressure || 0;
+
+                // 更新天气
+                const modeEl = document.getElementById('marketModeDisplay');
+                if (modeEl) modeEl.innerHTML = `${mode.icon} ${mode.name} <span style="font-size:0.7rem;color:#666">(${mode.code})</span>`;
+
+                // 更新压力条
+                const bar = document.getElementById('pressureBar');
+                const pText = document.getElementById('pressureText');
+                if (bar) {
+                    // 压力可视化：基础50%，每 1000 压力偏移 10%
+                    // pressure > 0 (买盘) -> 向右 (Green)
+                    // pressure < 0 (卖盘) -> 向左 (Red)
+                    let percent = 50 + (press / 100); 
+                    percent = Math.max(10, Math.min(90, percent)); // 限制在 10%-90%
+                    
+                    bar.style.width = `${percent}%`;
+                    
+                    if (press > 50) {
+                        bar.style.background = `linear-gradient(90deg, #444 50%, #0f0 100%)`;
+                        if(pText) {
+                            pText.innerText = `买盘主导 (强度: ${press})`;
+                            pText.style.color = "#0f0";
+                        }
+                    } else if (press < -50) {
+                        bar.style.background = `linear-gradient(90deg, #f33 0%, #444 50%)`;
+                        if(pText) {
+                            pText.innerText = `卖盘主导 (强度: ${Math.abs(press)})`;
+                            pText.style.color = "#f33";
+                        }
+                    } else {
+                        bar.style.background = "#444";
+                        if(pText) {
+                            pText.innerText = "多空平衡";
+                            pText.style.color = "#aaa";
+                        }
+                    }
+                }
+            }
+            // 👆👆👆 新增部分结束 👆👆👆
+
+            // 3. 更新右上角 Ticker
             if (marketTicker) {
                 const curData = marketData[currentStockSymbol];
                 if (curData && curData.length > 0) {
@@ -4950,13 +4997,13 @@ window.loadStockMarket = async function() {
                 }
             }
 
-            // 2. 日志处理
+            // 4. 日志处理
             if (typeof renderAllLogs === 'function') {
                 window.globalLogs = data.news || [];
                 renderAllLogs();
             }
             
-            // 3. 休市/停牌 UI 处理
+            // 5. 休市/停牌 UI 处理
             const mask = document.getElementById('marketClosedMask');
             const maskTitle = document.getElementById('maskTitle');
             const maskSubtitle = document.getElementById('maskSubtitle');
@@ -4982,7 +5029,7 @@ window.loadStockMarket = async function() {
                 }
             }
 
-            // 4. 刷新资金
+            // 6. 刷新资金
             if(document.getElementById('bizCapital')) {
                 document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             }
@@ -4992,7 +5039,7 @@ window.loadStockMarket = async function() {
                 kDisplay.innerText = data.userK.toLocaleString();
             }
 
-            // 5. 绑定事件
+            // 7. 绑定事件
             if (canvas && !canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -5004,7 +5051,7 @@ window.loadStockMarket = async function() {
                 window.addEventListener('resize', resizeStockChart);
             }
 
-            // 6. 重绘
+            // 8. 重绘
             if (typeof switchStock === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
                 updatePositionUI(currentStockSymbol);
@@ -5018,7 +5065,7 @@ window.loadStockMarket = async function() {
         }
     }
     
-    // 7. 自动刷新
+    // 9. 自动刷新
     if (!stockAutoRefreshTimer) {
         stockAutoRefreshTimer = setInterval(() => {
             if (document.visibilityState === 'hidden') return;
@@ -5026,7 +5073,7 @@ window.loadStockMarket = async function() {
             if (bizView && bizView.style.display !== 'none') {
                 loadStockMarket();
             }
-        }, 5000); // 建议设为 5000 或 10000
+        }, 5000); 
     }
 };
 // 辅助：窗口大小改变时重绘
@@ -5655,6 +5702,7 @@ window.upgradeCompany = async function() {
         showToast("请求失败", "error");
     }
 };
+
 
 
 
