@@ -679,32 +679,48 @@ function parseMarkdown(text) {
 }
 
 function calculateLevel(xp) {
-    if (xp >= 90000) return { lv: 10, percent: 100, next: 'MAX', title: '赛博神' };
-    let currentLv = 1; let currentTitle = '潜行者'; let nextXp = 300; let prevXp = 0;
+    // 1. 获取满级配置 (读取表格最后一行)
+    const maxLevelConfig = LEVEL_TABLE[LEVEL_TABLE.length - 1];
+    
+    // 2. 动态判断满级 (不再写死数字)
+    if (xp >= maxLevelConfig.xp) {
+        return { 
+            lv: maxLevelConfig.lv, 
+            percent: 100, 
+            next: 'MAX', 
+            title: maxLevelConfig.title 
+        };
+    }
+
+    // 3. 正常遍历判断
+    let currentLv = 1; 
+    let currentTitle = LEVEL_TABLE[0].title; 
+    let nextXp = LEVEL_TABLE[1].xp; 
+    let prevXp = 0;
+
     for (let i = 0; i < LEVEL_TABLE.length; i++) {
         if (xp >= LEVEL_TABLE[i].xp) {
-            currentLv = LEVEL_TABLE[i].lv; currentTitle = LEVEL_TABLE[i].title; prevXp = LEVEL_TABLE[i].xp;
-            if (i < LEVEL_TABLE.length - 1) nextXp = LEVEL_TABLE[i+1].xp;
+            currentLv = LEVEL_TABLE[i].lv; 
+            currentTitle = LEVEL_TABLE[i].title; 
+            prevXp = LEVEL_TABLE[i].xp;
+            
+            // 如果还有下一级，获取下一级的经验要求
+            if (i < LEVEL_TABLE.length - 1) {
+                nextXp = LEVEL_TABLE[i+1].xp;
+            }
         }
     }
+
+    // 4. 计算百分比
     let percent = ((xp - prevXp) / (nextXp - prevXp)) * 100;
-    return { lv: currentLv, percent: Math.min(100, Math.max(0, percent)), next: nextXp, title: currentTitle };
+    
+    return { 
+        lv: currentLv, 
+        percent: Math.min(100, Math.max(0, percent)), 
+        next: nextXp, 
+        title: currentTitle 
+    };
 }
-
-function generatePixelAvatar(username, variant = 0) {
-    const seedStr = username + "v" + variant;
-    let hash = 0;
-    for (let i = 0; i < seedStr.length; i++) { hash = seedStr.charCodeAt(i) + ((hash << 5) - hash); }
-    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase().padStart(6, "0");
-    const color = `#${c}`;
-    let rects = '';
-    for(let i=0; i<5; i++) { for(let j=0; j<5; j++) {
-            const val = (hash >> (i * 5 + j)) & 1; 
-            if(val) rects += `<rect x="${j*10}" y="${i*10}" width="10" height="10" fill="${color}" />`;
-    }}
-    return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
-}
-
 // === 全能头像渲染函数 ===
 // 如果用户有 avatar_url，显示图片；否则显示像素画
 function renderUserAvatar(userObj) {
@@ -5456,6 +5472,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
