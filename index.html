@@ -728,7 +728,8 @@
                                     <!-- 右侧：交易输入 -->
                                     <div style="flex:1.5; min-width:280px;">
                                         <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">交易数量 / AMOUNT</div>
-                                        
+                                        <input type="range" id="tradeSlider" min="0" max="100" value="0" step="1" 
+                                               style="width:100%; margin-bottom:10px; cursor:pointer;" oninput="updateTradeFromSlider(this.value)">
                                         <div style="display:flex; gap:5px; margin-bottom:10px;">
                                             <input type="number" id="stockTradeAmount" class="cyber-input" placeholder="输入数量" style="flex:1; margin:0;">
                                             <button onclick="setTradeAmount('half')" class="mini-action-btn" style="border:1px solid #666;">1/2</button>
@@ -742,6 +743,7 @@
                                             <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="flex:1; border-color:gold; color:gold; margin:0; display:none;">平空 (结算)</button>
                                         </div>
                                     </div>
+                                    
                                 </div>
                             </div>     
                         </div>
@@ -1429,6 +1431,7 @@
     <script src="script.js?v=10.3"></script>
 </body>
 </html>
+
 
 
 
