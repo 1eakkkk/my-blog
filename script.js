@@ -5405,47 +5405,80 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fill();
     }
 }
-// === 1. 修复持仓显示 (updatePositionUI) ===
-function updatePositionUI(symbol) {
+// === 持仓显示 (终极版：含动态滑点预估) ===
+window.updatePositionUI = function(symbol) {
+    // 1. 数据安全检查
+    if (!marketData || !marketData[symbol] || !myPositions) return;
+    
     const pos = myPositions.find(p => p.stock_symbol === symbol);
     const amountEl = document.getElementById('myStockAmount');
     const profitEl = document.getElementById('myStockProfit');
     const btnCover = document.getElementById('btnShortCover');
     
-    // 安全检查
-    if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
+    if (!marketData[symbol] || marketData[symbol].length === 0) {
         if(amountEl) amountEl.innerText = "Loading...";
         return; 
     }
 
-    // 获取最新价格
     const currentPrice = marketData[symbol][marketData[symbol].length - 1].p; 
 
     if (pos) {
         const avgPrice = Math.floor(pos.avg_price);
         const levStr = pos.leverage > 1 ? `<span style="color:#ff00de; font-size:0.8rem; margin-left:5px; border:1px solid #ff00de; padding:0 4px; border-radius:3px;">x${pos.leverage}</span>` : '';
         
-        // --- 修复点：判断空单 ---
         let amountText = "";
-        let profit = 0;
+        let rawProfit = 0; // 毛利 (不含税)
         
         if (pos.amount > 0) {
-            // 多单
-            amountText = `<span style="color:#0f0">多单</span> ${pos.amount} 股`;
-            profit = (currentPrice - pos.avg_price) * pos.amount;
+            amountText = `<span style="color:#0f0">多单</span> ${pos.amount.toLocaleString()} 股`;
+            rawProfit = (currentPrice - pos.avg_price) * pos.amount;
             if(btnCover) btnCover.style.display = 'none';
         } else {
-            // 空单 (pos.amount 是负数)
-            amountText = `<span style="color:#f33">空单</span> ${Math.abs(pos.amount)} 股`;
-            profit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
-            if(btnCover) btnCover.style.display = 'inline-block'; // 显示平空按钮
+            amountText = `<span style="color:#f33">空单</span> ${Math.abs(pos.amount).toLocaleString()} 股`;
+            rawProfit = (pos.avg_price - currentPrice) * Math.abs(pos.amount);
+            if(btnCover) btnCover.style.display = 'inline-block';
         }
 
+        // === 2. 核心修复：复刻后端的滑点公式 ===
+        // 获取该股票的总股本
+        const meta = stockMeta[symbol];
+        const totalShares = meta ? meta.shares : 1000000; // 默认值防错
+        const holdingQty = Math.abs(pos.amount);
+
+        // 基础费率 0.5%
+        const baseFee = 0.005;
+        
+        // 滑点 = (持仓量 / 总股本) * 5
+        // 例如：持有 1% 股本 -> 滑点 5%
+        const slippage = (holdingQty / totalShares) * 5;
+        
+        // 最终费率
+        const finalFeeRate = baseFee + slippage;
+
+        // 计算预估扣费金额 (按当前总市值计算)
+        const totalValue = currentPrice * holdingQty;
+        const estimatedCost = totalValue * finalFeeRate;
+        
+        // 净利润
+        const netProfit = rawProfit - estimatedCost;
+
+        // 更新 UI
         if(amountEl) amountEl.innerHTML = `${amountText} ${levStr} <div style="font-size:0.8rem; color:#888; margin-top:3px;">均价: ${avgPrice}</div>`;
         
-        const sign = profit >= 0 ? '+' : '';
-        const color = profit >= 0 ? '#0f0' : '#f33';
-        if(profitEl) profitEl.innerHTML = `浮动盈亏: <span style="color:${color}">${sign}${Math.floor(profit)}</span>`;
+        const sign = netProfit >= 0 ? '+' : '';
+        const color = netProfit >= 0 ? '#0f0' : '#f33';
+        
+        // 显示费率提示，让大户死得明白
+        const feePercent = (finalFeeRate * 100).toFixed(2);
+        
+        if(profitEl) {
+            profitEl.innerHTML = `
+                <div>预估净利: <span style="color:${color}; font-weight:bold; font-size:1.1rem;">${sign}${Math.floor(netProfit)}</span></div>
+                <div style="font-size:0.7rem; color:#666; margin-top:2px;">
+                    (含滑点费率: <span style="color:${slippage > 0.01 ? '#f33' : '#888'}">${feePercent}%</span>)
+                </div>
+            `;
+        }
         
     } else {
         if(amountEl) amountEl.innerText = "--";
@@ -5847,6 +5880,7 @@ window.updateTradeFromSlider = function(percent) {
     // 填入输入框
     document.getElementById('stockTradeAmount').value = targetAmount;
 };
+
 
 
 
