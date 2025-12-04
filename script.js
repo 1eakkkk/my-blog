@@ -4899,6 +4899,7 @@ let stockMeta = {};
 let stockAutoRefreshTimer = null;
 
 window.loadStockMarket = async function() {
+    startRefreshTimer(); 
     const canvas = document.getElementById('stockCanvas');
     // 如果不在商业页面，不执行刷新
     if(!document.getElementById('view-business') || document.getElementById('view-business').style.display === 'none') return;
@@ -4960,6 +4961,10 @@ window.loadStockMarket = async function() {
             // 5. 渲染核心仪表盘 (调用独立函数，更新价格/市值/压力条等)
             if (typeof renderStockDashboard === 'function') {
                 renderStockDashboard(currentStockSymbol);
+                if (marketData[currentStockSymbol]) {
+                    const curP = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
+                    checkAutoTrigger(curP);
+                }
             }
 
             // 6. 更新 Ticker (选中股票的具体涨跌)
@@ -5951,6 +5956,122 @@ window.setTradeAmount = function(type) {
     }
 };
 
+// === 自动化交易 & 倒计时系统 ===
+
+let autoTradeState = {
+    running: false,
+    symbol: null,
+    action: 'buy', // buy, sell
+    targetPrice: 0,
+    amount: 0,
+    leverage: 1
+};
+
+let refreshCountdown = 5.0;
+let refreshInterval = null;
+
+// 1. 倒计时动画 (UI Only)
+function startRefreshTimer() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshCountdown = 5.0;
+    const timerEl = document.getElementById('marketTimer');
+    
+    refreshInterval = setInterval(() => {
+        refreshCountdown -= 0.1;
+        if (refreshCountdown <= 0) refreshCountdown = 0;
+        if (timerEl) timerEl.innerText = refreshCountdown.toFixed(1) + 's';
+    }, 100);
+}
+
+// 2. 切换面板显示
+window.toggleAutoTradePanel = function() {
+    const panel = document.getElementById('autoTradeConfig');
+    const arrow = document.getElementById('autoTradeArrow');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        arrow.innerText = '▲';
+    } else {
+        panel.style.display = 'none';
+        arrow.innerText = '▼';
+    }
+};
+
+// 3. 启动挂机
+window.startAutoTrade = function() {
+    const action = document.getElementById('autoAction').value;
+    const target = parseInt(document.getElementById('autoPriceTarget').value);
+    const amount = parseInt(document.getElementById('stockTradeAmount').value);
+    const lev = parseInt(document.getElementById('stockLeverage').value) || 1;
+
+    if (!target || target <= 0) return showToast("请输入目标价格", "error");
+    if (!amount || amount <= 0) return showToast("请输入执行数量 (上方输入框)", "error");
+    if (!currentStockSymbol) return;
+
+    // 锁定状态
+    autoTradeState = {
+        running: true,
+        symbol: currentStockSymbol,
+        action: action,
+        targetPrice: target,
+        amount: amount,
+        leverage: lev
+    };
+
+    // UI 变更
+    document.getElementById('autoTradeConfig').style.display = 'none';
+    const statusBox = document.getElementById('autoTradeStatus');
+    statusBox.style.display = 'block';
+    
+    const symbol = action === 'buy' ? '≤' : '≥';
+    document.getElementById('statusCondition').innerText = symbol;
+    document.getElementById('statusTarget').innerText = target;
+    
+    showToast("自动交易机器人已启动", "success");
+};
+
+// 4. 停止挂机
+window.stopAutoTrade = function() {
+    autoTradeState.running = false;
+    document.getElementById('autoTradeStatus').style.display = 'none';
+    document.getElementById('autoTradeConfig').style.display = 'block';
+    showToast("挂机已停止", "info");
+};
+
+// 5. 核心：每秒检查价格 (在 loadStockMarket 中调用)
+function checkAutoTrigger(currentPrice) {
+    if (!autoTradeState.running) return;
+    if (autoTradeState.symbol !== currentStockSymbol) return; // 防止切台误触
+
+    let triggered = false;
+
+    // 买入逻辑：价格 <= 目标
+    if (autoTradeState.action === 'buy' && currentPrice <= autoTradeState.targetPrice) {
+        triggered = true;
+    }
+    // 卖出逻辑：价格 >= 目标
+    else if (autoTradeState.action === 'sell' && currentPrice >= autoTradeState.targetPrice) {
+        triggered = true;
+    }
+
+    if (triggered) {
+        // 触发交易
+        // 临时把输入框的值改写，确保 tradeStock 读取正确
+        document.getElementById('stockTradeAmount').value = autoTradeState.amount;
+        document.getElementById('stockLeverage').value = autoTradeState.leverage;
+        
+        tradeStock(autoTradeState.action); // 调用原有交易函数
+        
+        // 触发后停止，防止重复扣款
+        stopAutoTrade();
+        
+        // 播放提示音或强提示
+        const box = document.getElementById('marketTicker');
+        if(box) {
+            box.innerHTML = `<span style="color:#bd00ff; font-weight:bold;">⚡ 自动交易触发成功！</span>`;
+            setTimeout(() => { if(typeof loadStockMarket==='function') loadStockMarket(); }, 2000);
+        }
+    }
+}
 
 
 
