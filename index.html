@@ -625,6 +625,21 @@
                                 <div class="stat-box"><div class="label">LOW</div><div class="val" id="stockLow" style="color:#f33;">--</div></div>
                                 <div class="stat-box"><div class="label">CURRENT</div><div class="val" id="stockCurrent" style="font-size:1.2rem; font-weight:bold;">--</div></div>
                             </div>
+                            <!-- 2. 市值与发行数据 (新增) -->
+                            <div class="stock-stats-row" style="display:flex; justify-content:space-between; margin-bottom:10px; background:rgba(0,0,0,0.3); padding:8px; border-radius:4px; border:1px solid #333; font-size:0.75rem;">
+                                <div>
+                                    <div style="color:#888;">MARKET CAP / 市值</div>
+                                    <div id="stockMarketCap" style="color:#00f3ff; font-weight:bold;">--</div>
+                                </div>
+                                <div>
+                                    <div style="color:#888;">TOTAL SHARES / 发行量</div>
+                                    <div id="stockTotalShares" style="color:#fff;">--</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="color:#888;">BANKRUPT LINE / 破产线</div>
+                                    <div id="stockBankruptLine" style="color:#f33; font-weight:bold;">--</div>
+                                </div>
+                            </div>
 
                             <!-- 新增：市场情绪与压力监控 -->
                             <div style="display:flex; gap:15px; margin-bottom:15px; align-items:center; background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; border:1px solid #333;">
@@ -1321,6 +1336,7 @@
     <script src="script.js?v=10.1"></script>
 </body>
 </html>
+
 
 
 
