@@ -2736,10 +2736,22 @@ async function loadLeaderboard() {
         container.innerHTML = ''; // 清空
 
         // 定义四个榜单的配置
+        // 定义榜单配置
         const boards = [
-            { title: "🚀 本周黑马 (ROI)", data: data.roi || [], valueKey: 'roi', format: v => `<span style="color:#ff00de">${parseFloat(v).toFixed(2)}%</span>` },
+            // 1. 实时身价榜 (Total Net Worth)
+            { 
+                title: "🏆 赛博富豪榜 (总身价)", 
+                data: data.net_worth || [], // 对应后端新字段
+                valueKey: 'total_net_worth', 
+                format: v => {
+                    // 格式化为 ¥ 1,234,567 样式
+                    return `<span style="color:#ff00de; font-weight:900;">¥ ${parseInt(v).toLocaleString()}</span>`;
+                }
+            },
+            
+            // ... 其他榜单保持不变 ...
             { title: "⚡ 等级天梯", data: data.xp, valueKey: 'xp', format: v => `${v} XP` },
-            { title: "🏦 财富榜",   data: data.coins, valueKey: 'coins', format: v => `<span style="color:#FFD700">${v} i</span>` },
+            { title: "🏦 现金储备", data: data.coins, valueKey: 'coins', format: v => `<span style="color:#FFD700">${v} i</span>` },
             { title: "💸 慈善家", data: data.sent, valueKey: 'tips_sent', format: v => `${v} i` },
             { title: "💰 创作者", data: data.received, valueKey: 'tips_received', format: v => `${v} i` },
             { title: "❤️ 人气王", data: data.likes, valueKey: 'likes_received', format: v => `${v} ❤` }
@@ -5912,6 +5924,7 @@ window.setTradeAmount = function(type) {
         showToast("已触及单笔最大限制 (10,000股)", "info");
     }
 };
+
 
 
 
