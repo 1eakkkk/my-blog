@@ -384,11 +384,16 @@ export async function onRequest(context) {
             for (let sym in STOCKS_CONFIG) {
                 chartData[sym] = historyResults.results.filter(r => r.symbol === sym);
                 if (chartData[sym].length === 0 && market[sym]) chartData[sym] = [{ t: market[sym].t, p: market[sym].p }];
+                
                 stockMeta[sym] = { 
                     open: market[sym] ? market[sym].open : 0, 
                     suspended: market[sym] ? market[sym].suspended : 0,
                     mode: market[sym] ? market[sym].mode : MARKET_MODES[0],
-                    pressure: market[sym] ? market[sym].pressure : 0
+                    pressure: market[sym] ? market[sym].pressure : 0,
+                    
+                    // === 👇 新增：将核心数据暴露给前端 👇 ===
+                    shares: market[sym] ? market[sym].shares : 1000000,
+                    issue_p: market[sym] ? market[sym].issue_p : 1000
                 };
             }
             const logsRes = await db.prepare("SELECT * FROM market_logs WHERE created_at < ? ORDER BY created_at DESC LIMIT 20").bind(Date.now()).all();
