@@ -2737,6 +2737,7 @@ async function loadLeaderboard() {
 
         // 定义四个榜单的配置
         const boards = [
+            { title: "🚀 本周黑马 (ROI)", data: data.roi || [], valueKey: 'roi', format: v => `<span style="color:#ff00de">${parseFloat(v).toFixed(2)}%</span>` },
             { title: "⚡ 等级天梯", data: data.xp, valueKey: 'xp', format: v => `${v} XP` },
             { title: "🏦 财富榜",   data: data.coins, valueKey: 'coins', format: v => `<span style="color:#FFD700">${v} i</span>` },
             { title: "💸 慈善家", data: data.sent, valueKey: 'tips_sent', format: v => `${v} i` },
@@ -5635,103 +5636,111 @@ window.upgradeCompany = async function() {
     }
 };
 
-// === 核心优化：独立 UI 渲染函数 (实现瞬间切换) ===
+// === 核心渲染：支持 v3.0 情报局与宏观纪元 ===
 window.renderStockDashboard = function(symbol) {
-    // 安全检查：如果内存里没数据，直接返回，等待网络请求
     if (!marketData || !marketData[symbol] || !stockMeta || !stockMeta[symbol]) return;
 
     const dataList = marketData[symbol];
     const meta = stockMeta[symbol];
-    
     if (dataList.length === 0) return;
 
-    // --- 1. 计算并渲染顶部基础数据 (Top 4) ---
-    // 在前端重新计算 High/Low，确保切换时数据准确
-    let maxP = -Infinity;
-    let minP = Infinity;
+    // 1. 基础数据 (Top 4)
+    let maxP = -Infinity, minP = Infinity;
     dataList.forEach(d => {
         if (d.p > maxP) maxP = d.p;
         if (d.p < minP) minP = d.p;
     });
-    
     const currentP = dataList[dataList.length - 1].p;
     const openP = meta.open || dataList[0].p;
 
-    const elOpen = document.getElementById('stockOpen');
-    const elHigh = document.getElementById('stockHigh');
-    const elLow = document.getElementById('stockLow');
     const elCurr = document.getElementById('stockCurrent');
-    
-    if (elOpen) elOpen.innerText = openP;
-    if (elHigh) elHigh.innerText = maxP;
-    if (elLow) elLow.innerText = minP;
+    if (document.getElementById('stockOpen')) document.getElementById('stockOpen').innerText = openP;
+    if (document.getElementById('stockHigh')) document.getElementById('stockHigh').innerText = maxP;
+    if (document.getElementById('stockLow')) document.getElementById('stockLow').innerText = minP;
     if (elCurr) {
         elCurr.innerText = currentP;
         elCurr.style.color = currentP >= openP ? '#0f0' : '#f33';
     }
 
-    // --- 2. 渲染中间栏 (市值/发行量/破产线) ---
+    // 2. 市值与破产线
     const shares = meta.shares || 1000000;
     const issueP = meta.issue_p || 1000;
-    
-    // 市值
-    const mktCapEl = document.getElementById('stockMarketCap');
-    if (mktCapEl) mktCapEl.innerText = `¥ ${(currentP * shares).toLocaleString()}`;
+    if (document.getElementById('stockMarketCap')) document.getElementById('stockMarketCap').innerText = `¥ ${(currentP * shares).toLocaleString()}`;
+    if (document.getElementById('stockTotalShares')) document.getElementById('stockTotalShares').innerText = shares.toLocaleString();
 
-    // 发行量
-    const sharesEl = document.getElementById('stockTotalShares');
-    if (sharesEl) sharesEl.innerText = shares.toLocaleString();
-
-    // 破产线
     const bankruptPrice = Math.floor(issueP * 0.2);
     const lineEl = document.getElementById('stockBankruptLine');
     if (lineEl) {
         lineEl.innerText = `≤ ${bankruptPrice}`;
-        // 红色闪烁警报
         if (currentP <= bankruptPrice * 1.1) {
             lineEl.style.animation = "pulse-red 1s infinite";
             lineEl.style.color = "#f33";
         } else {
             lineEl.style.animation = "none";
-            lineEl.style.color = "#888"; // 恢复默认灰/白
+            lineEl.style.color = "#888";
         }
     }
 
-    // --- 3. 渲染底部栏 (天气/压力条) ---
+    // 3. 底部栏：天气 & 压力条 (情报系统核心)
     const mode = meta.mode || { name: '-', icon: '', code: 'NORMAL' };
-    const press = meta.pressure || 0; // 这里的 pressure 其实是本分钟内的净挂单量
+    let press = meta.pressure || 0; // 这里的 press 可能是模糊值(999) 也可能是 精确值(12500)
 
-    // 天气
+    // 天气显示
     const modeEl = document.getElementById('marketModeDisplay');
     if (modeEl) modeEl.innerHTML = `${mode.icon} ${mode.name} <span style="font-size:0.7rem;color:#666">(${mode.code})</span>`;
 
-    // 压力条 -> 改为 "多空博弈条"
+    // 压力条可视化
     const bar = document.getElementById('pressureBar');
     const pText = document.getElementById('pressureText');
     if (bar && pText) {
-        // 计算简单的多空比例演示 (可视化用)
-        // 假设基础平衡是 50%，每 1000 股净买单偏移 5%
-        let percent = 50 + (press / 1000) * 5; 
-        percent = Math.max(10, Math.min(90, percent)); // 限制显示范围
+        // 判断是否为情报员 (通过数值特征判断，后端传给普通人的只有 0, 999, -999)
+        const isVague = (Math.abs(press) === 999 || press === 0); 
         
-        bar.style.width = `${percent}%`;
-        
-        if (press > 500) {
-            bar.style.background = `linear-gradient(90deg, #444 50%, #0f0 100%)`;
-            pText.innerText = `多头强势 (净买入: ${press})`;
-            pText.style.color = "#0f0";
-        } else if (press < -500) {
-            bar.style.background = `linear-gradient(90deg, #f33 0%, #444 50%)`;
-            pText.innerText = `空头施压 (净抛售: ${Math.abs(press)})`;
-            pText.style.color = "#f33";
+        if (isVague) {
+            // === 普通视角 (模糊) ===
+            if (press === 999) {
+                bar.style.width = "80%";
+                bar.style.background = `linear-gradient(90deg, #444 20%, #0f0 100%)`;
+                pText.innerHTML = `⚠️ 买盘汹涌 <span style="color:#666">(具体数值已加密)</span>`;
+                pText.style.color = "#0f0";
+            } else if (press === -999) {
+                bar.style.width = "80%";
+                bar.style.background = `linear-gradient(90deg, #f33 0%, #444 80%)`;
+                pText.innerHTML = `⚠️ 抛压沉重 <span style="color:#666">(具体数值已加密)</span>`;
+                pText.style.color = "#f33";
+            } else {
+                bar.style.width = "50%";
+                bar.style.background = "#444";
+                pText.innerText = "多空平衡 (趋势不明)";
+                pText.style.color = "#aaa";
+            }
         } else {
-            bar.style.background = "#444";
-            pText.innerText = "多空平衡";
-            pText.style.color = "#aaa";
+            // === 情报员视角 (精准数据) ===
+            // 基础 50%，每 2000 股净量偏移 10%
+            let percent = 50 + (press / 2000) * 10; 
+            percent = Math.max(5, Math.min(95, percent));
+            
+            bar.style.width = `${percent}%`;
+            
+            // 加上 "INSIDER" 特效标签
+            const insiderTag = `<span style="background:#bd00ff; color:#fff; padding:1px 4px; border-radius:3px; font-size:0.6rem; margin-right:5px;">INSIDER</span>`;
+            
+            if (press > 0) {
+                bar.style.background = `linear-gradient(90deg, #444 50%, #0f0 100%)`;
+                pText.innerHTML = `${insiderTag} 多头净买入: <span style="font-family:'JetBrains Mono'">${press.toLocaleString()}</span>`;
+                pText.style.color = "#0f0";
+            } else if (press < 0) {
+                bar.style.background = `linear-gradient(90deg, #f33 0%, #444 50%)`;
+                pText.innerHTML = `${insiderTag} 空头净抛售: <span style="font-family:'JetBrains Mono'">${Math.abs(press).toLocaleString()}</span>`;
+                pText.style.color = "#f33";
+            } else {
+                bar.style.background = "#444";
+                pText.innerHTML = `${insiderTag} 完美平衡`;
+                pText.style.color = "#fff";
+            }
         }
     }
 };
-
 
 
 
