@@ -570,17 +570,26 @@
                         <!-- 财务概览卡片 -->
                         <div class="glass-card" style="background:rgba(0,50,0,0.3); border-color:#0f0; margin-bottom:20px;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <!-- 左侧：可用资金 -->
                                 <div>
-                                    <div style="font-size:0.8rem; color:#888;">COMPANY VALUE / 市值</div>
-                                    <div id="bizCapital" style="font-size:2rem; font-weight:bold; color:#fff;">0</div>
+                                    <div style="font-size:0.8rem; color:#888;">CASH / 可用资金</div>
+                                    <div id="bizCapital" style="font-size:1.8rem; font-weight:bold; color:#0f0;">0</div>
                                 </div>
+                                
+                                <!-- 中间分隔线 (PC显示，手机可能挤) -->
+                                <div style="width:1px; height:40px; background:#333; margin:0 15px;"></div>
+
+                                <!-- 右侧：公司净值 -->
                                 <div style="text-align:right;">
-                                    <div style="font-size:0.8rem; color:#888;">TYPE</div>
-                                    <div id="bizTypeDisplay" style="color:#00f3ff;">-</div>
+                                    <div style="font-size:0.8rem; color:#888;">NET WORTH / 公司净值</div>
+                                    <div id="bizTotalEquity" style="font-size:1.8rem; font-weight:bold; color:#00f3ff;">0</div>
                                 </div>
                             </div>
-                            <div id="bizLastSettle" style="margin-top:10px; font-size:0.8rem; color:#aaa; border-top:1px dashed #333; padding-top:5px;">
-                                昨日财报: 暂无数据
+                            
+                            <!-- 底部补充信息 -->
+                            <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:0.8rem; color:#aaa; border-top:1px dashed #333; padding-top:5px;">
+                                <div>TYPE: <span id="bizTypeDisplay" style="color:#fff;">-</span></div>
+                                <div id="bizLastSettle">昨日财报: 暂无数据</div>
                             </div>
                         </div>
                 
@@ -1455,6 +1464,7 @@
     <script src="script.js?v=10.5"></script>
 </body>
 </html>
+
 
 
 
