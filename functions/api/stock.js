@@ -1,27 +1,39 @@
 // --- START OF FILE functions/api/stock.js ---
 
-// === 1. 核心配置 ===
+// === 1. 核心配置 (数值策划) ===
 const STOCKS_CONFIG = {
-    'BLUE': { name: '蓝盾安全', color: '#00f3ff', share_range: [1500000, 2000000], price_range: [800, 1200] },
-    'GOLD': { name: '神经元科技', color: '#ffd700', share_range: [1000000, 1500000], price_range: [2000, 3000] },
-    'RED':  { name: '荒坂军工', color: '#ff3333', share_range: [600000, 900000], price_range: [3500, 5000] }
+    'BLUE': { 
+        name: '蓝盾安全', color: '#00f3ff', 
+        share_range: [1500000, 2000000], 
+        price_range: [800, 1200] 
+    },
+    'GOLD': { 
+        name: '神经元科技', color: '#ffd700', 
+        share_range: [1000000, 1500000], 
+        price_range: [2000, 3000] 
+    },
+    'RED':  { 
+        name: '荒坂军工', color: '#ff3333', 
+        share_range: [600000, 900000],   
+        price_range: [3500, 5000] 
+    }
 };
 
-// === 2. 宏观纪元 (Macro Eras) ===
-// 每 3 天切换一次，影响全市场参数
+// === 2. 宏观纪元 ===
 const MACRO_ERAS = [
-    { code: 'NEON_AGE', name: '霓虹盛世', desc: '科技繁荣，全市场波动率降低，利好科技股。', buff: { vol: 0.8, gold_bias: 1.2, red_bias: 0.8 } },
-    { code: 'CORP_WAR', name: '企业战争', desc: '局势动荡，军工股暴涨，消费股暴跌。', buff: { vol: 1.5, gold_bias: 0.7, red_bias: 1.3 } },
-    { code: 'DATA_CRASH', name: '数据大崩塌', desc: '大萧条，流动性枯竭，极易发生踩踏。', buff: { vol: 0.5, gold_bias: 0.9, red_bias: 0.9 } }
+    { code: 'NEON_AGE', name: '霓虹盛世', desc: '全市场流动性充裕，易暴涨。', buff: { vol: 1.2, gold_bias: 1.2, red_bias: 1.0 } },
+    { code: 'CORP_WAR', name: '企业战争', desc: '局势动荡，波动率极高。', buff: { vol: 2.0, gold_bias: 0.7, red_bias: 1.5 } },
+    { code: 'DATA_CRASH', name: '数据大崩塌', desc: '大萧条，阴跌不止。', buff: { vol: 0.8, gold_bias: 0.8, red_bias: 0.8 } }
 ];
 
-const TRADE_COOLDOWN = 45 * 1000;
-const SHORT_HOLD_MIN = 60 * 1000;
-const BASE_FEE_RATE = 0.01;
-const MAX_HOLDING_PCT = 0.05;
-const MAX_ORDER_PCT = 0.005;
-const BANKRUPT_PCT = 0.2;
-const INSIDER_COST_24H = 5000; // 订阅情报费用 (K币)
+// === 3. 交易参数 (安全锁生效) ===
+const TRADE_COOLDOWN = 30 * 1000;     
+const SHORT_HOLD_MIN = 60 * 1000;     
+const BASE_FEE_RATE = 0.005;          
+const MAX_HOLDING_PCT = 0.20;         // 小社区放宽至 20%
+const MAX_ORDER_PCT = 0.01;           
+const BANKRUPT_PCT = 0.2;             
+const INSIDER_COST_24H = 5000; 
 
 const COMPANY_LEVELS = {
     0: { name: "皮包公司", margin_rate: 1.0, cost: 0 },
@@ -34,28 +46,27 @@ const MARKET_MODES = {
     0: { name: '平衡市', code: 'NORMAL', depth_mod: 1.0, icon: '🌤️' },
     1: { name: '牛市',   code: 'BULL',   depth_mod: 1.5, icon: '🔥' },
     2: { name: '熊市',   code: 'BEAR',   depth_mod: 0.8, icon: '❄️' },
-    3: { name: '低波市', code: 'QUIET',  depth_mod: 0.5, icon: '🌫️' }
+    3: { name: '低波市', code: 'QUIET',  depth_mod: 0.3, icon: '🌫️' } 
 };
 
-// 新闻库 (Factor: >1 利好, <1 利空)
 const NEWS_DB = {
     'BLUE': [
-        { weight: 20, factor: 1.1, msg: "季度财报显示现金流稳健。" }, { weight: 20, factor: 0.9, msg: "服务器维护成本略高于预期。" },
-        { weight: 10, factor: 1.3, msg: "获得政府防火墙二期工程订单。" }, { weight: 10, factor: 0.7, msg: "部分用户投诉误报率上升。" },
-        { weight: 5, factor: 1.6, msg: "发布量子加密算法，渗透率归零。" }, { weight: 5, factor: 0.4, msg: "核心数据库遭受 DDoS 攻击！" },
-        { weight: 1, factor: 2.0, msg: "【重磅】市政厅宣布其为唯一安全供应商！" }, { weight: 1, factor: 0.1, msg: "【突发】0-day 漏洞数据泄露，面临巨额索赔！" }
+        { weight: 20, factor: 1.2, msg: "季度财报超预期，现金流强劲。" }, { weight: 20, factor: 0.8, msg: "服务器维护成本激增。" },
+        { weight: 10, factor: 1.4, msg: "获得政府防火墙二期工程订单。" }, { weight: 10, factor: 0.6, msg: "部分用户投诉误报率上升。" },
+        { weight: 5, factor: 1.8, msg: "发布量子加密算法，黑客渗透率归零。" }, { weight: 5, factor: 0.3, msg: "核心数据库遭受 DDoS 攻击！" },
+        { weight: 1, factor: 2.5, msg: "【重磅】市政厅宣布其为唯一安全供应商！" }, { weight: 1, factor: 0.1, msg: "【突发】0-day 漏洞数据泄露，面临巨额索赔！" }
     ],
     'GOLD': [
-        { weight: 20, factor: 1.1, msg: "义体原材料成本下降。" }, { weight: 20, factor: 0.9, msg: "医保法案推迟，影响报销。" },
-        { weight: 10, factor: 1.4, msg: "新款义体‘赫尔墨斯’销量增长。" }, { weight: 10, factor: 0.6, msg: "数千名用户投诉芯片过热。" },
-        { weight: 5, factor: 1.7, msg: "排异反应抑制剂通过临床三期！" }, { weight: 5, factor: 0.3, msg: "被曝在贫民窟进行非法实验。" },
-        { weight: 1, factor: 2.5, msg: "【神迹】宣布实现完美意识上传！" }, { weight: 1, factor: 0.05, msg: "【灾难】核心 AI 产生自我意识并反叛！" }
+        { weight: 20, factor: 1.2, msg: "义体原材料成本大幅下降。" }, { weight: 20, factor: 0.8, msg: "医保法案推迟，影响报销。" },
+        { weight: 10, factor: 1.5, msg: "新款义体‘赫尔墨斯’销量暴增。" }, { weight: 10, factor: 0.5, msg: "数千名用户投诉芯片过热。" },
+        { weight: 5, factor: 1.9, msg: "排异反应抑制剂通过临床三期！" }, { weight: 5, factor: 0.2, msg: "被曝在贫民窟进行非法实验。" },
+        { weight: 1, factor: 3.0, msg: "【神迹】宣布实现完美意识上传！" }, { weight: 1, factor: 0.05, msg: "【灾难】核心 AI 产生自我意识并反叛！" }
     ],
     'RED': [
-        { weight: 20, factor: 1.1, msg: "边境摩擦带来少量订单。" }, { weight: 20, factor: 0.9, msg: "一批常规弹药运输延误。" },
-        { weight: 10, factor: 1.4, msg: "成功镇压局部暴乱。" }, { weight: 10, factor: 0.6, msg: "反战组织举行大规模抗议。" },
-        { weight: 5, factor: 1.8, msg: "发布‘半人马’机甲，威慑力拉满。" }, { weight: 5, factor: 0.2, msg: "国际法庭冻结其海外资产。" },
-        { weight: 1, factor: 3.0, msg: "【战争】第四次企业战争爆发！" }, { weight: 1, factor: 0.05, msg: "【覆灭】内部爆发夺权内战，业务瘫痪！" }
+        { weight: 20, factor: 1.2, msg: "边境摩擦带来大量订单。" }, { weight: 20, factor: 0.8, msg: "一批常规弹药运输延误。" },
+        { weight: 10, factor: 1.5, msg: "成功镇压局部暴乱。" }, { weight: 10, factor: 0.5, msg: "反战组织举行大规模抗议。" },
+        { weight: 5, factor: 2.0, msg: "发布‘半人马’机甲，威慑力拉满。" }, { weight: 5, factor: 0.2, msg: "国际法庭冻结其海外资产。" },
+        { weight: 1, factor: 3.5, msg: "【战争】第四次企业战争爆发！" }, { weight: 1, factor: 0.05, msg: "【覆灭】内部爆发夺权内战，业务瘫痪！" }
     ]
 };
 
@@ -69,10 +80,8 @@ function calculatePositionValue(pos, currentPrice) {
     return Math.floor(principal + profit);
 }
 
-// 计算当前宏观纪元
 function getCurrentEra(now) {
-    // 每 3 天 (72小时) 切换一次
-    const dayIndex = Math.floor(now / (1000 * 60 * 60 * 24 * 3));
+    const dayIndex = Math.floor(now / (1000 * 60 * 60 * 12)); // 12小时换一次纪元
     return MACRO_ERAS[dayIndex % MACRO_ERAS.length];
 }
 
@@ -101,7 +110,7 @@ async function ensureSchema(db) {
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v10_final"; // Key Update
+    const CACHE_KEY = "market_v12_safety"; // Cache Key Updated
     let cachedData = null;
     if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
@@ -163,7 +172,7 @@ async function getOrUpdateMarket(env, db) {
         return { market: {}, status: { isOpen: false }, era: currentEra };
     }
 
-    // === 核心模拟 ===
+    // === 核心模拟引擎 ===
     for (let s of states.results) {
         const sym = s.symbol;
         const mode = getMarketMode(sym, now);
@@ -194,18 +203,19 @@ async function getOrUpdateMarket(env, db) {
             simT += 60000;
             const isCatchUp = (i < missed - 1); 
 
-            // 1. 深度基准 (受宏观纪元影响)
+            // 1. 深度基准 (小社区特供：0.5%)
             let eraBias = 1.0;
             if (sym === 'GOLD') eraBias = currentEra.buff.gold_bias;
             if (sym === 'RED') eraBias = currentEra.buff.red_bias;
             
-            let buyDepth = totalShares * 0.01 * mode.depth_mod * eraBias;
-            let sellDepth = totalShares * 0.01 * mode.depth_mod * eraBias;
+            let baseDepthRatio = 0.005; 
+            let buyDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
+            let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
             let newsMsg = null;
 
-            // 2. 新闻 (受宏观波动率影响)
-            if (!isCatchUp && (simT - nextNewsT >= 300000)) {
-                if (Math.random() < 0.15) { 
+            // 2. 新闻
+            if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
+                if (Math.random() < 0.2) { 
                     nextNewsT = simT;
                     const news = pickWeightedNews(sym);
                     if (news) {
@@ -216,10 +226,20 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            // 3. 做市商机器人 (Market Maker) - 注入微小流动性，防止僵尸股
-            if (!isCatchUp && currentPressure === 0 && !newsMsg) {
-                // 随机制造一点点多空不平衡
-                const botVol = (Math.random() - 0.5) * totalShares * 0.0005; // 万分之5的波动
+            // 3. 强力做市商 (安全版：带趋势惯性 + 深度限制 + 冷却)
+            // 触发概率 50% (冷却窗)
+            if (!isCatchUp && !newsMsg && Math.random() < 0.5) {
+                // 趋势惯性：每5分钟一个大方向
+                const trendBlock = Math.floor(simT / 300000); 
+                let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
+                
+                // 30% 概率反向 (制造震荡)
+                if (Math.random() < 0.3) trendDir *= -1;
+                
+                // 深度限制：下单量限制在总股本 0.3% ~ 0.8%
+                // 既能推动价格，又不会瞬间吃穿深度
+                const botVol = trendDir * totalShares * (0.003 + Math.random() * 0.005);
+                
                 if (botVol > 0) buyDepth += botVol;
                 else sellDepth += Math.abs(botVol);
             }
@@ -230,10 +250,17 @@ async function getOrUpdateMarket(env, db) {
                 else sellDepth += Math.abs(currentPressure);
             }
 
-            // 5. 撮合
-            const delta = (buyDepth - sellDepth) / totalShares * 2.0 * currentEra.buff.vol; // 宏观波动率
-            const clampedDelta = Math.max(-0.1, Math.min(0.1, delta));
-            const noise = (Math.random() - 0.5) * 0.004;
+            // 5. 撮合公式 (高灵敏度 50.0)
+            const volatilityFactor = 50.0 * currentEra.buff.vol; 
+            const delta = (buyDepth - sellDepth) / totalShares * volatilityFactor;
+            
+            // === 🛑 核心安全锁 1：硬性涨跌幅限制 ±8% ===
+            // 无论买单多大，一分钟最多涨跌 8%
+            const clampedDelta = Math.max(-0.08, Math.min(0.08, delta));
+            
+            // 自然噪音 1%
+            const noise = (Math.random() - 0.5) * 0.01;
+            
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
 
             if (newsMsg) {
@@ -320,10 +347,8 @@ export async function onRequest(context) {
                 chartData[sym] = historyResults.results.filter(r => r.symbol === sym);
                 if (chartData[sym].length === 0 && market[sym]) chartData[sym] = [{ t: market[sym].t, p: market[sym].p }];
                 
-                // === 情报系统核心：如果不是Insider，隐藏真实压力值 ===
                 let pressureVal = market[sym] ? market[sym].pressure : 0;
                 if (!isInsider) {
-                    // 普通人只能看到模糊的趋势 (-1, 0, 1)
                     if (pressureVal > 500) pressureVal = 999; 
                     else if (pressureVal < -500) pressureVal = -999;
                     else pressureVal = 0;
@@ -349,6 +374,7 @@ export async function onRequest(context) {
             const { action, symbol, amount, leverage = 1 } = body;
             const userNameDisplay = user.nickname || user.username;
 
+            // 1. 无需公司
             if (action === 'buy_insider') {
                 if (user.k_coins < INSIDER_COST_24H) return Response.json({ error: `K币不足 (需 ${INSIDER_COST_24H} k)` });
                 const newExp = Date.now() + 24 * 60 * 60 * 1000;
@@ -372,7 +398,7 @@ export async function onRequest(context) {
                     batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, newPrice, now));
                     batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【管理员】${conf.name} 强制重组上市。`, 'good', now));
                 }
-                if (env.KV) await env.KV.delete("market_v10_final");
+                if (env.KV) await env.KV.delete("market_v12_safety");
                 await db.batch(batch);
                 return Response.json({ success: true, message: '重组完成' });
             }
@@ -400,6 +426,7 @@ export async function onRequest(context) {
                 return Response.json({ success: true, message: '注册成功' });
             }
 
+            // 2. 需要公司
             if (!company) return Response.json({ error: '无公司' });
 
             if (action === 'upgrade_company') {
@@ -443,6 +470,7 @@ export async function onRequest(context) {
                 const totalShares = market[symbol].shares;
                 const pos = await db.prepare("SELECT * FROM company_positions WHERE company_id = ? AND stock_symbol = ?").bind(company.id, symbol).first();
                 
+                // === 🛡️ 风控：冷却 30s ===
                 const lastTrade = pos ? (pos.last_trade_time || 0) : 0;
                 const now = Date.now();
                 if (now - lastTrade < TRADE_COOLDOWN) {
@@ -541,7 +569,7 @@ export async function onRequest(context) {
 
                 batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
                 await db.batch(batch);
-                if (env.KV) await env.KV.delete("market_v10_final");
+                if (env.KV) await env.KV.delete("market_v12_safety");
                 return Response.json({ success: true, message: `交易成功 (滑点费率 ${(feeRate*100).toFixed(2)}%)`, log: logMsg });
             }
             
