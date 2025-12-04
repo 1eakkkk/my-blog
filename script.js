@@ -5030,7 +5030,7 @@ window.loadStockMarket = async function() {
             if (document.visibilityState === 'hidden') return;
             const bizView = document.getElementById('view-business');
             if (bizView && bizView.style.display !== 'none') loadStockMarket();
-        }, 5000); 
+        }, 1500); 
     }
 };
 
@@ -6195,6 +6195,7 @@ function checkAutoTrigger(currentPrice) {
         }
     }
 }
+
 
 
 
