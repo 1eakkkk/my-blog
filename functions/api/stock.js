@@ -204,58 +204,82 @@ async function getOrUpdateMarket(env, db) {
         for (let i = 0; i < missed; i++) {
             simT += 60000;
             
-            // === 核心修改：逻辑分离 ===
-            let change = 0;
+            // === 1. 第一阶段：基础波动 (新闻事件 或 自然震荡) ===
+            let baseChange = 0;
             let newsMsg = null;
             let hasNews = false;
 
-            // 1. 判定新闻
+            // 判定新闻 (5分钟冷却)
             if (simT - nextNewsT >= 300000) {
                 nextNewsT = simT;
                 if (Math.random() < 0.4) {
                     const news = pickWeightedNews(sym);
                     if (news) {
-                        // 有新闻时，完全使用新闻的 Factor，【不叠加】自然波动
-                        change = news.factor;
+                        // 有新闻时，使用新闻因子 (通常 > 0.12)
+                        baseChange = news.factor;
                         newsMsg = news;
                         hasNews = true;
                     }
                 }
             }
 
-            // 2. 无新闻时，计算自然波动
+            // 无新闻时，计算自然波动 (±10% 以内)
             if (!hasNews) {
-                // 自然波动 ±10%
-                change = (Math.random() - 0.5) * 0.2;
+                baseChange = (Math.random() - 0.5) * 0.2;
             }
 
-            // 3. 人为影响 (用户买卖压力) 始终叠加
-            // 只有第一分钟（当前累积的）生效
+            // === 2. 第二阶段：人为压力 (独立计算，带熔断阈值) ===
+            let pressureChange = 0;
+            
+            // 仅在追赶逻辑的第一分钟(即当前最新时刻)结算累积的买卖压力
             if (currentPressure !== 0 && i === 0) {
                 const randomRange = 0.8 + Math.random() * 0.4;
-                const userImpact = (currentPressure / 100) * 0.00001 * randomRange;
-                change += userImpact; 
+                // 原始冲击力计算
+                let rawImpact = (currentPressure / 100) * 0.001 * randomRange;
+
+                // 【核心修改】设定人为影响上限阈值 (8%)
+                // 目的：保证人为影响 (Max 0.12) 永远低于最小新闻事件影响 
+                const MAX_USER_IMPACT = 0.12;
+
+                if (rawImpact > MAX_USER_IMPACT) rawImpact = MAX_USER_IMPACT;
+                if (rawImpact < -MAX_USER_IMPACT) rawImpact = -MAX_USER_IMPACT;
+
+                pressureChange = rawImpact;
             }
 
-            // 计算新价格
-            curP = Math.max(1, Math.round(curP * (1 + change + 0.001)));
+            // === 3. 第三阶段：价格合成 (分步结算) ===
+            
+            // Step A: 应用基础波动
+            let tempPrice = curP * (1 + baseChange);
+            
+            // Step B: 独立应用人为压力 (在基础波动后的价格上叠加)
+            // 这样使得人为操作是“基于市场现状的修正”，而不是混淆在自然波动中
+            curP = Math.max(1, Math.round(tempPrice * (1 + pressureChange + 0.001)));
 
+            // 记录日志
             if (newsMsg) {
                 logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 0 ? 'good' : 'bad', t: simT});
             }
 
+            // 熔断/清算检测 (价格低于发行价 10%)
             if (curP < st.base * 0.1) { 
                 const refund = curP;
+                // 退还资金给持有者
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refund, sym, sym));
+                // 清空持仓
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
                 
+                // 标记停牌
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(refund, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, refund, simT));
+                
                 logsToWrite.push({sym, msg: `【停牌】${STOCKS_CONFIG[sym].name} 触及红线，强制清算。`, type: 'bad', t: simT});
+                
                 st.suspended = 1; st.p = refund;
-                break;
+                break; // 停止该股票的后续模拟
             }
 
+            // 记录历史价格点
             updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
         }
 
