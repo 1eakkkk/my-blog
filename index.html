@@ -767,7 +767,7 @@
                                             <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="flex:1; border-color:gold; color:gold; margin:0; display:none;">平空</button>
                                         </div>
 
-                                        <!-- 👇👇👇 新增：自动交易挂机面板 👇👇👇 -->
+                                        <!-- 👇👇👇 新增：自动交易挂机面板 (优化版) 👇👇👇 -->
                                         <div style="margin-top:15px; border-top:1px dashed #333; padding-top:10px;">
                                             <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleAutoTradePanel()">
                                                 <span style="font-size:0.8rem; color:#bd00ff;">🤖 智能交易终端 / AUTO-BOT</span>
@@ -775,6 +775,11 @@
                                             </div>
                                             
                                             <div id="autoTradeConfig" style="display:none; margin-top:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:4px;">
+                                                <!-- 新增：明确显示当前操作对象 -->
+                                                <div style="font-size:0.75rem; margin-bottom:10px; border-bottom:1px solid #444; padding-bottom:5px;">
+                                                    当前标的: <span id="autoTargetDisplay" style="font-weight:bold; font-size:0.9rem;">--</span>
+                                                </div>
+
                                                 <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">触发条件 (TRIGGER)</div>
                                                 <div style="display:flex; gap:5px; margin-bottom:10px;">
                                                     <select id="autoAction" class="cyber-input" style="flex:1; margin:0; padding:5px;">
@@ -787,12 +792,25 @@
                                                 <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">执行数量: <span style="color:#fff;">读取上方输入框</span></div>
                                                 <button id="btnAutoStart" onclick="startAutoTrade()" class="cyber-btn" style="width:100%; margin:0; border-color:#bd00ff; color:#bd00ff;">启动挂机</button>
                                             </div>
-                                            <!-- 运行状态条 -->
-                                            <div id="autoTradeStatus" style="display:none; margin-top:5px; font-size:0.75rem; color:#0f0; border:1px solid #0f0; padding:5px; text-align:center;">
-                                                ⚡ 监控中: 价格 <span id="statusCondition">≤</span> <span id="statusTarget">0</span> 时触发
-                                                <button onclick="stopAutoTrade()" style="background:none; border:none; color:#f33; text-decoration:underline; cursor:pointer; margin-left:10px;">停止</button>
+                                            
+                                            <!-- 运行状态条 (优化版：显示股票名字) -->
+                                            <div id="autoTradeStatus" style="display:none; margin-top:5px; font-size:0.75rem; border:1px solid #333; padding:8px; border-radius:4px; background:rgba(0,0,0,0.6);">
+                                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                                    <div>
+                                                        <span id="statusStockName" style="font-weight:bold;">--</span> 
+                                                        <span style="color:#aaa;">|</span> 
+                                                        <span id="statusActionType" style="color:#fff;">--</span>
+                                                        <span id="statusCondition" style="margin:0 3px;">≤</span> 
+                                                        <span id="statusTarget" style="font-weight:bold; color:gold;">0</span>
+                                                    </div>
+                                                    <button onclick="stopAutoTrade()" style="background:#333; border:1px solid #f33; color:#f33; padding:2px 8px; border-radius:3px; cursor:pointer;">停止</button>
+                                                </div>
+                                                <div style="margin-top:4px; color:#666; font-size:0.6rem;">
+                                                    * 切屏依然有效，触发后自动停止
+                                                </div>
                                             </div>
                                         </div>
+                                        <!-- 👆👆👆 新增结束 👆👆👆 -->
                                     </div>
                                     
                                 </div>
@@ -1489,9 +1507,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.6"></script>
+    <script src="script.js?v=10.7"></script>
 </body>
 </html>
+
 
 
 
