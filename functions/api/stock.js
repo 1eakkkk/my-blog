@@ -233,7 +233,7 @@ async function getOrUpdateMarket(env, db) {
             // 只有第一分钟（当前累积的）生效
             if (currentPressure !== 0 && i === 0) {
                 const randomRange = 0.8 + Math.random() * 0.4;
-                const userImpact = (currentPressure / 100) * 0.01 * randomRange;
+                const userImpact = (currentPressure / 100) * 0.002 * randomRange;
                 change += userImpact; 
             }
 
