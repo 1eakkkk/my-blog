@@ -6059,9 +6059,9 @@ window.startRealtimeCountdown = function() {
         if (diff <= 0) {
             // 1. 时间归零，说明服务器该更新了，但前端还没拿到新数据
             diff = 0;
-            timerEl.innerText = "SYNC"; // 显示同步中，而不是死板的 0
+            timerEl.innerText = "同步中..."; // 显示同步中，而不是死板的 0
             timerEl.style.color = "#ff00de"; // 变成粉色提示同步中
-            timerEl.style.opacity = (now % 200 < 100) ? '0' : '1'; // 急速闪烁
+            timerEl.style.opacity = (now % 500 < 250) ? '0.5' : '1'; // 急速闪烁
 
             // 2. 触发加速轮询 (如果还没加速)
             // 正常是5秒一次，现在每1秒请求一次，直到拿到新数据
@@ -6082,6 +6082,12 @@ window.startRealtimeCountdown = function() {
             if (diff <= 10) {
                 timerEl.style.color = '#ff3333';
                 timerEl.style.opacity = (diff <= 3 && now % 500 < 250) ? '0' : '1';
+                if (diff <= 5) {
+                    // 快速呼吸
+                    timerEl.style.opacity = (now % 500 < 250) ? '0.4' : '1';
+                } else {
+                    timerEl.style.opacity = '1';
+                }
             } else {
                 timerEl.style.color = '#00f3ff';
                 timerEl.style.opacity = '1';
@@ -6195,6 +6201,7 @@ function checkAutoTrigger(currentPrice) {
         }
     }
 }
+
 
 
 
