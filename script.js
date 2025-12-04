@@ -4153,11 +4153,8 @@ window.reviewRecharge = async function(id, decision) {
     }
 };
 
-// --- 3. 在 script.js 底部添加以下核心逻辑函数 ---
-
 async function loadHomeSystem() {
     const grid = document.getElementById('home-grid');
-    const workBox = document.getElementById('work-status-box');
     
     // 初始 loading 态
     grid.innerHTML = '<div style="color:#666; text-align:center; grid-column:1/-1;">SCANNING PLOTS...</div>';
@@ -4167,6 +4164,38 @@ async function loadHomeSystem() {
         const data = await res.json();
         
         if (data.success) {
+            // === 插入操作按钮栏 ===
+            // 找到或创建操作栏容器 (插入在 grid 之前)
+            let actionBar = document.getElementById('cabin-action-bar');
+            if (!actionBar) {
+                actionBar = document.createElement('div');
+                actionBar.id = 'cabin-action-bar';
+                actionBar.style.display = 'flex';
+                actionBar.style.gap = '10px';
+                actionBar.style.marginBottom = '15px';
+                
+                // 一键收获按钮
+                const btnHarvest = document.createElement('button');
+                btnHarvest.className = 'cyber-btn';
+                btnHarvest.style.flex = '1';
+                btnHarvest.style.borderColor = '#0f0';
+                btnHarvest.style.color = '#0f0';
+                btnHarvest.innerHTML = '🌾 一键收获 / HARVEST ALL';
+                btnHarvest.onclick = () => harvestAll();
+                
+                // 一键种植按钮
+                const btnPlant = document.createElement('button');
+                btnPlant.className = 'cyber-btn';
+                btnPlant.style.flex = '1';
+                btnPlant.innerHTML = '🌱 一键种植 / PLANT ALL';
+                btnPlant.onclick = () => openSeedSelector(-1); // -1 代表全部
+                
+                actionBar.appendChild(btnHarvest);
+                actionBar.appendChild(btnPlant);
+                
+                grid.parentNode.insertBefore(actionBar, grid);
+            }
+
             renderHomeGrid(data.home);
             renderWorkStatus(data.work);
         }
@@ -4176,18 +4205,17 @@ async function loadHomeSystem() {
     }
 }
 
-// === 渲染九宫格 ===
+// --- 修改 script.js 中的 renderHomeGrid ---
 function renderHomeGrid(items) {
     const grid = document.getElementById('home-grid');
     grid.innerHTML = '';
     
-    // 生成 9 个槽位
-    for (let i = 0; i < 4; i++) {
+    // 改为 9 个槽位
+    for (let i = 0; i < 9; i++) {
         const item = items.find(it => it.slot_index === i);
         const div = document.createElement('div');
         
         if (item) {
-            // 有植物
             const config = SEED_CATALOG.find(s => s.id === item.item_id) || { name: '未知', img: '' };
             const now = Date.now();
             const isReady = now >= item.harvest_at;
@@ -4205,7 +4233,6 @@ function renderHomeGrid(items) {
                 statusHtml = `<div style="color:#0f0; font-weight:bold; font-size:0.7rem; margin-top:5px;">[可收获]</div>`;
             } else {
                 div.className = 'home-slot';
-                // 计算剩余分钟
                 const leftMin = Math.ceil((item.harvest_at - now) / 60000);
                 statusHtml = `
                     <div class="xp-bar-bg" style="width:80%; height:3px; margin-top:5px; background:#333;">
@@ -4221,12 +4248,11 @@ function renderHomeGrid(items) {
                 ${statusHtml}
             `;
         } else {
-            // 空槽位
             div.className = 'home-slot empty';
             div.onclick = () => openSeedSelector(i); // 点击种植
             div.innerHTML = `
                 <div style="font-size:1.5rem; opacity:0.3;">+</div>
-                <div style="font-size:0.7rem; color:#444;">空闲</div>
+                <div style="font-size:0.7rem; color:#444;">${i+1}</div>
             `;
         }
         
@@ -4306,10 +4332,22 @@ function renderWorkStatus(work) {
 
 // === 交互函数 ===
 
-// 1. 打开种子选择
+// --- 修改 script.js ---
+
+// 1. 打开选择器 (slotIndex 为 -1 时表示一键种植)
 window.openSeedSelector = function(slotIndex) {
     const list = document.getElementById('seed-list');
     list.innerHTML = '';
+    
+    // 标题提示
+    const title = document.querySelector('#seed-modal h3');
+    if (slotIndex === -1) {
+        title.innerText = "一键种植 (选择种子)";
+        title.style.color = "#00f3ff";
+    } else {
+        title.innerText = `种植 (地块 #${slotIndex + 1})`;
+        title.style.color = "#0f0";
+    }
     
     SEED_CATALOG.forEach(s => {
         const div = document.createElement('div');
@@ -4317,19 +4355,63 @@ window.openSeedSelector = function(slotIndex) {
         div.style.display = 'flex';
         div.style.alignItems = 'center';
         div.style.padding = '10px';
+        
+        // 按钮动作
+        let btnAction = '';
+        if (slotIndex === -1) {
+            btnAction = `onclick="plantAll('${s.id}')"`;
+        } else {
+            btnAction = `onclick="plantSeed(${slotIndex}, '${s.id}')"`;
+        }
+
         div.innerHTML = `
-            <!-- 修改这里：用 img 标签显示预览 -->
             <div class="item-icon-small" style="background-image: url('${s.img}');"></div>
             <div style="flex:1;">
                 <div style="font-weight:bold;">${s.name}</div>
                 <div style="font-size:0.7rem; color:#888;">周期: ${s.timeStr}</div>
             </div>
-            <button onclick="plantSeed(${slotIndex}, '${s.id}')" class="cyber-btn" style="width:auto; margin:0; font-size:0.8rem;">种植</button>
+            <button ${btnAction} class="cyber-btn" style="width:auto; margin:0; font-size:0.8rem;">选择</button>
         `;
         list.appendChild(div);
     });
     
     document.getElementById('seed-modal').style.display = 'flex';
+};
+
+// 2. 新增：一键种植函数
+window.plantAll = async function(seedId) {
+    const res = await fetch(`${API_BASE}/home`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'plant_all', seedId: seedId })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+        showToast(data.message, 'success');
+        document.getElementById('seed-modal').style.display = 'none';
+        loadHomeSystem();
+    } else {
+        showToast(data.error, 'error');
+    }
+};
+
+// 3. 新增：一键收获函数
+window.harvestAll = async function() {
+    const res = await fetch(`${API_BASE}/home`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'harvest_all' })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+        showToast(data.message, 'success');
+        checkSecurity(); // 刷新余额
+        loadHomeSystem();
+    } else {
+        showToast(data.error, 'error'); // 可能是没有可收获的
+    }
 };
 
 // 2. 种植
@@ -5489,6 +5571,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
