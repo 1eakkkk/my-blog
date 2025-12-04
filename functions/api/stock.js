@@ -499,7 +499,7 @@ export async function onRequest(context) {
                 if (action === 'buy') {
                     const margin = Math.floor((curP * qty) / lev * marginRate);
                     const totalCost = margin + fee;
-                    if (company.capital < totalCost) return Response.json({ error: `资金不足 (需 ${totalCost} i)` });
+                    if (company.capital < totalCost) return Response.json({ error: `公司账户余额不足 (需 ${totalCost})` });
                     if (pos && curHold < 0) return Response.json({ error: '请先平空' });
                     
                     batch.push(db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(totalCost, company.id));
@@ -518,7 +518,7 @@ export async function onRequest(context) {
                     if (curHold <= 0) { // 开空
                         const margin = Math.floor((curP * qty) / lev * marginRate);
                         const totalCost = margin + fee;
-                        if (company.capital < totalCost) return Response.json({ error: `资金不足 (需 ${totalCost} i)` });
+                        if (company.capital < totalCost) return Response.json({ error: `公司账户余额不足 (需 ${totalCost}, 含税)` });
                         
                         batch.push(db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(totalCost, company.id));
                         if (pos) {
