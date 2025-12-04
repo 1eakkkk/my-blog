@@ -458,6 +458,7 @@ export async function onRequest(context) {
                 return Response.json({ success: true, message: '注资成功' });
             }
 
+            // === 核心交易逻辑 (含防刷限制) ===
             if (['buy', 'sell', 'cover'].includes(action)) {
                 if (!status.isOpen) return Response.json({ error: '休市' });
                 if (market[symbol].suspended === 1) return Response.json({ error: '停牌' });
@@ -470,7 +471,7 @@ export async function onRequest(context) {
                 const totalShares = market[symbol].shares;
                 const pos = await db.prepare("SELECT * FROM company_positions WHERE company_id = ? AND stock_symbol = ?").bind(company.id, symbol).first();
                 
-                // === 🛡️ 风控：冷却 30s ===
+                // === 🛡️ 风控：交易冷却 ===
                 const lastTrade = pos ? (pos.last_trade_time || 0) : 0;
                 const now = Date.now();
                 if (now - lastTrade < TRADE_COOLDOWN) {
@@ -522,11 +523,12 @@ export async function onRequest(context) {
                     } else {
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time) VALUES (?, ?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev, now));
                     }
-                    logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol}`;
+                    // 👇 修改点：买入显示当前所选杠杆
+                    logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
                 }
                 else if (action === 'sell') {
-                    if (curHold <= 0) { 
+                    if (curHold <= 0) { // 开空
                         const margin = Math.floor((curP * qty) / lev * marginRate);
                         const totalCost = margin + fee;
                         if (company.capital < totalCost) return Response.json({ error: `公司账户余额不足 (需 ${totalCost} i, 含税)` });
@@ -540,9 +542,10 @@ export async function onRequest(context) {
                         } else {
                             batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time) VALUES (?, ?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev, now));
                         }
-                        logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol}`;
+                        // 👇 修改点：做空显示当前所选杠杆
+                        logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol} (x${lev})`;
                         batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
-                    } else { 
+                    } else { // 平多 (卖出)
                         if (qty > curHold) return Response.json({ error: '持仓不足' });
                         const prin = (pos.avg_price * qty) / pos.leverage * marginRate;
                         const prof = (curP - pos.avg_price) * qty;
@@ -550,11 +553,12 @@ export async function onRequest(context) {
                         batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                         if (qty === curHold) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                         else batch.push(db.prepare("UPDATE company_positions SET amount=amount-?, last_trade_time=? WHERE id=?").bind(qty, now, pos.id));
-                        logMsg = `[${userNameDisplay}] 卖出 ${qty} 股 ${symbol}`;
+                        // 👇 修改点：平仓显示该持仓原本的杠杆
+                        logMsg = `[${userNameDisplay}] 卖出 ${qty} 股 ${symbol} (x${pos.leverage})`;
                         batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
                     }
                 }
-                else if (action === 'cover') { 
+                else if (action === 'cover') { // 平空
                     if (curHold >= 0) return Response.json({ error: '无空单' });
                     if (qty > Math.abs(curHold)) return Response.json({ error: '超出持仓' });
                     const prin = (pos.avg_price * qty) / pos.leverage * marginRate;
@@ -563,7 +567,8 @@ export async function onRequest(context) {
                     batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                     if (qty === Math.abs(curHold)) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                     else batch.push(db.prepare("UPDATE company_positions SET amount=amount+?, last_trade_time=? WHERE id=?").bind(qty, now, pos.id));
-                    logMsg = `[${userNameDisplay}] 平空 ${qty} 股 ${symbol}`;
+                    // 👇 修改点：平空显示该持仓原本的杠杆
+                    logMsg = `[${userNameDisplay}] 平空 ${qty} 股 ${symbol} (x${pos.leverage})`;
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
                 }
 
