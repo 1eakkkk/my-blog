@@ -4900,6 +4900,7 @@ let stockAutoRefreshTimer = null;
 
 window.loadStockMarket = async function() {
     const canvas = document.getElementById('stockCanvas');
+    // 如果不在商业页面，不执行刷新
     if(!document.getElementById('view-business') || document.getElementById('view-business').style.display === 'none') return;
 
     const marketTicker = document.getElementById('marketTicker');
@@ -4911,6 +4912,7 @@ window.loadStockMarket = async function() {
 
         const data = await res.json();
         
+        // 1. 破产检测
         if (data.bankrupt) {
             if (canvas) canvas.dataset.listening = "false"; 
             alert(`💔 破产通知：\n\n${data.report.msg}\n\n点击确定重新创业。`);
@@ -4918,19 +4920,20 @@ window.loadStockMarket = async function() {
         }
         
         if (data.success) {
+            // 更新全局数据源
             marketData = data.market;
             myPositions = data.positions;
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // 1. 宏观纪元显示
+            // 2. 宏观纪元显示
             const tickerText = data.era ? `🌍 [${data.era.name}] ${data.era.desc}` : "MARKET OPEN";
             if (marketTicker) {
-                // 如果当前选了股票，显示股票信息，否则显示宏观信息
+                // 如果当前没有选中股票，或者想在 ticker 左侧保留宏观信息
                 if (!currentStockSymbol) marketTicker.innerHTML = `<span style="color:#fff">${tickerText}</span>`;
             }
 
-            // 2. 情报局 UI 更新
+            // 3. 情报局 UI 更新 (按钮状态)
             const insiderBtn = document.getElementById('btnInsider');
             if (insiderBtn) {
                 if (data.isInsider) {
@@ -4947,17 +4950,19 @@ window.loadStockMarket = async function() {
                 }
             }
 
-            // 3. 公司等级
+            // 4. 公司等级显示
             const lvEl = document.getElementById('companyLevelDisplay');
             if (lvEl && data.companyLevel !== undefined) {
                 const lvNames = ["皮包公司", "量化工作室", "高频交易中心", "金融巨鳄"];
                 lvEl.innerText = `Lv.${data.companyLevel}: ${lvNames[data.companyLevel]}`;
             }
 
-            // 4. 渲染面板
-            renderStockDashboard(currentStockSymbol);
+            // 5. 渲染核心仪表盘 (调用独立函数，更新价格/市值/压力条等)
+            if (typeof renderStockDashboard === 'function') {
+                renderStockDashboard(currentStockSymbol);
+            }
 
-            // 5. Ticker 更新 (股票)
+            // 6. 更新 Ticker (选中股票的具体涨跌)
             if (marketTicker && marketData[currentStockSymbol]) {
                 const curData = marketData[currentStockSymbol];
                 if (curData.length > 0) {
@@ -4968,15 +4973,33 @@ window.loadStockMarket = async function() {
                     const color = diff >= 0 ? '#0f0' : '#f33';
                     const icon = diff >= 0 ? '📈' : '📉';
                     const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
-                    marketTicker.innerHTML = `<span>${tickerText}</span> <span style="margin-left:15px; color:${color}">${icon} ${nameMap[currentStockSymbol]} ${percent}%</span>`;
+                    // 组合显示：宏观信息 + 个股信息
+                    marketTicker.innerHTML = `<span style="font-size:0.8em; opacity:0.8; margin-right:10px;">${tickerText}</span> <span style="color:${color}; font-weight:bold;">${icon} ${nameMap[currentStockSymbol]} ${percent}%</span>`;
                 }
             }
 
-            if (typeof renderAllLogs === 'function') { window.globalLogs = data.news || []; renderAllLogs(); }
-            if(document.getElementById('bizCapital')) document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
+            // 7. 更新日志
+            if (typeof renderAllLogs === 'function') { 
+                window.globalLogs = data.news || []; 
+                renderAllLogs(); 
+            }
+
+            // 8. 刷新资金显示 (分离 现金 和 净值)
+            if(document.getElementById('bizCapital')) {
+                // 现金 (可用资金)
+                document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
+            }
+            if(document.getElementById('bizTotalEquity')) {
+                // 净值 (现金 + 持仓)
+                const equity = data.totalEquity !== undefined ? data.totalEquity : data.capital;
+                document.getElementById('bizTotalEquity').innerText = equity.toLocaleString();
+            }
+            
+            // 刷新 K 币
             const kDisplay = document.getElementById('userKCoinsDisplay');
             if (kDisplay && data.userK !== undefined) kDisplay.innerText = data.userK.toLocaleString();
 
+            // 9. 绑定图表交互事件 (防止多次绑定)
             if (canvas && !canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -4987,6 +5010,8 @@ window.loadStockMarket = async function() {
                 window.removeEventListener('resize', resizeStockChart);
                 window.addEventListener('resize', resizeStockChart);
             }
+
+            // 10. 重绘图表与持仓文字
             if (typeof switchStock === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
                 updatePositionUI(currentStockSymbol);
@@ -4994,6 +5019,7 @@ window.loadStockMarket = async function() {
         }
     } catch(e) { console.error(e); }
     
+    // 11. 设置自动刷新定时器
     if (!stockAutoRefreshTimer) {
         stockAutoRefreshTimer = setInterval(() => {
             if (document.visibilityState === 'hidden') return;
@@ -5924,6 +5950,7 @@ window.setTradeAmount = function(type) {
         showToast("已触及单笔最大限制 (10,000股)", "info");
     }
 };
+
 
 
 
