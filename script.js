@@ -5495,29 +5495,6 @@ window.setLeverage = function(val, btn) {
     btn.classList.add('active');
 };
 
-// === 3. 快捷数量计算 ===
-window.setTradeAmount = function(mode) {
-    // 检查数据完整性
-    if (!companyInfo || !marketData || !marketData[currentStockSymbol]) return;
-    
-    const currentPrice = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
-    const capital = companyInfo.capital;
-    const leverage = parseInt(document.getElementById('stockLeverage').value) || 1;
-    
-    // 计算最大可买数量 (预留 100 i币防止手续费误差)
-    // 保证金 = (价格 * 数量) / 杠杆  =>  数量 = (本金 * 杠杆) / 价格
-    const maxAfford = Math.floor(((capital - 100) * leverage) / currentPrice);
-    
-    if (maxAfford <= 0) {
-        showToast("资金不足");
-        return;
-    }
-
-    let finalAmount = maxAfford;
-    if (mode === 'half') finalAmount = Math.floor(maxAfford / 2);
-    
-    document.getElementById('stockTradeAmount').value = finalAmount;
-};
 
 window.tradeStock = async function(action) {
     const amountVal = document.getElementById('stockTradeAmount').value;
@@ -5863,31 +5840,78 @@ window.renderStockDashboard = function(symbol) {
         }
     }
 };
-// === 滑动条联动计算 ===
-window.updateTradeFromSlider = function(percent) {
-    if (!companyInfo || !marketData || !marketData[currentStockSymbol]) return;
-    
+// === 辅助函数：计算当前模式下的最大可操作数量 ===
+function getCalculatedMax() {
+    if (!companyInfo || !marketData || !marketData[currentStockSymbol]) return 0;
+
     const currentPrice = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
-    const capital = companyInfo.capital;
     const leverage = parseInt(document.getElementById('stockLeverage').value) || 1;
     
-    // 计算当前杠杆下最大可买数量 (预留100手续费)
-    const maxAfford = Math.max(0, Math.floor(((capital - 100) * leverage) / currentPrice));
+    // 获取计算模式 (按资金 / 按持仓)
+    const modeEls = document.getElementsByName('calcMode');
+    let mode = 'capital';
+    for(let el of modeEls) { if(el.checked) mode = el.value; }
+
+    let maxVal = 0;
+
+    if (mode === 'capital') {
+        // === 模式 A: 按资金 (用于买入/开空) ===
+        const capital = companyInfo.capital;
+        // 计算最大可买 (预留100手续费)
+        maxVal = Math.floor(((capital - 100) * leverage) / currentPrice);
+    } else {
+        // === 模式 B: 按持仓 (用于卖出/平空) ===
+        if (myPositions) {
+            const pos = myPositions.find(p => p.stock_symbol === currentStockSymbol);
+            // 如果有持仓，最大值就是持仓绝对值；没持仓就是 0
+            maxVal = pos ? Math.abs(pos.amount) : 0;
+        }
+    }
+
+    // === 🛡️ 强制限制：单次最大 10,000 股 ===
+    const HARD_LIMIT = 10000;
     
-    // 计算目标数量
-    const targetAmount = Math.floor(maxAfford * (percent / 100));
+    return Math.max(0, Math.min(maxVal, HARD_LIMIT));
+}
+
+// === 滑动条联动 (修改版) ===
+window.updateTradeFromSlider = function(percent) {
+    const maxVal = getCalculatedMax();
     
-    // 填入输入框
+    // 根据百分比计算数量
+    const targetAmount = Math.floor(maxVal * (percent / 100));
+    
     document.getElementById('stockTradeAmount').value = targetAmount;
 };
 
+// === 快捷按钮联动 (修改版：1/2 和 ALL) ===
+window.setTradeAmount = function(type) {
+    const maxVal = getCalculatedMax();
+    let targetAmount = 0;
 
+    if (type === 'half') {
+        targetAmount = Math.floor(maxVal / 2);
+        document.getElementById('tradeSlider').value = 50; // 同步滑块位置
+    } else if (type === 'all') {
+        targetAmount = maxVal;
+        document.getElementById('tradeSlider').value = 100; // 同步滑块位置
+    }
 
-
-
-
-
-
+    document.getElementById('stockTradeAmount').value = targetAmount;
+    
+    // 简单的视觉反馈
+    if (maxVal === 0 && type === 'all') {
+        // 如果点ALL但是结果是0，提示一下
+        const modeEls = document.getElementsByName('calcMode');
+        let mode = 'capital';
+        for(let el of modeEls) { if(el.checked) mode = el.value; }
+        
+        if (mode === 'holding') showToast("当前无持仓可卖", "info");
+        else showToast("资金不足或无法开仓", "info");
+    } else if (targetAmount === 10000) {
+        showToast("已触及单笔最大限制 (10,000股)", "info");
+    }
+};
 
 
 
