@@ -5886,39 +5886,102 @@ window.renderStockDashboard = function(symbol) {
         }
     }
 };
-// === 辅助函数：计算当前模式下的最大可操作数量 ===
+// === 辅助函数：精准反推最大可交易数量 (含税反推) ===
 function getCalculatedMax() {
     if (!companyInfo || !marketData || !marketData[currentStockSymbol]) return 0;
 
     const currentPrice = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
     const leverage = parseInt(document.getElementById('stockLeverage').value) || 1;
     
-    // 获取计算模式 (按资金 / 按持仓)
+    // 获取计算模式
     const modeEls = document.getElementsByName('calcMode');
     let mode = 'capital';
     for(let el of modeEls) { if(el.checked) mode = el.value; }
 
     let maxVal = 0;
+    const HARD_LIMIT = 10000; // 强制单笔上限
 
     if (mode === 'capital') {
-        // === 模式 A: 按资金 (用于买入/开空) ===
+        // === 模式 A: 按资金 (智能反推) ===
+        // 核心痛点解决：买入时不仅要付本金，还要付动态滑点费
+        // 后端公式：Cost = (P*Q/L) + P*Q*(0.005 + 5*Q/TotalShares)
+        // 整理方程：(5P/TotalShares) * Q^2 + (P/L + 0.005P) * Q - Capital = 0
+        
         const capital = companyInfo.capital;
-        // 计算最大可买 (预留100手续费)
-        maxVal = Math.floor(((capital - 100) * leverage) / currentPrice);
+        const P = currentPrice;
+        const L = leverage;
+        // 获取总股本 (如果未加载则给个默认大值防止除0)
+        const meta = stockMeta[currentStockSymbol];
+        const S_total = meta ? meta.shares : 1000000;
+        
+        // 系数 A = 5 * P / S_total
+        const A = (5 * P) / S_total;
+        
+        // 系数 B = P/L + 0.005P (这里为了安全，假设保证金率为100%，即使升级了公司也不容易买爆)
+        const B = (P / L) + (P * 0.005);
+        
+        // 系数 C = -现有资金
+        const C_val = -capital;
+
+        // 求根公式: Q = (-B + sqrt(B^2 - 4AC)) / 2A
+        const delta = Math.sqrt(B*B - 4*A*C_val);
+        const rawQ = (-B + delta) / (2*A);
+
+        // 向下取整，并预留 1 股的缓冲空间，确保万无一失
+        maxVal = Math.floor(rawQ);
+        
     } else {
-        // === 模式 B: 按持仓 (用于卖出/平空) ===
+        // === 模式 B: 按持仓 (简单读取) ===
         if (myPositions) {
             const pos = myPositions.find(p => p.stock_symbol === currentStockSymbol);
-            // 如果有持仓，最大值就是持仓绝对值；没持仓就是 0
             maxVal = pos ? Math.abs(pos.amount) : 0;
         }
     }
 
-    // === 🛡️ 强制限制：单次最大 10,000 股 ===
-    const HARD_LIMIT = 10000;
-    
+    // 最终应用 10,000 股强制硬顶
     return Math.max(0, Math.min(maxVal, HARD_LIMIT));
 }
+
+// === 快捷按钮联动 (修改版) ===
+window.setTradeAmount = function(type) {
+    const maxVal = getCalculatedMax();
+    let targetAmount = 0;
+
+    if (type === 'half') {
+        targetAmount = Math.floor(maxVal / 2);
+        // 更新滑块位置 (0-100)
+        const sliderEl = document.getElementById('tradeSlider');
+        if(sliderEl) sliderEl.value = 50;
+    } else if (type === 'all') {
+        targetAmount = maxVal;
+        // 更新滑块位置
+        const sliderEl = document.getElementById('tradeSlider');
+        if(sliderEl) sliderEl.value = 100;
+    }
+
+    document.getElementById('stockTradeAmount').value = targetAmount;
+    
+    // 视觉反馈
+    if (maxVal === 0 && type === 'all') {
+        const modeEls = document.getElementsByName('calcMode');
+        let mode = 'capital';
+        for(let el of modeEls) { if(el.checked) mode = el.value; }
+        
+        if (mode === 'holding') showToast("当前无持仓", "info");
+        else showToast("资金不足以购买 1 股", "info");
+    } else if (type === 'all') {
+        // 如果是按资金买入，提示已扣除费用
+        const modeEls = document.getElementsByName('calcMode');
+        let isBuy = true;
+        for(let el of modeEls) { if(el.checked && el.value === 'holding') isBuy = false; }
+        
+        if (isBuy) {
+            showToast(`已自动扣除预估税费，最大可买 ${targetAmount} 股`, "success");
+        } else if (targetAmount === 10000) {
+            showToast("已触及单笔最大限制 (10,000股)", "info");
+        }
+    }
+};
 
 // === 滑动条联动 (修改版) ===
 window.updateTradeFromSlider = function(percent) {
@@ -5970,12 +6033,12 @@ let autoTradeState = {
     leverage: 1
 };
 
-// === 真实股市倒计时控制器 (60s 周期) ===
+// === 真实股市倒计时控制器 (智能加速版) ===
 let stockTimerInterval = null;
-let targetNextUpdateTime = 0; // 下一次刷新的具体时间戳
+let targetNextUpdateTime = 0;
+let isFastPolling = false; // 是否处于加速轮询模式
 
 window.startRealtimeCountdown = function() {
-    // 防止重复启动
     if (stockTimerInterval) return;
 
     const timerEl = document.getElementById('marketTimer');
@@ -5983,37 +6046,64 @@ window.startRealtimeCountdown = function() {
     stockTimerInterval = setInterval(() => {
         if (!timerEl) return;
         
-        // 如果还没获取到数据，显示等待
+        // 还没数据时
         if (targetNextUpdateTime === 0) {
             timerEl.innerText = "--";
             return;
         }
 
         const now = Date.now();
-        // 计算剩余秒数
         let diff = Math.ceil((targetNextUpdateTime - now) / 1000);
 
-        // 修正逻辑：
-        // 1. 如果时间到了(<=0)，说明服务器正在计算，显示 "UPDATING" 或 "0"
-        // 2. 如果客户端时间不准导致 diff > 60，修正为 60
-        if (diff < 0) diff = 0;
-        if (diff > 60) diff = 60;
+        // === 核心修复逻辑 ===
+        if (diff <= 0) {
+            // 1. 时间归零，说明服务器该更新了，但前端还没拿到新数据
+            diff = 0;
+            timerEl.innerText = "SYNC"; // 显示同步中，而不是死板的 0
+            timerEl.style.color = "#ff00de"; // 变成粉色提示同步中
+            timerEl.style.opacity = (now % 200 < 100) ? '0' : '1'; // 急速闪烁
 
-        // 颜色变化：最后 10秒 变红
-        if (diff <= 10) {
-            timerEl.style.color = '#ff3333'; // 红色紧迫感
-            // 倒数3秒加闪烁
-            if (diff <= 3 && diff > 0) timerEl.style.opacity = (Date.now() % 500 < 250) ? '0' : '1';
-            else timerEl.style.opacity = '1';
+            // 2. 触发加速轮询 (如果还没加速)
+            // 正常是5秒一次，现在每1秒请求一次，直到拿到新数据
+            if (!isFastPolling) {
+                console.log("⚡ 倒计时归零，启动加速轮询...");
+                isFastPolling = true;
+                // 清除正常的 5s 定时器
+                if (window.stockAutoRefreshTimer) clearInterval(window.stockAutoRefreshTimer);
+                // 开启 1s 急速定时器
+                window.stockAutoRefreshTimer = setInterval(() => {
+                    loadStockMarket();
+                }, 1000);
+                // 立即执行一次
+                loadStockMarket();
+            }
         } else {
-            timerEl.style.color = '#00f3ff'; // 正常青色
-            timerEl.style.opacity = '1';
-        }
+            // 倒计时正常 (>0)
+            if (diff <= 10) {
+                timerEl.style.color = '#ff3333';
+                timerEl.style.opacity = (diff <= 3 && now % 500 < 250) ? '0' : '1';
+            } else {
+                timerEl.style.color = '#00f3ff';
+                timerEl.style.opacity = '1';
+            }
+            timerEl.innerText = diff + "s";
 
-        // 显示整数秒
-        timerEl.innerText = diff;
+            // 3. 恢复正常轮询 (如果之前是加速状态，且现在diff很大，说明拿到新数据了)
+            if (isFastPolling && diff > 50) { // 新的一分钟开始了
+                console.log("✅ 同步完成，恢复正常轮询");
+                isFastPolling = false;
+                if (window.stockAutoRefreshTimer) clearInterval(window.stockAutoRefreshTimer);
+                window.stockAutoRefreshTimer = setInterval(() => {
+                    // 页面可见时才刷新
+                    if (document.visibilityState !== 'hidden') {
+                        const bizView = document.getElementById('view-business');
+                        if (bizView && bizView.style.display !== 'none') loadStockMarket();
+                    }
+                }, 5000);
+            }
+        }
         
-    }, 1000); // 每秒刷新一次 UI 即可
+    }, 1000);
 };
 
 // 2. 切换面板显示
@@ -6105,6 +6195,7 @@ function checkAutoTrigger(currentPrice) {
         }
     }
 }
+
 
 
 
