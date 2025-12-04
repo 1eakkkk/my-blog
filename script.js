@@ -4972,6 +4972,35 @@ window.loadStockMarket = async function() {
                     }
                 }
             }
+            // ... (在更新天气和压力条的代码之后) ...
+
+            // === 👇 新增：更新市值与破产线数据 👇 ===
+            if (currentStockSymbol && stockMeta[currentStockSymbol]) {
+                const meta = stockMeta[currentStockSymbol];
+                const currentP = marketData[currentStockSymbol] ? marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p : 0;
+                
+                // 1. 计算市值 (股价 * 股本)
+                const mktCap = (currentP * meta.shares).toLocaleString();
+                const mktCapEl = document.getElementById('stockMarketCap');
+                if (mktCapEl) mktCapEl.innerText = `¥ ${mktCap}`;
+
+                // 2. 显示发行量
+                const sharesEl = document.getElementById('stockTotalShares');
+                if (sharesEl) sharesEl.innerText = meta.shares.toLocaleString();
+
+                // 3. 显示破产线 (发行价 * 20%)
+                const bankruptPrice = Math.floor(meta.issue_p * 0.2);
+                const lineEl = document.getElementById('stockBankruptLine');
+                if (lineEl) {
+                    lineEl.innerText = `≤ ${bankruptPrice}`;
+                    // 如果当前价格接近破产线 (1.1倍以内)，闪烁红色警报
+                    if (currentP <= bankruptPrice * 1.1) {
+                        lineEl.style.animation = "pulse-red 1s infinite";
+                    } else {
+                        lineEl.style.animation = "none";
+                    }
+                }
+            }
             // 👆👆👆 新增部分结束 👆👆👆
 
             // 3. 更新右上角 Ticker
@@ -5702,6 +5731,7 @@ window.upgradeCompany = async function() {
         showToast("请求失败", "error");
     }
 };
+
 
 
 
