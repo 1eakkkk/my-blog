@@ -127,13 +127,14 @@ async function getOrUpdateMarket(env, db) {
     // 初始化
     if (states.results.length === 0) {
         const batch = [];
+        const alignedNow = Math.floor(Date.now() / 60000) * 60000;
         for (let sym in STOCKS_CONFIG) {
             const conf = STOCKS_CONFIG[sym];
             const shares = randRange(conf.share_range[0], conf.share_range[1]);
             const price = randRange(conf.price_range[0], conf.price_range[1]);
-            batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time, accumulated_pressure, total_shares, issuance_price) VALUES (?, ?, ?, ?, 0, ?, ?, 0, ?, ?)").bind(sym, price, price, now, price, now, shares, price));
-            batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, price, now));
-            marketMap[sym] = { p: price, base: price, shares, issue_p: price, t: now, open: price, suspended: 0, pressure: 0, mode: getMarketMode(sym, now) };
+            batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time, accumulated_pressure, total_shares, issuance_price) VALUES (?, ?, ?, ?, 0, ?, ?, 0, ?, ?)").bind(sym, price, price, alignedNow, price, alignedNow, shares, price));
+            batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, price, alignedNow));
+            marketMap[sym] = { p: price, base: price, shares, issue_p: price, t: alignedNow, open: price, suspended: 0, pressure: 0, mode: getMarketMode(sym, alignedNow) };
         }
         await db.batch(batch);
         return { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
