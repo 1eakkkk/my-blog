@@ -589,6 +589,16 @@
                                     <button class="cyber-btn" onclick="setStrategy('risky')" id="btn-strat-risky">激进 (高风险)</button>
                                 </div>
                             </div>
+
+                            <!-- 公司建设 -->
+                            <div class="glass-card" style="flex:1; min-width:280px;">
+                                <h3>🏗️ 核心科技</h3>
+                                <p style="font-size:0.8rem; color:#666; margin-bottom:10px;">升级架构以降低保证金比例。</p>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div id="companyLevelDisplay" style="font-size:0.9rem; color:#00f3ff;">Level 0: 皮包公司</div>
+                                    <button onclick="upgradeCompany()" class="cyber-btn" style="width:auto; margin:0; padding:5px 10px; font-size:0.8rem;">升级</button>
+                                </div>
+                            </div>
                 
                             <!-- 资本操作 -->
                             <div class="glass-card" style="flex:1; min-width:280px;">
@@ -614,6 +624,27 @@
                                 <div class="stat-box"><div class="label">HIGH</div><div class="val" id="stockHigh" style="color:#0f0;">--</div></div>
                                 <div class="stat-box"><div class="label">LOW</div><div class="val" id="stockLow" style="color:#f33;">--</div></div>
                                 <div class="stat-box"><div class="label">CURRENT</div><div class="val" id="stockCurrent" style="font-size:1.2rem; font-weight:bold;">--</div></div>
+                            </div>
+
+                            <!-- 新增：市场情绪与压力监控 -->
+                            <div style="display:flex; gap:15px; margin-bottom:15px; align-items:center; background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; border:1px solid #333;">
+                                <div style="flex:1;">
+                                    <div style="font-size:0.7rem; color:#888;">MARKET MODE / 天气</div>
+                                    <div id="marketModeDisplay" style="font-size:1rem; font-weight:bold; color:#fff;">SCANNING...</div>
+                                </div>
+                                <div style="flex:2;">
+                                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#888; margin-bottom:5px;">
+                                        <span>SELL PRESSURE</span>
+                                        <span>BUY PRESSURE</span>
+                                    </div>
+                                    <div class="pressure-bar-bg" style="width:100%; height:8px; background:#333; border-radius:4px; position:relative; overflow:hidden;">
+                                        <!-- 中心线 -->
+                                        <div style="position:absolute; left:50%; top:0; bottom:0; width:2px; background:#fff; z-index:2;"></div>
+                                        <!-- 压力条：动态宽度 -->
+                                        <div id="pressureBar" style="height:100%; width:50%; background:#444; transition: all 0.5s;"></div>
+                                    </div>
+                                    <div id="pressureText" style="text-align:center; font-size:0.7rem; color:#aaa; margin-top:3px;">资金博弈中...</div>
+                                </div>
                             </div>
                             
                             <!-- 核心区域：左右分栏 -->
@@ -1287,9 +1318,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=9.9"></script>
+    <script src="script.js?v=10.1"></script>
 </body>
 </html>
+
 
 
 
