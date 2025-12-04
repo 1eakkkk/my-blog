@@ -4548,33 +4548,42 @@ window.resetNavOrder = function() {
     location.reload();
 };
 
+// --- script.js 修改 loadBusiness ---
+
 async function loadBusiness() {
     const createPanel = document.getElementById('biz-create-panel');
     const dashboard = document.getElementById('biz-dashboard');
     const marketTicker = document.getElementById('marketTicker');
     
-    // 重置状态提示
     if(marketTicker) marketTicker.innerText = "SYNCING MARKET DATA...";
     
     try {
         const res = await fetch(`${API_BASE}/stock`);
         const data = await res.json();
         
-        // 1. 破产/未创建处理
+        // 1. 【修复点】优先更新 K币 和 经验 显示，无论是否有公司
+        const kDisplay = document.getElementById('userKCoinsDisplay');
+        if (kDisplay && data.userK !== undefined) {
+            kDisplay.innerText = data.userK.toLocaleString();
+        }
+        
+        // 2. 破产/未创建处理
         if (!data.hasCompany) {
             if (data.bankrupt) {
                 alert(`💔 破产通知：\n${data.report.msg}`);
             }
             createPanel.style.display = 'block';
             dashboard.style.display = 'none';
+            // 即使没有公司，也要允许兑换 K币，所以这里不再直接 return 阻断后续非公司逻辑
+            // 但是行情加载还是要的，为了让 ticker 跑起来
+            loadStockMarket(); 
             return;
         }
 
-        // 2. 正常显示仪表盘
+        // 3. 正常显示仪表盘
         createPanel.style.display = 'none';
         dashboard.style.display = 'block';
         
-        // 3. 填充基础信息
         if(document.getElementById('bizCapital')) {
             document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
         }
@@ -4584,10 +4593,8 @@ async function loadBusiness() {
             document.getElementById('bizTypeDisplay').innerText = typeNames[data.companyType] || '未知企业';
         }
 
-        // 4. 处理手动破产按钮
         const bankruptBtn = document.getElementById('btnBankrupt');
         if (bankruptBtn) {
-            // 资金低于 500 显示破产按钮
             if (data.capital < 500) {
                 bankruptBtn.style.display = 'inline-block';
                 bankruptBtn.onclick = () => confirmBankrupt();
@@ -4596,11 +4603,8 @@ async function loadBusiness() {
             }
         }
 
-        // 5. 初始化股市数据
+        // 4. 加载股市数据
         loadStockMarket(); 
-
-        // 6. 更新策略按钮状态
-        const companyRes = await fetch(`${API_BASE}/business`); // 单独拉取策略信息(或者你可以让stock接口也返回strategy)
 
     } catch(e) {
         console.error(e);
@@ -4611,7 +4615,6 @@ async function loadBusiness() {
         showToast("无法连接交易所", "error");
     }
 }
-
 // 新增：手动破产函数
 window.confirmBankrupt = async function() {
     if(!confirm("⚠️ 警告：申请破产将清空所有持仓并注销公司。\n仅返还 20% 剩余资金。\n\n确定要放弃吗？")) return;
@@ -5453,6 +5456,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
