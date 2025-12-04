@@ -5008,7 +5008,6 @@ window.buyInsider = async function() {
             showToast(data.error, 'error');
         }
     } catch(e) { showToast("网络错误", "error"); }
-};
     
     // 9. 自动刷新
     if (!stockAutoRefreshTimer) {
@@ -5250,21 +5249,57 @@ function drawInteractiveChart(symbol, mousePos) {
         }
     }
 
-    // 6. 绘制折线
+    // 6. 绘制折线 (增强版：渐变填充 + 呼吸光点)
+    
+    // A. 定义渐变色 (根据股票类型)
+    let gradStart = 'rgba(0, 243, 255, 0.4)'; // 默认 BLUE
+    if (symbol === 'GOLD') gradStart = 'rgba(255, 215, 0, 0.4)';
+    if (symbol === 'RED') gradStart = 'rgba(255, 51, 51, 0.4)';
+
+    const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+    gradient.addColorStop(0, gradStart);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)'); // 底部透明
+
+    // 计算步长 (防止除以0)
+    const xStep = data.length > 1 ? chartW / (data.length - 1) : 0;
+
+    // B. 绘制填充区域 (Area)
+    ctx.beginPath();
+    if (data.length === 1) {
+        // 单点情况：画一条横线填满下方
+        const y = padding.top + chartH - ((data[0].p - yMin) / yRange * chartH);
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.lineTo(padding.left, height - padding.bottom);
+    } else {
+        // 多点情况
+        data.forEach((d, i) => {
+            const x = padding.left + (i * xStep);
+            const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        // 闭合路径用于填充
+        ctx.lineTo(padding.left + chartW, height - padding.bottom);
+        ctx.lineTo(padding.left, height - padding.bottom);
+    }
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // C. 绘制高亮折线 (Line Stroke)
     ctx.beginPath();
     ctx.strokeStyle = themeColor;
     ctx.lineWidth = 2;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 15; // 增加发光强度
     ctx.shadowColor = themeColor;
 
     if (data.length === 1) {
-        // 只有一个点，画一条直线或者一个点
-        const x = padding.left + (chartW / 2); // 居中
         const y = padding.top + chartH - ((data[0].p - yMin) / yRange * chartH);
         ctx.moveTo(padding.left, y);
         ctx.lineTo(width - padding.right, y);
     } else {
-        const xStep = chartW / (data.length - 1);
         data.forEach((d, i) => {
             const x = padding.left + (i * xStep);
             const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
@@ -5272,9 +5307,39 @@ function drawInteractiveChart(symbol, mousePos) {
             else ctx.lineTo(x, y);
         });
     }
-    
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.shadowBlur = 0; // 重置阴影，以免影响后续绘制
+
+    // D. 绘制末端呼吸点 (Pulsing Dot)
+    if (data.length > 0) {
+        const lastIdx = data.length - 1;
+        let lastX = 0;
+        let lastY = 0;
+
+        if (data.length === 1) {
+            // 单点时，点画在最右侧
+            lastX = width - padding.right;
+            lastY = padding.top + chartH - ((data[0].p - yMin) / yRange * chartH);
+        } else {
+            // 多点时，计算最后一个点的位置
+            lastX = padding.left + (lastIdx * xStep);
+            lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
+        }
+        
+        // 外圈光晕
+        ctx.beginPath();
+        ctx.fillStyle = themeColor;
+        ctx.globalAlpha = 0.4;
+        ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 内圈实心
+        ctx.beginPath();
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = '#fff';
+        ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
     // 7. 交互显示 (Crosshair)
     if (mousePos && data.length > 1) {
@@ -5740,8 +5805,29 @@ window.renderStockDashboard = function(symbol) {
             }
         }
     }
+    if (elCurr) {
+        const sign = currentP >= openP ? '📈' : '📉';
+        document.title = `${sign} ${currentP} | ${symbol} - 数字基地`;
+    }
 };
 
+// === 滑动条联动计算 ===
+window.updateTradeFromSlider = function(percent) {
+    if (!companyInfo || !marketData || !marketData[currentStockSymbol]) return;
+    
+    const currentPrice = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
+    const capital = companyInfo.capital;
+    const leverage = parseInt(document.getElementById('stockLeverage').value) || 1;
+    
+    // 计算当前杠杆下最大可买数量 (预留100手续费)
+    const maxAfford = Math.max(0, Math.floor(((capital - 100) * leverage) / currentPrice));
+    
+    // 计算目标数量
+    const targetAmount = Math.floor(maxAfford * (percent / 100));
+    
+    // 填入输入框
+    document.getElementById('stockTradeAmount').value = targetAmount;
+};
 
 
 
