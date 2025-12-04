@@ -721,8 +721,25 @@ function calculateLevel(xp) {
         title: currentTitle 
     };
 }
-// === 全能头像渲染函数 ===
-// 如果用户有 avatar_url，显示图片；否则显示像素画
+
+// --- 补全缺失的像素头像生成函数 ---
+function generatePixelAvatar(username, variant = 0) {
+    // 防止 username 为空导致报错
+    if (!username) username = "visitor";
+    
+    const seedStr = username + "v" + variant;
+    let hash = 0;
+    for (let i = 0; i < seedStr.length; i++) { hash = seedStr.charCodeAt(i) + ((hash << 5) - hash); }
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase().padStart(6, "0");
+    const color = `#${c}`;
+    let rects = '';
+    for(let i=0; i<5; i++) { for(let j=0; j<5; j++) {
+            const val = (hash >> (i * 5 + j)) & 1; 
+            if(val) rects += `<rect x="${j*10}" y="${i*10}" width="10" height="10" fill="${color}" />`;
+    }}
+    return `<svg width="100%" height="100%" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg" class="pixel-avatar" style="background:#111;">${rects}</svg>`;
+}
+
 function renderUserAvatar(userObj) {
     if (userObj.avatar_url) {
         return `<img src="${userObj.avatar_url}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">` + 
@@ -5472,6 +5489,7 @@ window.convertCoin = async function(type) {
         showToast("网络错误", "error");
     }
 };
+
 
 
 
