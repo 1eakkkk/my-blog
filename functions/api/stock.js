@@ -97,10 +97,9 @@ function calculatePositionValue(pos, currentPrice) {
     return Math.floor(principal + profit);
 }
 
-// === 核心优化：基于 KV 的行情获取 ===
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_data_v5"; // 升级 Key 版本
+    const CACHE_KEY = "market_data_v6"; // 升级 Key 版本
     
     let cachedData = null;
     if (env.KV) {
@@ -113,12 +112,7 @@ async function getOrUpdateMarket(env, db) {
         return cachedData.payload;
     }
 
-    // ==========================================
-    // === D1 计算逻辑 ===
-    // ==========================================
-    
     const bjHour = getBJHour(now);
-    // 闭市判断：UTC+8 的 02:00 ~ 06:00
     const isMarketClosed = (bjHour >= 2 && bjHour < 6);
 
     let states = await db.prepare("SELECT * FROM market_state").all();
@@ -126,12 +120,10 @@ async function getOrUpdateMarket(env, db) {
     let updates = [];
     let logsToWrite = []; 
 
-    // 初始化
     if (states.results.length === 0) {
         const batch = [];
         for (let sym in STOCKS_CONFIG) {
             let p = generateBasePrice() + 50;
-            // 增加 accumulated_pressure 字段初始化
             batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time, accumulated_pressure) VALUES (?, ?, ?, ?, 0, ?, ?, 0)").bind(sym, p, p, now, p, now));
             batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, p, now));
             marketMap[sym] = { p: p, base: p, t: now, open: p, suspended: 0, last_news: now, pressure: 0 };
@@ -145,7 +137,7 @@ async function getOrUpdateMarket(env, db) {
             p: s.current_price, base: s.initial_base, t: s.last_update, 
             open: s.open_price || s.current_price, suspended: s.is_suspended, 
             last_news: s.last_news_time || 0,
-            pressure: s.accumulated_pressure || 0 // 读取累积压力
+            pressure: s.accumulated_pressure || 0
         };
     });
 
@@ -169,7 +161,6 @@ async function getOrUpdateMarket(env, db) {
                 logsToWrite.push({sym, msg: `【新股上市】${STOCKS_CONFIG[sym].name} 重组挂牌。`, type: 'good', t: now});
             }
 
-            // 分红
             const holders = await db.prepare(`SELECT uc.user_id, cp.amount FROM company_positions cp JOIN user_companies uc ON cp.company_id = uc.id WHERE cp.stock_symbol = ? AND cp.amount > 0`).bind(sym).all();
             for (const h of holders.results) {
                 const dividend = Math.round(h.amount * newP * 0.03);
@@ -180,7 +171,6 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            // 重置压力值为0
             updates.push(db.prepare("UPDATE market_state SET open_price=?, current_price=?, initial_base=?, is_suspended=?, last_update=?, accumulated_pressure=0 WHERE symbol=?").bind(newP, newP, newBase, newSusp, now, sym));
             st.p = newP; st.base = newBase; st.open = newP; st.suspended = newSusp; st.t = now; st.pressure = 0;
         }
@@ -209,42 +199,50 @@ async function getOrUpdateMarket(env, db) {
         let curP = st.p;
         let simT = st.t;
         let nextNewsT = st.last_news;
-        
-        // 读取并使用压力值，之后需要清零
         let currentPressure = st.pressure; 
 
         for (let i = 0; i < missed; i++) {
             simT += 60000;
-            let change = (Math.random() - 0.5) * 0.2; // 自然波动 ±10%
             
-            // === 人为影响逻辑 ===
-            // 规则：100股 ≈ 1%
-            // 公式：(压力值 / 100) * 0.01
-            // 增加随机区间：(0.8 ~ 1.2倍) 浮动，让数据看起来不那么死板
-            let userImpact = 0;
-            if (currentPressure !== 0) {
-                // 如果是追赶模式的第2分钟及以后，假设压力已经释放完了，设为0
-                // 只有第一分钟（当前累积的）才生效
-                if (i === 0) {
-                    const randomRange = 0.8 + Math.random() * 0.4; // 0.8 - 1.2
-                    userImpact = (currentPressure / 100) * 0.01 * randomRange;
-                }
-            }
-            change += userImpact;
+            // === 核心修改：逻辑分离 ===
+            let change = 0;
+            let newsMsg = null;
+            let hasNews = false;
 
-            // 新闻判定
+            // 1. 判定新闻
             if (simT - nextNewsT >= 300000) {
                 nextNewsT = simT;
                 if (Math.random() < 0.4) {
                     const news = pickWeightedNews(sym);
                     if (news) {
-                        change += news.factor;
-                        logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${news.msg}`, type: news.factor > 0 ? 'good' : 'bad', t: simT});
+                        // 有新闻时，完全使用新闻的 Factor，【不叠加】自然波动
+                        change = news.factor;
+                        newsMsg = news;
+                        hasNews = true;
                     }
                 }
             }
 
+            // 2. 无新闻时，计算自然波动
+            if (!hasNews) {
+                // 自然波动 ±10%
+                change = (Math.random() - 0.5) * 0.2;
+            }
+
+            // 3. 人为影响 (用户买卖压力) 始终叠加
+            // 只有第一分钟（当前累积的）生效
+            if (currentPressure !== 0 && i === 0) {
+                const randomRange = 0.8 + Math.random() * 0.4;
+                const userImpact = (currentPressure / 100) * 0.01 * randomRange;
+                change += userImpact; 
+            }
+
+            // 计算新价格
             curP = Math.max(1, Math.round(curP * (1 + change + 0.001)));
+
+            if (newsMsg) {
+                logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 0 ? 'good' : 'bad', t: simT});
+            }
 
             if (curP < st.base * 0.1) { 
                 const refund = curP;
@@ -262,7 +260,6 @@ async function getOrUpdateMarket(env, db) {
         }
 
         if (st.suspended !== 1) {
-            // 更新价格、时间、并【清零累积压力】
             updates.push(db.prepare("UPDATE market_state SET current_price=?, last_update=?, last_news_time=?, accumulated_pressure=0 WHERE symbol=?").bind(curP, simT, nextNewsT, sym));
             st.p = curP; st.t = simT; st.last_news = nextNewsT; st.pressure = 0;
         }
@@ -321,14 +318,13 @@ export async function onRequest(context) {
                 totalEquity += calculatePositionValue(pos, currentP);
             });
 
-            if (totalEquity < 100) {
-                const refund = Math.max(0, Math.floor(totalEquity * 0.2));
+            if (totalEquity <= 0) {
+                const refund = 0;
                 await db.batch([
                     db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
-                    db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
-                    db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(refund, user.id)
+                    db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id)
                 ]);
-                return Response.json({ success: true, bankrupt: true, report: { msg: `资不抵债 (净值: ${totalEquity})，强制清算。` } });
+                return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: `资不抵债 (净值: ${totalEquity})，强制清算。` } });
             }
         }
 
@@ -343,9 +339,6 @@ export async function onRequest(context) {
             stockMeta[sym] = { open: market[sym].open, suspended: market[sym].suspended };
         }
 
-        // === 日志延迟显示 ===
-        // 查询 created_at 小于 (当前时间 - 60秒) 的记录
-        // 这样玩家的操作和新闻都会延迟 1 分钟才显示在公屏
         const delayCutoff = Date.now() - 60000; 
         const logsRes = await db.prepare("SELECT * FROM market_logs WHERE created_at < ? ORDER BY created_at DESC LIMIT 20").bind(delayCutoff).all();
         const logs = logsRes.results.map(l => ({ time: l.created_at, msg: l.msg, type: l.type }));
@@ -355,7 +348,7 @@ export async function onRequest(context) {
             market: chartData, meta: stockMeta, news: logs, positions,
             capital: hasCompany ? company.capital : 0,
             companyType: hasCompany ? company.type : 'none',
-            userK: user.k_coins || 0, // 确保返回 K币，即使没有公司
+            userK: user.k_coins || 0,
             userExp: user.xp || 0,
             status
         });
@@ -396,7 +389,6 @@ export async function onRequest(context) {
                 db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(3000, user.id),
                 db.prepare("INSERT INTO user_companies (user_id, name, type, capital, strategy) VALUES (?, ?, ?, ?, ?)").bind(user.id, body.name, body.type, 3000, 'normal')
             ]);
-            // 创建公司不触发每日结算报告
             return Response.json({ success: true, message: '注册成功 (消耗 3000 k币)' });
         }
 
@@ -436,7 +428,7 @@ export async function onRequest(context) {
         if (action === 'withdraw') {
             const num = parseInt(amount);
             if (company.capital < num) return Response.json({ error: '公司资金不足' });
-            const tax = Math.floor(num * 0.05); // 5% 税
+            const tax = Math.floor(num * 0.05); 
             const actual = num - tax;
             await db.batch([
                 db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(num, company.id),
@@ -494,12 +486,10 @@ export async function onRequest(context) {
                     batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev));
                 }
                 logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
-                
-                // === 累加买入压力 ===
                 batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
             }
             else if (action === 'sell') {
-                if (curHold <= 0) { // 做空
+                if (curHold <= 0) { 
                     const margin = Math.floor((curP * qty) / lev);
                     if (company.capital < margin) return Response.json({ error: '资金(保证金)不足' });
                     if (pos && curHold < 0 && curLev !== lev) return Response.json({ error: '杠杆倍率不一致' });
@@ -514,10 +504,8 @@ export async function onRequest(context) {
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev));
                     }
                     logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol} (x${lev})`;
-                    
-                    // === 累加卖出压力 (负数) ===
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
-                } else { // 卖出 (平多)
+                } else { 
                     if (qty > curHold) return Response.json({ error: '持仓不足' });
                     const prin = (pos.avg_price * qty) / pos.leverage;
                     const prof = (curP - pos.avg_price) * qty;
@@ -526,8 +514,6 @@ export async function onRequest(context) {
                     if (qty === curHold) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                     else batch.push(db.prepare("UPDATE company_positions SET amount=amount-? WHERE id=?").bind(qty, pos.id));
                     logMsg = `[${userNameDisplay}] 卖出 ${qty} 股 ${symbol}`;
-                    
-                    // === 累加卖出压力 (负数) ===
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
                 }
             }
@@ -541,8 +527,6 @@ export async function onRequest(context) {
                 if (qty === Math.abs(curHold)) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                 else batch.push(db.prepare("UPDATE company_positions SET amount=amount+? WHERE id=?").bind(qty, pos.id));
                 logMsg = `[${userNameDisplay}] 平空 ${qty} 股 ${symbol}`;
-                
-                // === 平空相当于买入，累加买入压力 ===
                 batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
             }
 
@@ -550,7 +534,7 @@ export async function onRequest(context) {
 
             await db.batch(batch);
             
-            if (env.KV) await env.KV.delete("market_data_v5");
+            if (env.KV) await env.KV.delete("market_data_v6");
             
             return Response.json({ success: true, message: 'OK', log: logMsg });
         }
