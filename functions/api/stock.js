@@ -92,21 +92,27 @@ function getMarketMode(symbol, now) {
     return MARKET_MODES[modeIndex];
 }
 
-// === 核心修复：自动检查并修补数据库表结构 ===
+// === 核心修复：自动修补表结构 (容错版) ===
 async function ensureSchema(db) {
     try {
-        // 尝试查询新字段，如果不存在会报错
+        // 尝试检查 market_state 的新字段
         await db.prepare("SELECT accumulated_pressure FROM market_state LIMIT 1").first();
     } catch (e) {
-        // 字段不存在，执行添加列操作
         try {
             await db.batch([
                 db.prepare("ALTER TABLE market_state ADD COLUMN accumulated_pressure INTEGER DEFAULT 0"),
                 db.prepare("ALTER TABLE market_state ADD COLUMN last_news_time INTEGER DEFAULT 0")
             ]);
-        } catch (err) {
-            // 忽略重复添加错误
-        }
+        } catch (err) {}
+    }
+    
+    // 尝试检查 user_companies 的新字段
+    try {
+        await db.prepare("SELECT strategy FROM user_companies LIMIT 1").first();
+    } catch (e) {
+        try {
+            await db.prepare("ALTER TABLE user_companies ADD COLUMN strategy TEXT DEFAULT '{\"risk\":\"normal\",\"level\":0}'").run();
+        } catch(err) {}
     }
 }
 
@@ -131,7 +137,6 @@ async function getOrUpdateMarket(env, db) {
     let updates = [];
     let logsToWrite = []; 
 
-    // 初始化
     if (states.results.length === 0) {
         const batch = [];
         for (let sym in STOCKS_CONFIG) {
@@ -144,7 +149,6 @@ async function getOrUpdateMarket(env, db) {
         return { market: marketMap, status: { isOpen: !isMarketClosed } };
     }
 
-    // 每日结算
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000);
     if (isNewDay) {
         let totalDividends = 0;
@@ -184,7 +188,6 @@ async function getOrUpdateMarket(env, db) {
         return { market: {}, status: { isOpen: false } };
     }
 
-    // 模拟循环
     for (let s of states.results) {
         const sym = s.symbol;
         const mode = getMarketMode(sym, now);
@@ -192,8 +195,8 @@ async function getOrUpdateMarket(env, db) {
         marketMap[sym] = { 
             p: s.current_price, base: s.initial_base, t: s.last_update, 
             open: s.open_price, suspended: s.is_suspended, 
-            last_news: s.last_news_time || 0, // 防止旧数据 undefined
-            pressure: s.accumulated_pressure || 0, // 防止旧数据 undefined
+            last_news: s.last_news_time || 0,
+            pressure: s.accumulated_pressure || 0,
             mode: mode 
         };
 
@@ -285,15 +288,24 @@ export async function onRequest(context) {
     const { request, env } = context;
     const db = env.DB;
     
-    // === 自动修复数据库表结构 ===
+    // 自动修补表结构
     await ensureSchema(db);
-    // ========================
 
     const cookie = request.headers.get('Cookie');
     if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
     
-    const user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+    // === 安全查询用户 (防止 role 字段不存在导致崩溃) ===
+    let user = null;
+    try {
+        // 尝试查询带 role 的完整字段
+        user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+    } catch (e) {
+        // 如果报错（说明 role 字段不存在），降级查询
+        user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+        if (user) user.role = 'user'; // 默认设为普通用户
+    }
+    
     if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
 
     const company = await db.prepare("SELECT * FROM user_companies WHERE user_id = ?").bind(user.id).first();
@@ -305,7 +317,7 @@ export async function onRequest(context) {
     let companyLevel = 0;
     if (company) {
         try {
-            const stratObj = JSON.parse(company.strategy);
+            const stratObj = JSON.parse(company.strategy || "{}");
             companyData = stratObj;
             companyLevel = stratObj.level || 0;
         } catch(e) {
@@ -530,7 +542,6 @@ export async function onRequest(context) {
             return Response.json({ success: true, message: 'OK', log: logMsg });
         }
         
-        // 提现逻辑 (补全)
         if (action === 'withdraw') {
             const num = parseInt(amount);
             if (company.capital < num) return Response.json({ error: '公司资金不足' });
