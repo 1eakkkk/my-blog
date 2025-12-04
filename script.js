@@ -4894,8 +4894,6 @@ window.loadStockMarket = async function() {
 
     try {
         const res = await fetch(`${API_BASE}/stock`);
-        
-        // 检查 Content-Type 防止非 JSON 响应
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
             throw new Error("Server Error: 数据库结构可能未更新 (500)");
@@ -4912,16 +4910,12 @@ window.loadStockMarket = async function() {
         }
         
         if (data.success) {
-            // 更新全局数据
+            // 更新全局数据源
             marketData = data.market;
             myPositions = data.positions;
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             
-            // ===============================================
-            // 👇👇👇 新增部分：公司等级、天气、压力条 👇👇👇
-            // ===============================================
-
             // 1. 更新公司等级显示
             const lvEl = document.getElementById('companyLevelDisplay');
             if (lvEl && data.companyLevel !== undefined) {
@@ -4929,87 +4923,16 @@ window.loadStockMarket = async function() {
                 lvEl.innerText = `Lv.${data.companyLevel}: ${lvNames[data.companyLevel] || '未知'}`;
             }
 
-            // 2. 更新市场天气与压力 (针对当前选中的股票)
-            if (currentStockSymbol && stockMeta[currentStockSymbol]) {
-                const meta = stockMeta[currentStockSymbol];
-                const mode = meta.mode || { name: '-', icon: '' };
-                const press = meta.pressure || 0;
+            // 2. 【核心】调用通用渲染函数更新所有面板数据
+            // 这会自动处理 Top4 数据、市值、发行量、破产线、天气、压力条
+            renderStockDashboard(currentStockSymbol);
 
-                // 更新天气
-                const modeEl = document.getElementById('marketModeDisplay');
-                if (modeEl) modeEl.innerHTML = `${mode.icon} ${mode.name} <span style="font-size:0.7rem;color:#666">(${mode.code})</span>`;
-
-                // 更新压力条
-                const bar = document.getElementById('pressureBar');
-                const pText = document.getElementById('pressureText');
-                if (bar) {
-                    // 压力可视化：基础50%，每 1000 压力偏移 10%
-                    // pressure > 0 (买盘) -> 向右 (Green)
-                    // pressure < 0 (卖盘) -> 向左 (Red)
-                    let percent = 50 + (press / 100); 
-                    percent = Math.max(10, Math.min(90, percent)); // 限制在 10%-90%
-                    
-                    bar.style.width = `${percent}%`;
-                    
-                    if (press > 50) {
-                        bar.style.background = `linear-gradient(90deg, #444 50%, #0f0 100%)`;
-                        if(pText) {
-                            pText.innerText = `买盘主导 (强度: ${press})`;
-                            pText.style.color = "#0f0";
-                        }
-                    } else if (press < -50) {
-                        bar.style.background = `linear-gradient(90deg, #f33 0%, #444 50%)`;
-                        if(pText) {
-                            pText.innerText = `卖盘主导 (强度: ${Math.abs(press)})`;
-                            pText.style.color = "#f33";
-                        }
-                    } else {
-                        bar.style.background = "#444";
-                        if(pText) {
-                            pText.innerText = "多空平衡";
-                            pText.style.color = "#aaa";
-                        }
-                    }
-                }
-            }
-            // ... (在更新天气和压力条的代码之后) ...
-
-            // === 👇 新增：更新市值与破产线数据 👇 ===
-            if (currentStockSymbol && stockMeta[currentStockSymbol]) {
-                const meta = stockMeta[currentStockSymbol];
-                const currentP = marketData[currentStockSymbol] ? marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p : 0;
-                
-                // 1. 计算市值 (股价 * 股本)
-                const mktCap = (currentP * meta.shares).toLocaleString();
-                const mktCapEl = document.getElementById('stockMarketCap');
-                if (mktCapEl) mktCapEl.innerText = `¥ ${mktCap}`;
-
-                // 2. 显示发行量
-                const sharesEl = document.getElementById('stockTotalShares');
-                if (sharesEl) sharesEl.innerText = meta.shares.toLocaleString();
-
-                // 3. 显示破产线 (发行价 * 20%)
-                const bankruptPrice = Math.floor(meta.issue_p * 0.2);
-                const lineEl = document.getElementById('stockBankruptLine');
-                if (lineEl) {
-                    lineEl.innerText = `≤ ${bankruptPrice}`;
-                    // 如果当前价格接近破产线 (1.1倍以内)，闪烁红色警报
-                    if (currentP <= bankruptPrice * 1.1) {
-                        lineEl.style.animation = "pulse-red 1s infinite";
-                    } else {
-                        lineEl.style.animation = "none";
-                    }
-                }
-            }
-            // 👆👆👆 新增部分结束 👆👆👆
-
-            // 3. 更新右上角 Ticker
-            if (marketTicker) {
+            // 3. 更新右上角 Ticker (保留此处逻辑)
+            if (marketTicker && marketData[currentStockSymbol]) {
                 const curData = marketData[currentStockSymbol];
-                if (curData && curData.length > 0) {
+                if (curData.length > 0) {
                     const curPrice = curData[curData.length - 1].p;
-                    // 获取今日开盘价
-                    const openPrice = (stockMeta[currentStockSymbol] && stockMeta[currentStockSymbol].open) ? stockMeta[currentStockSymbol].open : curData[0].p;
+                    const openPrice = stockMeta[currentStockSymbol].open || curData[0].p;
                     
                     const diff = curPrice - openPrice;
                     const percent = ((diff / openPrice) * 100).toFixed(2);
@@ -5059,16 +4982,11 @@ window.loadStockMarket = async function() {
             }
 
             // 6. 刷新资金
-            if(document.getElementById('bizCapital')) {
-                document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
-            }
-            // 刷新 K币
+            if(document.getElementById('bizCapital')) document.getElementById('bizCapital').innerText = data.capital.toLocaleString();
             const kDisplay = document.getElementById('userKCoinsDisplay');
-            if (kDisplay && data.userK !== undefined) {
-                kDisplay.innerText = data.userK.toLocaleString();
-            }
+            if (kDisplay && data.userK !== undefined) kDisplay.innerText = data.userK.toLocaleString();
 
-            // 7. 绑定事件
+            // 7. 绑定图表事件 (防抖动)
             if (canvas && !canvas.dataset.listening) {
                 canvas.addEventListener('mousemove', handleChartHover);
                 canvas.addEventListener('mouseleave', handleChartLeave);
@@ -5080,7 +4998,7 @@ window.loadStockMarket = async function() {
                 window.addEventListener('resize', resizeStockChart);
             }
 
-            // 8. 重绘
+            // 8. 重绘 (网络数据回来后再次刷新图表和持仓)
             if (typeof switchStock === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
                 updatePositionUI(currentStockSymbol);
@@ -5131,29 +5049,24 @@ window.switchStock = function(symbol) {
     // 1. 立即更新状态变量
     currentStockSymbol = symbol;
     
-    // 2. 【优先】UI 视觉切换 (Tab 高亮)
-    // 必须最先执行，让用户感觉到“点到了”
+    // 2. UI 视觉切换 (Tab 高亮)
     document.querySelectorAll('.stock-tab').forEach(b => b.classList.remove('active'));
     const btns = document.querySelectorAll('.stock-tab');
     if(symbol==='BLUE' && btns[0]) btns[0].classList.add('active');
     if(symbol==='GOLD' && btns[1]) btns[1].classList.add('active');
     if(symbol==='RED' && btns[2]) btns[2].classList.add('active');
 
-    // 3. 【优先】使用本地缓存重绘图表 (视觉零延迟)
-    // 只要本地有数据，图表会瞬间切换，不需要等网络
-    drawInteractiveChart(symbol, null);
+    // 3. 【核心优化】立即渲染本地缓存数据 (视觉零延迟)
+    // 这一步是丝滑的关键，直接复用上一次的数据绘图和填字
+    if (typeof drawInteractiveChart === 'function') drawInteractiveChart(symbol, null);
+    if (typeof updatePositionUI === 'function') updatePositionUI(symbol);
+    if (typeof renderStockDashboard === 'function') renderStockDashboard(symbol);
     
-    // 4. 【优先】刷新持仓文字
-    if (typeof updatePositionUI === 'function') {
-        updatePositionUI(symbol);
-    }
-    
-    // 5. 【优先】更新遮罩状态 (停牌/休市)
+    // 4. 更新停牌遮罩状态 (使用本地数据)
     const mask = document.getElementById('marketClosedMask');
     const maskTitle = document.getElementById('maskTitle');
     const maskSubtitle = document.getElementById('maskSubtitle');
     
-    // 逻辑：优先判断个股停牌
     if (window.stockMeta && window.stockMeta[symbol] && window.stockMeta[symbol].suspended === 1) {
         if(mask) {
             mask.style.display = 'flex';
@@ -5162,28 +5075,21 @@ window.switchStock = function(symbol) {
         }
         disableTrading(true);
     } else {
-        // 先隐藏，稍后 loadStockMarket 会检查全场休市
         if(mask) mask.style.display = 'none';
         disableTrading(false);
     }
     
-    // 6. 清空输入框
+    // 5. 清空输入框
     const input = document.getElementById('stockTradeAmount');
     if(input) input.value = '';
 
-    // ================================================
-    // 🚀 核心优化：将网络请求推迟到 10ms 后执行
-    // ================================================
-    // 这会让浏览器先完成上述的 UI 渲染（按钮变色、图表切换），
-    // 待界面完全响应后，再在后台悄悄发起网络请求。
-    // 用户会感觉切换是“瞬间”完成的。
+    // 6. 后台静默刷新数据 (10ms后发起，不阻塞UI动画)
     setTimeout(() => {
         if (typeof loadStockMarket === 'function') {
             loadStockMarket();
         }
     }, 10);
 };
-
 // 3. 鼠标移动处理
 function handleChartHover(e) {
     const rect = e.target.getBoundingClientRect();
@@ -5732,7 +5638,100 @@ window.upgradeCompany = async function() {
     }
 };
 
+// === 核心优化：独立 UI 渲染函数 (实现瞬间切换) ===
+window.renderStockDashboard = function(symbol) {
+    // 安全检查：如果内存里没数据，直接返回，等待网络请求
+    if (!marketData || !marketData[symbol] || !stockMeta || !stockMeta[symbol]) return;
 
+    const dataList = marketData[symbol];
+    const meta = stockMeta[symbol];
+    
+    if (dataList.length === 0) return;
+
+    // --- 1. 计算并渲染顶部基础数据 (Top 4) ---
+    // 在前端重新计算 High/Low，确保切换时数据准确
+    let maxP = -Infinity;
+    let minP = Infinity;
+    dataList.forEach(d => {
+        if (d.p > maxP) maxP = d.p;
+        if (d.p < minP) minP = d.p;
+    });
+    
+    const currentP = dataList[dataList.length - 1].p;
+    const openP = meta.open || dataList[0].p;
+
+    const elOpen = document.getElementById('stockOpen');
+    const elHigh = document.getElementById('stockHigh');
+    const elLow = document.getElementById('stockLow');
+    const elCurr = document.getElementById('stockCurrent');
+    
+    if (elOpen) elOpen.innerText = openP;
+    if (elHigh) elHigh.innerText = maxP;
+    if (elLow) elLow.innerText = minP;
+    if (elCurr) {
+        elCurr.innerText = currentP;
+        elCurr.style.color = currentP >= openP ? '#0f0' : '#f33';
+    }
+
+    // --- 2. 渲染中间栏 (市值/发行量/破产线) ---
+    const shares = meta.shares || 1000000;
+    const issueP = meta.issue_p || 1000;
+    
+    // 市值
+    const mktCapEl = document.getElementById('stockMarketCap');
+    if (mktCapEl) mktCapEl.innerText = `¥ ${(currentP * shares).toLocaleString()}`;
+
+    // 发行量
+    const sharesEl = document.getElementById('stockTotalShares');
+    if (sharesEl) sharesEl.innerText = shares.toLocaleString();
+
+    // 破产线
+    const bankruptPrice = Math.floor(issueP * 0.2);
+    const lineEl = document.getElementById('stockBankruptLine');
+    if (lineEl) {
+        lineEl.innerText = `≤ ${bankruptPrice}`;
+        // 红色闪烁警报
+        if (currentP <= bankruptPrice * 1.1) {
+            lineEl.style.animation = "pulse-red 1s infinite";
+            lineEl.style.color = "#f33";
+        } else {
+            lineEl.style.animation = "none";
+            lineEl.style.color = "#888"; // 恢复默认灰/白
+        }
+    }
+
+    // --- 3. 渲染底部栏 (天气/压力条) ---
+    const mode = meta.mode || { name: '-', icon: '', code: 'NORMAL' };
+    const press = meta.pressure || 0;
+
+    // 天气
+    const modeEl = document.getElementById('marketModeDisplay');
+    if (modeEl) modeEl.innerHTML = `${mode.icon} ${mode.name} <span style="font-size:0.7rem;color:#666">(${mode.code})</span>`;
+
+    // 压力条
+    const bar = document.getElementById('pressureBar');
+    const pText = document.getElementById('pressureText');
+    if (bar && pText) {
+        let percent = 50 + (press / 100); 
+        percent = Math.max(10, Math.min(90, percent)); // 限制范围
+        
+        bar.style.width = `${percent}%`;
+        
+        if (press > 50) {
+            bar.style.background = `linear-gradient(90deg, #444 50%, #0f0 100%)`;
+            pText.innerText = `买盘主导 (强度: ${press})`;
+            pText.style.color = "#0f0";
+        } else if (press < -50) {
+            bar.style.background = `linear-gradient(90deg, #f33 0%, #444 50%)`;
+            pText.innerText = `卖盘主导 (强度: ${Math.abs(press)})`;
+            pText.style.color = "#f33";
+        } else {
+            bar.style.background = "#444";
+            pText.innerText = "多空平衡";
+            pText.style.color = "#aaa";
+        }
+    }
+};
 
 
 
