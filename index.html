@@ -734,36 +734,64 @@
                                         <div id="myStockProfit" style="font-size:0.9rem; margin-top:5px;">浮动盈亏: --</div>
                                     </div>
                         
-                                    <!-- 右侧：交易输入 -->
+                                   <!-- 右侧：交易输入 -->
                                     <div style="flex:1.5; min-width:280px;">
-                                        <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">交易数量 / AMOUNT</div>
-                                        <div style="display:flex; gap:15px; margin-bottom:5px; font-size:0.75rem; color:#ccc;">
-                                            <label style="cursor:pointer; display:flex; align-items:center;">
-                                                <input type="radio" name="calcMode" value="capital" checked 
-                                                       onchange="document.getElementById('tradeSlider').value=0; document.getElementById('stockTradeAmount').value='';"
-                                                       style="margin-right:5px;"> 
-                                                按资金 (开仓)
-                                            </label>
-                                            <label style="cursor:pointer; display:flex; align-items:center;">
-                                                <input type="radio" name="calcMode" value="holding" 
-                                                       onchange="document.getElementById('tradeSlider').value=0; document.getElementById('stockTradeAmount').value='';"
-                                                       style="margin-right:5px;"> 
-                                                按持仓 (平仓)
-                                            </label>
+                                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                            <div style="font-size:0.8rem; color:#888;">交易数量 / AMOUNT</div>
+                                            <!-- 新增：倒计时 -->
+                                            <div style="font-size:0.7rem; color:#666; font-family:'JetBrains Mono';">
+                                                NEXT UPDATE: <span id="marketTimer" style="color:#00f3ff; font-weight:bold;">5.0s</span>
+                                            </div>
                                         </div>
-                                        <input type="range" id="tradeSlider" min="0" max="100" value="0" step="1" 
-                                               style="width:100%; margin-bottom:10px; cursor:pointer;" oninput="updateTradeFromSlider(this.value)">
+                                        
+                                        <!-- 计算模式单选 (保持原有) -->
+                                        <div style="display:flex; gap:15px; margin-bottom:5px; font-size:0.75rem; color:#ccc;">
+                                            <label style="cursor:pointer; display:flex; align-items:center;"><input type="radio" name="calcMode" value="capital" checked onchange="document.getElementById('tradeSlider').value=0; document.getElementById('stockTradeAmount').value='';"> 按资金 (开仓)</label>
+                                            <label style="cursor:pointer; display:flex; align-items:center;"><input type="radio" name="calcMode" value="holding" onchange="document.getElementById('tradeSlider').value=0; document.getElementById('stockTradeAmount').value='';"> 按持仓 (平仓)</label>
+                                        </div>
+
+                                        <!-- 滑动条 (保持原有) -->
+                                        <input type="range" id="tradeSlider" min="0" max="100" value="0" step="1" style="width:100%; margin-bottom:10px; cursor:pointer;" oninput="updateTradeFromSlider(this.value)">
+                                        
+                                        <!-- 输入框行 (保持原有) -->
                                         <div style="display:flex; gap:5px; margin-bottom:10px;">
-                                            <input type="number" id="stockTradeAmount" class="cyber-input" placeholder="输入数量" style="flex:1; margin:0;">
+                                            <input type="number" id="stockTradeAmount" class="cyber-input" placeholder="数量" style="flex:1; margin:0;" oninput="document.getElementById('tradeSlider').value=0">
                                             <button onclick="setTradeAmount('half')" class="mini-action-btn" style="border:1px solid #666;">1/2</button>
                                             <button onclick="setTradeAmount('all')" class="mini-action-btn" style="border:1px solid #666;">ALL</button>
                                         </div>
                         
+                                        <!-- 交易按钮行 -->
                                         <div style="display:flex; gap:10px;">
-                                            <button onclick="tradeStock('buy')" class="cyber-btn" style="flex:1; border-color:#0f0; color:#0f0; margin:0;">买入 (做多)</button>
-                                            <button onclick="tradeStock('sell')" class="cyber-btn" style="flex:1; border-color:#f33; color:#f33; margin:0;">卖出 / 做空</button>
-                                            <!-- 平空按钮：仅在持有空单时显示 -->
-                                            <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="flex:1; border-color:gold; color:gold; margin:0; display:none;">平空 (结算)</button>
+                                            <button onclick="tradeStock('buy')" class="cyber-btn" style="flex:1; border-color:#0f0; color:#0f0; margin:0;">买入</button>
+                                            <button onclick="tradeStock('sell')" class="cyber-btn" style="flex:1; border-color:#f33; color:#f33; margin:0;">卖出/空</button>
+                                            <button id="btnShortCover" onclick="tradeStock('cover')" class="cyber-btn" style="flex:1; border-color:gold; color:gold; margin:0; display:none;">平空</button>
+                                        </div>
+
+                                        <!-- 👇👇👇 新增：自动交易挂机面板 👇👇👇 -->
+                                        <div style="margin-top:15px; border-top:1px dashed #333; padding-top:10px;">
+                                            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleAutoTradePanel()">
+                                                <span style="font-size:0.8rem; color:#bd00ff;">🤖 智能交易终端 / AUTO-BOT</span>
+                                                <span id="autoTradeArrow" style="color:#666;">▼</span>
+                                            </div>
+                                            
+                                            <div id="autoTradeConfig" style="display:none; margin-top:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:4px;">
+                                                <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">触发条件 (TRIGGER)</div>
+                                                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                                                    <select id="autoAction" class="cyber-input" style="flex:1; margin:0; padding:5px;">
+                                                        <option value="buy">低价买入 (Buy Limit)</option>
+                                                        <option value="sell">高价卖出 (Sell Limit)</option>
+                                                    </select>
+                                                    <span style="align-self:center; color:#fff;">@</span>
+                                                    <input type="number" id="autoPriceTarget" class="cyber-input" placeholder="目标价" style="flex:1; margin:0; padding:5px;">
+                                                </div>
+                                                <div style="font-size:0.7rem; color:#888; margin-bottom:5px;">执行数量: <span style="color:#fff;">读取上方输入框</span></div>
+                                                <button id="btnAutoStart" onclick="startAutoTrade()" class="cyber-btn" style="width:100%; margin:0; border-color:#bd00ff; color:#bd00ff;">启动挂机</button>
+                                            </div>
+                                            <!-- 运行状态条 -->
+                                            <div id="autoTradeStatus" style="display:none; margin-top:5px; font-size:0.75rem; color:#0f0; border:1px solid #0f0; padding:5px; text-align:center;">
+                                                ⚡ 监控中: 价格 <span id="statusCondition">≤</span> <span id="statusTarget">0</span> 时触发
+                                                <button onclick="stopAutoTrade()" style="background:none; border:none; color:#f33; text-decoration:underline; cursor:pointer; margin-left:10px;">停止</button>
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -1461,9 +1489,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.5"></script>
+    <script src="script.js?v=10.6"></script>
 </body>
 </html>
+
 
 
 
