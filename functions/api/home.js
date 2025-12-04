@@ -1,9 +1,9 @@
 // --- START OF FILE functions/api/home.js ---
 
 const SEEDS = {
-    'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_coins: 120, reward_xp: 300 },
-    'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_coins: 280, reward_xp: 500 },
-    'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_coins: 600, reward_xp: 800 }
+    'seed_moss': { name: '低频缓存苔藓', duration: 4 * 60 * 60 * 1000, reward_min: 240, reward_max: 280, xp: 300 },
+    'seed_quantum': { name: '量子枝条', duration: 12 * 60 * 60 * 1000, reward_min: 800, reward_max: 1200, xp: 500 },
+    'seed_vine': { name: '修复算法藤', duration: 24 * 60 * 60 * 1000, reward_min: 2400, reward_max: 2800, xp: 800 }
 };
 const WORKS = {
     'cleaning': { name: '数据清理', duration: 10 * 60 * 1000, reward: 20 },
@@ -60,7 +60,8 @@ export async function onRequest(context) {
             if (!item || item.quantity < 1) return Response.json({ error: '种子不足' });
 
             // 种植事务
-            const harvestTime = now + seedConfig.time;
+            // 【修复】此处原为 seedConfig.time，修正为 seedConfig.duration
+            const harvestTime = now + seedConfig.duration;
             await db.batch([
                 db.prepare("UPDATE user_items SET quantity = quantity - 1 WHERE user_id=? AND item_id=?").bind(user.id, seedId),
                 db.prepare("DELETE FROM user_items WHERE user_id=? AND item_id=? AND quantity <= 0").bind(user.id, seedId),
@@ -95,7 +96,8 @@ export async function onRequest(context) {
             // 实际可种植数量 = min(拥有种子, 空位数)
             const plantCount = Math.min(seedCount, emptySlots.length);
             const batch = [];
-            const harvestTime = now + seedConfig.time;
+            // 【修复】此处原为 seedConfig.time，修正为 seedConfig.duration
+            const harvestTime = now + seedConfig.duration;
 
             // 扣除种子
             batch.push(db.prepare("UPDATE user_items SET quantity = quantity - ? WHERE user_id=? AND item_id=?").bind(plantCount, user.id, seedId));
@@ -118,19 +120,21 @@ export async function onRequest(context) {
             if (now < item.harvest_at) return Response.json({ error: '尚未成熟' });
 
             const conf = SEEDS[item.item_id];
-            const reward = Math.floor(Math.random() * (conf.reward_max - conf.reward_min + 1)) + conf.reward_min;
+            // 防止旧数据报错，给个默认值
+            const rMin = conf ? (conf.reward_min || 50) : 50;
+            const rMax = conf ? (conf.reward_max || 100) : 100;
+            const rXp = conf ? (conf.xp || 100) : 100;
+
+            const reward = Math.floor(Math.random() * (rMax - rMin + 1)) + rMin;
             
             // 稀有掉落：加速碎片 (15%概率)
             let dropMsg = '';
             const updates = [
                 db.prepare("DELETE FROM home_items WHERE id=?").bind(item.id),
-                db.prepare("UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id=?").bind(reward, conf.xp, user.id)
+                db.prepare("UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id=?").bind(reward, rXp, user.id)
             ];
 
             if (Math.random() < 0.15) {
-                // 检查背包是否有碎片，有则加数量，无则插入
-                // 这里简化处理：直接尝试 Update，若无影响则 Insert (或者使用 UPSERT 语法如果 D1 支持)
-                // 为兼容性，先查后写
                 const hasFrag = await db.prepare("SELECT id FROM user_items WHERE user_id=? AND item_id='item_algo_frag'").bind(user.id).first();
                 if (hasFrag) {
                     updates.push(db.prepare("UPDATE user_items SET quantity = quantity + 1 WHERE id=?").bind(hasFrag.id));
@@ -141,12 +145,11 @@ export async function onRequest(context) {
             }
 
             await db.batch(updates);
-            return Response.json({ success: true, message: `收获成功: +${reward}i, +${conf.xp}XP${dropMsg}` });
+            return Response.json({ success: true, message: `收获成功: +${reward}i, +${rXp}XP${dropMsg}` });
         }
 
         // 4. 一键收获 (Harvest All)
         if (action === 'harvest_all') {
-            // 查找所有成熟作物
             const readyItems = await db.prepare("SELECT * FROM home_items WHERE user_id=? AND harvest_at <= ?").bind(user.id, now).all();
             
             if (readyItems.results.length === 0) return Response.json({ error: '没有可收获的作物' });
@@ -167,17 +170,12 @@ export async function onRequest(context) {
             }
 
             const updates = [];
-            // 批量删除
-            // D1 不支持 DELETE WHERE id IN (...) 数组传参的直接语法，需要拼 SQL 或循环
-            // 为简单，我们循环生成 delete 语句放入 batch (D1 batch 上限很高，几十个没问题)
             idsToDelete.forEach(id => {
                 updates.push(db.prepare("DELETE FROM home_items WHERE id=?").bind(id));
             });
 
-            // 发放奖励
             updates.push(db.prepare("UPDATE users SET coins = coins + ?, xp = xp + ? WHERE id=?").bind(totalCoins, totalXp, user.id));
 
-            // 发放碎片
             if (totalFrags > 0) {
                 const hasFrag = await db.prepare("SELECT id FROM user_items WHERE user_id=? AND item_id='item_algo_frag'").bind(user.id).first();
                 if (hasFrag) {
@@ -194,7 +192,7 @@ export async function onRequest(context) {
             return Response.json({ success: true, message: msg });
         }
 
-        // 5. 打工逻辑 (保持不变)
+        // 5. 打工逻辑 (Start Work)
         if (action === 'start_work') {
             const { workType } = body;
             const conf = WORKS[workType];
@@ -203,7 +201,8 @@ export async function onRequest(context) {
             const existing = await db.prepare("SELECT id FROM user_works WHERE user_id=? AND status=1").bind(user.id).first();
             if (existing) return Response.json({ error: '已有进行中的任务' });
 
-            const endTime = now + conf.time;
+            // 【修复】此处原为 conf.time，修正为 conf.duration
+            const endTime = now + conf.duration;
             await db.prepare("INSERT INTO user_works (user_id, work_type, start_time, end_time, status) VALUES (?, ?, ?, ?, 1)").bind(user.id, workType, now, endTime).run();
             return Response.json({ success: true, message: '任务挂载成功' });
         }
@@ -211,14 +210,19 @@ export async function onRequest(context) {
         if (action === 'claim_work') {
             const work = await db.prepare("SELECT * FROM user_works WHERE user_id=? AND status=1").bind(user.id).first();
             if (!work) return Response.json({ error: '无进行中任务' });
+            
+            // 此处判断不需要 conf，直接对比时间
             if (now < work.end_time) return Response.json({ error: '任务未完成' });
 
             const conf = WORKS[work.work_type];
+            // 防止配置丢失导致报错
+            const reward = conf ? conf.reward : 20;
+
             await db.batch([
                 db.prepare("DELETE FROM user_works WHERE id=?").bind(work.id),
-                db.prepare("UPDATE users SET coins = coins + ? WHERE id=?").bind(conf.reward, user.id)
+                db.prepare("UPDATE users SET coins = coins + ? WHERE id=?").bind(reward, user.id)
             ]);
-            return Response.json({ success: true, message: `结算完成: +${conf.reward} i币` });
+            return Response.json({ success: true, message: `结算完成: +${reward} i币` });
         }
 
         if (action === 'cancel_work') {
