@@ -5595,6 +5595,34 @@ window.convertCoin = async function(type) {
     }
 };
 
+window.adminResetStock = async function() {
+    if (!confirm("⚠️ 确定要强制重组所有 [已退市] 的股票吗？\n\n这会让它们重新上市并随机设定价格。\n(未退市的股票不受影响)")) return;
+    
+    const btn = event.target; // 获取点击的按钮
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "PROCESSING...";
+
+    try {
+        const res = await fetch(`${API_BASE}/stock`, { // 注意是 POST 到 stock
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'admin_reset' })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        showToast("请求失败: 网络错误", 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+};
 
 
 
