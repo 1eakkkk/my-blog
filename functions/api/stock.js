@@ -11,8 +11,8 @@ const NEWS_DB = {
         { weight: 10, factor: 0.12, msg: "分析师上调蓝盾安全评级，称其现金流健康。" },
         { weight: 10, factor: 0.14, msg: "蓝盾安全宣布与多家中小企业签订维护合同。" },
         { weight: 10, factor: 0.12, msg: "蓝盾安全开宣传发布会，宣传他们的最新防护系统。" },
-        { weight: 10, factor: -0.12, msg: "有媒体秘密报道称其现金流不是很健康。" },
-        { weight: 10, factor: -0.12, msg: "蓝盾安全被曝出存在欺压员工行为。" },
+        { weight: 10, factor: -0.13, msg: "有媒体秘密报道称其现金流不是很健康。" },
+        { weight: 10, factor: -0.13, msg: "蓝盾安全被曝出存在欺压员工行为。" },
         { weight: 10, factor: -0.12, msg: "传闻蓝盾高层正在抛售股票，引发市场微小恐慌。" },
         { weight: 10, factor: -0.12, msg: "部分用户投诉蓝盾防火墙误报率上升。" },
         { weight: 5, factor: 0.22, msg: "获得政府防火墙二期工程大额订单！" },
@@ -23,7 +23,7 @@ const NEWS_DB = {
         { weight: 5, factor: -0.24, msg: "竞争对手将我们的数据中心进行了熔断，蓝盾市场份额暴跌！" },
         { weight: 1, factor: 0.44, msg: "【重磅】夜之城市政厅宣布蓝盾为唯一指定安全供应商！" },
         { weight: 1, factor: 0.46, msg: "【震惊】蓝盾系统更新迭代至遥遥领先水平！" },
-        { weight: 1, factor: -0.43, msg: "【突发】蓝盾核心数据库遭 0-day 漏洞攻破，数亿数据泄露！" },
+        { weight: 1, factor: -0.45, msg: "【突发】蓝盾核心数据库遭 0-day 漏洞攻破，数亿数据泄露！" },
         { weight: 1, factor: -0.45, msg: "【丑闻】蓝盾被曝协助大企业非法监控员工脑机接口。" }
     ],
     'GOLD': [
@@ -32,11 +32,11 @@ const NEWS_DB = {
         { weight: 10, factor: -0.12, msg: "神经元科技被曝出非法集资。" },
         { weight: 10, factor: 0.13, msg: "原材料价格下跌，义体生产成本略微减少。" },
         { weight: 10, factor: -0.13, msg: "原材料价格上涨，义体生产成本略微增加。" },
-        { weight: 10, factor: -0.12, msg: "医保法案修正案推迟，影响部分义体报销。" },
+        { weight: 10, factor: -0.13, msg: "医保法案修正案推迟，影响部分义体报销。" },
         { weight: 5, factor: 0.22, msg: "义体排异反应抑制剂研发成功，通过临床三期！" },
         { weight: 5, factor: 0.23, msg: "收购顶级仿生义肢实验室，技术壁垒加深。" },
-        { weight: 5, factor: -0.23, msg: "数千名用户因芯片固件故障陷入精神错乱。" },
-        { weight: 5, factor: -0.28, msg: "被曝在贫民窟进行非法活体实验。" },
+        { weight: 5, factor: -0.24, msg: "数千名用户因芯片固件故障陷入精神错乱。" },
+        { weight: 5, factor: -0.22, msg: "被曝在贫民窟进行非法活体实验。" },
         { weight: 5, factor: -0.26, msg: "被曝出内部人员关系混乱。" },
         { weight: 5, factor: 0.27, msg: "‘数字永生’项目取得突破，记忆备份仅需5秒。" },
         { weight: 1, factor: 0.46, msg: "【跨时代】神经元科技宣布实现完美意识上传！股价飞升！" },
@@ -46,7 +46,7 @@ const NEWS_DB = {
     ],
     'RED': [
         { weight: 10, factor: 0.15, msg: "荒坂安保部门成功镇压了一起局部暴乱。" },
-        { weight: 10, factor: 0.15, msg: "荒坂安保部门宣布与蓝盾安全达成协议，合作共赢。" },
+        { weight: 10, factor: 0.14, msg: "荒坂安保部门宣布与蓝盾安全达成协议，合作共赢。" },
         { weight: 10, factor: -0.15, msg: "荒坂安保部门被曝出内部人员关系混乱。" },
         { weight: 10, factor: 0.12, msg: "荒坂军工发布新一季度的雇佣兵招募计划。" },
         { weight: 10, factor: -0.14, msg: "反战组织在荒坂分部大楼下拉横幅抗议。" },
@@ -54,18 +54,25 @@ const NEWS_DB = {
         { weight: 5, factor: 0.33, msg: "边境冲突升级，各国军火订单激增！" },
         { weight: 5, factor: 0.31, msg: "发布新型‘半人马’机甲，单兵威慑力拉满。" },
         { weight: 5, factor: -0.35, msg: "国际法庭宣布冻结荒坂在欧非的海外资产。" },
-        { weight: 5, factor: -0.34, msg: "荒坂总部大楼遭战术核弹袭击！大楼主体受损！" },
+        { weight: 5, factor: -0.32, msg: "荒坂总部大楼遭战术核弹袭击！大楼主体受损！" },
         { weight: 5, factor: 0.33, msg: "成功试爆微型反物质炸弹，技术遥遥领先。" },
         { weight: 5, factor: -0.30, msg: "试爆微型反物质炸弹失败，技术倒退五十年。" },
         { weight: 1, factor: 0.47, msg: "【战争】第四次企业战争全面爆发！荒坂股价火箭式暴涨！" },
-        { weight: 1, factor: 0.67, msg: "【入侵】光能族入侵星系，导致爆发战争！" },
+        { weight: 1, factor: 0.59, msg: "【入侵】光能族入侵星系，导致爆发战争！" },
         { weight: 1, factor: -0.54, msg: "【覆灭】荒坂内部爆发夺权内战，全球业务陷入瘫痪！" },
         { weight: 1, factor: -0.52, msg: "【泄密】荒坂被曝双面军火交易，同时资助反叛军。" }
     ]
 };
 
 function generateBasePrice() { return Math.floor(Math.random() * 1900) + 100; }
-function getBJHour(ts) { return (new Date(ts).getUTCHours() + 8) % 24; }
+
+// UTC+8 时间戳获取
+function getBJTime(ts) { 
+    return new Date(ts + (8 * 60 * 60 * 1000));
+}
+function getBJHour(ts) { 
+    return getBJTime(ts).getUTCHours();
+}
 
 function pickWeightedNews(symbol) {
     const list = NEWS_DB[symbol];
@@ -93,9 +100,8 @@ function calculatePositionValue(pos, currentPrice) {
 // === 核心优化：基于 KV 的行情获取 ===
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_data_v4"; // 升级 Key 版本
+    const CACHE_KEY = "market_data_v5"; // 升级 Key 版本
     
-    // 1. 尝试从 KV 读取缓存
     let cachedData = null;
     if (env.KV) {
         try {
@@ -112,6 +118,7 @@ async function getOrUpdateMarket(env, db) {
     // ==========================================
     
     const bjHour = getBJHour(now);
+    // 闭市判断：UTC+8 的 02:00 ~ 06:00
     const isMarketClosed = (bjHour >= 2 && bjHour < 6);
 
     let states = await db.prepare("SELECT * FROM market_state").all();
@@ -124,9 +131,10 @@ async function getOrUpdateMarket(env, db) {
         const batch = [];
         for (let sym in STOCKS_CONFIG) {
             let p = generateBasePrice() + 50;
-            batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time) VALUES (?, ?, ?, ?, 0, ?, ?)").bind(sym, p, p, now, p, now));
+            // 增加 accumulated_pressure 字段初始化
+            batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time, accumulated_pressure) VALUES (?, ?, ?, ?, 0, ?, ?, 0)").bind(sym, p, p, now, p, now));
             batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, p, now));
-            marketMap[sym] = { p: p, base: p, t: now, open: p, suspended: 0, last_news: now };
+            marketMap[sym] = { p: p, base: p, t: now, open: p, suspended: 0, last_news: now, pressure: 0 };
         }
         await db.batch(batch);
         return { market: marketMap, status: { isOpen: !isMarketClosed } };
@@ -136,11 +144,12 @@ async function getOrUpdateMarket(env, db) {
         marketMap[s.symbol] = { 
             p: s.current_price, base: s.initial_base, t: s.last_update, 
             open: s.open_price || s.current_price, suspended: s.is_suspended, 
-            last_news: s.last_news_time || 0 
+            last_news: s.last_news_time || 0,
+            pressure: s.accumulated_pressure || 0 // 读取累积压力
         };
     });
 
-    // 每日重置 (检测是否跨过了 06:00 开市线)
+    // 每日重置
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000);
     
     if (isNewDay) {
@@ -152,7 +161,6 @@ async function getOrUpdateMarket(env, db) {
             let newP = st.p;
             let newSusp = st.suspended;
             
-            // 如果是退市股，重组上市，生成新价格
             if (st.suspended === 1) {
                 newBase = generateBasePrice(); 
                 newP = newBase; 
@@ -161,35 +169,22 @@ async function getOrUpdateMarket(env, db) {
                 logsToWrite.push({sym, msg: `【新股上市】${STOCKS_CONFIG[sym].name} 重组挂牌。`, type: 'good', t: now});
             }
 
-            // === 💰 每日分红逻辑 (含通知) ===
-            const holders = await db.prepare(`
-                SELECT uc.user_id, cp.amount 
-                FROM company_positions cp 
-                JOIN user_companies uc ON cp.company_id = uc.id 
-                WHERE cp.stock_symbol = ? AND cp.amount > 0
-            `).bind(sym).all();
-
+            // 分红
+            const holders = await db.prepare(`SELECT uc.user_id, cp.amount FROM company_positions cp JOIN user_companies uc ON cp.company_id = uc.id WHERE cp.stock_symbol = ? AND cp.amount > 0`).bind(sym).all();
             for (const h of holders.results) {
-                // 分红 = 持仓股数 * 当前开盘价 * 3%
                 const dividend = Math.round(h.amount * newP * 0.03);
                 if (dividend > 0) {
-                    // 1. 发钱
                     updates.push(db.prepare("UPDATE users SET k_coins = COALESCE(k_coins, 0) + ? WHERE id = ?").bind(dividend, h.user_id));
-                    // 2. 发通知 (新增)
-                    updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, is_read, created_at, link) VALUES (?, 'system', ?, 0, ?, '#business')")
-                        .bind(h.user_id, `【股市分红】您持有的 ${STOCKS_CONFIG[sym].name} 发放分红: +${dividend} k币`, now));
-                    
+                    updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, is_read, created_at, link) VALUES (?, 'system', ?, 0, ?, '#business')").bind(h.user_id, `【股市分红】您持有的 ${STOCKS_CONFIG[sym].name} 发放分红: +${dividend} k币`, now));
                     totalDividends += dividend;
                 }
             }
 
-            // 更新市场状态
-            updates.push(db.prepare("UPDATE market_state SET open_price=?, current_price=?, initial_base=?, is_suspended=?, last_update=? WHERE symbol=?").bind(newP, newP, newBase, newSusp, now, sym));
-            
-            st.p = newP; st.base = newBase; st.open = newP; st.suspended = newSusp; st.t = now;
+            // 重置压力值为0
+            updates.push(db.prepare("UPDATE market_state SET open_price=?, current_price=?, initial_base=?, is_suspended=?, last_update=?, accumulated_pressure=0 WHERE symbol=?").bind(newP, newP, newBase, newSusp, now, sym));
+            st.p = newP; st.base = newBase; st.open = newP; st.suspended = newSusp; st.t = now; st.pressure = 0;
         }
 
-        // 全服日志
         if (totalDividends > 0) {
             logsToWrite.push({sym: 'SYSTEM', msg: `【每日分红】股市开盘，向持仓股东发放共计 ${totalDividends} k币分红 (3%)。`, type: 'good', t: now});
         }
@@ -202,7 +197,7 @@ async function getOrUpdateMarket(env, db) {
         return result;
     }
 
-    // 追赶逻辑
+    // 追赶逻辑 & 价格计算
     for (let sym in STOCKS_CONFIG) {
         let st = marketMap[sym];
         if (st.suspended === 1) continue;
@@ -214,11 +209,30 @@ async function getOrUpdateMarket(env, db) {
         let curP = st.p;
         let simT = st.t;
         let nextNewsT = st.last_news;
+        
+        // 读取并使用压力值，之后需要清零
+        let currentPressure = st.pressure; 
 
         for (let i = 0; i < missed; i++) {
             simT += 60000;
-            let change = (Math.random() - 0.5) * 0.2; // +/- 10%
+            let change = (Math.random() - 0.5) * 0.2; // 自然波动 ±10%
             
+            // === 人为影响逻辑 ===
+            // 规则：100股 ≈ 1%
+            // 公式：(压力值 / 100) * 0.01
+            // 增加随机区间：(0.8 ~ 1.2倍) 浮动，让数据看起来不那么死板
+            let userImpact = 0;
+            if (currentPressure !== 0) {
+                // 如果是追赶模式的第2分钟及以后，假设压力已经释放完了，设为0
+                // 只有第一分钟（当前累积的）才生效
+                if (i === 0) {
+                    const randomRange = 0.8 + Math.random() * 0.4; // 0.8 - 1.2
+                    userImpact = (currentPressure / 100) * 0.01 * randomRange;
+                }
+            }
+            change += userImpact;
+
+            // 新闻判定
             if (simT - nextNewsT >= 300000) {
                 nextNewsT = simT;
                 if (Math.random() < 0.4) {
@@ -232,7 +246,7 @@ async function getOrUpdateMarket(env, db) {
 
             curP = Math.max(1, Math.round(curP * (1 + change + 0.001)));
 
-            if (curP < st.base * 0.1) { // 10% 退市
+            if (curP < st.base * 0.1) { 
                 const refund = curP;
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refund, sym, sym));
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
@@ -248,8 +262,9 @@ async function getOrUpdateMarket(env, db) {
         }
 
         if (st.suspended !== 1) {
-            updates.push(db.prepare("UPDATE market_state SET current_price=?, last_update=?, last_news_time=? WHERE symbol=?").bind(curP, simT, nextNewsT, sym));
-            st.p = curP; st.t = simT; st.last_news = nextNewsT;
+            // 更新价格、时间、并【清零累积压力】
+            updates.push(db.prepare("UPDATE market_state SET current_price=?, last_update=?, last_news_time=?, accumulated_pressure=0 WHERE symbol=?").bind(curP, simT, nextNewsT, sym));
+            st.p = curP; st.t = simT; st.last_news = nextNewsT; st.pressure = 0;
         }
         
         if (Math.random() < 0.05) {
@@ -306,8 +321,8 @@ export async function onRequest(context) {
                 totalEquity += calculatePositionValue(pos, currentP);
             });
 
-            if (totalEquity <= 0) {
-                const refund = 0;
+            if (totalEquity < 100) {
+                const refund = Math.max(0, Math.floor(totalEquity * 0.2));
                 await db.batch([
                     db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
                     db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id),
@@ -328,7 +343,11 @@ export async function onRequest(context) {
             stockMeta[sym] = { open: market[sym].open, suspended: market[sym].suspended };
         }
 
-        const logsRes = await db.prepare("SELECT * FROM market_logs ORDER BY created_at DESC LIMIT 20").all();
+        // === 日志延迟显示 ===
+        // 查询 created_at 小于 (当前时间 - 60秒) 的记录
+        // 这样玩家的操作和新闻都会延迟 1 分钟才显示在公屏
+        const delayCutoff = Date.now() - 60000; 
+        const logsRes = await db.prepare("SELECT * FROM market_logs WHERE created_at < ? ORDER BY created_at DESC LIMIT 20").bind(delayCutoff).all();
         const logs = logsRes.results.map(l => ({ time: l.created_at, msg: l.msg, type: l.type }));
 
         return Response.json({
@@ -336,7 +355,7 @@ export async function onRequest(context) {
             market: chartData, meta: stockMeta, news: logs, positions,
             capital: hasCompany ? company.capital : 0,
             companyType: hasCompany ? company.type : 'none',
-            userK: user.k_coins || 0,
+            userK: user.k_coins || 0, // 确保返回 K币，即使没有公司
             userExp: user.xp || 0,
             status
         });
@@ -377,6 +396,7 @@ export async function onRequest(context) {
                 db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(3000, user.id),
                 db.prepare("INSERT INTO user_companies (user_id, name, type, capital, strategy) VALUES (?, ?, ?, ?, ?)").bind(user.id, body.name, body.type, 3000, 'normal')
             ]);
+            // 创建公司不触发每日结算报告
             return Response.json({ success: true, message: '注册成功 (消耗 3000 k币)' });
         }
 
@@ -416,7 +436,7 @@ export async function onRequest(context) {
         if (action === 'withdraw') {
             const num = parseInt(amount);
             if (company.capital < num) return Response.json({ error: '公司资金不足' });
-            const tax = Math.floor(num * 0.05); 
+            const tax = Math.floor(num * 0.05); // 5% 税
             const actual = num - tax;
             await db.batch([
                 db.prepare("UPDATE user_companies SET capital = capital - ? WHERE id = ?").bind(num, company.id),
@@ -474,9 +494,12 @@ export async function onRequest(context) {
                     batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev));
                 }
                 logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
+                
+                // === 累加买入压力 ===
+                batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
             }
             else if (action === 'sell') {
-                if (curHold <= 0) { 
+                if (curHold <= 0) { // 做空
                     const margin = Math.floor((curP * qty) / lev);
                     if (company.capital < margin) return Response.json({ error: '资金(保证金)不足' });
                     if (pos && curHold < 0 && curLev !== lev) return Response.json({ error: '杠杆倍率不一致' });
@@ -491,7 +514,10 @@ export async function onRequest(context) {
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage) VALUES (?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev));
                     }
                     logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol} (x${lev})`;
-                } else { 
+                    
+                    // === 累加卖出压力 (负数) ===
+                    batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
+                } else { // 卖出 (平多)
                     if (qty > curHold) return Response.json({ error: '持仓不足' });
                     const prin = (pos.avg_price * qty) / pos.leverage;
                     const prof = (curP - pos.avg_price) * qty;
@@ -500,6 +526,9 @@ export async function onRequest(context) {
                     if (qty === curHold) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                     else batch.push(db.prepare("UPDATE company_positions SET amount=amount-? WHERE id=?").bind(qty, pos.id));
                     logMsg = `[${userNameDisplay}] 卖出 ${qty} 股 ${symbol}`;
+                    
+                    // === 累加卖出压力 (负数) ===
+                    batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
                 }
             }
             else if (action === 'cover') {
@@ -512,13 +541,16 @@ export async function onRequest(context) {
                 if (qty === Math.abs(curHold)) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
                 else batch.push(db.prepare("UPDATE company_positions SET amount=amount+? WHERE id=?").bind(qty, pos.id));
                 logMsg = `[${userNameDisplay}] 平空 ${qty} 股 ${symbol}`;
+                
+                // === 平空相当于买入，累加买入压力 ===
+                batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
             }
 
             batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
 
             await db.batch(batch);
             
-            if (env.KV) await env.KV.delete("market_data_v4");
+            if (env.KV) await env.KV.delete("market_data_v5");
             
             return Response.json({ success: true, message: 'OK', log: logMsg });
         }
