@@ -4926,6 +4926,7 @@ window.loadStockMarket = async function() {
             myPositions = data.positions;
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
+            isGlobalMarketClosed = (data.status && !data.status.isOpen);
             
             // 2. 宏观纪元显示
             const tickerText = data.era ? `🌍 [${data.era.name}] ${data.era.desc}` : "MARKET OPEN";
@@ -5821,6 +5822,7 @@ window.upgradeCompany = async function() {
         showToast("请求失败", "error");
     }
 };
+let isGlobalMarketClosed = false; // 新增全局状态
 // === 核心渲染：支持 v3.0 情报局、宏观纪元与退市遮罩 ===
 window.renderStockDashboard = function(symbol) {
     // 1. 数据安全检查
@@ -5939,18 +5941,29 @@ window.renderStockDashboard = function(symbol) {
     const maskTitle = document.getElementById('maskTitle');
     const maskSubtitle = document.getElementById('maskSubtitle');
 
+    const mask = document.getElementById('marketClosedMask');
+    const maskTitle = document.getElementById('maskTitle');
+    const maskSubtitle = document.getElementById('maskSubtitle');
+
     if (mask) {
-        if (meta.suspended === 1) {
-            // 触发退市遮罩
+        // 优先级 1: 全局休市 (最高优先级)
+        if (isGlobalMarketClosed) {
+            mask.style.display = 'flex';
+            if(maskTitle) maskTitle.innerText = "💤 休市中 / MARKET CLOSED";
+            if(maskSubtitle) maskSubtitle.innerText = "交易所维护时间: 02:00 - 06:00";
+            disableTrading(true);
+        } 
+        // 优先级 2: 个股停牌/破产
+        else if (meta.suspended === 1) {
             mask.style.display = 'flex';
             if(maskTitle) maskTitle.innerText = "⚠️ 退市整理 / SUSPENDED";
             if(maskSubtitle) maskSubtitle.innerText = "股价触底，等待明日 06:00 重组";
-            disableTrading(true); // 禁用按钮
-        } else {
-            // 正常交易状态 (除非全局休市，全局休市由 loadStockMarket 控制，这里先隐藏以防万一)
-            // 注意：如果当前是凌晨2点全局休市，loadStockMarket 会再次覆盖这里的设置
+            disableTrading(true);
+        } 
+        // 正常交易
+        else {
             mask.style.display = 'none';
-            disableTrading(false); // 启用按钮
+            disableTrading(false);
         }
     }
 };
@@ -6412,6 +6425,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
