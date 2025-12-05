@@ -110,7 +110,9 @@ async function ensureSchema(db) {
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v12_safety"; // Cache Key Updated
+    const CACHE_KEY = "market_v12_safety"; 
+    
+    // 正常缓存读取
     let cachedData = null;
     if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
@@ -127,14 +129,13 @@ async function getOrUpdateMarket(env, db) {
     // 初始化
     if (states.results.length === 0) {
         const batch = [];
-        const alignedNow = Math.floor(Date.now() / 60000) * 60000;
         for (let sym in STOCKS_CONFIG) {
             const conf = STOCKS_CONFIG[sym];
             const shares = randRange(conf.share_range[0], conf.share_range[1]);
             const price = randRange(conf.price_range[0], conf.price_range[1]);
-            batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time, accumulated_pressure, total_shares, issuance_price) VALUES (?, ?, ?, ?, 0, ?, ?, 0, ?, ?)").bind(sym, price, price, alignedNow, price, alignedNow, shares, price));
-            batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, price, alignedNow));
-            marketMap[sym] = { p: price, base: price, shares, issue_p: price, t: alignedNow, open: price, suspended: 0, pressure: 0, mode: getMarketMode(sym, alignedNow) };
+            batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time, accumulated_pressure, total_shares, issuance_price) VALUES (?, ?, ?, ?, 0, ?, ?, 0, ?, ?)").bind(sym, price, price, now, price, now, shares, price));
+            batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, price, now));
+            marketMap[sym] = { p: price, base: price, shares, issue_p: price, t: now, open: price, suspended: 0, pressure: 0, mode: getMarketMode(sym, now) };
         }
         await db.batch(batch);
         return { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
@@ -168,9 +169,17 @@ async function getOrUpdateMarket(env, db) {
         if (totalDividends > 0) updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, is_read, created_at, link) VALUES (?, 'system', ?, 0, ?, '#business')").bind(0, `【每日分红】市场发放共计 ${totalDividends} k币。`, now));
     }
 
+    // === 核心修复：计算模拟截止时间 ===
+    // 如果休市，只补算到 02:00；如果不休市，补算到 now
+    let simulationEndTime = now;
     if (isMarketClosed) {
-        if (updates.length > 0) await db.batch(updates);
-        return { market: {}, status: { isOpen: false }, era: currentEra };
+        // 计算今天的 02:00 (UTC+8) 对应的时间戳
+        const bjTime = getBJTime(now);
+        // 如果当前BJ时间是 03:00，我们要找的是今天的 02:00
+        // 设置小时分钟秒
+        bjTime.setUTCHours(2, 0, 0, 0); 
+        // 转回 UTC 时间戳 (减8小时)
+        simulationEndTime = bjTime.getTime() - (8 * 60 * 60 * 1000);
     }
 
     // === 核心模拟引擎 ===
@@ -191,9 +200,18 @@ async function getOrUpdateMarket(env, db) {
 
         if (s.is_suspended === 1) continue;
 
-        let missed = Math.floor((now - s.last_update) / 60000);
+        // 使用 simulationEndTime 计算差距
+        let missed = Math.floor((simulationEndTime - s.last_update) / 60000);
+        
+        // 如果没有差距，说明已经是最新的（或者已经处于休市冻结状态）
         if (missed <= 0) continue;
-        if (missed > 30) { s.last_update = now - 1800000; missed = 30; }
+
+        // 追赶上限：平时30分钟，休市补单时允许补更久(比如4小时)，保证K线完整
+        const maxCatchUp = isMarketClosed ? 300 : 30; 
+        if (missed > maxCatchUp) { 
+            s.last_update = simulationEndTime - (maxCatchUp * 60000); 
+            missed = maxCatchUp; 
+        }
 
         let curP = s.current_price;
         let simT = s.last_update;
@@ -204,7 +222,6 @@ async function getOrUpdateMarket(env, db) {
             simT += 60000;
             const isCatchUp = (i < missed - 1); 
 
-            // 1. 深度基准 (小社区特供：0.5%)
             let eraBias = 1.0;
             if (sym === 'GOLD') eraBias = currentEra.buff.gold_bias;
             if (sym === 'RED') eraBias = currentEra.buff.red_bias;
@@ -214,7 +231,6 @@ async function getOrUpdateMarket(env, db) {
             let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
             let newsMsg = null;
 
-            // 2. 新闻
             if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
                 if (Math.random() < 0.2) { 
                     nextNewsT = simT;
@@ -227,39 +243,23 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            // 3. 强力做市商 (安全版：带趋势惯性 + 深度限制 + 冷却)
-            // 触发概率 50% (冷却窗)
             if (!isCatchUp && !newsMsg && Math.random() < 0.5) {
-                // 趋势惯性：每5分钟一个大方向
                 const trendBlock = Math.floor(simT / 300000); 
                 let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
-                
-                // 30% 概率反向 (制造震荡)
                 if (Math.random() < 0.3) trendDir *= -1;
-                
-                // 深度限制：下单量限制在总股本 0.3% ~ 0.8%
-                // 既能推动价格，又不会瞬间吃穿深度
                 const botVol = trendDir * totalShares * (0.003 + Math.random() * 0.005);
-                
                 if (botVol > 0) buyDepth += botVol;
                 else sellDepth += Math.abs(botVol);
             }
 
-            // 4. 玩家压力
             if (i === 0) {
                 if (currentPressure > 0) buyDepth += currentPressure;
                 else sellDepth += Math.abs(currentPressure);
             }
 
-            // 5. 撮合公式 (高灵敏度 50.0)
             const volatilityFactor = 50.0 * currentEra.buff.vol; 
             const delta = (buyDepth - sellDepth) / totalShares * volatilityFactor;
-            
-            // === 🛑 核心安全锁 1：硬性涨跌幅限制 ±8% ===
-            // 无论买单多大，一分钟最多涨跌 8%
             const clampedDelta = Math.max(-0.08, Math.min(0.08, delta));
-            
-            // 自然噪音 1%
             const noise = (Math.random() - 0.5) * 0.01;
             
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
@@ -268,7 +268,6 @@ async function getOrUpdateMarket(env, db) {
                 logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 1 ? 'good' : 'bad', t: simT});
             }
 
-            // 6. 破产
             if (curP < issuePrice * BANKRUPT_PCT) {
                 const refundRate = 0.3; 
                 updates.push(db.prepare(`UPDATE user_companies SET capital = capital + (SELECT IFNULL(SUM(amount * avg_price * ?), 0) FROM company_positions WHERE company_positions.company_id = user_companies.id AND company_positions.stock_symbol = ?) WHERE id IN (SELECT company_id FROM company_positions WHERE stock_symbol = ?)`).bind(refundRate, sym, sym));
@@ -292,7 +291,7 @@ async function getOrUpdateMarket(env, db) {
     if (Math.random() < 0.05) updates.push(db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(now - 3600000));
     if (updates.length > 0) await db.batch(updates);
 
-    const result = { market: marketMap, status: { isOpen: true }, era: currentEra };
+    const result = { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
     if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     return result;
 }
@@ -332,26 +331,57 @@ export async function onRequest(context) {
         if (method === 'GET') {
             const hasCompany = !!company;
             let positions = [];
-            let totalEquity = 0; // 初始化总权益
+            let totalEquity = 0; 
+            
+            // 默认给一个初始值，防止未创建公司时报错
+            if (hasCompany) totalEquity = company.capital;
 
             if (hasCompany) {
                 positions = (await db.prepare("SELECT * FROM company_positions WHERE company_id = ?").bind(company.id).all()).results;
                 
-                // 1. 计算总权益 (现金 + 持仓市值)
-                totalEquity = company.capital; 
-                positions.forEach(pos => {
-                    const currentP = market[pos.stock_symbol] ? market[pos.stock_symbol].p : 0;
-                    totalEquity += calculatePositionValue(pos, currentP);
-                });
+                let isDataValid = true; // 标记数据是否有效
 
-                // 2. 破产检测
-                const bankruptLine = 0;
-                if (totalEquity <= bankruptLine) {
-                    await db.batch([
-                        db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
-                        db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id)
-                    ]);
-                    return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: `公司净值归零，宣告破产。` } });
+                // 1. 计算总权益
+                // 使用临时变量计算，防止计算过程中出错污染数据
+                let tempEquity = company.capital;
+                let hasLeverage = false; // 是否持有杠杆/空单
+
+                for (const pos of positions) {
+                    // === 🛡️ 核心修复：数据完整性检查 ===
+                    // 如果取不到市场价格，标记数据无效，直接跳过破产检测
+                    if (!market[pos.stock_symbol] || !market[pos.stock_symbol].p) {
+                        isDataValid = false;
+                        break; 
+                    }
+
+                    const currentP = market[pos.stock_symbol].p;
+                    tempEquity += calculatePositionValue(pos, currentP);
+
+                    // 检查是否高风险持仓 (杠杆>1 或 做空)
+                    if (pos.leverage > 1 || pos.amount < 0) {
+                        hasLeverage = true;
+                    }
+                }
+
+                if (isDataValid) {
+                    totalEquity = tempEquity;
+
+                    // 2. 破产检测 (优化版)
+                    // 只有在数据有效的情况下才检测
+                    
+                    // 阈值放宽到 -100 (防止精度误差误杀)
+                    const bankruptLine = -100; 
+                    
+                    // === 🛡️ 核心修复：现货保护机制 ===
+                    // 如果总权益低于阈值，且用户持有杠杆/空单，才触发破产。
+                    // 纯现货(1x做多)玩家，即使跌到剩 1 块钱，也不允许强制破产。
+                    if (totalEquity <= bankruptLine && hasLeverage) {
+                        await db.batch([
+                            db.prepare("DELETE FROM user_companies WHERE id = ?").bind(company.id),
+                            db.prepare("DELETE FROM company_positions WHERE company_id = ?").bind(company.id)
+                        ]);
+                        return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: `公司资不抵债 (净值 ${Math.floor(totalEquity)})，触发强制清算。` } });
+                    }
                 }
             }
 
@@ -382,8 +412,8 @@ export async function onRequest(context) {
 
             return Response.json({ 
                 success: true, hasCompany, bankrupt: false, market: chartData, meta: stockMeta, news: logs, positions, 
-                capital: hasCompany ? company.capital : 0, // 现金
-                totalEquity: totalEquity,                  // 新增：总净值 (现金+股票)
+                capital: hasCompany ? company.capital : 0, 
+                totalEquity: totalEquity, 
                 companyType: hasCompany ? company.type : 'none', 
                 companyLevel: companyLevel, 
                 userK: user.k_coins || 0, userExp: user.xp || 0, status, era, isInsider 
