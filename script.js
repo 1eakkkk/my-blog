@@ -5583,7 +5583,7 @@ window.tradeStock = async function(action) {
     const margin = Math.floor((orderVal / leverage) * marginRate);
     const totalCost = margin + fee;
 
-    // 4. 构建确认文案
+    // 4. 构建确认文案 (修复版：移除 i 单位，明确资金来源)
     const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
     const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
     
@@ -5594,14 +5594,17 @@ window.tradeStock = async function(action) {
     confirmMsg += `现价：${curP}\n`;
     confirmMsg += `----------------\n`;
     
-    if (action === 'buy' || (action === 'sell' && (!myPositions || !myPositions.find(p=>p.stock_symbol===currentStockSymbol && p.amount>0)))) {
-        // 开仓类操作
-        confirmMsg += `预估保证金：${margin.toLocaleString()} i\n`;
-        confirmMsg += `预估手续费：${fee.toLocaleString()} i (${(feeRate*100).toFixed(2)}%)\n`;
-        confirmMsg += `总计扣款：${totalCost.toLocaleString()} i\n`;
+    // 判断是开仓还是平仓 (开仓需要保证金，平仓只需要手续费)
+    // 逻辑：如果是 buy，或者 sell 且当前无持仓(开空)，都算开仓
+    const isOpening = action === 'buy' || (action === 'sell' && (!myPositions || !myPositions.find(p=>p.stock_symbol===currentStockSymbol && p.amount>0)));
+
+    if (isOpening) {
+        confirmMsg += `预估保证金：${margin.toLocaleString()}\n`;
+        confirmMsg += `预估手续费：${fee.toLocaleString()} (${(feeRate*100).toFixed(2)}%)\n`;
+        confirmMsg += `总计扣款：${totalCost.toLocaleString()} (公司资金)\n`;
     } else {
         // 平仓类操作
-        confirmMsg += `预估手续费：${fee.toLocaleString()} i\n`;
+        confirmMsg += `预估手续费：${fee.toLocaleString()}\n`;
     }
     
     confirmMsg += `\n确认执行吗？`;
@@ -6421,6 +6424,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
