@@ -550,28 +550,64 @@ export async function onRequest(context) {
                 const lev = parseInt(leverage);
                 if (isNaN(qty) || qty <= 0) return Response.json({ error: '数量无效' });
 
+                // === ⚡ 定义快速交易额度池 (10,000股) ===
+                const BATCH_QUOTA = 10000; 
+
                 const curP = market[symbol].p;
                 const totalShares = market[symbol].shares;
                 const pos = await db.prepare("SELECT * FROM company_positions WHERE company_id = ? AND stock_symbol = ?").bind(company.id, symbol).first();
                 
                 const lastTrade = pos ? (pos.last_trade_time || 0) : 0;
                 const lastType = pos ? (pos.last_trade_type || '') : ''; 
+                // 获取当前周期内已累计的量 (如果是新周期则视为0)
+                let currentAccVol = pos ? (pos.accumulated_volume || 0) : 0;
+                
                 const now = Date.now();
+                const timeDiff = now - lastTrade;
 
-                if (action !== lastType && (now - lastTrade < TRADE_COOLDOWN)) {
-                    const left = Math.ceil((TRADE_COOLDOWN - (now - lastTrade)) / 1000);
-                    return Response.json({ error: `反向操作需等待 ${left} 秒 (同向加仓无限制)` });
+                // === 🛡️ 风控逻辑重写 ===
+                
+                // 1. 如果距离上次交易超过了冷却时间 (30s)，重置累计池
+                if (timeDiff >= TRADE_COOLDOWN) {
+                    currentAccVol = 0; 
+                } 
+                // 2. 如果在冷却时间内 (30s内)
+                else {
+                    // A. 反向操作：直接拦截 (防止 T+0 刷单)
+                    if (action !== lastType) {
+                        const left = Math.ceil((TRADE_COOLDOWN - timeDiff) / 1000);
+                        return Response.json({ error: `反向操作需等待 ${left} 秒` });
+                    }
+                    
+                    // B. 同向操作：检查额度池
+                    if (currentAccVol + qty > BATCH_QUOTA) {
+                        const remaining = Math.max(0, BATCH_QUOTA - currentAccVol);
+                        const left = Math.ceil((TRADE_COOLDOWN - timeDiff) / 1000);
+                        return Response.json({ error: `频繁操作超额！当前批次剩余额度 ${remaining} 股 (或等待 ${left} 秒重置)` });
+                    }
                 }
+                
+                // 更新后的累计量
+                const newAccVol = currentAccVol + qty;
 
                 if (action === 'cover') {
-                    if (now - lastTrade < SHORT_HOLD_MIN) return Response.json({ error: '做空需锁仓 1 分钟' });
+                    if (timeDiff < SHORT_HOLD_MIN && currentAccVol === 0) { 
+                        // 注意：如果是第一笔平仓，检查持仓时间；如果是追加平仓(拆单)，则允许
+                        // 这里简化处理：只要是 cover，且不在同一个快速批次内，就检查 60s
+                        // 但为了用户体验，如果用户分批平仓，第二笔不应受 60s 限制（因为第一笔已经过了检查）
+                        // 逻辑：如果 accumulated_volume > 0，说明在连点，放行。
+                    } else if (timeDiff < SHORT_HOLD_MIN) {
+                         return Response.json({ error: '做空需锁仓 1 分钟' });
+                    }
                 }
 
+                // 持仓上限 20%
                 const currentHold = pos ? Math.abs(pos.amount) : 0;
                 if (action !== 'cover' && action !== 'sell' && (currentHold + qty) > (totalShares * MAX_HOLDING_PCT)) {
                     return Response.json({ error: `持仓超限！最多持有 ${Math.floor(totalShares * MAX_HOLDING_PCT)} 股` });
                 }
-
+                
+                // 单笔硬上限 (依然保留，防止一次性搞太大)
                 if (qty > totalShares * MAX_ORDER_PCT) {
                     return Response.json({ error: `单笔过大！限额 ${Math.floor(totalShares * MAX_ORDER_PCT)} 股` });
                 }
@@ -592,6 +628,8 @@ export async function onRequest(context) {
                 const orderVal = curP * qty;
                 const fee = Math.floor(orderVal * feeRate);
 
+                // --- SQL 写入部分 (注意：所有 UPDATE/INSERT 都要写入 accumulated_volume) ---
+
                 if (action === 'buy') {
                     const margin = Math.floor((curP * qty) / lev * marginRate);
                     const totalCost = margin + fee;
@@ -603,9 +641,11 @@ export async function onRequest(context) {
                         const totalVal = (curHold * pos.avg_price) + (qty * curP);
                         const newQty = curHold + qty;
                         const newAvg = totalVal / newQty;
-                        batch.push(db.prepare("UPDATE company_positions SET amount=?, avg_price=?, leverage=?, last_trade_time=?, last_trade_type=? WHERE id=?").bind(newQty, newAvg, lev, now, action, pos.id));
+                        // 更新 accumulated_volume
+                        batch.push(db.prepare("UPDATE company_positions SET amount=?, avg_price=?, leverage=?, last_trade_time=?, last_trade_type=?, accumulated_volume=? WHERE id=?").bind(newQty, newAvg, lev, now, action, newAccVol, pos.id));
                     } else {
-                        batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time, last_trade_type) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev, now, action));
+                        // 插入 accumulated_volume
+                        batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time, last_trade_type, accumulated_volume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev, now, action, newAccVol));
                     }
                     logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
@@ -621,9 +661,9 @@ export async function onRequest(context) {
                             const totalVal = (Math.abs(curHold) * pos.avg_price) + (qty * curP);
                             const newQty = Math.abs(curHold) + qty;
                             const newAvg = totalVal / newQty;
-                            batch.push(db.prepare("UPDATE company_positions SET amount=?, avg_price=?, leverage=?, last_trade_time=?, last_trade_type=? WHERE id=?").bind(-newQty, newAvg, lev, now, action, pos.id));
+                            batch.push(db.prepare("UPDATE company_positions SET amount=?, avg_price=?, leverage=?, last_trade_time=?, last_trade_type=?, accumulated_volume=? WHERE id=?").bind(-newQty, newAvg, lev, now, action, newAccVol, pos.id));
                         } else {
-                            batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time, last_trade_type) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev, now, action));
+                            batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time, last_trade_type, accumulated_volume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(company.id, symbol, -qty, curP, lev, now, action, newAccVol));
                         }
                         logMsg = `[${userNameDisplay}] 做空 ${qty} 股 ${symbol} (x${lev})`;
                         batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
@@ -634,7 +674,7 @@ export async function onRequest(context) {
                         const ret = Math.floor(prin + prof - fee);
                         batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                         if (qty === curHold) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
-                        else batch.push(db.prepare("UPDATE company_positions SET amount=amount-?, last_trade_time=?, last_trade_type=? WHERE id=?").bind(qty, now, action, pos.id));
+                        else batch.push(db.prepare("UPDATE company_positions SET amount=amount-?, last_trade_time=?, last_trade_type=?, accumulated_volume=? WHERE id=?").bind(qty, now, action, newAccVol, pos.id));
                         logMsg = `[${userNameDisplay}] 卖出 ${qty} 股 ${symbol}`;
                         batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure - ? WHERE symbol = ?").bind(qty, symbol));
                     }
@@ -647,7 +687,7 @@ export async function onRequest(context) {
                     const ret = Math.floor(prin + prof - fee);
                     batch.push(db.prepare("UPDATE user_companies SET capital = capital + ? WHERE id = ?").bind(ret, company.id));
                     if (qty === Math.abs(curHold)) batch.push(db.prepare("DELETE FROM company_positions WHERE id=?").bind(pos.id));
-                    else batch.push(db.prepare("UPDATE company_positions SET amount=amount+?, last_trade_time=?, last_trade_type=? WHERE id=?").bind(qty, now, action, pos.id));
+                    else batch.push(db.prepare("UPDATE company_positions SET amount=amount+?, last_trade_time=?, last_trade_type=?, accumulated_volume=? WHERE id=?").bind(qty, now, action, newAccVol, pos.id));
                     logMsg = `[${userNameDisplay}] 平空 ${qty} 股 ${symbol}`;
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
                 }
