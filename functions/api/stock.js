@@ -60,6 +60,9 @@ const NEWS_DB = {
 function randRange(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function getBJTime(ts) { return new Date(ts + (8 * 60 * 60 * 1000)); }
 function getBJHour(ts) { return getBJTime(ts).getUTCHours(); }
+// 获取北京时间日期字符串 (YYYY-MM-DD)
+function getBJDateStr(ts) { return new Date(ts + 8*3600000).toISOString().split('T')[0]; }
+
 function calculatePositionValue(pos, currentPrice) {
     const qty = pos.amount; const avg = pos.avg_price; const lev = pos.leverage || 1;
     const principal = (avg * Math.abs(qty)) / lev;
@@ -93,13 +96,13 @@ async function ensureSchema(db) {
     try { await db.prepare("SELECT strategy FROM user_companies LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE user_companies ADD COLUMN strategy TEXT DEFAULT '{\"risk\":\"normal\",\"level\":0}'").run(); } catch(err) {} }
     try { await db.prepare("SELECT last_trade_time FROM company_positions LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN last_trade_time INTEGER DEFAULT 0").run(); } catch(err) {} }
     try { await db.prepare("SELECT insider_exp FROM users LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE users ADD COLUMN insider_exp INTEGER DEFAULT 0").run(); } catch(err) {} }
-    // 新增：分红时间记录
-    try { await db.prepare("SELECT last_dividend_time FROM market_state LIMIT 1").first(); } catch(e) { try { await db.prepare("ALTER TABLE market_state ADD COLUMN last_dividend_time INTEGER DEFAULT 0").run(); } catch(err){} }
+    try { await db.prepare("SELECT last_dividend_time FROM market_state LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE market_state ADD COLUMN last_dividend_time INTEGER DEFAULT 0").run(); } catch(err){} }
+    try { await db.prepare("SELECT last_trade_type FROM company_positions LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN last_trade_type TEXT").run(); } catch(err){} }
 }
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v13_div_fix"; // Key Update
+    const CACHE_KEY = "market_v13_div_dayfix"; // Key Update
     let cachedData = null;
     if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
@@ -119,7 +122,6 @@ async function getOrUpdateMarket(env, db) {
             const conf = STOCKS_CONFIG[sym];
             const shares = randRange(conf.share_range[0], conf.share_range[1]);
             const price = randRange(conf.price_range[0], conf.price_range[1]);
-            // 初始化 last_dividend_time 为 now
             batch.push(db.prepare("INSERT INTO market_state (symbol, current_price, initial_base, last_update, is_suspended, open_price, last_news_time, accumulated_pressure, total_shares, issuance_price, last_dividend_time) VALUES (?, ?, ?, ?, 0, ?, ?, 0, ?, ?, ?)").bind(sym, price, price, now, price, now, shares, price, now));
             batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, price, now));
             marketMap[sym] = { p: price, base: price, shares, issue_p: price, t: now, open: price, suspended: 0, pressure: 0, mode: getMarketMode(sym, now) };
@@ -128,16 +130,18 @@ async function getOrUpdateMarket(env, db) {
         return { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
     }
 
-    // === 核心修复：每日分红逻辑 ===
-    // 遍历所有股票，检查 last_dividend_time
+    // === 核心修复：每日分红逻辑 (0:00 结算制) ===
+    const currentBJDate = getBJDateStr(now); // 今天日期 (YYYY-MM-DD)
+
     for (let s of states.results) {
         const sym = s.symbol;
-        const lastDiv = s.last_dividend_time || 0;
+        const lastDivTime = s.last_dividend_time || 0;
+        const lastDivDate = getBJDateStr(lastDivTime); // 上次分红日期
         
-        // 如果距离上次分红超过 24小时 (86400000ms)，且当前非停牌
-        if (now - lastDiv > 86400000 && s.is_suspended === 0) {
-            // 1. 获取所有股东及其策略
-            // 注意：我们需要联表查询拿到 strategy
+        // 如果 [今天] > [上次分红日]，说明跨天了，需要分红
+        // 且当前非停牌状态
+        if (currentBJDate > lastDivDate && s.is_suspended === 0) {
+            
             const holders = await db.prepare(`
                 SELECT uc.user_id, cp.amount, uc.strategy 
                 FROM company_positions cp 
@@ -148,29 +152,25 @@ async function getOrUpdateMarket(env, db) {
             let totalDivForStock = 0;
 
             for (const h of holders.results) {
-                // 解析策略
                 let risk = 'normal';
                 try { risk = JSON.parse(h.strategy).risk; } catch(e) {}
 
-                // 策略加成：激进=1.5倍, 平衡=1.0倍, 保守=0.8倍
                 let strategyMult = 1.0;
                 if (risk === 'risky') strategyMult = 1.5;
                 if (risk === 'safe') strategyMult = 0.8;
 
-                // 基础分红：市值的 0.3%
                 const baseDiv = h.amount * s.current_price * 0.003;
                 const finalDiv = Math.floor(baseDiv * strategyMult);
 
                 if (finalDiv > 0) {
                     updates.push(db.prepare("UPDATE users SET k_coins = COALESCE(k_coins, 0) + ? WHERE id = ?").bind(finalDiv, h.user_id));
-                    // 发送通知 (告诉玩家策略生效了)
                     const note = `【分红到账】${STOCKS_CONFIG[sym].name} 发放分红 ${finalDiv} k币 (策略: ${risk}, 加成: x${strategyMult})`;
                     updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, is_read, created_at, link) VALUES (?, 'system', ?, 0, ?, '#business')").bind(h.user_id, note, now));
                     totalDivForStock += finalDiv;
                 }
             }
 
-            // 更新分红时间
+            // 更新分红时间为当前
             updates.push(db.prepare("UPDATE market_state SET last_dividend_time = ? WHERE symbol = ?").bind(now, sym));
             
             if (totalDivForStock > 0) {
@@ -179,10 +179,9 @@ async function getOrUpdateMarket(env, db) {
         }
     }
 
-    // 每日结算：重组逻辑 (保持原有)
+    // 每日结算 (重组逻辑)
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000); 
-    // ... 原有的重组逻辑如果触发了，记得也要重置 last_dividend_time
-    // ... 为简化，这里暂时不改动重组逻辑，让分红独立运行
+    // 这里保留原逻辑，如果触发重组，last_dividend_time 会在下面的循环中被重置为 now
 
     if (isMarketClosed) {
         if (updates.length > 0) await db.batch(updates);
@@ -197,7 +196,7 @@ async function getOrUpdateMarket(env, db) {
         simulationEndTime = bjTime.getTime() - (8 * 60 * 60 * 1000);
     }
 
-    // === 核心模拟引擎 (保持 v3.0 高敏版) ===
+    // === 核心模拟引擎 ===
     for (let s of states.results) {
         const sym = s.symbol;
         const mode = getMarketMode(sym, now);
@@ -214,21 +213,16 @@ async function getOrUpdateMarket(env, db) {
         };
 
         if (s.is_suspended === 1) {
-            // 如果是已停牌股票，检查是否过了 00:00 (重组时间)
-            // 简单判断：如果当前小时 < 2 (0点到2点)，且上次更新不在今天
-            // 这里为了简单，复用之前的 isNewDay 逻辑不太好，直接判断时间
             const lastUpdateBJ = getBJTime(s.last_update);
             const currentBJ = getBJTime(now);
             if (currentBJ.getDate() !== lastUpdateBJ.getDate()) {
-                // 跨天了，重组！
                 const conf = STOCKS_CONFIG[sym];
                 const newShares = randRange(conf.share_range[0], conf.share_range[1]);
                 const newPrice = randRange(conf.price_range[0], conf.price_range[1]);
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0, total_shares=?, issuance_price=?, last_dividend_time=? WHERE symbol=?")
-                    .bind(newPrice, newPrice, newPrice, now, newShares, newPrice, now, sym)); // 重组时重置分红CD
+                    .bind(newPrice, newPrice, newPrice, now, newShares, newPrice, now, sym)); 
                 updates.push(db.prepare("DELETE FROM market_history WHERE symbol = ?").bind(sym));
                 logsToWrite.push({sym, msg: `【重组上市】${conf.name} 完成重组，进入 ${currentEra.name} 纪元。`, type: 'good', t: now});
-                // 更新内存映射以便前端立即看到
                 marketMap[sym].suspended = 0;
                 marketMap[sym].p = newPrice;
             }
@@ -274,7 +268,7 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            if (!newsMsg && Math.random() < 0.6) { // Bot 60%
+            if (!newsMsg && Math.random() < 0.6) { 
                 const trendBlock = Math.floor(simT / 300000); 
                 let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
                 if (Math.random() < 0.3) trendDir *= -1;
@@ -305,7 +299,7 @@ async function getOrUpdateMarket(env, db) {
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(curP, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
-                logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。`, type: 'bad', t: simT});
+                logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。持仓按 30% 退回。`, type: 'bad', t: simT});
                 marketMap[sym].suspended = 1; marketMap[sym].p = curP;
                 break;
             }
@@ -462,7 +456,7 @@ export async function onRequest(context) {
                     batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, newPrice, now));
                     batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【管理员】${conf.name} 强制重组上市。`, 'good', now));
                 }
-                if (env.KV) await env.KV.delete("market_v13_div_fix");
+                if (env.KV) await env.KV.delete("market_v13_div_dayfix");
                 await db.batch(batch);
                 return Response.json({ success: true, message: '重组完成' });
             }
@@ -633,7 +627,7 @@ export async function onRequest(context) {
 
                 batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
                 await db.batch(batch);
-                if (env.KV) await env.KV.delete("market_v13_div_fix");
+                if (env.KV) await env.KV.delete("market_v13_div_dayfix");
                 return Response.json({ success: true, message: `交易成功 (滑点费率 ${(feeRate*100).toFixed(2)}%)`, log: logMsg });
             }
             
