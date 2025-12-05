@@ -101,7 +101,7 @@ async function ensureSchema(db) {
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v14_stabilized"; // Key Update
+    const CACHE_KEY = "market_v14_momentum"; // Key Update: 动量机制
     let cachedData = null;
     if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
@@ -130,7 +130,6 @@ async function getOrUpdateMarket(env, db) {
     }
 
     const currentBJDate = getBJDateStr(now);
-
     for (let s of states.results) {
         const sym = s.symbol;
         const lastDivTime = s.last_dividend_time || 0;
@@ -160,6 +159,7 @@ async function getOrUpdateMarket(env, db) {
     }
 
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000); 
+    if (isNewDay) { /* 重组逻辑略，保持原样 */ }
 
     if (isMarketClosed) {
         if (updates.length > 0) await db.batch(updates);
@@ -173,7 +173,6 @@ async function getOrUpdateMarket(env, db) {
         simulationEndTime = bjTime.getTime() - (8 * 60 * 60 * 1000);
     }
 
-    // === 核心模拟引擎 ===
     for (let s of states.results) {
         const sym = s.symbol;
         const mode = getMarketMode(sym, now);
@@ -219,6 +218,10 @@ async function getOrUpdateMarket(env, db) {
         let simT = s.last_update;
         let nextNewsT = s.last_news_time || 0;
         let currentPressure = s.accumulated_pressure || 0;
+        
+        // === ⚡ 动量变量初始化 ===
+        // 玩家压力不会在第1秒后立刻消失，而是进入动量池
+        let momentum = currentPressure; 
 
         for (let i = 0; i < missed; i++) {
             simT += 60000;
@@ -229,19 +232,8 @@ async function getOrUpdateMarket(env, db) {
             if (sym === 'RED') eraBias = currentEra.buff.red_bias;
             
             let baseDepthRatio = 0.005; 
-            
-            // === 🛡️ 护盘机制 (State-Owned Funds) ===
-            // 如果价格跌破发行价，买盘深度自动增厚，形成“价值回归”引力
-            const priceRatio = curP / issuePrice;
-            if (priceRatio < 1.0) {
-                // 价格越低，护盘越强。例如 0.5倍发行价时，买盘深度增加 3倍
-                const protectionFactor = 1 + (1 - priceRatio) * 4; 
-                eraBias *= protectionFactor;
-            }
-            // =====================================
-
             let buyDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
-            let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias; // 卖盘不受护盘影响
+            let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
             let newsMsg = null;
 
             if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
@@ -260,28 +252,26 @@ async function getOrUpdateMarket(env, db) {
                 const trendBlock = Math.floor(simT / 300000); 
                 let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
                 if (Math.random() < 0.3) trendDir *= -1;
-                
-                // 机器人也要看脸色：如果价格太低，机器人倾向于买入 (趋势修正)
-                if (priceRatio < 0.6 && trendDir === -1) trendDir = 1;
-
                 const botVol = trendDir * totalShares * (0.003 + Math.random() * 0.009);
                 if (botVol > 0) buyDepth += botVol;
                 else sellDepth += Math.abs(botVol);
             }
 
-            if (i === 0) {
-                if (currentPressure > 0) buyDepth += currentPressure;
-                else sellDepth += Math.abs(currentPressure);
+            // === ⚡ 动量衰减机制 (Momentum Decay) ===
+            // 每一分钟，动量衰减为上一分钟的 60%
+            // 这样一笔大单可以影响约 3-5 分钟的走势
+            if (Math.abs(momentum) > 10) { // 忽略微小残余
+                if (momentum > 0) buyDepth += momentum;
+                else sellDepth += Math.abs(momentum);
+                
+                momentum = Math.floor(momentum * 0.6); // 衰减系数 0.6
             }
 
-            // 敏感度下调 (50 -> 30)，增加稳定性
-            const volatilityFactor = 30.0 * currentEra.buff.vol; 
+            // 敏感度 50.0
+            const volatilityFactor = 50.0 * currentEra.buff.vol; 
             const delta = (buyDepth - sellDepth) / totalShares * volatilityFactor;
-            
             const clampedDelta = Math.max(-0.08, Math.min(0.08, delta));
-            
-            // 自然噪音带微小正向偏移 (模拟通胀，0.48 vs 0.52)
-            const noise = (Math.random() - 0.48) * 0.01;
+            const noise = (Math.random() - 0.5) * 0.02;
             
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
 
@@ -303,6 +293,10 @@ async function getOrUpdateMarket(env, db) {
         }
 
         if (marketMap[sym].suspended !== 1) {
+            // 更新时，将 residual momentum (残留动量) 写回数据库？
+            // 不，为了简化，数据库只存“未处理的压力”。
+            // 一旦处理过一次，我们就把数据库清零。
+            // 动量只在当前的 catch-up 循环中生效。这已经足够了，因为用户一般每隔几分钟才会操作一次。
             updates.push(db.prepare("UPDATE market_state SET current_price=?, last_update=?, last_news_time=?, accumulated_pressure=0 WHERE symbol=?").bind(curP, simT, nextNewsT, sym));
             marketMap[sym].p = curP; marketMap[sym].t = simT; marketMap[sym].pressure = 0;
         }
