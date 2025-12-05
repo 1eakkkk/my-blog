@@ -6356,3 +6356,4 @@ function checkAutoTrigger(currentPrice_Unused) {
 
 
 
+
