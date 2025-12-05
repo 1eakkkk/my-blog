@@ -7,6 +7,13 @@ const STOCKS_CONFIG = {
     'RED':  { name: '荒坂军工', color: '#ff3333', share_range: [600000, 900000], price_range: [3500, 5000] }
 };
 
+// === 🤖 机器人假名库 (气氛组) ===
+const BOT_NAMES = [
+    "Quant_V9", "HighFreq_Bot", "Arasaka_Fund", "Militech_AI", 
+    "NetWatch_Node", "Kang_Tao_Capital", "NightCorp_Algo", "Biotechnica_Lab",
+    "DeepDive_System", "Ghost_Protocol"
+];
+
 // === 2. 宏观与风控 ===
 const MACRO_ERAS = [
     { code: 'NEON_AGE', name: '霓虹盛世', desc: '全市场流动性充裕，易暴涨。', buff: { vol: 1.2, gold_bias: 1.2, red_bias: 1.0 } },
@@ -21,8 +28,7 @@ const MAX_HOLDING_PCT = 0.20;
 const MAX_ORDER_PCT = 0.01;
 const BANKRUPT_PCT = 0.2;
 const INSIDER_COST_24H = 5000;
-// 统一缓存键，防止修改不一致
-const CURRENT_CACHE_KEY = "market_v15_final"; 
+const CURRENT_CACHE_KEY = "market_v15_fake_logs"; // 更新缓存键
 
 const COMPANY_LEVELS = {
     0: { name: "皮包公司", margin_rate: 1.0, cost: 0 },
@@ -99,6 +105,7 @@ async function ensureSchema(db) {
     try { await db.prepare("SELECT insider_exp FROM users LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE users ADD COLUMN insider_exp INTEGER DEFAULT 0").run(); } catch(err) {} }
     try { await db.prepare("SELECT last_dividend_time FROM market_state LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE market_state ADD COLUMN last_dividend_time INTEGER DEFAULT 0").run(); } catch(err){} }
     try { await db.prepare("SELECT last_trade_type FROM company_positions LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN last_trade_type TEXT").run(); } catch(err){} }
+    try { await db.prepare("SELECT accumulated_volume FROM company_positions LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN accumulated_volume INTEGER DEFAULT 0").run(); } catch(err){} }
 }
 
 async function getOrUpdateMarket(env, db) {
@@ -161,7 +168,7 @@ async function getOrUpdateMarket(env, db) {
     }
 
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000); 
-    if (isNewDay) { /* 重组逻辑保持原样 */ }
+    if (isNewDay) { /* 重组逻辑 */ }
 
     if (isMarketClosed) {
         if (updates.length > 0) await db.batch(updates);
@@ -221,7 +228,6 @@ async function getOrUpdateMarket(env, db) {
         let nextNewsT = s.last_news_time || 0;
         let currentPressure = s.accumulated_pressure || 0;
         
-        // 动量
         let momentum = currentPressure; 
 
         for (let i = 0; i < missed; i++) {
@@ -249,57 +255,47 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            // 3. 狡猾的做市商 (Cunning Market Maker Bot)
-            // 逻辑：不再死板护盘，而是结合宏观环境和随机性，甚至会故意砸盘诱空
+            // 3. 狡猾的做市商 (机器人)
             if (!newsMsg && Math.random() < 0.6) { 
                 const valuation = curP / issuePrice;
-                let botSentiment = 0; // >0 买, <0 卖
+                let botSentiment = 0; 
 
-                // === A. 估值逻辑 (模糊化处理) ===
-                // 基础：跌得越深，买入意愿越强；涨得越高，卖出意愿越强
-                // 修正：不再是固定阈值，而是概率线性分布
-                // valuation 0.5 -> 强烈买入意愿
-                // valuation 1.5 -> 强烈卖出意愿
                 let valueBias = (1.0 - valuation) * 0.8; 
-
-                // === B. 宏观环境修正 (关键！) ===
-                // 如果是【数据大崩塌】或【熊市】，机器人会调低心理价位，允许跌得更深
-                if (currentEra.code === 'DATA_CRASH') valueBias -= 0.3; // 熊市机器人更悲观
+                if (currentEra.code === 'DATA_CRASH') valueBias -= 0.3; 
                 if (currentEra.code === 'CORP_WAR' && sym !== 'RED') valueBias -= 0.1;
-                if (currentEra.code === 'NEON_AGE' && (sym === 'BLUE' || sym === 'GOLD')) valueBias += 0.2; // 牛市更宽容
+                if (currentEra.code === 'NEON_AGE' && (sym === 'BLUE' || sym === 'GOLD')) valueBias += 0.2; 
 
-                // === C. 趋势惯性 (Trend Following) ===
-                // 机器人有 40% 概率是“趋势交易者”，追涨杀跌
                 const trendBlock = Math.floor(simT / 300000); 
                 let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
-                if (Math.random() < 0.4) {
-                    botSentiment += trendDir * 0.3;
-                } else {
-                    // 60% 概率回归价值
-                    botSentiment += valueBias;
-                }
+                if (Math.random() < 0.4) botSentiment += trendDir * 0.3;
+                else botSentiment += valueBias;
 
-                // === D. 猎杀时刻 (Predatory Move) ===
-                // 如果估值在“暧昧区” (0.6 ~ 0.9)，机器人有概率故意砸盘 (洗盘)
-                // 防止玩家在 0.8 这种位置无脑抄底
-                if (valuation > 0.6 && valuation < 0.9 && Math.random() < 0.3) {
-                    botSentiment = -0.5; // 强制砸盘
-                }
+                if (valuation > 0.6 && valuation < 0.9 && Math.random() < 0.3) botSentiment = -0.5; 
 
-                // === E. 最终执行 ===
-                // 加入随机噪音，让行为不可预测
                 botSentiment += (Math.random() - 0.5) * 0.4;
 
                 if (Math.abs(botSentiment) > 0.1) {
                     const direction = botSentiment > 0 ? 1 : -1;
-                    const intensity = Math.min(1.5, Math.abs(botSentiment)); // 限制最大力度
-                    
-                    // 基础力度 0.3% ~ 1.0% * 意图强度
-                    // 这样在极度低估时，机器人会爆发出巨大的买盘
+                    const intensity = Math.min(1.5, Math.abs(botSentiment));
                     const botVol = direction * totalShares * (0.003 + Math.random() * 0.007) * intensity;
                     
                     if (botVol > 0) buyDepth += botVol;
                     else sellDepth += Math.abs(botVol);
+                    
+                    // === 👇 新增：假机器人日志 (气氛组) 👇 ===
+                    // 仅在非追赶模式(实时)且概率5%时记录，防止刷屏
+                    if (!isCatchUp && Math.random() < 0.05) {
+                        const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+                        const actionStr = botVol > 0 ? "买入" : "卖出"; // 简化显示
+                        const volStr = Math.floor(Math.abs(botVol)).toLocaleString();
+                        logsToWrite.push({
+                            sym,
+                            msg: `[${botName}] ${actionStr} ${volStr} 股 (AI)`, 
+                            type: 'user', // 用 user 类型，显示为灰色/白色，就像普通玩家一样
+                            t: simT
+                        });
+                    }
+                    // === 👆 新增结束 👆 ===
                 }
             }
 
@@ -327,7 +323,7 @@ async function getOrUpdateMarket(env, db) {
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(curP, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
-                logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。持仓按 30% 退回。`, type: 'bad', t: simT});
+                logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。`, type: 'bad', t: simT});
                 marketMap[sym].suspended = 1; marketMap[sym].p = curP;
                 break;
             }
@@ -345,12 +341,14 @@ async function getOrUpdateMarket(env, db) {
     if (updates.length > 0) await db.batch(updates);
 
     const result = { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
-    // 使用统一的 CURRENT_CACHE_KEY
     if (env.KV) await env.KV.put(CURRENT_CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     return result;
 }
 
+// ... onRequest 保持不变 ...
 export async function onRequest(context) {
+    // ... (与之前代码完全一致，请直接使用之前的 POST 逻辑，注意不要删掉)
+    // 为确保完整，这里再次附上 onRequest 的外壳，您可以把之前的逻辑填进去
     try {
         const { request, env } = context;
         const db = env.DB;
@@ -450,7 +448,9 @@ export async function onRequest(context) {
             const { action, symbol, amount, leverage = 1 } = body;
             const userNameDisplay = user.nickname || user.username;
 
-            if (action === 'set_strategy') {
+            // ... (请务必复制之前提供的完整 switch case 逻辑，包括 buy, sell, admin_reset 等)
+            // 这里是重复的交易逻辑，确保它是最新的 "batch quota" 版本
+             if (action === 'set_strategy') {
                 if (!company) return Response.json({ error: '无公司' });
                 const { strategy } = body;
                 if (!['safe', 'normal', 'risky'].includes(strategy)) return Response.json({ error: '无效策略' });
@@ -482,7 +482,6 @@ export async function onRequest(context) {
                     batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, newPrice, now));
                     batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【管理员】${conf.name} 强制重组上市。`, 'good', now));
                 }
-                // 使用统一的 CURRENT_CACHE_KEY
                 if (env.KV) await env.KV.delete(CURRENT_CACHE_KEY);
                 await db.batch(batch);
                 return Response.json({ success: true, message: '重组完成' });
@@ -559,55 +558,36 @@ export async function onRequest(context) {
                 
                 const lastTrade = pos ? (pos.last_trade_time || 0) : 0;
                 const lastType = pos ? (pos.last_trade_type || '') : ''; 
-                // 获取当前周期内已累计的量 (如果是新周期则视为0)
                 let currentAccVol = pos ? (pos.accumulated_volume || 0) : 0;
                 
                 const now = Date.now();
                 const timeDiff = now - lastTrade;
 
-                // === 🛡️ 风控逻辑重写 ===
-                
-                // 1. 如果距离上次交易超过了冷却时间 (30s)，重置累计池
                 if (timeDiff >= TRADE_COOLDOWN) {
                     currentAccVol = 0; 
-                } 
-                // 2. 如果在冷却时间内 (30s内)
-                else {
-                    // A. 反向操作：直接拦截 (防止 T+0 刷单)
+                } else {
                     if (action !== lastType) {
                         const left = Math.ceil((TRADE_COOLDOWN - timeDiff) / 1000);
                         return Response.json({ error: `反向操作需等待 ${left} 秒` });
                     }
-                    
-                    // B. 同向操作：检查额度池
                     if (currentAccVol + qty > BATCH_QUOTA) {
                         const remaining = Math.max(0, BATCH_QUOTA - currentAccVol);
                         const left = Math.ceil((TRADE_COOLDOWN - timeDiff) / 1000);
                         return Response.json({ error: `频繁操作超额！当前批次剩余额度 ${remaining} 股 (或等待 ${left} 秒重置)` });
                     }
                 }
-                
-                // 更新后的累计量
                 const newAccVol = currentAccVol + qty;
 
                 if (action === 'cover') {
-                    if (timeDiff < SHORT_HOLD_MIN && currentAccVol === 0) { 
-                        // 注意：如果是第一笔平仓，检查持仓时间；如果是追加平仓(拆单)，则允许
-                        // 这里简化处理：只要是 cover，且不在同一个快速批次内，就检查 60s
-                        // 但为了用户体验，如果用户分批平仓，第二笔不应受 60s 限制（因为第一笔已经过了检查）
-                        // 逻辑：如果 accumulated_volume > 0，说明在连点，放行。
-                    } else if (timeDiff < SHORT_HOLD_MIN) {
-                         return Response.json({ error: '做空需锁仓 1 分钟' });
-                    }
+                    if (timeDiff < SHORT_HOLD_MIN && currentAccVol === 0) { } 
+                    else if (timeDiff < SHORT_HOLD_MIN) { return Response.json({ error: '做空需锁仓 1 分钟' }); }
                 }
 
-                // 持仓上限 20%
                 const currentHold = pos ? Math.abs(pos.amount) : 0;
                 if (action !== 'cover' && action !== 'sell' && (currentHold + qty) > (totalShares * MAX_HOLDING_PCT)) {
                     return Response.json({ error: `持仓超限！最多持有 ${Math.floor(totalShares * MAX_HOLDING_PCT)} 股` });
                 }
                 
-                // 单笔硬上限 (依然保留，防止一次性搞太大)
                 if (qty > totalShares * MAX_ORDER_PCT) {
                     return Response.json({ error: `单笔过大！限额 ${Math.floor(totalShares * MAX_ORDER_PCT)} 股` });
                 }
@@ -628,8 +608,6 @@ export async function onRequest(context) {
                 const orderVal = curP * qty;
                 const fee = Math.floor(orderVal * feeRate);
 
-                // --- SQL 写入部分 (注意：所有 UPDATE/INSERT 都要写入 accumulated_volume) ---
-
                 if (action === 'buy') {
                     const margin = Math.floor((curP * qty) / lev * marginRate);
                     const totalCost = margin + fee;
@@ -641,10 +619,8 @@ export async function onRequest(context) {
                         const totalVal = (curHold * pos.avg_price) + (qty * curP);
                         const newQty = curHold + qty;
                         const newAvg = totalVal / newQty;
-                        // 更新 accumulated_volume
                         batch.push(db.prepare("UPDATE company_positions SET amount=?, avg_price=?, leverage=?, last_trade_time=?, last_trade_type=?, accumulated_volume=? WHERE id=?").bind(newQty, newAvg, lev, now, action, newAccVol, pos.id));
                     } else {
-                        // 插入 accumulated_volume
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time, last_trade_type, accumulated_volume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev, now, action, newAccVol));
                     }
                     logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
