@@ -5552,67 +5552,66 @@ window.setLeverage = function(val, btn) {
 };
 
 
-// === 交易核心函数 (增加确认弹窗) ===
-window.tradeStock = async function(action) {
+// === 交易核心函数 (支持自动交易免确认) ===
+window.tradeStock = async function(action, isAuto = false) {
     // 1. 获取输入数据
+    // 如果是自动交易，数据已经在 checkAutoTrigger 里填好了
     const amountVal = document.getElementById('stockTradeAmount').value;
     const amount = parseInt(amountVal);
-    const leverage = parseInt(document.getElementById('stockLeverage').value); // 获取杠杆
+    const leverage = parseInt(document.getElementById('stockLeverage').value); 
     
     // 2. 基础校验
-    if (!amount || amount <= 0) return showToast("请输入有效数量", "error");
+    if (!amount || amount <= 0) {
+        if (!isAuto) showToast("请输入有效数量", "error");
+        return;
+    }
     if (!currentStockSymbol) return showToast("请先选择股票", "error");
 
-    // 3. 计算预估数据 (用于弹窗)
-    // 确保 marketData 存在
+    // 3. 计算预估数据 (仅用于弹窗显示，自动交易时不重要但需保留逻辑防止报错)
     if (!marketData || !marketData[currentStockSymbol] || marketData[currentStockSymbol].length === 0) {
         return showToast("正在同步行情，请稍后...", "error");
     }
     const curP = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
-    const orderVal = curP * amount;
     
-    // 估算手续费 (含滑点)
+    // ... (省略中间的费用计算逻辑，保持原样即可，为了完整性下面会包含) ...
+    const orderVal = curP * amount;
     const meta = stockMeta[currentStockSymbol];
     const totalShares = meta ? meta.shares : 1000000;
     const slippage = (amount / totalShares) * 5; 
     const feeRate = 0.005 + slippage;
     const fee = Math.floor(orderVal * feeRate);
-    
-    // 计算总资金占用 (如果是买入/开空，需算保证金)
-    const marginRate = 1.0; // 简化显示，或者从 companyInfo 获取等级折扣
+    const marginRate = 1.0; 
     const margin = Math.floor((orderVal / leverage) * marginRate);
     const totalCost = margin + fee;
 
-    // 4. 构建确认文案 (修复版：移除 i 单位，明确资金来源)
-    const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
-    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
-    
-    let confirmMsg = `【交易确认】\n\n`;
-    confirmMsg += `标的：${nameMap[currentStockSymbol]} (${currentStockSymbol})\n`;
-    confirmMsg += `方向：${actionMap[action]}\n`;
-    confirmMsg += `数量：${amount.toLocaleString()} 股\n`;
-    confirmMsg += `现价：${curP}\n`;
-    confirmMsg += `----------------\n`;
-    
-    // 判断是开仓还是平仓 (开仓需要保证金，平仓只需要手续费)
-    // 逻辑：如果是 buy，或者 sell 且当前无持仓(开空)，都算开仓
-    const isOpening = action === 'buy' || (action === 'sell' && (!myPositions || !myPositions.find(p=>p.stock_symbol===currentStockSymbol && p.amount>0)));
+    // 4. 确认弹窗 (关键修改：如果是自动交易，直接跳过)
+    if (!isAuto) {
+        const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
+        const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+        
+        let confirmMsg = `【交易确认】\n\n`;
+        confirmMsg += `标的：${nameMap[currentStockSymbol]} (${currentStockSymbol})\n`;
+        confirmMsg += `方向：${actionMap[action]}\n`;
+        confirmMsg += `数量：${amount.toLocaleString()} 股\n`;
+        confirmMsg += `现价：${curP}\n`;
+        confirmMsg += `----------------\n`;
+        
+        const isOpening = action === 'buy' || (action === 'sell' && (!myPositions || !myPositions.find(p=>p.stock_symbol===currentStockSymbol && p.amount>0)));
 
-    if (isOpening) {
-        confirmMsg += `预估保证金：${margin.toLocaleString()}\n`;
-        confirmMsg += `预估手续费：${fee.toLocaleString()} (${(feeRate*100).toFixed(2)}%)\n`;
-        confirmMsg += `总计扣款：${totalCost.toLocaleString()} (公司资金)\n`;
-    } else {
-        // 平仓类操作
-        confirmMsg += `预估手续费：${fee.toLocaleString()}\n`;
+        if (isOpening) {
+            confirmMsg += `预估保证金：${margin.toLocaleString()}\n`;
+            confirmMsg += `预估手续费：${fee.toLocaleString()} (${(feeRate*100).toFixed(2)}%)\n`;
+            confirmMsg += `总计扣款：${totalCost.toLocaleString()} (公司资金)\n`;
+        } else {
+            confirmMsg += `预估手续费：${fee.toLocaleString()}\n`;
+        }
+        
+        confirmMsg += `\n确认执行吗？`;
+
+        if (!confirm(confirmMsg)) return;
     }
-    
-    confirmMsg += `\n确认执行吗？`;
 
-    // 5. 弹出确认框
-    if (!confirm(confirmMsg)) return;
-
-    // 6. 发送请求
+    // 5. 发送请求
     try {
         const res = await fetch(`${API_BASE}/stock`, {
             method: 'POST',
@@ -5628,23 +5627,24 @@ window.tradeStock = async function(action) {
         
         if (data.success) {
             showToast(data.message, "success");
-            // 清空输入框并添加日志
-            document.getElementById('stockTradeAmount').value = '';
-            // 乐观更新日志 (可选)
+            // 只有手动交易才清空，自动交易不清空以便观察
+            if (!isAuto) document.getElementById('stockTradeAmount').value = '';
+            
             if(typeof addUserLog === 'function') {
                 addUserLog(data.log, (action === 'buy' || action === 'cover') ? 'buy' : 'sell');
             }
-            // 立即刷新数据
             loadStockMarket(); 
         } else {
+            // 自动交易失败也要提示
             showToast(data.error, "error");
+            // 如果是自动交易且失败（比如钱不够），可以选择停止挂机
+            if (isAuto) stopAutoTrade();
         }
     } catch(e) { 
         console.error(e);
         showToast("交易请求失败", "error"); 
     }
 };
-
 // =========================================
 // === 修复版：市场动态日志系统 (script.js) ===
 // =========================================
@@ -6300,8 +6300,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         document.getElementById('stockTradeAmount').value = autoTradeState.amount;
         document.getElementById('stockLeverage').value = autoTradeState.leverage;
         
-        tradeStock(autoTradeState.action).then(() => {
-            // 交易完成后切回来
+        tradeStock(autoTradeState.action, true).then(() => {
             currentStockSymbol = originalSymbol;
         });
         
@@ -6424,6 +6423,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
