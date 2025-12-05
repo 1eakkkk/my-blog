@@ -5941,10 +5941,6 @@ window.renderStockDashboard = function(symbol) {
     const maskTitle = document.getElementById('maskTitle');
     const maskSubtitle = document.getElementById('maskSubtitle');
 
-    const mask = document.getElementById('marketClosedMask');
-    const maskTitle = document.getElementById('maskTitle');
-    const maskSubtitle = document.getElementById('maskSubtitle');
-
     if (mask) {
         // 优先级 1: 全局休市 (最高优先级)
         if (isGlobalMarketClosed) {
@@ -6425,6 +6421,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
