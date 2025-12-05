@@ -110,9 +110,8 @@ async function ensureSchema(db) {
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v12_safety"; 
+    const CACHE_KEY = "market_v13_active"; // Key Update: 强制刷新缓存
     
-    // 正常缓存读取
     let cachedData = null;
     if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
@@ -169,16 +168,11 @@ async function getOrUpdateMarket(env, db) {
         if (totalDividends > 0) updates.push(db.prepare("INSERT INTO notifications (user_id, type, message, is_read, created_at, link) VALUES (?, 'system', ?, 0, ?, '#business')").bind(0, `【每日分红】市场发放共计 ${totalDividends} k币。`, now));
     }
 
-    // === 核心修复：计算模拟截止时间 ===
-    // 如果休市，只补算到 02:00；如果不休市，补算到 now
+    // 补价截止时间
     let simulationEndTime = now;
     if (isMarketClosed) {
-        // 计算今天的 02:00 (UTC+8) 对应的时间戳
         const bjTime = getBJTime(now);
-        // 如果当前BJ时间是 03:00，我们要找的是今天的 02:00
-        // 设置小时分钟秒
         bjTime.setUTCHours(2, 0, 0, 0); 
-        // 转回 UTC 时间戳 (减8小时)
         simulationEndTime = bjTime.getTime() - (8 * 60 * 60 * 1000);
     }
 
@@ -200,14 +194,10 @@ async function getOrUpdateMarket(env, db) {
 
         if (s.is_suspended === 1) continue;
 
-        // 使用 simulationEndTime 计算差距
         let missed = Math.floor((simulationEndTime - s.last_update) / 60000);
-        
-        // 如果没有差距，说明已经是最新的（或者已经处于休市冻结状态）
         if (missed <= 0) continue;
 
-        // 追赶上限：平时30分钟，休市补单时允许补更久(比如4小时)，保证K线完整
-        const maxCatchUp = isMarketClosed ? 300 : 30; 
+        const maxCatchUp = isMarketClosed ? 300 : 60; 
         if (missed > maxCatchUp) { 
             s.last_update = simulationEndTime - (maxCatchUp * 60000); 
             missed = maxCatchUp; 
@@ -231,6 +221,7 @@ async function getOrUpdateMarket(env, db) {
             let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
             let newsMsg = null;
 
+            // 1. 新闻 (补价期间依然禁用，防止价格瞬移)
             if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
                 if (Math.random() < 0.2) { 
                     nextNewsT = simT;
@@ -243,24 +234,35 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            if (!isCatchUp && !newsMsg && Math.random() < 0.5) {
+            // 2. 强力做市商 (修复点：移除了 !isCatchUp 限制)
+            // 现在即使在后台补数据，机器人也会疯狂工作
+            if (!newsMsg && Math.random() < 0.6) { // 提高到 60% 概率
                 const trendBlock = Math.floor(simT / 300000); 
                 let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
                 if (Math.random() < 0.3) trendDir *= -1;
-                const botVol = trendDir * totalShares * (0.003 + Math.random() * 0.005);
+                
+                // 机器人力度：0.3% ~ 1.2% (加大力度，让离线K线更像真的)
+                const botVol = trendDir * totalShares * (0.003 + Math.random() * 0.009);
+                
                 if (botVol > 0) buyDepth += botVol;
                 else sellDepth += Math.abs(botVol);
             }
 
+            // 3. 玩家压力 (只在第一分钟生效，后续衰减归零)
             if (i === 0) {
                 if (currentPressure > 0) buyDepth += currentPressure;
                 else sellDepth += Math.abs(currentPressure);
             }
 
+            // 4. 撮合
             const volatilityFactor = 50.0 * currentEra.buff.vol; 
             const delta = (buyDepth - sellDepth) / totalShares * volatilityFactor;
+            
+            // 安全锁：±8%
             const clampedDelta = Math.max(-0.08, Math.min(0.08, delta));
-            const noise = (Math.random() - 0.5) * 0.01;
+            
+            // 自然噪音 (稍微加大，防止死水)
+            const noise = (Math.random() - 0.5) * 0.02;
             
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
 
@@ -274,7 +276,7 @@ async function getOrUpdateMarket(env, db) {
                 updates.push(db.prepare("DELETE FROM company_positions WHERE stock_symbol = ?").bind(sym));
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(curP, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
-                logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。持仓按 30% 退回。`, type: 'bad', t: simT});
+                logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。`, type: 'bad', t: simT});
                 marketMap[sym].suspended = 1; marketMap[sym].p = curP;
                 break;
             }
