@@ -5201,7 +5201,12 @@ function drawInteractiveChart(symbol, mousePos) {
     const yMax = Math.ceil(maxP + rangeBuffer * 0.2);
     const yRange = Math.max(1, yMax - yMin);
 
-    const padding = { top: 20, right: isMobile?10:50, bottom: 20, left: isMobile?35:20 };
+    const padding = { 
+        top: 20, 
+        right: isMobile ? 10 : 20,  // PC端右边只需要留 20px 呼吸空间
+        bottom: 20, 
+        left: isMobile ? 40 : 60    // PC端左边留 60px 给价格标签，防止遮挡
+    };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -6332,6 +6337,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
