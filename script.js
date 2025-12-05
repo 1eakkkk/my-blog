@@ -5147,22 +5147,18 @@ function handleChartLeave() {
 
 function drawInteractiveChart(symbol, mousePos) {
     const canvas = document.getElementById('stockCanvas');
-    // 获取父级容器
     const container = document.querySelector('.stock-chart-container');
     
     if (!canvas || !container) return;
     
     const ctx = canvas.getContext('2d');
     
-    // 1. 尺寸计算
+    // 1. 尺寸与设备像素比适配
     const rect = container.getBoundingClientRect();
-    // 修复：如果容器隐藏(width=0)，给一个默认宽度防止报错
     const cssWidth = rect.width || 600; 
     const cssHeight = rect.height || 220;
-    
     const dpr = window.devicePixelRatio || 1;
     
-    // 避免重复设置导致闪烁，仅当尺寸变化时调整
     if (canvas.width !== cssWidth * dpr || canvas.height !== cssHeight * dpr) {
         canvas.width = cssWidth * dpr;
         canvas.height = cssHeight * dpr;
@@ -5175,7 +5171,6 @@ function drawInteractiveChart(symbol, mousePos) {
     // 清空画布
     ctx.clearRect(0, 0, width, height);
 
-    // 2. 数据检查
     if (!marketData || !marketData[symbol] || marketData[symbol].length === 0) {
         ctx.fillStyle = '#666';
         ctx.font = '14px sans-serif';
@@ -5185,81 +5180,37 @@ function drawInteractiveChart(symbol, mousePos) {
         return; 
     }
 
+    // === 核心优化 1：智能缩放 (Smart Zoom) ===
+    // 手机屏幕太窄，120个点看不清。手机只看最近 60 分钟，PC 看 120 分钟。
     const rawData = marketData[symbol];
-    const uniqueMap = new Map();
-    
-    rawData.forEach(d => {
-        // 将时间戳抹平到分钟 (去掉秒和毫秒)
-        // 例如 14:38:15 -> 14:38:00
-        const minuteKey = Math.floor(d.t / 60000) * 60000;
-        // Map 会自动覆盖旧值，所以最后留下的就是该分钟最新的点
-        uniqueMap.set(minuteKey, { t: minuteKey, p: d.p });
-    });
-    
-    // 转回数组并按时间排序
-    const data = Array.from(uniqueMap.values()).sort((a, b) => a.t - b.t);
+    const isMobile = width < 768;
+    const displayCount = isMobile ? 60 : 120; 
+    const data = rawData.slice(-displayCount); // 取最后 N 个点
 
-    // 3. 计算极值
+    // === 2. 计算极值与 Y 轴范围 ===
     let minP = Infinity, maxP = -Infinity;
     data.forEach(d => {
         if(d.p < minP) minP = d.p;
         if(d.p > maxP) maxP = d.p;
     });
     
-    // 防止最大最小值相等导致除以0
-    if (maxP === minP) {
-        maxP = minP * 1.1; // 强行拉开间距
-        minP = minP * 0.9;
-    }
-    
+    // 增加 20% 的上下留白 (Padding)，防止曲线顶格
+    if (maxP === minP) { maxP *= 1.1; minP *= 0.9; }
     const rangeBuffer = (maxP - minP);
     const yMin = Math.floor(minP - rangeBuffer * 0.2); 
     const yMax = Math.ceil(maxP + rangeBuffer * 0.2);
-    const yRange = Math.max(1, yMax - yMin); // 确保 yRange 不为 0
+    const yRange = Math.max(1, yMax - yMin);
 
-    // 4. 更新看板 (无交互时)
-    if (!mousePos) {
-        // 使用后端返回的准确开盘价
-        let openPrice = data[0].p; // 默认第一点
-        if (stockMeta && stockMeta[symbol]) {
-            openPrice = stockMeta[symbol].open; // 如果有记录，用记录值
-        }
-        
-        const currentPrice = data[data.length - 1].p;
-        
-        const elOpen = document.getElementById('stockOpen');
-        const elHigh = document.getElementById('stockHigh');
-        const elLow = document.getElementById('stockLow');
-        const elCurr = document.getElementById('stockCurrent');
-
-        if(elOpen) elOpen.innerText = openPrice;
-        if(elHigh) elHigh.innerText = maxP;
-        if(elLow) elLow.innerText = minP;
-        if(elCurr) {
-            elCurr.innerText = currentPrice;
-            elCurr.style.color = currentPrice >= openPrice ? '#0f0' : '#f33';
-        }
-    }
-
-    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
-    const themeColor = colorMap[symbol];
-
-    // 5. 绘制坐标轴
-    const isMobile = width < 400;
-    const padding = { 
-        top: 20, 
-        right: isMobile ? 10 : 20, 
-        bottom: 20, 
-        left: isMobile ? 35 : 50 
-    };
+    const padding = { top: 20, right: isMobile?10:50, bottom: 20, left: isMobile?35:20 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
+    // === 3. 绘制坐标轴 (Grid) ===
     ctx.lineWidth = 1;
     ctx.font = '10px JetBrains Mono';
     
-    // 横线 (价格轴)
-    const ySteps = 5;
+    // 横线
+    const ySteps = 4;
     for (let i = 0; i <= ySteps; i++) {
         const val = yMin + (yRange / ySteps) * i;
         const y = padding.top + chartH - ((val - yMin) / yRange * chartH);
@@ -5270,86 +5221,76 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.lineTo(width - padding.right, y);
         ctx.stroke();
 
-        ctx.fillStyle = '#888';
+        // 价格标签
+        ctx.fillStyle = '#666';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
         ctx.fillText(Math.floor(val), padding.left - 5, y);
     }
 
-    // 竖线 (时间轴) - 🚨 关键修复点 🚨
-    // 只有当数据点大于1个时才画线，否则除数为0导致Infinity或间隔计算错误
-    if (data.length > 1) {
-        const xStep = chartW / (data.length - 1);
-        const xStepsCount = isMobile ? 3 : 6; 
-        
-        // 关键修复：防止除以0或产生0间隔导致的死循环
-        let timeInterval = Math.floor((data.length - 1) / (xStepsCount - 1));
-        if (timeInterval < 1) timeInterval = 1; // 强制最小间隔为1
+    const themeColorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    const themeColor = themeColorMap[symbol] || '#fff';
 
-        for (let i = 0; i < data.length; i += timeInterval) {
-            const x = padding.left + (i * xStep);
-            
-            ctx.beginPath();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-            ctx.moveTo(x, padding.top);
-            ctx.lineTo(x, height - padding.bottom);
-            ctx.stroke();
+    // 计算 X 轴步长
+    const xStep = data.length > 1 ? chartW / (data.length - 1) : 0;
 
-            const date = new Date(data[i].t);
-            const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
-            
-            ctx.fillStyle = '#666';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            ctx.fillText(timeStr, x, height - padding.bottom + 5);
-        }
-    }
-
-    // 6. 绘制折线 (增强版：渐变填充 + 呼吸光点)
-    
-    // A. 定义渐变色 (根据股票类型)
-    let gradStart = 'rgba(0, 243, 255, 0.4)'; // 默认 BLUE
-    if (symbol === 'GOLD') gradStart = 'rgba(255, 215, 0, 0.4)';
-    if (symbol === 'RED') gradStart = 'rgba(255, 51, 51, 0.4)';
+    // === 4. 绘制价格区域 (Area Gradient) ===
+    let gradStart = 'rgba(0, 243, 255, 0.2)'; 
+    if (symbol === 'GOLD') gradStart = 'rgba(255, 215, 0, 0.2)';
+    if (symbol === 'RED') gradStart = 'rgba(255, 51, 51, 0.2)';
 
     const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
     gradient.addColorStop(0, gradStart);
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)'); // 底部透明
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
-    // 计算步长 (防止除以0)
-    const xStep = data.length > 1 ? chartW / (data.length - 1) : 0;
-
-    // B. 绘制填充区域 (Area)
     ctx.beginPath();
-    if (data.length === 1) {
-        // 单点情况：画一条横线填满下方
-        const y = padding.top + chartH - ((data[0].p - yMin) / yRange * chartH);
-        ctx.moveTo(padding.left, y);
-        ctx.lineTo(width - padding.right, y);
-        ctx.lineTo(width - padding.right, height - padding.bottom);
-        ctx.lineTo(padding.left, height - padding.bottom);
-    } else {
-        // 多点情况
+    if (data.length > 1) {
         data.forEach((d, i) => {
             const x = padding.left + (i * xStep);
             const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        // 闭合路径用于填充
-        ctx.lineTo(padding.left + chartW, height - padding.bottom);
+        ctx.lineTo(padding.left + (data.length - 1) * xStep, height - padding.bottom);
         ctx.lineTo(padding.left, height - padding.bottom);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
     }
-    ctx.closePath();
-    ctx.fillStyle = gradient;
-    ctx.fill();
 
-    // C. 绘制高亮折线 (Line Stroke)
+    // === 5. 核心优化：绘制 MA 均线 (Trend Line) ===
+    // 计算简单移动平均线 (SMA 15)
+    const maPeriod = 15;
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'; // 均线颜色：半透明白
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]); // 虚线
+
+    data.forEach((d, i) => {
+        if (i < maPeriod - 1) return; // 数据不足不画
+        
+        // 计算前 N 个点的平均值
+        let sum = 0;
+        for (let j = 0; j < maPeriod; j++) {
+            sum += data[i - j].p;
+        }
+        const avg = sum / maPeriod;
+        
+        const x = padding.left + (i * xStep);
+        const y = padding.top + chartH - ((avg - yMin) / yRange * chartH);
+        
+        if (i === maPeriod - 1) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]); // 恢复实线
+
+    // === 6. 绘制主价格线 (Main Line) ===
     ctx.beginPath();
     ctx.strokeStyle = themeColor;
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 15; // 增加发光强度
+    ctx.lineWidth = 2.5; // 加粗主线
+    ctx.shadowBlur = 10;
     ctx.shadowColor = themeColor;
+    ctx.lineJoin = 'round'; // 圆滑拐角
 
     if (data.length === 1) {
         const y = padding.top + chartH - ((data[0].p - yMin) / yRange * chartH);
@@ -5359,37 +5300,24 @@ function drawInteractiveChart(symbol, mousePos) {
         data.forEach((d, i) => {
             const x = padding.left + (i * xStep);
             const y = padding.top + chartH - ((d.p - yMin) / yRange * chartH);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
     }
     ctx.stroke();
-    ctx.shadowBlur = 0; // 重置阴影，以免影响后续绘制
+    ctx.shadowBlur = 0;
 
-    // D. 绘制末端呼吸点 (Pulsing Dot)
+    // === 7. 绘制末端呼吸点 ===
     if (data.length > 0) {
         const lastIdx = data.length - 1;
-        let lastX = 0;
-        let lastY = 0;
-
-        if (data.length === 1) {
-            // 单点时，点画在最右侧
-            lastX = width - padding.right;
-            lastY = padding.top + chartH - ((data[0].p - yMin) / yRange * chartH);
-        } else {
-            // 多点时，计算最后一个点的位置
-            lastX = padding.left + (lastIdx * xStep);
-            lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
-        }
+        const lastX = padding.left + (lastIdx * xStep);
+        const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
         
-        // 外圈光晕
         ctx.beginPath();
         ctx.fillStyle = themeColor;
         ctx.globalAlpha = 0.4;
         ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
         ctx.fill();
         
-        // 内圈实心
         ctx.beginPath();
         ctx.globalAlpha = 1.0;
         ctx.fillStyle = '#fff';
@@ -5397,9 +5325,8 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fill();
     }
 
-    // 7. 交互显示 (Crosshair)
-    if (mousePos && data.length > 1) {
-        const xStep = chartW / (data.length - 1);
+    // === 8. 交互浮窗 (Tooltip) ===
+    if (mousePos && data.length > 0) {
         let index = Math.round((mousePos.x - padding.left) / xStep);
         if (index < 0) index = 0;
         if (index >= data.length) index = data.length - 1;
@@ -5408,57 +5335,39 @@ function drawInteractiveChart(symbol, mousePos) {
         const pointX = padding.left + (index * xStep);
         const pointY = padding.top + chartH - ((target.p - yMin) / yRange * chartH);
 
-        // 十字线
+        // 十字准星
         ctx.beginPath();
-        ctx.strokeStyle = '#fff';
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
         ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
         ctx.moveTo(pointX, padding.top);
         ctx.lineTo(pointX, height - padding.bottom);
         ctx.moveTo(padding.left, pointY);
         ctx.lineTo(width - padding.right, pointY);
         ctx.stroke();
-        ctx.setLineDash([]);
 
-        // 浮窗
+        // 信息框
         const date = new Date(target.t);
         const timeStr = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
         const infoText = `${timeStr} | ¥${target.p}`;
         
-        ctx.font = '12px sans-serif';
-        const textWidth = ctx.measureText(infoText).width + 20;
+        ctx.font = '12px JetBrains Mono';
+        const textWidth = ctx.measureText(infoText).width + 16;
         let boxX = pointX + 10;
-        let boxY = pointY - 30;
+        let boxY = pointY - 35;
         
         if (boxX + textWidth > width) boxX = pointX - textWidth - 10;
-        if (boxY < 0) boxY = pointY + 20;
+        if (boxY < 0) boxY = pointY + 10;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillStyle = '#000';
         ctx.fillRect(boxX, boxY, textWidth, 24);
         ctx.strokeStyle = themeColor;
+        ctx.lineWidth = 1;
         ctx.strokeRect(boxX, boxY, textWidth, 24);
 
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'left';
-        ctx.fillText(infoText, boxX + 10, boxY + 12);
-
-    } else if (data.length > 0) {
-        // 显示最后一个点
-        const lastIdx = data.length - 1;
-        let lastX = padding.left;
-        if (data.length > 1) {
-            const xStep = chartW / (data.length - 1);
-            lastX += (lastIdx * xStep);
-        } else {
-            lastX += (chartW / 2); // 居中
-        }
-        
-        const lastY = padding.top + chartH - ((data[lastIdx].p - yMin) / yRange * chartH);
-        
-        ctx.beginPath();
-        ctx.fillStyle = themeColor;
-        ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.textBaseline = 'middle';
+        ctx.fillText(infoText, boxX + 8, boxY + 12);
     }
 }
 // === 持仓显示 (终极版：含动态滑点预估) ===
@@ -6423,6 +6332,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
