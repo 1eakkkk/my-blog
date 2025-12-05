@@ -5183,7 +5183,7 @@ function drawInteractiveChart(symbol, mousePos) {
     // === 核心优化 1：智能缩放 (Smart Zoom) ===
     // 手机屏幕太窄，120个点看不清。手机只看最近 60 分钟，PC 看 120 分钟。
     const rawData = marketData[symbol];
-    const isMobile = width < 768;
+    const isMobile = window.innerWidth < 768; 
     const displayCount = isMobile ? 60 : 120; 
     const data = rawData.slice(-displayCount); // 取最后 N 个点
 
@@ -6332,6 +6332,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
