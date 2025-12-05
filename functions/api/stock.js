@@ -236,15 +236,46 @@ async function getOrUpdateMarket(env, db) {
             let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
             let newsMsg = null;
 
-            if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
-                if (Math.random() < 0.2) { 
-                    nextNewsT = simT;
-                    const news = pickWeightedNews(sym);
-                    if (news) {
-                        newsMsg = news;
-                        if (news.factor > 1) { buyDepth *= news.factor; sellDepth *= (1 / news.factor); } 
-                        else { sellDepth *= (1 / news.factor); buyDepth *= news.factor; }
-                    }
+            if (!isCatchUp && !newsMsg) {
+                // 计算当前估值水位 (当前价 / 发行价)
+                const valuation = curP / issuePrice;
+                
+                // 基础意图：0 = 中立, >0 想买, <0 想卖
+                let botSentiment = 0;
+
+                // === A. 价值投资策略 (占权重 60%) ===
+                if (valuation < 0.8) {
+                    // 严重低估，机器人贪婪买入 (抄底)
+                    botSentiment += 0.6; 
+                } else if (valuation < 1.0) {
+                    // 轻微低估，小幅买入
+                    botSentiment += 0.2;
+                } else if (valuation > 1.4) {
+                    // 严重高估，机器人恐慌卖出 (止盈/砸盘)
+                    botSentiment -= 0.6;
+                } else if (valuation > 1.15) {
+                    // 轻微高估，小幅卖出
+                    botSentiment -= 0.2;
+                }
+
+                // === B. 随机市场噪音 (占权重 40%) ===
+                // 模拟散户的非理性波动，防止机器人太聪明导致走势太死板
+                // 产生一个 -0.4 到 0.4 的随机数
+                const noise = (Math.random() - 0.5) * 0.8;
+                botSentiment += noise;
+
+                // === C. 决策执行 ===
+                // 只有当意图足够强烈 (绝对值 > 0.15) 时才动手，避免无效操作
+                if (Math.abs(botSentiment) > 0.15) {
+                    const direction = botSentiment > 0 ? 1 : -1;
+                    
+                    // 力度控制：意图越强，下单量越大
+                    // 基础量 0.2% ~ 0.5% * 意图强度
+                    const intensity = Math.abs(botSentiment);
+                    const botVol = direction * totalShares * (0.002 + Math.random() * 0.003) * intensity;
+
+                    if (botVol > 0) buyDepth += botVol;
+                    else sellDepth += Math.abs(botVol);
                 }
             }
 
