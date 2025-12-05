@@ -286,12 +286,18 @@ async function getOrUpdateMarket(env, db) {
                     // 仅在非追赶模式(实时)且概率5%时记录，防止刷屏
                     if (!isCatchUp && Math.random() < 0.05) {
                         const botName = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
-                        const actionStr = botVol > 0 ? "买入" : "卖出"; // 简化显示
+                        const actionStr = botVol > 0 ? "买入" : "卖出"; 
                         const volStr = Math.floor(Math.abs(botVol)).toLocaleString();
+                        
+                        // 🎲 随机生成一个假杠杆 (1x ~ 20x)，模拟激进的量化基金
+                        // 逻辑：机器人通常使用较高杠杆
+                        const fakeLev = Math.floor(Math.random() * 10) + 1; // 1x - 10x 随机
+
                         logsToWrite.push({
                             sym,
-                            msg: `[${botName}] ${actionStr} ${volStr} 股 (AI)`, 
-                            type: 'user', // 用 user 类型，显示为灰色/白色，就像普通玩家一样
+                            // 修改点：增加了 ${sym} 显示股票名，增加了 (x${fakeLev}) 显示杠杆
+                            msg: `[${botName}] ${actionStr} ${volStr} 股 ${sym} (x${fakeLev})`, 
+                            type: 'user', // 保持灰色，像真人一样
                             t: simT
                         });
                     }
