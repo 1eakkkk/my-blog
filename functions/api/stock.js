@@ -21,6 +21,8 @@ const MAX_HOLDING_PCT = 0.20;
 const MAX_ORDER_PCT = 0.01;
 const BANKRUPT_PCT = 0.2;
 const INSIDER_COST_24H = 5000;
+// 统一缓存键，防止修改不一致
+const CURRENT_CACHE_KEY = "market_v15_final"; 
 
 const COMPANY_LEVELS = {
     0: { name: "皮包公司", margin_rate: 1.0, cost: 0 },
@@ -101,9 +103,9 @@ async function ensureSchema(db) {
 
 async function getOrUpdateMarket(env, db) {
     const now = Date.now();
-    const CACHE_KEY = "market_v14_momentum"; // Key Update: 动量机制
+    
     let cachedData = null;
-    if (env.KV) { try { cachedData = await env.KV.get(CACHE_KEY, { type: "json" }); } catch (e) {} }
+    if (env.KV) { try { cachedData = await env.KV.get(CURRENT_CACHE_KEY, { type: "json" }); } catch (e) {} }
     if (cachedData && (now - cachedData.timestamp < 10000)) return cachedData.payload;
 
     const bjHour = getBJHour(now);
@@ -159,7 +161,7 @@ async function getOrUpdateMarket(env, db) {
     }
 
     const isNewDay = !isMarketClosed && states.results.some(s => (now - s.last_update) > 3600 * 4000); 
-    if (isNewDay) { /* 重组逻辑略，保持原样 */ }
+    if (isNewDay) { /* 重组逻辑保持原样 */ }
 
     if (isMarketClosed) {
         if (updates.length > 0) await db.batch(updates);
@@ -219,8 +221,7 @@ async function getOrUpdateMarket(env, db) {
         let nextNewsT = s.last_news_time || 0;
         let currentPressure = s.accumulated_pressure || 0;
         
-        // === ⚡ 动量变量初始化 ===
-        // 玩家压力不会在第1秒后立刻消失，而是进入动量池
+        // 动量
         let momentum = currentPressure; 
 
         for (let i = 0; i < missed; i++) {
@@ -236,69 +237,79 @@ async function getOrUpdateMarket(env, db) {
             let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
             let newsMsg = null;
 
-            if (!isCatchUp && !newsMsg) {
-                // 计算当前估值水位 (当前价 / 发行价)
-                const valuation = curP / issuePrice;
-                
-                // 基础意图：0 = 中立, >0 想买, <0 想卖
-                let botSentiment = 0;
+            if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
+                if (Math.random() < 0.2) { 
+                    nextNewsT = simT;
+                    const news = pickWeightedNews(sym);
+                    if (news) {
+                        newsMsg = news;
+                        if (news.factor > 1) { buyDepth *= news.factor; sellDepth *= (1 / news.factor); } 
+                        else { sellDepth *= (1 / news.factor); buyDepth *= news.factor; }
+                    }
+                }
+            }
 
-                // === A. 价值投资策略 (占权重 60%) ===
-                if (valuation < 0.8) {
-                    // 严重低估，机器人贪婪买入 (抄底)
-                    botSentiment += 0.6; 
-                } else if (valuation < 1.0) {
-                    // 轻微低估，小幅买入
-                    botSentiment += 0.2;
-                } else if (valuation > 1.4) {
-                    // 严重高估，机器人恐慌卖出 (止盈/砸盘)
-                    botSentiment -= 0.6;
-                } else if (valuation > 1.15) {
-                    // 轻微高估，小幅卖出
-                    botSentiment -= 0.2;
+            // 3. 狡猾的做市商 (Cunning Market Maker Bot)
+            // 逻辑：不再死板护盘，而是结合宏观环境和随机性，甚至会故意砸盘诱空
+            if (!newsMsg && Math.random() < 0.6) { 
+                const valuation = curP / issuePrice;
+                let botSentiment = 0; // >0 买, <0 卖
+
+                // === A. 估值逻辑 (模糊化处理) ===
+                // 基础：跌得越深，买入意愿越强；涨得越高，卖出意愿越强
+                // 修正：不再是固定阈值，而是概率线性分布
+                // valuation 0.5 -> 强烈买入意愿
+                // valuation 1.5 -> 强烈卖出意愿
+                let valueBias = (1.0 - valuation) * 0.8; 
+
+                // === B. 宏观环境修正 (关键！) ===
+                // 如果是【数据大崩塌】或【熊市】，机器人会调低心理价位，允许跌得更深
+                if (currentEra.code === 'DATA_CRASH') valueBias -= 0.3; // 熊市机器人更悲观
+                if (currentEra.code === 'CORP_WAR' && sym !== 'RED') valueBias -= 0.1;
+                if (currentEra.code === 'NEON_AGE' && (sym === 'BLUE' || sym === 'GOLD')) valueBias += 0.2; // 牛市更宽容
+
+                // === C. 趋势惯性 (Trend Following) ===
+                // 机器人有 40% 概率是“趋势交易者”，追涨杀跌
+                const trendBlock = Math.floor(simT / 300000); 
+                let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
+                if (Math.random() < 0.4) {
+                    botSentiment += trendDir * 0.3;
+                } else {
+                    // 60% 概率回归价值
+                    botSentiment += valueBias;
                 }
 
-                // === B. 随机市场噪音 (占权重 40%) ===
-                // 模拟散户的非理性波动，防止机器人太聪明导致走势太死板
-                // 产生一个 -0.4 到 0.4 的随机数
-                const noise = (Math.random() - 0.5) * 0.8;
-                botSentiment += noise;
+                // === D. 猎杀时刻 (Predatory Move) ===
+                // 如果估值在“暧昧区” (0.6 ~ 0.9)，机器人有概率故意砸盘 (洗盘)
+                // 防止玩家在 0.8 这种位置无脑抄底
+                if (valuation > 0.6 && valuation < 0.9 && Math.random() < 0.3) {
+                    botSentiment = -0.5; // 强制砸盘
+                }
 
-                // === C. 决策执行 ===
-                // 只有当意图足够强烈 (绝对值 > 0.15) 时才动手，避免无效操作
-                if (Math.abs(botSentiment) > 0.15) {
+                // === E. 最终执行 ===
+                // 加入随机噪音，让行为不可预测
+                botSentiment += (Math.random() - 0.5) * 0.4;
+
+                if (Math.abs(botSentiment) > 0.1) {
                     const direction = botSentiment > 0 ? 1 : -1;
+                    const intensity = Math.min(1.5, Math.abs(botSentiment)); // 限制最大力度
                     
-                    // 力度控制：意图越强，下单量越大
-                    // 基础量 0.2% ~ 0.5% * 意图强度
-                    const intensity = Math.abs(botSentiment);
-                    const botVol = direction * totalShares * (0.002 + Math.random() * 0.003) * intensity;
-
+                    // 基础力度 0.3% ~ 1.0% * 意图强度
+                    // 这样在极度低估时，机器人会爆发出巨大的买盘
+                    const botVol = direction * totalShares * (0.003 + Math.random() * 0.007) * intensity;
+                    
                     if (botVol > 0) buyDepth += botVol;
                     else sellDepth += Math.abs(botVol);
                 }
             }
 
-            if (!newsMsg && Math.random() < 0.6) { 
-                const trendBlock = Math.floor(simT / 300000); 
-                let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
-                if (Math.random() < 0.3) trendDir *= -1;
-                const botVol = trendDir * totalShares * (0.003 + Math.random() * 0.009);
-                if (botVol > 0) buyDepth += botVol;
-                else sellDepth += Math.abs(botVol);
-            }
-
-            // === ⚡ 动量衰减机制 (Momentum Decay) ===
-            // 每一分钟，动量衰减为上一分钟的 60%
-            // 这样一笔大单可以影响约 3-5 分钟的走势
-            if (Math.abs(momentum) > 10) { // 忽略微小残余
+            // 动量衰减
+            if (Math.abs(momentum) > 10) {
                 if (momentum > 0) buyDepth += momentum;
                 else sellDepth += Math.abs(momentum);
-                
-                momentum = Math.floor(momentum * 0.6); // 衰减系数 0.6
+                momentum = Math.floor(momentum * 0.6); 
             }
 
-            // 敏感度 50.0
             const volatilityFactor = 50.0 * currentEra.buff.vol; 
             const delta = (buyDepth - sellDepth) / totalShares * volatilityFactor;
             const clampedDelta = Math.max(-0.08, Math.min(0.08, delta));
@@ -324,10 +335,6 @@ async function getOrUpdateMarket(env, db) {
         }
 
         if (marketMap[sym].suspended !== 1) {
-            // 更新时，将 residual momentum (残留动量) 写回数据库？
-            // 不，为了简化，数据库只存“未处理的压力”。
-            // 一旦处理过一次，我们就把数据库清零。
-            // 动量只在当前的 catch-up 循环中生效。这已经足够了，因为用户一般每隔几分钟才会操作一次。
             updates.push(db.prepare("UPDATE market_state SET current_price=?, last_update=?, last_news_time=?, accumulated_pressure=0 WHERE symbol=?").bind(curP, simT, nextNewsT, sym));
             marketMap[sym].p = curP; marketMap[sym].t = simT; marketMap[sym].pressure = 0;
         }
@@ -338,12 +345,11 @@ async function getOrUpdateMarket(env, db) {
     if (updates.length > 0) await db.batch(updates);
 
     const result = { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
-    if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
+    // 使用统一的 CURRENT_CACHE_KEY
+    if (env.KV) await env.KV.put(CURRENT_CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     return result;
 }
 
-// onRequest 保持不变 (略，之前的版本已包含)
-// 但为了完整性，这里重复一下 onRequest 头部，确保您全量覆盖不会出错
 export async function onRequest(context) {
     try {
         const { request, env } = context;
@@ -376,7 +382,6 @@ export async function onRequest(context) {
         }
 
         if (method === 'GET') {
-            // ... (请复用之前的 GET 逻辑) ...
             const hasCompany = !!company;
             let positions = [];
             let totalEquity = 0; 
@@ -441,11 +446,20 @@ export async function onRequest(context) {
         }
 
         if (method === 'POST') {
-             const body = await request.json();
-             const { action, symbol, amount, leverage = 1 } = body;
-             const userNameDisplay = user.nickname || user.username;
-             
-             if (action === 'buy_insider') {
+            const body = await request.json();
+            const { action, symbol, amount, leverage = 1 } = body;
+            const userNameDisplay = user.nickname || user.username;
+
+            if (action === 'set_strategy') {
+                if (!company) return Response.json({ error: '无公司' });
+                const { strategy } = body;
+                if (!['safe', 'normal', 'risky'].includes(strategy)) return Response.json({ error: '无效策略' });
+                const newStrat = { ...companyData, risk: strategy };
+                await db.prepare("UPDATE user_companies SET strategy = ? WHERE id = ?").bind(JSON.stringify(newStrat), company.id).run();
+                return Response.json({ success: true, message: `经营方针已调整为: ${strategy.toUpperCase()}` });
+            }
+
+            if (action === 'buy_insider') {
                 if (user.k_coins < INSIDER_COST_24H) return Response.json({ error: `K币不足 (需 ${INSIDER_COST_24H} k)` });
                 const newExp = Date.now() + 24 * 60 * 60 * 1000;
                 await db.prepare("UPDATE users SET k_coins = k_coins - ?, insider_exp = ? WHERE id = ?").bind(INSIDER_COST_24H, newExp, user.id).run();
@@ -468,14 +482,13 @@ export async function onRequest(context) {
                     batch.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, newPrice, now));
                     batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(sym, `【管理员】${conf.name} 强制重组上市。`, 'good', now));
                 }
-                if (env.KV) await env.KV.delete("market_v13_div_dayfix");
+                // 使用统一的 CURRENT_CACHE_KEY
+                if (env.KV) await env.KV.delete(CURRENT_CACHE_KEY);
                 await db.batch(batch);
                 return Response.json({ success: true, message: '重组完成' });
             }
-            
-            // ... 其他 convert, create, upgrade, invest, buy/sell 逻辑保持不变 ...
-            // 请务必保留这些逻辑
-             if (action === 'convert') {
+
+            if (action === 'convert') {
                  const { type, val } = body; const num = parseInt(val);
                  if (type === 'i_to_k') {
                      if (user.coins < num) return Response.json({ error: '余额不足' });
@@ -511,15 +524,6 @@ export async function onRequest(context) {
                     db.prepare("UPDATE user_companies SET strategy = ? WHERE id = ?").bind(JSON.stringify(newStrat), company.id)
                 ]);
                 return Response.json({ success: true, message: `公司升级成功！当前等级: ${conf.name}` });
-            }
-            
-            // 设置策略
-            if (action === 'set_strategy') {
-                const { strategy } = body;
-                if (!['safe', 'normal', 'risky'].includes(strategy)) return Response.json({ error: '无效策略' });
-                const newStrat = { ...companyData, risk: strategy };
-                await db.prepare("UPDATE user_companies SET strategy = ? WHERE id = ?").bind(JSON.stringify(newStrat), company.id).run();
-                return Response.json({ success: true, message: `经营方针已调整为: ${strategy.toUpperCase()}` });
             }
 
             if (action === 'invest') {
@@ -650,7 +654,7 @@ export async function onRequest(context) {
 
                 batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, logMsg, 'user', Date.now()));
                 await db.batch(batch);
-                if (env.KV) await env.KV.delete("market_v13_div_dayfix");
+                if (env.KV) await env.KV.delete(CURRENT_CACHE_KEY);
                 return Response.json({ success: true, message: `交易成功 (滑点费率 ${(feeRate*100).toFixed(2)}%)`, log: logMsg });
             }
             
