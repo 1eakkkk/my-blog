@@ -6896,7 +6896,7 @@ async function loadForgeData() {
     container.innerHTML = '<div style="text-align:center;color:#666">LOADING DATA...</div>';
 
     try {
-        const res = await fetch(`${API_BASE}/forge`);
+        const res = await fetch(`${API_BASE}/forge?t=${Date.now()}`);
         const data = await res.json();
         
         if (data.success) {
@@ -6960,6 +6960,7 @@ window.doForgeUpgrade = async function(key) {
         }
     } catch(e) { showToast('Network Error'); }
 };
+
 
 
 
