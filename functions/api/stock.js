@@ -14,7 +14,9 @@ const STOCKS_CONFIG = {
 const BOT_NAMES = [
     "Quant_V9", "HighFreq_Bot", "Arasaka_Fund", "Militech_AI", 
     "NetWatch_Node", "Kang_Tao_Capital", "NightCorp_Algo", "Biotechnica_Lab",
-    "DeepDive_System", "Ghost_Protocol"
+    "DeepDive_System", "Ghost_Protocol", "Quant_V1", "Quant_V2", "Quant_V3", "Quant_V4", "Quant_V5",
+    "Quant_V6", "Quant_V7", "Quant_V8", "Quant_V14", "Quant_V10", "Quant_V11", "Quant_V12", "Quant_V13", "DeepSeek_System",
+    "Open_AI", "Google_AI"
 ];
 
 // === 2. 宏观与风控 ===
