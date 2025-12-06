@@ -597,7 +597,81 @@ export async function onRequest(context) {
                         }
                         
                         await db.batch(updates);
-                        return Response.json({ success: true, hasCompany: false, bankrupt: true, report: { msg: msg } });
+                        // ... (前文代码: chartData, stockMeta 等准备工作)
+
+                        // === v3.5 神经链接预测 (Neural Link Logic) ===
+                        // 只有拥有 Buff 的用户才能看到这一段 "privileged_info"
+                        const now = Date.now();
+                        const buffActive = (user.stock_buff_exp || 0) > now;
+                        let prediction = null;
+            
+                        if (buffActive) {
+                            // 计算剩余时间 (秒)
+                            const timeLeft = Math.floor(((user.stock_buff_exp || 0) - now) / 1000);
+                            
+                            // 针对每一只股票，计算“内幕概率”
+                            prediction = {};
+                            for (let sym in market) {
+                                const m = market[sym];
+                                // 获取隐藏参数：累积压力 (玩家买卖盘)
+                                const pressure = m.pressure || 0;
+                                
+                                // 获取当前纪元对该股票的 Buff (Era Bias)
+                                let eraBias = 1.0;
+                                const buffKey = sym.toLowerCase() + '_bias';
+                                if (era && era.buff && era.buff[buffKey]) eraBias = era.buff[buffKey];
+                                
+                                // 模拟简单的趋势预测算法
+                                // 逻辑：(压力方向 + 宏观偏好) -> 转化为 0~100% 的看涨概率
+                                // 基础分 50分
+                                let score = 50;
+                                
+                                // 1. 资金面得分 (压力)
+                                // 每 5000 股净买入 +10分
+                                score += (pressure / 5000) * 10;
+                                
+                                // 2. 宏观面得分
+                                if (eraBias > 1.0) score += 15; // 利好板块 +15%
+                                else if (eraBias < 1.0) score -= 15; // 利空板块 -15%
+                                
+                                // 3. 估值回归得分
+                                const val = m.p / m.issue_p;
+                                if (val < 0.8) score += 10; // 超跌反弹
+                                if (val > 1.5) score -= 10; // 恐高回调
+            
+                                // 限制在 10% - 90% 之间 (不做绝对承诺)
+                                score = Math.max(10, Math.min(90, Math.round(score)));
+                                
+                                prediction[sym] = {
+                                    prob: score, // 看涨概率
+                                    trend: score > 50 ? 'UP' : (score < 50 ? 'DOWN' : 'FLAT')
+                                };
+                            }
+                            // 附加剩余时间
+                            prediction.timeLeft = timeLeft;
+                        }
+                        // ============================================
+            
+                        // 修改 Return，把 prediction 加进去
+                        return Response.json({ 
+                            success: true, 
+                            hasCompany, 
+                            bankrupt: false, 
+                            market: chartData, 
+                            meta: stockMeta, 
+                            news: logs, 
+                            positions, 
+                            capital: hasCompany ? company.capital : 0, 
+                            totalEquity: totalEquity, 
+                            companyType: hasCompany ? company.type : 'none', 
+                            companyLevel: companyLevel, 
+                            userK: user.k_coins || 0, 
+                            userExp: user.xp || 0, 
+                            status, 
+                            era, 
+                            isInsider, 
+                            prediction // <--- 新增字段
+                        });
                     }
                 }
             }
