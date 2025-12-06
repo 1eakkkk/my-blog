@@ -596,7 +596,14 @@ async function getOrUpdateMarket(env, db) {
         eva: evaState // <--- 必须有这一行！
     };
     
-    if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
+    if (env.KV) {
+        // 1. 更新缓存
+        await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
+        
+        // 2. 🚨 核心修复：计算完成，立刻把锁删掉！
+        // 只有删了锁，前端的下一次轮询才能拿到最新的数据。
+        await env.KV.delete(LOCK_KEY); 
+    }
     return result;
 }
 export async function onRequest(context) {
