@@ -1,169 +1,165 @@
 // --- START OF FILE functions/api/idle.js ---
 
-// === 1. 游戏数值配置 (Game Design Config) ===
-const DAEMONS = {
-    'script_kiddie': { name: '脚本小子', base_cost: 10, base_dps: 1, cost_factor: 1.5 },
-    'data_leech':    { name: '数据水蛭', base_cost: 100, base_dps: 8, cost_factor: 1.4 },
-    'trojan_horse':  { name: '特洛伊木马', base_cost: 1000, base_dps: 50, cost_factor: 1.3 },
-    'logic_bomb':    { name: '逻辑炸弹', base_cost: 8000, base_dps: 250, cost_factor: 1.3 },
-    'black_ice':     { name: '黑色障壁', base_cost: 50000, base_dps: 1200, cost_factor: 1.25 }
+// === 1. 游戏数值配置 ===
+const UNITS = {
+    'kiddie': { name: '脚本小子', base_dps: 2,   base_cost: 10,  cost_inc: 1.5, desc: '基础算力单位' },
+    'leech':  { name: '数据水蛭', base_dps: 10,  base_cost: 100, cost_inc: 1.6, desc: '增加硬件掉落率' },
+    'ice':    { name: '攻性防壁', base_dps: 50,  base_cost: 500, cost_inc: 1.7, desc: '稳定推进核心' },
+    'ghost':  { name: '幽灵 AI',  base_dps: 300, base_cost: 2000,cost_inc: 1.8, desc: '极高攻坚能力' }
 };
 
-// 每一层的怪物血量增长公式：Base * (1.1 ^ (Layer-1))
+// 层数血量公式：100 * (1.1 ^ (Layer-1))
 function getLayerHP(layer) {
-    return Math.floor(100 * Math.pow(1.15, layer - 1));
+    return Math.floor(100 * Math.pow(1.10, layer - 1));
 }
 
-// 每一层的掉落奖励 (数据区块)
-function getLayerReward(layer) {
-    return Math.floor(5 * Math.pow(1.10, layer - 1));
-}
-
-// 计算升级费用
-function getUpgradeCost(id, currentLv) {
-    const unit = DAEMONS[id];
-    return Math.floor(unit.base_cost * Math.pow(unit.cost_factor, currentLv));
-}
-
-// 计算总 DPS
-function calculateTotalDPS(levels) {
-    let dps = 0;
-    for (const [id, lv] of Object.entries(levels)) {
-        if (DAEMONS[id] && lv > 0) {
-            dps += DAEMONS[id].base_dps * lv;
-        }
-    }
-    return dps; // 基础每秒伤害
+// 基础 i币 奖励公式
+function getLayerCoinReward(layer) {
+    // 每一层给 5 ~ 10 i币 (随层数微涨)
+    return Math.floor(5 + (layer * 0.5));
 }
 
 export async function onRequest(context) {
     const { request, env } = context;
     const db = env.DB;
 
-    // 1. 鉴权 (复用之前的逻辑)
+    // 鉴权
     const cookie = request.headers.get('Cookie');
     if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
     const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
     const user = await db.prepare('SELECT id, coins FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
     if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
 
-    // 2. 获取或初始化挂机存档
-    let save = await db.prepare("SELECT * FROM idle_game WHERE user_id = ?").bind(user.id).first();
+    // 初始化存档
+    let save = await db.prepare("SELECT * FROM idle_saves WHERE user_id = ?").bind(user.id).first();
+    const now = Date.now();
     if (!save) {
-        await db.prepare("INSERT INTO idle_game (user_id, last_claim_time) VALUES (?, ?)").bind(user.id, Date.now()).run();
-        save = { current_layer: 1, data_blocks: 0, daemon_levels: '{}', last_claim_time: Date.now() };
+        await db.prepare("INSERT INTO idle_saves (user_id, last_claim_time, unit_levels) VALUES (?, ?, ?)")
+            .bind(user.id, now, JSON.stringify({ kiddie: 1, leech: 0, ice: 0, ghost: 0 })).run();
+        save = { current_layer: 1, scrap_hardware: 0, data_packets: 0, unit_levels: '{"kiddie":1}', last_claim_time: now };
     }
 
-    const levels = JSON.parse(save.daemon_levels || '{}');
-    let currentBlocks = save.data_blocks;
-    let currentLayer = save.current_layer;
-    const now = Date.now();
+    const levels = JSON.parse(save.unit_levels || '{}');
 
+    // 计算总 DPS
+    let totalDPS = 0;
+    for (let key in UNITS) {
+        if (levels[key]) totalDPS += levels[key] * UNITS[key].base_dps;
+    }
+
+    // === GET: 获取状态 & 预览收益 ===
     if (request.method === 'GET') {
-        // === 查询状态 & 预估离线收益 ===
-        const dps = calculateTotalDPS(levels);
         const timeDiff = (now - save.last_claim_time) / 1000; // 秒
-        
-        // 简单模拟推图进度
-        // 实际上后端不真推，只返回 dps 和 资源，前端模拟动画。
-        // 但领奖时需要真算。这里 GET 只返回状态。
-        
         return Response.json({
             success: true,
-            layer: currentLayer,
-            blocks: currentBlocks,
+            layer: save.current_layer,
+            scrap: save.scrap_hardware,
+            packets: save.data_packets,
             levels: levels,
-            dps: dps,
-            config: DAEMONS,
-            layer_hp: getLayerHP(currentLayer),
-            offline_seconds: timeDiff
+            dps: totalDPS,
+            config: UNITS,
+            hp: getLayerHP(save.current_layer),
+            offline_sec: timeDiff
         });
     }
 
+    // === POST: 操作 ===
     if (request.method === 'POST') {
         const body = await request.json();
-        const action = body.action;
 
-        // === 核心逻辑 A: 领取离线收益 (Claim) ===
-        if (action === 'claim') {
-            const dps = calculateTotalDPS(levels);
+        // 1. 领取收益 (Claim)
+        if (body.action === 'claim') {
             const timeDiff = (now - save.last_claim_time) / 1000;
-            
-            if (timeDiff < 10) return Response.json({ error: '太频繁了，让子弹飞一会儿' });
-            if (dps === 0) {
-                // 没兵，只更新时间
-                await db.prepare("UPDATE idle_game SET last_claim_time = ? WHERE user_id = ?").bind(now, user.id).run();
-                return Response.json({ success: true, message: "暂无算力，无法挂机" });
-            }
+            if (timeDiff < 5) return Response.json({ error: '冷却中' });
+            if (totalDPS === 0) return Response.json({ error: '无算力' });
 
-            // 计算推了多少层
-            // 逻辑：总伤害 = DPS * 时间。看能打死多少只怪。
-            let damagePool = dps * timeDiff;
+            let damage = totalDPS * timeDiff;
             let layersCleared = 0;
-            let blocksGained = 0;
-            let coinsGained = 0; // i币收益 (少量)
+            let currentL = save.current_layer;
+            let totalCoins = 0;
+            let totalScrap = 0;
+            let totalPackets = 0;
 
-            // 循环扣血模拟 (限制最大循环防止超时，比如最多推1000层)
-            let simLayer = currentLayer;
-            while (damagePool > 0 && layersCleared < 500) {
-                const hp = getLayerHP(simLayer);
-                if (damagePool >= hp) {
-                    damagePool -= hp;
-                    simLayer++;
+            // 模拟推层 (上限 1000 层防止超时)
+            while (damage > 0 && layersCleared < 1000) {
+                let hp = getLayerHP(currentL);
+                if (damage >= hp) {
+                    damage -= hp;
                     layersCleared++;
-                    blocksGained += getLayerReward(simLayer);
-                    // 每层给予 1% 层数的 i币 (e.g. 100层给 1 i币)
-                    coinsGained += Math.max(0.1, simLayer * 0.05); 
+                    currentL++;
+                    
+                    // 计算掉落
+                    totalCoins += getLayerCoinReward(currentL);
+                    
+                    // 硬件掉落：基础 10% + 水蛭加成 (每级 +2%)
+                    let scrapRate = 0.10 + ((levels['leech'] || 0) * 0.02);
+                    if (Math.random() < scrapRate) totalScrap++;
+
+                    // 数据包掉落：基础 0.5% (极稀有)
+                    if (Math.random() < 0.005) totalPackets++;
                 } else {
-                    break; // 打不动了
+                    break; 
                 }
             }
 
-            const finalCoins = Math.floor(coinsGained);
-            
+            // 至少每小时保底给点硬件，防止非洲人卡关
+            if (timeDiff > 3600 && totalScrap === 0) totalScrap = Math.floor(timeDiff / 3600);
+
             // 更新数据库
             await db.batch([
-                db.prepare("UPDATE idle_game SET current_layer = ?, data_blocks = data_blocks + ?, last_claim_time = ? WHERE user_id = ?")
-                  .bind(simLayer, blocksGained, now, user.id),
-                db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(finalCoins, user.id)
+                db.prepare("UPDATE idle_saves SET current_layer=?, scrap_hardware=scrap_hardware+?, data_packets=data_packets+?, last_claim_time=? WHERE user_id=?")
+                  .bind(currentL, totalScrap, totalPackets, now, user.id),
+                db.prepare("UPDATE users SET coins=coins+? WHERE id=?").bind(totalCoins, user.id)
             ]);
 
             return Response.json({ 
                 success: true, 
                 cleared: layersCleared, 
-                blocks: blocksGained, 
-                coins: finalCoins,
-                new_layer: simLayer 
+                coins: totalCoins, 
+                scrap: totalScrap, 
+                packets: totalPackets,
+                new_layer: currentL 
             });
         }
 
-        // === 核心逻辑 B: 升级单位 (Upgrade) ===
-        if (action === 'upgrade') {
-            const unitId = body.unitId;
-            if (!DAEMONS[unitId]) return Response.json({ error: '无效单位' });
+        // 2. 升级单位 (Upgrade) - 消耗硬件(Scrap)
+        if (body.action === 'upgrade') {
+            const u = UNITS[body.unit];
+            if (!u) return Response.json({ error: '无效单位' });
+            
+            const curLv = levels[body.unit] || 0;
+            // 费用公式
+            const cost = Math.floor(u.base_cost * Math.pow(u.cost_inc, curLv));
 
-            const currentLv = levels[unitId] || 0;
-            const cost = getUpgradeCost(unitId, currentLv);
+            // 检查资源 (硬件)
+            if (save.scrap_hardware < cost) return Response.json({ error: `硬件不足 (需 ${cost})` });
 
-            // 扣费逻辑：优先扣 Data Blocks，如果是 Lv.0 升 Lv.1 允许扣 iCoins (作为启动资金)
-            // 这里为了简化，Lv.0 -> Lv.1 强制扣 iCoins，后续扣 Blocks
-            if (currentLv === 0) {
-                if (user.coins < cost) return Response.json({ error: `i币不足 (需 ${cost})` });
-                levels[unitId] = 1;
-                await db.batch([
-                    db.prepare("UPDATE users SET coins = coins - ? WHERE id = ?").bind(cost, user.id),
-                    db.prepare("UPDATE idle_game SET daemon_levels = ? WHERE user_id = ?").bind(JSON.stringify(levels), user.id)
-                ]);
-            } else {
-                if (currentBlocks < cost) return Response.json({ error: `区块不足 (需 ${cost})` });
-                levels[unitId] = currentLv + 1;
-                await db.batch([
-                    db.prepare("UPDATE idle_game SET data_blocks = data_blocks - ?, daemon_levels = ? WHERE user_id = ?")
-                      .bind(cost, JSON.stringify(levels), user.id)
-                ]);
-            }
+            levels[body.unit] = curLv + 1;
+            
+            await db.prepare("UPDATE idle_saves SET scrap_hardware=scrap_hardware-?, unit_levels=? WHERE user_id=?")
+                .bind(cost, JSON.stringify(levels), user.id).run();
 
-            return Response.json({ success: true, message: "升级成功", new_level: levels[unitId] });
+            return Response.json({ success: true, message: '升级成功', level: curLv + 1 });
+        }
+
+        // 3. 使用数据包 (Use Packet) - 股市 Buff
+        if (body.action === 'use_packet') {
+            if (save.data_packets < 1) return Response.json({ error: '没有数据包' });
+            
+            // 增加 10 分钟 Buff 时间
+            // 如果当前已有 Buff，则延长；否则从现在开始
+            // 需要先查一下当前 user.stock_buff_exp (这里为了省一次查询，直接用 update 逻辑处理)
+            
+            // 获取当前 Buff 状态
+            const uData = await db.prepare("SELECT stock_buff_exp FROM users WHERE id=?").bind(user.id).first();
+            let newExp = Math.max(now, uData.stock_buff_exp || 0) + (10 * 60 * 1000);
+
+            await db.batch([
+                db.prepare("UPDATE idle_saves SET data_packets=data_packets-1 WHERE user_id=?").bind(user.id),
+                db.prepare("UPDATE users SET stock_buff_exp=? WHERE id=?").bind(newExp, user.id)
+            ]);
+
+            return Response.json({ success: true, message: '股市预测算法已优化 (持续10分钟)' });
         }
     }
 
