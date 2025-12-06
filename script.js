@@ -6891,22 +6891,28 @@ window.closeForgeModal = function() {
 };
 
 async function loadForgeData() {
-    // 强制刷新一次用户信息，确保拿到最新等级
-    await checkSecurity(); 
+    const container = document.getElementById('forge-list');
+    if (!container) return;
     
-    // 从 currentUser 中读取
-    const levels = JSON.parse(currentUser.forge_levels || '{}');
-    
-    // 配置表 (前端副本)
-    const config = {
-        'overclock': { name: '神经超频', base_cost: 1000, desc: '挂机算力(DPS) +5%', max: 50 },
-        'sniffer':   { name: '量子嗅探', base_cost: 5000, desc: '股市手续费 -1%', max: 10 },
-        'hardening': { name: '逻辑硬化', base_cost: 2000, desc: '打工收益 +5%', max: 20 }
-    };
-    
-    // 构造伪造的数据对象传给渲染函数，复用原有逻辑
-    forgeData = { levels, config };
-    renderForgeList();
+    // 只有第一次加载显示 Loading，升级刷新时不闪烁
+    if (!container.hasChildNodes()) {
+        container.innerHTML = '<div style="text-align:center;color:#666">LOADING DATA...</div>';
+    }
+
+    try {
+        // 加时间戳防止缓存
+        const res = await fetch(`${API_BASE}/forge?t=${Date.now()}`);
+        const data = await res.json();
+        
+        if (data.success) {
+            forgeData = data;
+            renderForgeList();
+            // 顺便把最新等级同步到全局变量，防止其他地方读到旧的
+            if (currentUser) {
+                currentUser.forge_levels = JSON.stringify(data.levels);
+            }
+        }
+    } catch(e) { console.error(e); }
 }
 function renderForgeList() {
     const container = document.getElementById('forge-list');
@@ -6961,6 +6967,7 @@ window.doForgeUpgrade = async function(key) {
         }
     } catch(e) { showToast('Network Error'); }
 };
+
 
 
 
