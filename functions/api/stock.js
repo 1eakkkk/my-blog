@@ -500,7 +500,20 @@ async function getOrUpdateMarket(env, db) {
     }
 
     logsToWrite.forEach(l => updates.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(l.sym, l.msg, l.type, l.t)));
-    if (Math.random() < 0.05) updates.push(db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(now - 3600000));
+    
+    if (Math.random() < 0.05) {
+        const threeDaysAgo = now - (3 * 24 * 60 * 60 * 1000);
+        const oneDayAgo = now - (24 * 60 * 60 * 1000);
+        
+        updates.push(
+            // 1. 清理 K 线：只保留最近 3 天的分钟数据
+            db.prepare("DELETE FROM market_history WHERE created_at < ?").bind(threeDaysAgo),
+            
+            // 2. 清理日志：只保留最近 24 小时的动态 (防止日志表无限膨胀)
+            db.prepare("DELETE FROM market_logs WHERE created_at < ?").bind(oneDayAgo)
+        );
+    }
+
     if (updates.length > 0) await db.batch(updates);
 
     const result = { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
@@ -719,9 +732,15 @@ export async function onRequest(context) {
                 if (market[symbol].suspended === 1) return Response.json({ error: '停牌' });
                 
                 const qty = parseInt(amount);
-                const lev = parseInt(leverage);
+                let lev = parseInt(leverage); // 这里用 let，方便修正
                 if (isNaN(qty) || qty <= 0) return Response.json({ error: '数量无效' });
-
+                if (!Number.isInteger(qty)) return Response.json({ error: '必须为整数' });
+                
+                // 强制校验杠杆倍率白名单 (防止脚本修改 HTML 提交 x100)
+                const ALLOWED_LEVERAGE = [1, 2, 5, 10];
+                if (!ALLOWED_LEVERAGE.includes(lev)) {
+                    lev = 1; // 非法杠杆强制降为 1倍
+                }
                 const BATCH_QUOTA = 10000; 
 
                 const curP = market[symbol].p;
@@ -801,7 +820,17 @@ export async function onRequest(context) {
                     } else {
                         batch.push(db.prepare("INSERT INTO company_positions (company_id, stock_symbol, amount, avg_price, leverage, last_trade_time, last_trade_type, accumulated_volume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(company.id, symbol, qty, curP, lev, now, action, newAccVol));
                     }
-                    logMsg = `[${userNameDisplay}] 买入 ${qty} 股 ${symbol} (x${lev})`;
+                    const tradeValue = curP * qty;
+                    let icon = lev > 1 ? '🔥' : '🐂';
+                    if (tradeValue > 1000000) icon = '🐋'; // 交易额 > 100万显示鲸鱼
+                    
+                    logMsg = `${icon} [${userNameDisplay}] 买入 ${qty.toLocaleString()} 股 ${symbol}`;
+                    if (lev > 1) logMsg += ` (x${lev})`;
+                    
+                    // 如果是巨鲸交易，额外插入一条高权重的日志，确保它停留在列表中
+                    if (tradeValue > 5000000) { // 500万以上
+                         batch.push(db.prepare("INSERT INTO market_logs (symbol, msg, type, created_at) VALUES (?, ?, ?, ?)").bind(symbol, `🚨 监测到巨鲸资金进场！`, 'good', now));
+                    }
                     batch.push(db.prepare("UPDATE market_state SET accumulated_pressure = accumulated_pressure + ? WHERE symbol = ?").bind(qty, symbol));
                 }
                 else if (action === 'sell') {
