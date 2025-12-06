@@ -1056,12 +1056,18 @@ export async function onRequest(context) {
                 }
                 const newAccVol = currentAccVol + qty;
 
+                // === 修复版：强制锁仓逻辑 ===
+                // 计算实际锁仓时间 (基础60秒 * 公司减免系数)
                 const finalShortHold = SHORT_HOLD_MIN * currentLvConf.cd;
+                
                 if (action === 'cover') {
-                    if (timeDiff < finalShortHold && currentAccVol === 0) { } 
-                    else if (timeDiff < finalShortHold) { return Response.json({ error: `做空需锁仓 ${Math.ceil(finalShortHold/1000)} 秒` }); }
+                    // 只要距离上次操作时间小于锁仓时间，一律驳回
+                    // 无论 accumulate_volume 是多少，时间红线不可逾越
+                    if (timeDiff < finalShortHold) { 
+                        return Response.json({ error: `做空需锁仓 ${Math.ceil(finalShortHold/1000)} 秒 (剩余 ${Math.ceil((finalShortHold - timeDiff)/1000)}s)` }); 
+                    }
                 }
-
+                
                 const currentHold = pos ? Math.abs(pos.amount) : 0;
                 const maxHoldingShares = Math.floor(totalShares * finalMaxHoldPct);
                 if (action !== 'cover' && action !== 'sell' && (currentHold + qty) > maxHoldingShares) {
