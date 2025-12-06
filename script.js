@@ -4978,7 +4978,7 @@ window.loadStockMarket = async function() {
                     const percent = ((diff / openPrice) * 100).toFixed(2);
                     const color = diff >= 0 ? '#0f0' : '#f33';
                     const icon = diff >= 0 ? '📈' : '📉';
-                    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+                    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂', 'PURPLE':'虚空', 'GREEN':'康陶', 'PINK':'夜氏'};
                     // 组合显示：宏观信息 + 个股信息
                     marketTicker.innerHTML = `<span style="font-size:0.8em; opacity:0.8; margin-right:10px;">${tickerText}</span> <span style="color:${color}; font-weight:bold;">${icon} ${nameMap[currentStockSymbol]} ${percent}%</span>`;
                 }
@@ -5233,7 +5233,7 @@ function drawInteractiveChart(symbol, mousePos) {
         ctx.fillText(Math.floor(val), padding.left - 5, y);
     }
 
-    const themeColorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    const themeColorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333', 'PURPLE':'#bd00ff', 'GREEN':'#00ff00', 'PINK':'#ff00de'};
     const themeColor = themeColorMap[symbol] || '#fff';
 
     // 计算 X 轴步长
@@ -5243,7 +5243,9 @@ function drawInteractiveChart(symbol, mousePos) {
     let gradStart = 'rgba(0, 243, 255, 0.2)'; 
     if (symbol === 'GOLD') gradStart = 'rgba(255, 215, 0, 0.2)';
     if (symbol === 'RED') gradStart = 'rgba(255, 51, 51, 0.2)';
-
+    if (symbol === 'PURPLE') gradStart = 'rgba(189, 0, 255, 0.2)';
+    if (symbol === 'GREEN') gradStart = 'rgba(0, 255, 0, 0.2)';
+    if (symbol === 'PINK') gradStart = 'rgba(255, 0, 222, 0.2)';
     const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
     gradient.addColorStop(0, gradStart);
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -6117,8 +6119,8 @@ window.toggleAutoTradePanel = function() {
         arrow.innerText = '▲';
         
         // 自动填入当前股票信息
-        const nameMap = {'BLUE':'蓝盾安全', 'GOLD':'神经元科技', 'RED':'荒坂军工'};
-        const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+        const nameMap = {'BLUE':'蓝盾安全', 'GOLD':'神经元科技', 'RED':'荒坂军工', 'PURPLE':'虚空能源', 'GREEN':'康陶医疗', 'PINK':'夜氏传媒'};
+        const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333', 'PURPLE':'#bd00ff', 'GREEN':'#00ff00', 'PINK':'#ff00de'};
         
         if (currentStockSymbol && display) {
             const name = nameMap[currentStockSymbol];
@@ -6337,6 +6339,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
