@@ -1007,7 +1007,6 @@ export async function onRequest(context) {
                 // === 应用天赋 Buff ===
                 const currentLvConf = COMPANY_LEVELS[companyLevel] || COMPANY_LEVELS[0];
                 const finalCooldown = BASE_TRADE_COOLDOWN * currentLvConf.cd; // 冷却缩减
-                const finalMaxHoldPct = BASE_MAX_HOLDING_PCT * currentLvConf.hold; // 持仓上限提升
 
                 // === 1. 计算基础费率 (基于公司等级) ===
                 // 注意：这里必须用 let，因为后面我们要修改它
