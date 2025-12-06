@@ -640,9 +640,11 @@ export async function onRequest(context) {
         
         let user = null;
         try {
-            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp, users.tech_levels FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+            // ✅ 加上了 users.forge_levels
+            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp, users.tech_levels, users.forge_levels FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
         } catch (e) {
-            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp, users.tech_levels FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+            // ✅ 加上了 users.forge_levels
+            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp, users.tech_levels, users.forge_levels FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
             if (user) user.role = 'user';
         }
         if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
@@ -1016,8 +1018,8 @@ export async function onRequest(context) {
 
                 // === 2. 应用【硬件锻造】Buff (量子嗅探) ===
                 // 读取锻造等级
-                const forge = await db.prepare("SELECT levels FROM user_forge WHERE user_id=?").bind(user.id).first();
-                const forgeLv = JSON.parse(forge?.levels || '{}');
+                // ✅ 直接从用户信息读取，不再查表
+                const forgeLv = JSON.parse(user.forge_levels || '{}');
                 const snifferLv = forgeLv['sniffer'] || 0;
 
                 // 叠加折扣：每级减少 0.1% (0.001)
@@ -1178,6 +1180,38 @@ export async function onRequest(context) {
                     .bind(cost, JSON.stringify(currentTechs), user.id).run();
                     
                 return Response.json({ success: true, message: `研发成功：${conf.name} Lv.${curLv + 1}`, level: curLv + 1 });
+            }
+
+            // Action: 硬件锻造 (移入 Stock 核心，保障事务安全)
+            if (action === 'upgrade_forge') {
+                const { type } = body;
+                const FORGE_CONFIG = {
+                    'overclock': { name: '神经超频', base_cost: 1000, max: 50 },
+                    'sniffer':   { name: '量子嗅探', base_cost: 5000, max: 10 },
+                    'hardening': { name: '逻辑硬化', base_cost: 2000, max: 20 }
+                };
+                
+                const conf = FORGE_CONFIG[type];
+                if (!conf) return Response.json({ error: '未知硬件' });
+
+                const currentForge = JSON.parse(user.forge_levels || '{}');
+                const curLv = currentForge[type] || 0;
+                
+                if (curLv >= conf.max) return Response.json({ error: '已满级' });
+                
+                // 价格公式：基础 * 1.1^等级
+                const cost = Math.floor(conf.base_cost * Math.pow(1.1, curLv));
+                
+                if ((user.k_coins || 0) < cost) return Response.json({ error: `K币不足 (需 ${cost})` });
+                
+                // 执行升级
+                currentForge[type] = curLv + 1;
+                
+                // 单条 SQL 更新，原子操作，绝不丢失
+                await db.prepare("UPDATE users SET k_coins = k_coins - ?, forge_levels = ? WHERE id = ?")
+                    .bind(cost, JSON.stringify(currentForge), user.id).run();
+                    
+                return Response.json({ success: true, message: `锻造成功！${conf.name} Lv.${curLv + 1}`, level: curLv + 1 });
             }
             
             if (action === 'withdraw') {
