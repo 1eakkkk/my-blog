@@ -5018,7 +5018,7 @@ window.loadStockMarket = async function() {
             }
 
             // 10. 重绘图表与持仓文字
-            if (typeof switchStock === 'function') {
+            if (typeof  === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
                 updatePositionUI(currentStockSymbol);
             }
@@ -5091,11 +5091,15 @@ window.switchStock = function(symbol) {
     currentStockSymbol = symbol;
     
     // 2. UI 视觉切换 (Tab 高亮)
-    document.querySelectorAll('.stock-tab').forEach(b => b.classList.remove('active'));
     const btns = document.querySelectorAll('.stock-tab');
-    if(symbol==='BLUE' && btns[0]) btns[0].classList.add('active');
-    if(symbol==='GOLD' && btns[1]) btns[1].classList.add('active');
-    if(symbol==='RED' && btns[2]) btns[2].classList.add('active');
+    btns.forEach(btn => {
+        btn.classList.remove('active');
+        // 检查按钮的 onclick 属性里是否包含当前代号
+        // 例如: onclick="switchStock('PURPLE')" 包含 'PURPLE'
+        if (btn.getAttribute('onclick').includes(`'${symbol}'`)) {
+            btn.classList.add('active');
+        }
+    });
 
     // 3. 【核心优化】立即渲染本地缓存数据 (视觉零延迟)
     // 这一步是丝滑的关键，直接复用上一次的数据绘图和填字
@@ -6347,6 +6351,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
