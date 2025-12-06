@@ -197,6 +197,8 @@ async function ensureSchema(db) {
     try { await db.prepare("SELECT last_dividend_time FROM market_state LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE market_state ADD COLUMN last_dividend_time INTEGER DEFAULT 0").run(); } catch(err){} }
     try { await db.prepare("SELECT last_trade_type FROM company_positions LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN last_trade_type TEXT").run(); } catch(err){} }
     try { await db.prepare("SELECT accumulated_volume FROM company_positions LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE company_positions ADD COLUMN accumulated_volume INTEGER DEFAULT 0").run(); } catch(err){} }
+    try { await db.prepare("SELECT stock_buff_exp FROM users LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE users ADD COLUMN stock_buff_exp INTEGER DEFAULT 0").run(); } catch(err) {} }
+    try { await db.prepare("SELECT tech_levels FROM users LIMIT 1").first(); } catch (e) { try { await db.prepare("ALTER TABLE users ADD COLUMN tech_levels TEXT DEFAULT '{}'").run(); } catch(err) {} }
 }
 
 async function getOrUpdateMarket(env, db) {
@@ -638,9 +640,9 @@ export async function onRequest(context) {
         
         let user = null;
         try {
-            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp, users.tech_levels FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
         } catch (e) {
-            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+            user = await db.prepare('SELECT users.id, users.coins, users.k_coins, users.xp, users.username, users.nickname, users.role, users.insider_exp, users.stock_buff_exp, users.tech_levels FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
             if (user) user.role = 'user';
         }
         if (!user) return Response.json({ error: 'Auth' }, { status: 401 });
