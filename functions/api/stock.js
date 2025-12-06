@@ -1017,10 +1017,11 @@ export async function onRequest(context) {
                 let finalFeeRate = BASE_FEE_RATE * currentLvConf.fee;       
 
                 // === 2. 应用【硬件锻造】Buff (量子嗅探) ===
-                // 读取锻造等级
-                // ✅ 直接从用户信息读取，不再查表
                 const uForge = await db.prepare("SELECT forge_levels FROM users WHERE id=?").bind(user.id).first();
-                const forgeLv = JSON.parse(user.forge_levels || '{}');
+                let forgeLv = {};
+                try {
+                    forgeLv = uForge && uForge.forge_levels ? JSON.parse(uForge.forge_levels) : {};
+                } catch(e) { forgeLv = {}; }
                 const snifferLv = forgeLv['sniffer'] || 0;
 
                 // 叠加折扣：每级减少 0.1% (0.001)
