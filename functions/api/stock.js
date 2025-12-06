@@ -504,6 +504,13 @@ async function getOrUpdateMarket(env, db) {
                 else sellDepth += Math.abs(momentum);
                 momentum = Math.floor(momentum * 0.7); 
             }
+            // === 🚨 紧急修复：补回 evaForce 定义 ===
+            let evaForce = evaBias; // 获取外部计算好的 EVA 偏差
+            // 昼夜波函数 (夜间流动性降低)
+            const hour = new Date(simT).getUTCHours();
+            const isNight = (hour >= 16 || hour <= 2); 
+            if (isNight) evaForce -= 0.001;
+            // ======================================
 
             // --- 价格计算 (引入差异化 EVA 影响) ---
             const volatilityFactor = 35.0 * currentEra.buff.vol * Math.sqrt(dynamicLiq); 
