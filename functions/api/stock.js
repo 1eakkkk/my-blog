@@ -19,20 +19,25 @@ const MACRO_ERAS = [
 ];
 
 // === 2. 基础风控参数 ===
-const BASE_TRADE_COOLDOWN = 30 * 1000; // 基础冷却
+const BASE_TRADE_COOLDOWN = 30 * 1000; 
 const SHORT_HOLD_MIN = 60 * 1000;
-const BASE_FEE_RATE = 0.005;           // 基础手续费 0.5%
-const BASE_MAX_HOLDING_PCT = 0.20;     // 基础持仓上限 20%
+const BASE_FEE_RATE = 0.005;           
+const BASE_MAX_HOLDING_PCT = 0.20;     
 const MAX_ORDER_PCT = 0.01;
 const BANKRUPT_PCT = 0.2;
 const INSIDER_COST_24H = 5000;
 const CURRENT_CACHE_KEY = "market_v16_talent_tree"; 
 
-// === 3. 公司天赋树 (Talent Tree) ===
-// margin: 保证金率 (越低杠杆越高)
-// fee: 手续费折扣 (0.8 = 8折)
-// cd: 冷却时间折扣 (0.5 = 冷却减半)
-// hold: 持仓上限倍率 (1.5 = 可持仓 30%)
+// === 👇👇👇 补回丢失的 MARKET_MODES 定义 👇👇👇 ===
+const MARKET_MODES = {
+    0: { name: '平衡市', code: 'NORMAL', depth_mod: 1.0, icon: '🌤️' },
+    1: { name: '牛市',   code: 'BULL',   depth_mod: 1.5, icon: '🔥' },
+    2: { name: '熊市',   code: 'BEAR',   depth_mod: 0.8, icon: '❄️' },
+    3: { name: '低波市', code: 'QUIET',  depth_mod: 0.3, icon: '🌫️' }
+};
+// ===================================================
+
+// === 3. 公司天赋树 ===
 const COMPANY_LEVELS = {
     0:  { name: "皮包公司",     cost: 0,       margin: 1.00, fee: 1.0, cd: 1.0, hold: 1.0 },
     1:  { name: "车库工作室",   cost: 2000,    margin: 0.98, fee: 1.0, cd: 1.0, hold: 1.0 },
@@ -44,10 +49,9 @@ const COMPANY_LEVELS = {
     7:  { name: "跨国资本",     cost: 150000,  margin: 0.82, fee: 0.7, cd: 0.6, hold: 1.8 },
     8:  { name: "暗池巨鲸",     cost: 300000,  margin: 0.80, fee: 0.6, cd: 0.5, hold: 2.0 },
     9:  { name: "市场做市商",   cost: 600000,  margin: 0.75, fee: 0.5, cd: 0.4, hold: 2.5 },
-    10: { name: "荒坂塔顶层",   cost: 1000000, margin: 0.70, fee: 0.0, cd: 0.0, hold: 5.0 } // 满级免手续费免冷却
+    10: { name: "荒坂塔顶层",   cost: 1000000, margin: 0.70, fee: 0.0, cd: 0.0, hold: 5.0 } 
 };
 
-// 辅助：计算升到某一级别的累计 K 币花费
 function calculateTotalUpgradeCost(level) {
     let total = 0;
     for (let i = 1; i <= level; i++) {
@@ -280,7 +284,8 @@ async function getOrUpdateMarket(env, db) {
                 const conf = STOCKS_CONFIG[sym];
                 const newShares = randRange(conf.share_range[0], conf.share_range[1]);
                 const newPrice = randRange(conf.price_range[0], conf.price_range[1]);
-                updates.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0, total_shares=?, issuance_price=?, last_dividend_time=? WHERE symbol=?").bind(newPrice, newPrice, newPrice, now, newShares, newPrice, now, sym)); 
+                updates.push(db.prepare("UPDATE market_state SET current_price=?, initial_base=?, open_price=?, is_suspended=0, last_update=?, accumulated_pressure=0, total_shares=?, issuance_price=?, last_dividend_time=? WHERE symbol=?")
+                    .bind(newPrice, newPrice, newPrice, now, newShares, newPrice, now, sym)); 
                 updates.push(db.prepare("DELETE FROM market_history WHERE symbol = ?").bind(sym));
                 logsToWrite.push({sym, msg: `【重组上市】${conf.name} 完成重组，进入 ${currentEra.name} 纪元。`, type: 'good', t: now});
                 marketMap[sym].suspended = 0;
@@ -308,7 +313,6 @@ async function getOrUpdateMarket(env, db) {
             if (currentEra.buff[buffKey]) eraBias = currentEra.buff[buffKey];
             
             let baseDepthRatio = 0.005; 
-            // 护盘机制
             const priceRatio = curP / issuePrice;
             if (priceRatio < 1.0) {
                 const protectionFactor = 1 + (1 - priceRatio) * 4; 
@@ -330,7 +334,6 @@ async function getOrUpdateMarket(env, db) {
                     }
                 }
             }
-            // 狡猾的做市商逻辑
             if (!newsMsg && Math.random() < 0.6) { 
                 const valuation = curP / issuePrice;
                 let botSentiment = 0; 
@@ -353,12 +356,10 @@ async function getOrUpdateMarket(env, db) {
                     else sellDepth += Math.abs(botVol);
                 }
             }
-            // 玩家压力
             if (i === 0) {
                 if (currentPressure > 0) buyDepth += currentPressure;
                 else sellDepth += Math.abs(currentPressure);
             }
-            // 动量
             if (Math.abs(momentum) > 10) {
                 if (momentum > 0) buyDepth += momentum;
                 else sellDepth += Math.abs(momentum);
@@ -458,9 +459,10 @@ export async function onRequest(context) {
                 if (isDataValid) {
                     totalEquity = tempEquity;
                     const bankruptLine = -100; 
-                    // === 核心修复：破产保护保险 ===
-                    // 如果破产，计算已花费的 K 币并退还 30%
+                    
+                    // === 🛡️ 破产保险 (30% 返还) ===
                     if (totalEquity <= bankruptLine && hasLeverage) {
+                        // 计算历史升级花费
                         const totalKCost = calculateTotalUpgradeCost(companyLevel);
                         const refundK = Math.floor(totalKCost * 0.3);
                         
@@ -480,7 +482,7 @@ export async function onRequest(context) {
                     }
                 }
             }
-
+            // ... GET 返回数据部分保持不变 ...
             const chartData = {}; const stockMeta = {};
             const historyResults = await db.prepare("SELECT symbol, price as p, created_at as t FROM market_history WHERE created_at > ? ORDER BY created_at ASC").bind(Date.now() - 7200000).all();
             for (let sym in STOCKS_CONFIG) {
@@ -514,8 +516,8 @@ export async function onRequest(context) {
             const { action, symbol, amount, leverage = 1 } = body;
             const userNameDisplay = user.nickname || user.username;
 
-            // ... 其他 POST Action (set_strategy, buy_insider, admin_reset, convert, create) 保持不变 ...
-             if (action === 'set_strategy') {
+            // ... POST Action 保持不变 ...
+            if (action === 'set_strategy') {
                 if (!company) return Response.json({ error: '无公司' });
                 const { strategy } = body;
                 if (!['safe', 'normal', 'risky'].includes(strategy)) return Response.json({ error: '无效策略' });
@@ -523,12 +525,14 @@ export async function onRequest(context) {
                 await db.prepare("UPDATE user_companies SET strategy = ? WHERE id = ?").bind(JSON.stringify(newStrat), company.id).run();
                 return Response.json({ success: true, message: `经营方针已调整为: ${strategy.toUpperCase()}` });
             }
+
             if (action === 'buy_insider') {
                 if (user.k_coins < INSIDER_COST_24H) return Response.json({ error: `K币不足 (需 ${INSIDER_COST_24H} k)` });
                 const newExp = Date.now() + 24 * 60 * 60 * 1000;
                 await db.prepare("UPDATE users SET k_coins = k_coins - ?, insider_exp = ? WHERE id = ?").bind(INSIDER_COST_24H, newExp, user.id).run();
                 return Response.json({ success: true, message: "已接入情报网络，持续24小时。" });
             }
+
             if (action === 'admin_reset') {
                 if (user.role !== 'admin') return Response.json({ error: '权限不足' }, { status: 403 });
                 const now = Date.now();
@@ -549,6 +553,7 @@ export async function onRequest(context) {
                 await db.batch(batch);
                 return Response.json({ success: true, message: '重组完成' });
             }
+
             if (action === 'convert') {
                  const { type, val } = body; const num = parseInt(val);
                  if (type === 'i_to_k') {
@@ -560,6 +565,7 @@ export async function onRequest(context) {
                  }
                  return Response.json({ success: true, message: '兑换成功' });
             }
+
             if (action === 'create') {
                 if (company) return Response.json({ error: '已有公司' });
                 if ((user.k_coins || 0) < 2000) return Response.json({ error: 'k币不足' });
@@ -573,14 +579,11 @@ export async function onRequest(context) {
 
             if (!company) return Response.json({ error: '无公司' });
 
-            // === 核心修复：升级逻辑支持 10 级 ===
             if (action === 'upgrade_company') {
                 const nextLv = companyLevel + 1;
                 const conf = COMPANY_LEVELS[nextLv];
-                
                 if (!conf) return Response.json({ error: '已达到最高等级' });
                 if ((user.k_coins || 0) < conf.cost) return Response.json({ error: `K币不足 (需 ${conf.cost} k)` });
-                
                 const newStrat = { ...companyData, level: nextLv };
                 await db.batch([
                     db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(conf.cost, user.id),
@@ -605,7 +608,6 @@ export async function onRequest(context) {
                 return Response.json({ success: true, message: '注资成功' });
             }
 
-            // === 交易逻辑 (应用天赋树 Buff) ===
             if (['buy', 'sell', 'cover'].includes(action)) {
                 if (!status.isOpen) return Response.json({ error: '休市' });
                 if (market[symbol].suspended === 1) return Response.json({ error: '停牌' });
@@ -632,7 +634,6 @@ export async function onRequest(context) {
                 const finalFeeRate = BASE_FEE_RATE * currentLvConf.fee;       // 手续费折扣
                 const finalMaxHoldPct = BASE_MAX_HOLDING_PCT * currentLvConf.hold; // 持仓上限提升
 
-                // 风控：冷却
                 if (timeDiff >= finalCooldown) {
                     currentAccVol = 0; 
                 } else {
@@ -648,15 +649,12 @@ export async function onRequest(context) {
                 }
                 const newAccVol = currentAccVol + qty;
 
-                // 风控：T+1
-                // 如果有冷却缩减天赋，做空锁仓时间也相应缩短
                 const finalShortHold = SHORT_HOLD_MIN * currentLvConf.cd;
                 if (action === 'cover') {
                     if (timeDiff < finalShortHold && currentAccVol === 0) { } 
                     else if (timeDiff < finalShortHold) { return Response.json({ error: `做空需锁仓 ${Math.ceil(finalShortHold/1000)} 秒` }); }
                 }
 
-                // 风控：持仓
                 const currentHold = pos ? Math.abs(pos.amount) : 0;
                 const maxHoldingShares = Math.floor(totalShares * finalMaxHoldPct);
                 if (action !== 'cover' && action !== 'sell' && (currentHold + qty) > maxHoldingShares) {
@@ -672,13 +670,13 @@ export async function onRequest(context) {
                     if (curP < issuePrice * 0.3) return Response.json({ error: '股价过低，禁止做空' });
                 }
 
-                const marginRate = currentLvConf.margin; // 保证金率
+                const marginRate = currentLvConf.margin; 
                 const curHoldPos = pos ? pos.amount : 0;
                 const batch = [];
                 let logMsg = "";
 
                 const slippage = (qty / totalShares) * 5; 
-                const feeRate = finalFeeRate + slippage; // 最终费率 = 折扣后基础费 + 滑点
+                const feeRate = finalFeeRate + slippage; 
                 const orderVal = curP * qty;
                 const fee = Math.floor(orderVal * feeRate);
 
