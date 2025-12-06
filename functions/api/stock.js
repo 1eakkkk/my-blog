@@ -414,8 +414,13 @@ async function getOrUpdateMarket(env, db) {
 
         let missed = Math.floor((simulationEndTime - s.last_update) / 60000);
         if (missed <= 0) continue;
-        const maxCatchUp = isMarketClosed ? 300 : 60; 
-        if (missed > maxCatchUp) { s.last_update = simulationEndTime - (maxCatchUp * 60000); missed = maxCatchUp; }
+        const MAX_LOOPS = 15; 
+        
+        if (missed > MAX_LOOPS) { 
+            // 直接把“上次更新时间”瞬移到“现在 - 15分钟”
+            s.last_update = simulationEndTime - (MAX_LOOPS * 60000); 
+            missed = MAX_LOOPS; 
+        }
 
         let curP = s.current_price;
         let simT = s.last_update;
