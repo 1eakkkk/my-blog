@@ -84,13 +84,11 @@ export async function onRequest(context) {
         if (request.method === 'POST') {
             const body = await request.json();
 
-            // Action: 领取收益 (v4.3 性能优化版)
+            // Action: 领取收益 (v4.4 掉落量 Up 版)
             if (body.action === 'claim') {
                 const timeDiff = Math.max(0, (now - save.last_claim_time) / 1000);
                 if (totalDPS === 0) return Response.json({ error: '暂无算力' });
 
-                // 限制最大计算时长，防止 Cloudflare Worker 超时 (Error 1101)
-                // 300 层是一个比较安全的计算量
                 const MAX_LAYERS_PER_SYNC = 300; 
 
                 let damage = totalDPS * timeDiff;
@@ -111,11 +109,18 @@ export async function onRequest(context) {
                         // 1. i币
                         totalCoins += getLayerCoinReward(currentL);
                         
-                        // 2. 硬件 (保底 + 暴击)
-                        let baseScrap = 1; 
+                        // 2. 硬件 (大幅提升)
+                        // 基础：1 ~ 5 个 (原来是固定1个)
+                        let baseScrap = Math.floor(Math.random() * 5) + 1; 
+                        
                         let leechLv = levels['leech'] || 0;
-                        let critRate = 0.30 + (leechLv * 0.05); 
-                        if (Math.random() < critRate) baseScrap += Math.floor(1 + (currentL / 20)); 
+                        // 暴击率：基础 50% (原来30%)
+                        let critRate = 0.50 + (leechLv * 0.05); 
+                        
+                        if (Math.random() < critRate) {
+                            // 暴击加成：基础+3，且随层数成长更快 (每10层+1)
+                            baseScrap += 3 + Math.floor(currentL / 10); 
+                        }
                         totalScrap += baseScrap;
 
                         // 3. 违规算法
@@ -126,29 +131,26 @@ export async function onRequest(context) {
                         if (Math.random() < packetRate) totalPackets++;
 
                     } else {
-                        break; // 伤害耗尽，卡在当前层
+                        break; 
                     }
                 }
                 
-                // === 时间结算逻辑优化 ===
+                // === 时间低保 (Passive Scraps) ===
+                // 无论打没打死怪，只要挂机了，每 5 分钟 (300s) 必给 1 个硬件
+                // 这样 DPS 低的新手也能攒资源
+                if (timeDiff > 300) {
+                    totalScrap += Math.floor(timeDiff / 300);
+                }
+
+                // === 时间结算逻辑 ===
                 let newClaimTime = now;
-                
-                // 情况 A: 到达了 300 层上限，还有剩余伤害
-                // 这种情况下，为了防止计算超时和无限刷层，直接丢弃剩余伤害，重置时间为 Now
                 if (layersCleared >= MAX_LAYERS_PER_SYNC) {
                     newClaimTime = now;
-                } 
-                // 情况 B: 没打死怪 (卡关)，或者没到上限
-                // 这种情况下，保留进度 (Time Debt)，让玩家下次接着打
-                else {
+                } else {
                     let remainingTimeSeconds = damage / totalDPS;
-                    // 保护：保留时间不能超过 24小时 (防止溢出 Bug)
                     remainingTimeSeconds = Math.min(remainingTimeSeconds, 86400);
                     newClaimTime = now - Math.floor(remainingTimeSeconds * 1000);
                 }
-
-                // 低保
-                if (timeDiff > 3600 && totalScrap === 0) totalScrap = Math.floor(timeDiff / 600);
 
                 // 数据库写入
                 await db.batch([
@@ -167,7 +169,6 @@ export async function onRequest(context) {
                 });
             }
 
-            // Action: 升级
             // Action: 升级 (v4.3 混合供能版)
             if (body.action === 'upgrade') {
                 const u = UNITS[body.unit];
