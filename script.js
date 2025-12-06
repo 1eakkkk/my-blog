@@ -6319,168 +6319,157 @@ window.tradeStock = async function(action, isAuto = false) {
     }
 };
 
-// === ☁️ NEURAL CLOUD 挂机模块 ===
+// === 🧠 NEURAL CLOUD 核心逻辑 ===
 
-let idleState = {
-    layer: 1,
-    blocks: 0,
+let idleData = {
+    timer: null,
+    matrixTimer: null,
     dps: 0,
-    levels: {},
-    current_hp: 100,
-    max_hp: 100,
+    layer: 1,
+    hp: 100,
+    cur_hp: 100,
     config: null,
-    timer: null
+    levels: {}
 };
 
+// 1. 加载游戏
 async function loadIdleGame() {
-    const list = document.getElementById('idleUnitsList');
-    if(!list) return; // 还没切到该页面
+    const view = document.getElementById('view-idle');
+    if (!view || view.style.display === 'none') return; // 不在页面不加载
 
     try {
         const res = await fetch(`${API_BASE}/idle`);
         const data = await res.json();
         
         if (data.success) {
-            // 更新状态
-            idleState.layer = data.layer;
-            idleState.blocks = data.blocks;
-            idleState.dps = data.dps;
-            idleState.levels = data.levels;
-            idleState.config = data.config;
-            idleState.max_hp = data.layer_hp;
-            idleState.current_hp = data.layer_hp; // 每次加载先重置满血，避免不同步
-
-            renderIdleUI();
+            idleData.dps = data.dps;
+            idleData.layer = data.layer;
+            idleData.hp = data.hp;
+            idleData.cur_hp = data.hp; // 重置满血
+            idleData.config = data.config;
+            idleData.levels = data.levels;
             
-            // 启动前端模拟循环 (只负责动画，不负责存档)
-            if (idleState.timer) clearInterval(idleState.timer);
-            idleState.timer = setInterval(idleGameLoop, 100); // 0.1秒刷新一次
+            // 更新 UI
+            updateIdleUI(data);
             
-            // 如果离线很久，弹窗提示
-            if (data.offline_seconds > 60) {
-                const estBlocks = Math.floor(data.dps * data.offline_seconds / 20); // 粗略估算
-                showToast(`离线 ${Math.floor(data.offline_seconds/60)} 分钟，请点击提取收益！`, 'info');
+            // 启动动画循环
+            if (idleData.timer) clearInterval(idleData.timer);
+            idleData.timer = setInterval(idleLoop, 100);
+            
+            // 启动矩阵背景
+            startMatrixRain();
+            
+            // 离线收益提示
+            if (data.offline_sec > 60) {
+                addIdleLog(`检测到离线信号: ${Math.floor(data.offline_sec)}秒`, '#aaa');
+                addIdleLog(`正在后台计算哈希碰撞... 请点击 [同步]`, '#fff');
             }
         }
-    } catch(e) {
-        console.error(e);
-        list.innerHTML = "SYSTEM ERROR";
-    }
+    } catch(e) { console.error(e); }
 }
 
-function renderIdleUI() {
-    // 1. 顶部数据
-    document.getElementById('idleLayerDisplay').innerText = idleState.layer;
-    document.getElementById('idleBlocksDisplay').innerText = Math.floor(idleState.blocks).toLocaleString();
-    document.getElementById('idleDpsDisplay').innerText = idleState.dps.toLocaleString();
+// 2. UI 渲染
+function updateIdleUI(data) {
+    document.getElementById('idleLayer').innerText = `L-${String(data.layer).padStart(3, '0')}`;
+    document.getElementById('idleDPS').innerText = `${data.dps} H/s`;
+    document.getElementById('idleScrap').innerText = data.scrap;
+    document.getElementById('idlePackets').innerText = data.packets;
+    
+    // 道具按钮
+    const btnPack = document.getElementById('btnUsePacket');
+    if (data.packets > 0) {
+        btnPack.style.display = 'block';
+        btnPack.innerText = `🚀 注入数据包 (剩余: ${data.packets})`;
+    } else {
+        btnPack.style.display = 'none';
+    }
 
-    // 2. 渲染单位列表
-    const list = document.getElementById('idleUnitsList');
+    // 渲染单位
+    const list = document.getElementById('idleUnits');
     list.innerHTML = '';
     
-    for (const [id, conf] of Object.entries(idleState.config)) {
-        const lv = idleState.levels[id] || 0;
-        const dps = conf.base_dps * lv;
+    for (let key in data.config) {
+        const u = data.config[key];
+        const lv = data.levels[key] || 0;
+        const cost = Math.floor(u.base_cost * Math.pow(u.cost_inc, lv));
         
-        // 计算升级费用
-        // 公式必须与后端一致：base * (factor ^ lv)
-        const cost = Math.floor(conf.base_cost * Math.pow(conf.cost_factor, lv));
-        
-        // 货币类型判断 (Lv.0 用 i币，Lv.1+ 用区块)
-        const currencyIcon = lv === 0 ? 'i 币' : '🧱';
-        const canAfford = lv === 0 ? (currentUser.coins >= cost) : (idleState.blocks >= cost);
-        const btnClass = canAfford ? 'cyber-btn' : 'cyber-btn disabled';
-        const btnStyle = canAfford ? 'border-color:#bd00ff; color:#bd00ff;' : 'border-color:#444; color:#666; cursor:not-allowed;';
+        // 样式处理
+        const canBuy = data.scrap >= cost;
+        const color = canBuy ? '#fff' : '#666';
+        const btnStyle = canBuy ? 'border-color:#fff; color:#fff;' : 'border-color:#333; color:#666; cursor:not-allowed;';
         
         const div = document.createElement('div');
         div.className = 'glass-card';
-        div.style.padding = '15px';
+        div.style.padding = '10px';
         div.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <h3 style="margin:0; font-size:1rem; color:#fff;">${conf.name} <span style="font-size:0.8rem; color:#666;">Lv.${lv}</span></h3>
-                <div style="font-size:0.8rem; color:#0f0;">DPS: ${dps}/s</div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span style="color:${color}; font-weight:bold;">${u.name} <span style="font-size:0.7rem; color:#666;">Lv.${lv}</span></span>
+                <span style="color:#0f0; font-size:0.8rem;">+${u.base_dps} dps</span>
             </div>
-            <div style="font-size:0.75rem; color:#888; margin-bottom:10px;">
-                基础伤害: ${conf.base_dps} | 升级指数: x${conf.cost_factor}
-            </div>
-            <button onclick="upgradeDaemon('${id}')" class="${btnClass}" style="width:100%; margin:0; ${btnStyle}">
-                UPGRADE (${cost} ${currencyIcon})
+            <div style="font-size:0.7rem; color:#888; margin-bottom:8px;">${u.desc}</div>
+            <button onclick="upgradeUnit('${key}')" class="cyber-btn" style="width:100%; margin:0; font-size:0.8rem; ${btnStyle}">
+                UPGRADE (${cost} 🔩)
             </button>
         `;
         list.appendChild(div);
     }
 }
 
-// === 前端动画循环 (视觉欺骗) ===
-function idleGameLoop() {
-    if (idleState.dps <= 0) return;
-
-    // 0.1秒造成的伤害
-    const tickDamage = idleState.dps / 10;
-    idleState.current_hp -= tickDamage;
-
-    // 怪物死亡
-    if (idleState.current_hp <= 0) {
-        idleState.layer++;
-        // 怪物血量成长
-        idleState.max_hp = Math.floor(100 * Math.pow(1.15, idleState.layer - 1));
-        idleState.current_hp = idleState.max_hp;
-        
-        // 更新掉落预览 (前端假加，后端才是真的)
-        const reward = Math.floor(5 * Math.pow(1.10, idleState.layer - 1));
-        idleState.blocks += reward;
-        
-        // 视觉更新
-        document.getElementById('idleLayerDisplay').innerText = idleState.layer;
-        document.getElementById('idleBlocksDisplay').innerText = Math.floor(idleState.blocks).toLocaleString();
-        document.getElementById('idleEnemyName').innerText = `FIREWALL Lv.${idleState.layer}`;
-        
-        addIdleLog(`入侵成功！层级突破 -> Lv.${idleState.layer} (+${reward} 🧱)`);
-    }
-
-    // 更新血条
-    const pct = Math.max(0, (idleState.current_hp / idleState.max_hp) * 100);
-    document.getElementById('idleHpBar').style.width = `${pct}%`;
-    document.getElementById('idleHpText').innerText = `HP: ${Math.floor(idleState.current_hp)} / ${idleState.max_hp}`;
-}
-
-function addIdleLog(msg) {
-    const box = document.getElementById('idleBattleLog');
-    const div = document.createElement('div');
-    div.innerText = `> ${msg}`;
-    // 保持最新的在最上面 (flex-direction: column-reverse)
-    box.prepend(div);
-    if (box.children.length > 5) box.lastChild.remove();
-}
-
-// === 交互函数 ===
-
-window.upgradeDaemon = async function(id) {
-    // 乐观更新 UI
-    // (此处略，直接等后端返回刷新更安全)
+// 3. 前端模拟循环 (假打)
+function idleLoop() {
+    if (idleData.dps <= 0) return;
     
+    const dmg = idleData.dps / 10;
+    idleData.cur_hp -= dmg;
+    
+    if (idleData.cur_hp <= 0) {
+        // 层数突破
+        idleData.layer++;
+        idleData.hp = Math.floor(100 * Math.pow(1.10, idleData.layer - 1));
+        idleData.cur_hp = idleData.hp;
+        
+        document.getElementById('idleLayer').innerText = `L-${String(idleData.layer).padStart(3, '0')}`;
+        
+        // 随机生成日志
+        const logs = [
+            `破解防火墙节点 [${Math.random().toString(16).substr(2, 6)}]... 成功`,
+            `上传木马 payload... 覆盖率 100%`,
+            `获取 root 权限... 层级突破`,
+            `数据溢出... 收集碎片`
+        ];
+        addIdleLog(logs[Math.floor(Math.random() * logs.length)], '#0f0');
+    }
+}
+
+function addIdleLog(msg, color='#0f0') {
+    const box = document.getElementById('idleLogContainer');
+    const div = document.createElement('div');
+    div.innerHTML = `> <span style="color:${color}">${msg}</span>`;
+    box.prepend(div);
+    if (box.children.length > 8) box.lastChild.remove();
+}
+
+// 4. 交互操作
+window.upgradeUnit = async function(key) {
     try {
         const res = await fetch(`${API_BASE}/idle`, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ action: 'upgrade', unitId: id })
+            body: JSON.stringify({ action: 'upgrade', unit: key })
         });
         const data = await res.json();
         if (data.success) {
-            showToast('升级完成，算力提升', 'success');
-            // 扣钱后刷新一下全局用户状态
-            if (idleState.levels[id] === undefined) checkSecurity(); 
-            loadIdleGame(); // 刷新界面
+            showToast('升级成功', 'success');
+            loadIdleGame(); // 刷新数据
         } else {
             showToast(data.error, 'error');
         }
-    } catch(e) { showToast('网络错误'); }
+    } catch(e) { showToast('Error'); }
 };
 
-window.claimIdleRewards = async function() {
+window.claimIdle = async function() {
     const btn = document.getElementById('btnIdleClaim');
-    btn.disabled = true;
-    btn.innerText = "SYNCING...";
+    btn.disabled = true; btn.innerText = "SYNCING...";
     
     try {
         const res = await fetch(`${API_BASE}/idle`, {
@@ -6490,24 +6479,77 @@ window.claimIdleRewards = async function() {
         });
         const data = await res.json();
         if (data.success) {
-            let msg = `同步成功！`;
-            if (data.cleared > 0) msg += ` 推进 ${data.cleared} 层，获得 ${data.blocks} 区块`;
-            else msg += ` (挂机时间太短，暂无推进)`;
-            
-            if (data.coins > 0) msg += ` +${data.coins} i币`;
+            let msg = `同步完成: 推进 ${data.cleared} 层`;
+            if (data.coins > 0) msg += `, +${data.coins} i币`;
+            if (data.scrap > 0) msg += `, +${data.scrap} 硬件`;
+            if (data.packets > 0) msg += `, 获得 [企业数据包] x${data.packets}!`;
             
             showToast(msg, 'success');
             checkSecurity(); // 刷新i币
-            loadIdleGame();  // 刷新挂机状态 (重置时间)
+            loadIdleGame();
         } else {
             showToast(data.error, 'error');
         }
-    } catch(e) { showToast('网络错误'); }
-    finally {
-        btn.disabled = false;
-        btn.innerText = "📥 提取收益 (同步)";
-    }
+    } catch(e) { showToast('Network Error'); }
+    finally { btn.disabled = false; btn.innerText = "📥 同步数据 (CLAIM)"; }
 };
+
+window.useDataPacket = async function() {
+    if(!confirm("确认消耗 1 个数据包？\n将在接下来 10 分钟内，让股市预测算法更精准。")) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/idle`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: 'use_packet' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast(data.message, 'success');
+            loadIdleGame();
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) { showToast('Error'); }
+};
+
+// 5. Matrix Rain Visual Effect (Canvas)
+function startMatrixRain() {
+    const canvas = document.getElementById('matrixCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    // 设置宽高
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+    
+    const chars = "0101010101XYZA";
+    const fontSize = 10;
+    const columns = canvas.width / fontSize;
+    const drops = [];
+    
+    for(let i=0; i<columns; i++) drops[i] = 1;
+    
+    if (idleData.matrixTimer) clearInterval(idleData.matrixTimer);
+    
+    idleData.matrixTimer = setInterval(() => {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.1)"; // 拖尾效果
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#0f0"; // 绿色字符
+        ctx.font = fontSize + "px monospace";
+        
+        for(let i=0; i<drops.length; i++) {
+            const text = chars.charAt(Math.floor(Math.random() * chars.length));
+            ctx.fillText(text, i*fontSize, drops[i]*fontSize);
+            
+            if(drops[i]*fontSize > canvas.height && Math.random() > 0.975)
+                drops[i] = 0;
+            
+            drops[i]++;
+        }
+    }, 50);
+}
 
 
 
