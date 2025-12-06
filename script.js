@@ -4946,6 +4946,7 @@ window.loadStockMarket = async function() {
         if (data.success) {
             // 更新全局数据源
             marketData = data.market;
+            window.currentPrediction = data.prediction; // 存入全局，供 render 使用
             myPositions = data.positions;
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
@@ -5916,6 +5917,46 @@ window.renderStockDashboard = function(symbol) {
             disableTrading(false);
         }
     }
+    // === v3.5 渲染神经预测 (Neural Prediction) ===
+    // 从全局 marketData 或 响应体中获取预测数据
+    // 注意：我们需要让 loadStockMarket 把 prediction 存到全局变量里，或者传进来
+    // 为了方便，建议直接在 loadStockMarket 的回调里处理，或者在这里访问全局对象
+    
+    const banner = document.getElementById('neuralLinkBanner');
+    const elProb = document.getElementById('neuralProb');
+    const elTrend = document.getElementById('neuralTrend');
+    const elTimer = document.getElementById('neuralTimer');
+
+    // 假设我们在 loadStockMarket 里把 data.prediction 存到了 window.currentPrediction
+    if (window.currentPrediction && window.currentPrediction[symbol]) {
+        const pred = window.currentPrediction[symbol];
+        const timeLeft = window.currentPrediction.timeLeft;
+
+        if (banner) banner.style.display = 'flex';
+        
+        // 概率颜色
+        let color = '#fff';
+        let icon = '-';
+        if (pred.prob >= 60) { color = '#0f0'; icon = '🚀 看涨 (BULL)'; }
+        else if (pred.prob <= 40) { color = '#f33'; icon = '📉 看跌 (BEAR)'; }
+        else { color = '#aaa'; icon = '⚖️ 震荡 (FLAT)'; }
+
+        if (elProb) {
+            elProb.innerText = `${pred.prob}%`;
+            elProb.style.color = color;
+        }
+        if (elTrend) {
+            elTrend.innerText = icon;
+            elTrend.style.color = color;
+        }
+        if (elTimer) {
+            const min = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const sec = (timeLeft % 60).toString().padStart(2, '0');
+            elTimer.innerText = `${min}:${sec}`;
+        }
+    } else {
+        if (banner) banner.style.display = 'none';
+    }
 };
 // === 辅助函数：精准反推最大可交易数量 (含税反推) ===
 function getCalculatedMax() {
@@ -6550,6 +6591,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
