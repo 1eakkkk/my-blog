@@ -6415,16 +6415,33 @@ function updateIdleUI(data) {
     }
 }
 
-// 3. 前端模拟循环 (假打)
+// 3. 前端模拟循环 (假打 + 进度条更新)
 function idleLoop() {
-    if (idleData.dps <= 0) return;
+    // 即使 DPS 为 0，也要渲染进度条状态，防止显示 NaN
+    if (!idleData.hp) idleData.hp = 100;
     
-    const dmg = idleData.dps / 10;
-    idleData.cur_hp -= dmg;
+    if (idleData.dps > 0) {
+        const dmg = idleData.dps / 10; // 0.1秒造成的伤害
+        idleData.cur_hp -= dmg;
+    }
+
+    // 计算破解进度百分比 (100% - 剩余血量%)
+    let percent = ((idleData.hp - idleData.cur_hp) / idleData.hp) * 100;
     
+    // 视觉修正：不允许超过 100% 或低于 0%
+    if (percent < 0) percent = 0;
+    if (percent >= 100) percent = 100;
+
+    // 更新 DOM
+    const bar = document.getElementById('idleProgressBar');
+    const txt = document.getElementById('idleProgressText');
+    if (bar) bar.style.width = `${percent}%`;
+    if (txt) txt.innerText = `CRACKING: ${percent.toFixed(1)}%`; // 保留1位小数
+
+    // 层级突破逻辑
     if (idleData.cur_hp <= 0) {
-        // 层数突破
         idleData.layer++;
+        // 怪物血量成长公式 (必须与后端一致)
         idleData.hp = Math.floor(100 * Math.pow(1.10, idleData.layer - 1));
         idleData.cur_hp = idleData.hp;
         
@@ -6438,6 +6455,13 @@ function idleLoop() {
             `数据溢出... 收集碎片`
         ];
         addIdleLog(logs[Math.floor(Math.random() * logs.length)], '#0f0');
+        
+        // 突破瞬间进度条闪回 0
+        if (bar) {
+            bar.style.width = '0%';
+            bar.style.transition = 'none'; // 取消动画瞬间归零
+            setTimeout(() => { bar.style.transition = 'width 0.1s linear'; }, 50);
+        }
     }
 }
 
@@ -6550,6 +6574,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
