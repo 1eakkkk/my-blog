@@ -79,10 +79,10 @@ export async function onRequest(context) {
         if (request.method === 'POST') {
             const body = await request.json();
 
-            // Action: 领取收益
+            // Action: 领取收益 (v4.2 修复进度回档问题)
             if (body.action === 'claim') {
                 const timeDiff = (now - save.last_claim_time) / 1000;
-                if (timeDiff < 5) return Response.json({ error: '冷却中... 请稍后再试' });
+                // 移除 "timeDiff < 5" 的硬性限制，允许频繁查看进度，只要有伤害就行
                 if (totalDPS === 0) return Response.json({ error: '暂无算力' });
 
                 let damage = totalDPS * timeDiff;
@@ -92,28 +92,25 @@ export async function onRequest(context) {
                 let totalScrap = 0;
                 let totalPackets = 0;
 
-                // 模拟推塔 (限制最大层数，防止超时)
+                // 模拟推塔
                 while (damage > 0 && layersCleared < 1000) {
                     let hp = getLayerHP(currentL);
                     if (damage >= hp) {
-                        damage -= hp;
+                        damage -= hp; // 扣除致死伤害
                         layersCleared++;
                         currentL++;
                         
                         // 1. i币奖励
                         totalCoins += getLayerCoinReward(currentL);
                         
-                        // 2. 硬件掉落 (保底 + 暴击)
-                        let baseScrap = 1; // 每一层至少掉1个
+                        // 2. 硬件掉落
+                        let baseScrap = 1; 
                         let leechLv = levels['leech'] || 0;
-                        let critRate = 0.30 + (leechLv * 0.05); // 水蛭加暴击率
-                        
-                        if (Math.random() < critRate) {
-                            baseScrap += Math.floor(1 + (currentL / 20)); // 暴击
-                        }
+                        let critRate = 0.30 + (leechLv * 0.05); 
+                        if (Math.random() < critRate) baseScrap += Math.floor(1 + (currentL / 20)); 
                         totalScrap += baseScrap;
 
-                        // 3. 违规算法 (折算i币)
+                        // 3. 违规算法
                         if (Math.random() < 0.10) totalCoins += 50;
 
                         // 4. 企业数据包
@@ -121,17 +118,26 @@ export async function onRequest(context) {
                         if (Math.random() < packetRate) totalPackets++;
 
                     } else {
+                        // 伤害不足以击杀当前层，跳出
                         break; 
                     }
                 }
                 
-                // 长时间挂机低保 (每小时保底给点硬件)
+                // === 关键修复：计算新时间戳 ===
+                // 我们不能简单设为 now。要把“剩余伤害”换算回“剩余时间”，保留给下一次。
+                // 剩余时间 = 剩余伤害 / DPS
+                // 新的结算时间 = 当前时间 - 剩余时间
+                // 这样，剩下的伤害就被“冻结”在时间里了，不会丢失。
+                let remainingTimeSeconds = damage / totalDPS;
+                let newClaimTime = now - Math.floor(remainingTimeSeconds * 1000);
+
+                // 保底机制
                 if (timeDiff > 3600 && totalScrap === 0) totalScrap = Math.floor(timeDiff / 600);
 
                 // 更新数据库
                 await db.batch([
                     db.prepare("UPDATE idle_saves SET current_layer=?, scrap_hardware=scrap_hardware+?, data_packets=data_packets+?, last_claim_time=? WHERE user_id=?")
-                      .bind(currentL, totalScrap, totalPackets, now, user.id),
+                      .bind(currentL, totalScrap, totalPackets, newClaimTime, user.id),
                     db.prepare("UPDATE users SET coins=coins+? WHERE id=?").bind(totalCoins, user.id)
                 ]);
 
