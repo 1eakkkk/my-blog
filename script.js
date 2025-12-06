@@ -5565,43 +5565,44 @@ window.tradeStock = async function(action, isAuto = false) {
     }
     const curP = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
     
-    // ... (省略中间的费用计算逻辑，保持原样即可，为了完整性下面会包含) ...
-    const orderVal = curP * amount;
-    const meta = stockMeta[currentStockSymbol];
-    const totalShares = meta ? meta.shares : 1000000;
-    const slippage = (amount / totalShares) * 5; 
-    const fee = Math.floor(orderVal * feeRate);
-    const conf = COMPANY_LEVELS_CONF[currentCompanyLevel] || COMPANY_LEVELS_CONF[0];
-        
-        // 应用折扣 (保证金折扣 & 手续费折扣)
-    const marginRate = conf.margin; 
-    const feeRate = (0.005 + slippage) * conf.fee; // 基础费率 * 等级折扣
-        
-    const fee = Math.floor(orderVal * feeRate); // 重新计算优惠后的手续费
-    const margin = Math.floor((orderVal / leverage) * marginRate);
-    const totalCost = margin + fee;
-    // 4. 确认弹窗 (关键修改：如果是自动交易，直接跳过)
     if (!isAuto) {
-        const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
-        const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
+        const orderVal = curP * amount;
         
-        let confirmMsg = `【交易确认】\n\n`;
-        confirmMsg += `标的：${nameMap[currentStockSymbol]} (${currentStockSymbol})\n`;
-        confirmMsg += `方向：${actionMap[action]}\n`;
-        confirmMsg += `数量：${amount.toLocaleString()} 股\n`;
-        confirmMsg += `现价：${curP}\n`;
-        confirmMsg += `----------------\n`;
+        // 1. 获取总股本 (防错处理)
+        const meta = stockMeta[currentStockSymbol];
+        const totalShares = meta ? meta.shares : 1000000;
+        
+        // 2. 计算滑点
+        const slippage = (amount / totalShares) * 5; 
+
+        // 3. 获取等级配置 & 计算费率 (这是最新的逻辑)
+        // 确保 COMPANY_LEVELS_CONF 已在文件顶部定义
+        const conf = (typeof COMPANY_LEVELS_CONF !== 'undefined') 
+            ? (COMPANY_LEVELS_CONF[currentCompanyLevel] || COMPANY_LEVELS_CONF[0])
+            : { margin: 1.0, fee: 1.0 }; // 防错保底
+
+        const marginRate = conf.margin; 
+        const feeRate = (0.005 + slippage) * conf.fee; // 基础费率 * 等级折扣
+
+        // 4. 计算最终金额
+        const fee = Math.floor(orderVal * feeRate);
+        const margin = Math.floor((orderVal / leverage) * marginRate);
+        const totalCost = margin + fee;
+
+        const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
+        const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂', 'PURPLE':'虚空', 'GREEN':'康陶', 'PINK':'夜氏'};
+        
+        let confirmMsg = `【交易确认】\n\n标的：${nameMap[currentStockSymbol]||currentStockSymbol}\n方向：${actionMap[action]}\n数量：${amount.toLocaleString()} 股\n现价：${curP}\n----------------\n`;
         
         const isOpening = action === 'buy' || (action === 'sell' && (!myPositions || !myPositions.find(p=>p.stock_symbol===currentStockSymbol && p.amount>0)));
 
         if (isOpening) {
-            confirmMsg += `预估保证金：${margin.toLocaleString()}\n`;
-            confirmMsg += `预估手续费：${fee.toLocaleString()} (${(feeRate*100).toFixed(2)}%)\n`;
+            confirmMsg += `预估保证金：${margin.toLocaleString()} (${(marginRate*100).toFixed(0)}%)\n`;
+            confirmMsg += `预估费用：${fee.toLocaleString()} (费率 ${(feeRate*100).toFixed(2)}%)\n`;
             confirmMsg += `总计扣款：${totalCost.toLocaleString()} (公司资金)\n`;
         } else {
-            confirmMsg += `预估手续费：${fee.toLocaleString()}\n`;
+            confirmMsg += `预估费用：${fee.toLocaleString()}\n`;
         }
-        
         confirmMsg += `\n确认执行吗？`;
 
         if (!confirm(confirmMsg)) return;
@@ -6765,6 +6766,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
