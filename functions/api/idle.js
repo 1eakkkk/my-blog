@@ -84,11 +84,14 @@ export async function onRequest(context) {
         if (request.method === 'POST') {
             const body = await request.json();
 
-            // Action: 领取收益 (v4.2 修复进度回档问题)
+            // Action: 领取收益 (v4.3 性能优化版)
             if (body.action === 'claim') {
-                const timeDiff = (now - save.last_claim_time) / 1000;
-                // 移除 "timeDiff < 5" 的硬性限制，允许频繁查看进度，只要有伤害就行
+                const timeDiff = Math.max(0, (now - save.last_claim_time) / 1000);
                 if (totalDPS === 0) return Response.json({ error: '暂无算力' });
+
+                // 限制最大计算时长，防止 Cloudflare Worker 超时 (Error 1101)
+                // 300 层是一个比较安全的计算量
+                const MAX_LAYERS_PER_SYNC = 300; 
 
                 let damage = totalDPS * timeDiff;
                 let layersCleared = 0;
@@ -98,17 +101,17 @@ export async function onRequest(context) {
                 let totalPackets = 0;
 
                 // 模拟推塔
-                while (damage > 0 && layersCleared < 1000) {
+                while (damage > 0 && layersCleared < MAX_LAYERS_PER_SYNC) {
                     let hp = getLayerHP(currentL);
                     if (damage >= hp) {
-                        damage -= hp; // 扣除致死伤害
+                        damage -= hp; 
                         layersCleared++;
                         currentL++;
                         
-                        // 1. i币奖励
+                        // 1. i币
                         totalCoins += getLayerCoinReward(currentL);
                         
-                        // 2. 硬件掉落
+                        // 2. 硬件 (保底 + 暴击)
                         let baseScrap = 1; 
                         let leechLv = levels['leech'] || 0;
                         let critRate = 0.30 + (leechLv * 0.05); 
@@ -118,37 +121,36 @@ export async function onRequest(context) {
                         // 3. 违规算法
                         if (Math.random() < 0.10) totalCoins += 50;
 
-                        // 4. 企业数据包 (受 EVA 情绪极大影响)
+                        // 4. 数据包
                         let packetRate = 0.02 + Math.floor(currentL / 100) * 0.005;
-                        
-                        // === EVA 情绪修正 ===
-                        if (evaEmotion === 'GREED') {
-                            packetRate *= 0.5; // 贪婪时刻，极难掉落 (EVA 捂紧口袋)
-                        } else if (evaEmotion === 'PANIC') {
-                            packetRate *= 2.0; // 恐慌时刻，疯狂掉落 (EVA 撒币救市)
-                        }
-                        // ===================
-
                         if (Math.random() < packetRate) totalPackets++;
 
                     } else {
-                        // 伤害不足以击杀当前层，跳出
-                        break; 
+                        break; // 伤害耗尽，卡在当前层
                     }
                 }
                 
-                // === 关键修复：计算新时间戳 ===
-                // 我们不能简单设为 now。要把“剩余伤害”换算回“剩余时间”，保留给下一次。
-                // 剩余时间 = 剩余伤害 / DPS
-                // 新的结算时间 = 当前时间 - 剩余时间
-                // 这样，剩下的伤害就被“冻结”在时间里了，不会丢失。
-                let remainingTimeSeconds = damage / totalDPS;
-                let newClaimTime = now - Math.floor(remainingTimeSeconds * 1000);
+                // === 时间结算逻辑优化 ===
+                let newClaimTime = now;
+                
+                // 情况 A: 到达了 300 层上限，还有剩余伤害
+                // 这种情况下，为了防止计算超时和无限刷层，直接丢弃剩余伤害，重置时间为 Now
+                if (layersCleared >= MAX_LAYERS_PER_SYNC) {
+                    newClaimTime = now;
+                } 
+                // 情况 B: 没打死怪 (卡关)，或者没到上限
+                // 这种情况下，保留进度 (Time Debt)，让玩家下次接着打
+                else {
+                    let remainingTimeSeconds = damage / totalDPS;
+                    // 保护：保留时间不能超过 24小时 (防止溢出 Bug)
+                    remainingTimeSeconds = Math.min(remainingTimeSeconds, 86400);
+                    newClaimTime = now - Math.floor(remainingTimeSeconds * 1000);
+                }
 
-                // 保底机制
+                // 低保
                 if (timeDiff > 3600 && totalScrap === 0) totalScrap = Math.floor(timeDiff / 600);
 
-                // 更新数据库
+                // 数据库写入
                 await db.batch([
                     db.prepare("UPDATE idle_saves SET current_layer=?, scrap_hardware=scrap_hardware+?, data_packets=data_packets+?, last_claim_time=? WHERE user_id=?")
                       .bind(currentL, totalScrap, totalPackets, newClaimTime, user.id),
