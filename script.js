@@ -6624,7 +6624,10 @@ window.upgradeUnit = async function(key, btnElement) {
 };
 window.claimIdle = async function() {
     const btn = document.getElementById('btnIdleClaim');
-    btn.disabled = true; btn.innerText = "SYNCING...";
+    if(btn) {
+        btn.disabled = true; 
+        btn.innerHTML = `<span class="loading-dots">SYNCING</span>`; // 增加动效反馈
+    }
     
     try {
         const res = await fetch(`${API_BASE}/idle`, {
@@ -6633,20 +6636,34 @@ window.claimIdle = async function() {
             body: JSON.stringify({ action: 'claim' })
         });
         const data = await res.json();
+        
         if (data.success) {
-            let msg = `同步完成: 推进 ${data.cleared} 层`;
+            let msg = `同步成功: 推进 ${data.cleared} 层`;
             if (data.coins > 0) msg += `, +${data.coins} i币`;
             if (data.scrap > 0) msg += `, +${data.scrap} 硬件`;
-            if (data.packets > 0) msg += `, 获得 [企业数据包] x${data.packets}!`;
+            if (data.packets > 0) msg += `, 📦 数据包 x${data.packets}`;
             
             showToast(msg, 'success');
-            checkSecurity(); // 刷新i币
-            loadIdleGame();
+            
+            // === 优化点：并行请求 (Parallel Requests) ===
+            // 使用 Promise.all 同时发起两个刷新请求，这会让 UI 响应快一倍
+            await Promise.all([
+                checkSecurity(), // 刷新侧边栏钱
+                loadIdleGame()   // 刷新挂机界面
+            ]);
+            
         } else {
             showToast(data.error, 'error');
         }
-    } catch(e) { showToast('Network Error'); }
-    finally { btn.disabled = false; btn.innerText = "📥 同步数据 (CLAIM)"; }
+    } catch(e) { 
+        console.error(e);
+        showToast('网络连接超时 (Server Timeout)', 'error'); 
+    } finally { 
+        if(btn) {
+            btn.disabled = false; 
+            btn.innerText = "📥 同步数据 (CLAIM)"; 
+        }
+    }
 };
 
 window.useDataPacket = async function() {
@@ -6715,6 +6732,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
