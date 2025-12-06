@@ -1559,18 +1559,36 @@ async function handleRoute() {
         const link = document.getElementById('navChat'); if(link) link.classList.add('active');
         loadFriendList();
     } else if (hash === '#admin') {
-        if(userRole !== 'admin') { showToast("ACCESS DENIED"); window.location.hash='#home'; return; }
-        if(views.admin) {
-            views.admin.style.display = 'block';
-            const link = document.getElementById('navAdmin'); if(link) link.classList.add('active');
-            loadAdminStats();
-            loadAdminInvites();
-            loadAdminFeedbacks();
-            loadAdminBanList();
-            if(typeof loadAdminBroadcasts === 'function') loadAdminBroadcasts(); 
-            if(typeof loadRechargeRequests === 'function') loadRechargeRequests();
+        // 1. 权限检查
+        if(userRole !== 'admin') { 
+            showToast("ACCESS DENIED"); 
+            window.location.hash='#home'; 
+            return; 
         }
-    } 
+
+        // 2. 视图检查
+        // 重新获取一次 DOM，防止 views 对象初始化时 DOM 还没加载完
+        const adminView = document.getElementById('view-admin');
+        
+        if(adminView) {
+            // 先显示出来，防止因为下面函数报错导致白屏
+            adminView.style.display = 'block';
+            
+            const link = document.getElementById('navAdmin'); 
+            if(link) link.classList.add('active');
+            
+            // 3. 安全加载各个子模块 (加 try-catch)
+            try { if(typeof loadAdminStats === 'function') loadAdminStats(); } catch(e) { console.error("Stats Error", e); }
+            try { if(typeof loadAdminInvites === 'function') loadAdminInvites(); } catch(e) { console.error("Invites Error", e); }
+            try { if(typeof loadAdminFeedbacks === 'function') loadAdminFeedbacks(); } catch(e) { console.error("Feedbacks Error", e); }
+            try { if(typeof loadAdminBanList === 'function') loadAdminBanList(); } catch(e) { console.error("BanList Error", e); }
+            try { if(typeof loadAdminBroadcasts === 'function') loadAdminBroadcasts(); } catch(e) { console.error("Broadcasts Error", e); }
+            try { if(typeof loadRechargeRequests === 'function') loadRechargeRequests(); } catch(e) { console.error("Recharge Error", e); }
+        } else {
+            console.error("找不到 id='view-admin' 的 HTML 元素！请检查 index.html");
+            showToast("系统错误：后台视图丢失", "error");
+        }
+    }
 }
 
 window.doCheckIn = async function() {
@@ -6351,6 +6369,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
