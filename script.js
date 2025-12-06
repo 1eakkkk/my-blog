@@ -6546,8 +6546,18 @@ window.useDataPacket = async function() {
         });
         const data = await res.json();
         if (data.success) {
-            showToast(data.message, 'success');
+            // 根据 effect 类型显示不同颜色的 Toast
+            let type = 'success';
+            if (data.effect === 'distortion') type = 'error'; // 红色警告
+            if (data.effect === 'cash') type = 'info';    // 蓝色提示
+            
+            showToast(data.message, type);
             loadIdleGame();
+            
+            // 如果是 Buff，顺便刷新一下股市状态以便立即看到预测
+            if (data.effect === 'buff') {
+                if (typeof loadStockMarket === 'function') loadStockMarket();
+            }
         } else {
             showToast(data.error, 'error');
         }
@@ -6591,6 +6601,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
