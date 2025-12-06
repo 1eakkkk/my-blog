@@ -408,36 +408,42 @@ async function getOrUpdateMarket(env, db) {
         let currentPressure = s.accumulated_pressure || 0;
         let momentum = currentPressure; 
 
+        // --- 开始替换：模拟循环逻辑 (v3.6 独立行情重构版) ---
+        // 1. 计算该股票独特的相位偏移 (基于代号 ASCII 码之和)
+        let charSum = 0;
+        for(let c=0; c<sym.length; c++) charSum += sym.charCodeAt(c);
+        const phaseOffset = charSum * 100000; // 偏移量，错开正弦波
+
+        // 2. EVA 敏感度 (基于代号的伪随机，固定值)
+        // 有的股票对大盘情绪敏感(1.5x)，有的迟钝(0.5x)
+        const evaSensitivity = 0.5 + ((charSum % 10) / 10) + 0.2; 
+
         for (let i = 0; i < missed; i++) {
             simT += 60000;
             const isCatchUp = (i < missed - 1); 
 
-            // 1. 基础估值计算
+            // --- 基础估值 ---
             const valuation = curP / issuePrice;
             
-            // 2. 宏观 Buff
+            // --- 宏观 Buff ---
             let eraBias = 1.0;
             const buffKey = sym.toLowerCase() + '_bias';
             if (currentEra.buff[buffKey]) eraBias = currentEra.buff[buffKey];
 
-            // 3. 动态深度 (基准 0.5%)
-            // v3.3 修复：将买卖深度分离，实现不对称回归
+            // --- 动态深度 (不对称回归) ---
             let buyBase = 0.005; 
             let sellBase = 0.005;
 
-            // 如果有人疯狂砸盘(Pressure大)，增加承接力(Dynamic Liquidity)
             const dynamicLiq = Math.min(5.0, 1 + (Math.abs(currentPressure) / 5000));
             buyBase *= dynamicLiq;
             sellBase *= dynamicLiq;
 
-            // v3.3 核心修复：低价股“以此为底”，高价股“高处不胜寒”
+            // 估值修正：低价股买盘厚，高价股卖盘厚
             if (valuation < 0.9) {
-                // 股价低：买盘变厚(难跌)，卖盘变薄(易涨)
-                const discount = 1.0 - valuation; // e.g. 0.2
-                buyBase *= (1 + discount * 2);    // 买盘 +40%
-                sellBase *= (1 - discount * 0.5); // 卖盘 -10%
+                const discount = 1.0 - valuation; 
+                buyBase *= (1 + discount * 2);    
+                sellBase *= (1 - discount * 0.5); 
             } else if (valuation > 1.5) {
-                // 股价高：买盘变薄，卖盘变厚
                 const premium = valuation - 1.5;
                 buyBase *= (1 - premium * 0.2);
                 sellBase *= (1 + premium * 0.5);
@@ -447,7 +453,7 @@ async function getOrUpdateMarket(env, db) {
             let sellDepth = totalShares * sellBase * mode.depth_mod * eraBias;
             let newsMsg = null;
 
-            // 4. 新闻事件 (5分钟冷却)
+            // --- 新闻事件 (保持不变) ---
             if (!isCatchUp && (simT - nextNewsT >= 300000)) { 
                 if (Math.random() < 0.05) { 
                     nextNewsT = simT;
@@ -460,19 +466,18 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            // 5. 机器人交易 (增加趋势连贯性)
+            // --- 机器人交易 (去同步化核心) ---
             if (!newsMsg && Math.random() < 0.5) { 
                 let botSentiment = 0; 
-                
-                // 估值回归力
                 let valueBias = (1.0 - valuation) * 0.6; 
                 
                 // 宏观修正
                 if (currentEra.code === 'DATA_CRASH') valueBias -= 0.15; 
                 if (currentEra.code === 'CORP_WAR' && sym !== 'RED') valueBias -= 0.1;
                 
-                // 呼吸波 (10分钟周期)
-                const trendWave = Math.sin(simT / 600000); 
+                // [关键修改] 独立的呼吸波 (Trend Wave)
+                // 加上 phaseOffset 后，BLUE 和 RED 的波峰将完全错开
+                const trendWave = Math.sin((simT + phaseOffset) / 600000); 
                 botSentiment += valueBias + (trendWave * 0.25);
 
                 // 随机扰动
@@ -481,52 +486,43 @@ async function getOrUpdateMarket(env, db) {
                 if (Math.abs(botSentiment) > 0.05) {
                     const direction = botSentiment > 0 ? 1 : -1;
                     const intensity = Math.min(1.5, Math.abs(botSentiment));
-                    // 机器人力度随深度动态调整，否则推不动盘
                     const botVol = direction * totalShares * (0.003 * dynamicLiq + Math.random() * 0.005) * intensity;
                     if (botVol > 0) buyDepth += botVol;
                     else sellDepth += Math.abs(botVol);
                 }
             }
 
-            // 6. 用户积压订单
+            // --- 用户积压订单 ---
             if (i === 0) {
                 if (currentPressure > 0) buyDepth += currentPressure;
                 else sellDepth += Math.abs(currentPressure);
             }
             
-            // 动量衰减
+            // --- 动量衰减 ---
             if (Math.abs(momentum) > 10) {
                 if (momentum > 0) buyDepth += momentum;
                 else sellDepth += Math.abs(momentum);
                 momentum = Math.floor(momentum * 0.7); 
             }
 
-            // 7. 价格计算 (v3.3 调优)
-            // 波动率因子：如果深度很大(dynamicLiq大)，需要更大的力气才能推动，所以稍微补偿一点波动率
-            // 1. 注入全服贪婪偏差
-            let evaForce = evaBias;
-            
-            // 2. 昼夜波函数 (Day/Night Cycle)
-            // 模拟人类作息：UTC 12:00-24:00 (亚洲深夜) 波动率降低，容易阴跌
-            const hour = new Date(simT).getUTCHours();
-            const isNight = (hour >= 16 || hour <= 2); // 对应北京时间 0点~10点
-            if (isNight) {
-                evaForce -= 0.001; // 夜间流动性枯竭带来的自然损耗
-            }
+            // --- 价格计算 (引入差异化 EVA 影响) ---
             const volatilityFactor = 35.0 * currentEra.buff.vol * Math.sqrt(dynamicLiq); 
             
-            const delta = ((buyDepth - sellDepth) / totalShares * volatilityFactor) + evaForce;
-            const clampedDelta = Math.max(-0.06, Math.min(0.06, delta)); // 放宽到 6%
+            // [关键修改] EVA Force 乘以该股票的敏感度
+            // 这样 EVA 砸盘时，有的跌得多，有的跌得少，甚至因为 trendWave 抵消而上涨
+            const adjustedEvaForce = evaForce * evaSensitivity;
+
+            const delta = ((buyDepth - sellDepth) / totalShares * volatilityFactor) + adjustedEvaForce;
+            const clampedDelta = Math.max(-0.06, Math.min(0.06, delta)); 
             
-            // v3.3 噪声修复：调回 0.6% ~ 0.8%，让人感觉市场是活的
             let noiseBase = 0.006; 
-            if (Math.abs(clampedDelta) < 0.005) noiseBase = 0.003; // 横盘时稍微安静点，但不要死寂
+            if (Math.abs(clampedDelta) < 0.005) noiseBase = 0.003; 
             
             const noise = (Math.random() - 0.5) * noiseBase;
             
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
 
-            // 8. 日志与破产
+            // --- 日志与破产判定 (保持不变) ---
             if (newsMsg) logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 1 ? 'good' : 'bad', t: simT});
 
             if (curP < issuePrice * BANKRUPT_PCT) {
@@ -541,6 +537,7 @@ async function getOrUpdateMarket(env, db) {
             }
             updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
         }
+        // --- 结束替换 ---
 
         if (marketMap[sym].suspended !== 1) {
             updates.push(db.prepare("UPDATE market_state SET current_price=?, last_update=?, last_news_time=?, accumulated_pressure=0 WHERE symbol=?").bind(curP, simT, nextNewsT, sym));
