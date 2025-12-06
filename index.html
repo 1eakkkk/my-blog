@@ -827,57 +827,59 @@
                     </div>
                 </div>
 
-                <!-- NEURAL CLOUD 挂机视图 -->
+                <!-- NEURAL CLOUD 视图 -->
                 <div id="view-idle" class="view-section" style="display:none;">
                     <div class="node-header">
                         <h2>NEURAL CLOUD // 神经云</h2>
-                        <div class="node-status" style="border-color:#00f3ff; color:#00f3ff;">AUTO-HACKING...</div>
+                        <div class="node-status" style="border-color:#0f0; color:#0f0;">INTRUSION: ACTIVE</div>
                     </div>
                 
-                    <!-- 顶部：资源栏 -->
-                    <div class="idle-stats-bar glass-card" style="display:flex; justify-content:space-around; margin-bottom:20px; padding:15px;">
-                        <div style="text-align:center;">
-                            <div style="font-size:0.8rem; color:#888;">LAYER (层数)</div>
-                            <div id="idleLayerDisplay" style="font-size:1.8rem; font-weight:bold; color:#fff;">--</div>
-                        </div>
-                        <div style="text-align:center;">
-                            <div style="font-size:0.8rem; color:#bd00ff;">DATA BLOCKS (算力区块)</div>
-                            <div id="idleBlocksDisplay" style="font-size:1.8rem; font-weight:bold; color:#bd00ff;">--</div>
-                        </div>
-                        <div style="text-align:center;">
-                            <div style="font-size:0.8rem; color:#0f0;">TOTAL DPS (总算力)</div>
-                            <div id="idleDpsDisplay" style="font-size:1.8rem; font-weight:bold; color:#0f0;">--</div>
-                        </div>
-                    </div>
-                
-                    <!-- 中间：战斗模拟终端 -->
-                    <div class="glass-card" style="margin-bottom:20px; min-height:200px; position:relative; overflow:hidden;">
-                        <!-- 进度条 -->
-                        <div style="position:absolute; top:0; left:0; width:100%; height:4px; background:#333;">
-                            <div id="idleHpBar" style="width:100%; height:100%; background:#f33; transition: width 0.2s;"></div>
+                    <!-- 顶部：资源与状态 -->
+                    <div class="idle-dashboard glass-card" style="margin-bottom:20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed #333; padding-bottom:10px; margin-bottom:10px;">
+                            <div>
+                                <div style="font-size:0.7rem; color:#888;">TARGET LAYER</div>
+                                <div id="idleLayer" style="font-size:1.5rem; font-weight:bold; color:#00f3ff; font-family:'JetBrains Mono'">L-001</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:0.7rem; color:#888;">NET HASH (DPS)</div>
+                                <div id="idleDPS" style="font-size:1.5rem; font-weight:bold; color:#f33; font-family:'JetBrains Mono'">0 H/s</div>
+                            </div>
                         </div>
                         
-                        <!-- 怪物信息 -->
-                        <div style="text-align:center; margin-top:20px;">
-                            <h3 id="idleEnemyName" style="color:#f33; margin:0;">FIREWALL Lv.1</h3>
-                            <div id="idleHpText" style="font-size:0.8rem; color:#666;">HP: 100 / 100</div>
+                        <!-- 资源栏 -->
+                        <div style="display:flex; gap:20px; font-size:0.9rem;">
+                            <div>🔩 废旧硬件: <span id="idleScrap" style="color:#aaa; font-weight:bold;">0</span></div>
+                            <div>📦 企业数据包: <span id="idlePackets" style="color:gold; font-weight:bold;">0</span></div>
                         </div>
-                
-                        <!-- 战斗日志 (滚动) -->
-                        <div id="idleBattleLog" style="height:120px; overflow-y:hidden; font-family:'JetBrains Mono'; font-size:0.8rem; color:#aaa; padding:10px; margin-top:10px; border-top:1px dashed #333; display:flex; flex-direction:column-reverse;">
-                            <div>> SYSTEM READY...</div>
-                        </div>
-                
-                        <!-- 领奖按钮 (浮动在右下) -->
-                        <button onclick="claimIdleRewards()" id="btnIdleClaim" class="cyber-btn" style="position:absolute; bottom:15px; right:15px; width:auto; border-color:#0f0; color:#0f0; background:rgba(0,0,0,0.8); z-index:10;">
-                            📥 提取收益 (同步)
+                        
+                        <!-- 数据包使用按钮 (如果有) -->
+                        <button id="btnUsePacket" onclick="useDataPacket()" class="mini-action-btn" style="width:100%; margin-top:10px; border-color:gold; color:gold; display:none;">
+                            🚀 注入数据包 (降低股市波动 10min)
                         </button>
                     </div>
                 
-                    <!-- 底部：单位升级列表 -->
-                    <div class="idle-units-grid" id="idleUnitsList" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:15px;">
-                        <!-- JS 动态生成 -->
-                        <div style="text-align:center; color:#666;">Loading Daemons...</div>
+                    <!-- 中间：入侵终端 (视觉核心) -->
+                    <div class="idle-terminal glass-card" style="height:200px; background:#000; padding:10px; overflow:hidden; position:relative; margin-bottom:20px; border:1px solid #333;">
+                        <!-- 背景矩阵雨 canvas -->
+                        <canvas id="matrixCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0.2;"></canvas>
+                        
+                        <!-- 覆盖在上面的日志层 -->
+                        <div id="idleLogContainer" style="position:relative; z-index:2; height:100%; display:flex; flex-direction:column-reverse; font-family:'JetBrains Mono'; font-size:0.8rem; overflow:hidden;">
+                            <!-- 动态插入日志 -->
+                            <div style="color:#0f0">> SYSTEM CONNECTED...</div>
+                        </div>
+                
+                        <!-- 领奖按钮 -->
+                        <button onclick="claimIdle()" id="btnIdleClaim" class="cyber-btn" style="position:absolute; bottom:10px; right:10px; width:auto; z-index:10; border-color:#0f0; color:#0f0; background:rgba(0,0,0,0.9);">
+                            📥 同步数据 (CLAIM)
+                        </button>
+                    </div>
+                
+                    <!-- 底部：单位升级 (SHOP) -->
+                    <h3 style="color:#666; font-size:0.9rem;">// BOTNET MANAGEMENT</h3>
+                    <div id="idleUnits" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:10px;">
+                        <!-- JS 生成 -->
                     </div>
                 </div>
 
@@ -1593,6 +1595,7 @@
     <script src="script.js?v=10.9"></script>
 </body>
 </html>
+
 
 
 
