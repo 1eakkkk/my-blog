@@ -63,6 +63,13 @@ export async function onRequest(context) {
         for (let key in UNITS) {
             if (levels[key]) totalDPS += levels[key] * UNITS[key].base_dps;
         }
+        // ...
+        const forge = await db.prepare("SELECT levels FROM user_forge WHERE user_id=?").bind(user.id).first();
+        const forgeLv = JSON.parse(forge?.levels || '{}');
+        const overclockLv = forgeLv['overclock'] || 0;
+        
+        // 最终 DPS * (1 + 等级 * 0.05) -> 每级加 5%
+        totalDPS = totalDPS * (1 + overclockLv * 0.05);
 
         // === GET: 获取状态 ===
         if (request.method === 'GET') {
