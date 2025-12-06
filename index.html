@@ -859,18 +859,26 @@
                         </button>
                     </div>
                 
-                    <!-- 中间：入侵终端 (视觉核心) -->
-                    <div class="idle-terminal glass-card" style="height:200px; background:#000; padding:10px; overflow:hidden; position:relative; margin-bottom:20px; border:1px solid #333;">
-                        <!-- 背景矩阵雨 canvas -->
+                    <div class="idle-terminal glass-card" style="height:200px; background:#000; padding:0; overflow:hidden; position:relative; margin-bottom:20px; border:1px solid #333;">
+                        <!-- 1. 背景矩阵雨 canvas -->
                         <canvas id="matrixCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0.2;"></canvas>
                         
-                        <!-- 覆盖在上面的日志层 -->
-                        <div id="idleLogContainer" style="position:relative; z-index:2; height:100%; display:flex; flex-direction:column-reverse; font-family:'JetBrains Mono'; font-size:0.8rem; overflow:hidden;">
+                        <!-- 2. 新增：顶部破解进度条 -->
+                        <div style="position:absolute; top:0; left:0; width:100%; height:4px; background:rgba(0,255,0,0.1); z-index:5;">
+                            <div id="idleProgressBar" style="width:0%; height:100%; background:#0f0; box-shadow:0 0 10px #0f0; transition:width 0.1s linear;"></div>
+                        </div>
+                        <!-- 进度百分比文字 -->
+                        <div id="idleProgressText" style="position:absolute; top:8px; right:10px; font-size:0.8rem; color:#0f0; z-index:5; font-family:'JetBrains Mono'; font-weight:bold; text-shadow:0 0 5px #0f0;">
+                            0.0%
+                        </div>
+                        
+                        <!-- 3. 日志层 -->
+                        <div id="idleLogContainer" style="position:relative; z-index:2; height:100%; display:flex; flex-direction:column-reverse; font-family:'JetBrains Mono'; font-size:0.8rem; overflow:hidden; padding:25px 10px 10px 10px;">
                             <!-- 动态插入日志 -->
                             <div style="color:#0f0">> SYSTEM CONNECTED...</div>
                         </div>
                 
-                        <!-- 领奖按钮 -->
+                        <!-- 4. 领奖按钮 -->
                         <button onclick="claimIdle()" id="btnIdleClaim" class="cyber-btn" style="position:absolute; bottom:10px; right:10px; width:auto; z-index:10; border-color:#0f0; color:#0f0; background:rgba(0,0,0,0.9);">
                             📥 同步数据 (CLAIM)
                         </button>
@@ -1596,6 +1604,7 @@
     <script src="script.js?v=10.9"></script>
 </body>
 </html>
+
 
 
 
