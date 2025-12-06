@@ -5570,7 +5570,6 @@ window.tradeStock = async function(action, isAuto = false) {
     const meta = stockMeta[currentStockSymbol];
     const totalShares = meta ? meta.shares : 1000000;
     const slippage = (amount / totalShares) * 5; 
-    const feeRate = 0.005 + slippage;
     const fee = Math.floor(orderVal * feeRate);
     const conf = COMPANY_LEVELS_CONF[currentCompanyLevel] || COMPANY_LEVELS_CONF[0];
         
@@ -6766,6 +6765,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
