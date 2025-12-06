@@ -566,6 +566,19 @@ async function getOrUpdateMarket(env, db) {
                 updates.push(db.prepare("UPDATE market_state SET current_price=?, is_suspended=1, last_update=? WHERE symbol=?").bind(curP, simT, sym));
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
                 logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。`, type: 'bad', t: simT});
+                if (Math.random() < 0.02) {
+                const evaTemplates = [
+                    "检测到局部网络熵增，建议检查防火墙。",
+                    "人类的贪婪是永恒的算法漏洞。",
+                    "正在校准全服波动率... [CALIBRATING]",
+                    "夜之城的霓虹灯下，资金正在蒸发。",
+                    "监测到异常高频交易，已标记相关 ID。",
+                    "警告：神经云层级出现未知数据波动。",
+                    "EVA-L00P 正在重构下一次市场周期的模型..."
+                ];
+                const msg = evaTemplates[Math.floor(Math.random() * evaTemplates.length)];
+                logsToWrite.push({sym: 'SYSTEM', msg: `[EVA] ${msg}`, type: 'eva', t: simT});
+            }
                 marketMap[sym].suspended = 1; marketMap[sym].p = curP;
                 break;
             }
@@ -771,7 +784,8 @@ export async function onRequest(context) {
                             isInsider, 
                             prediction: prediction,
                             eva: eva,
-                            serverTime: Date.now()
+                            serverTime: Date.now(),
+                            techs: JSON.parse(user.tech_levels || '{}')
                         });
                     }
                 }
@@ -1116,6 +1130,34 @@ export async function onRequest(context) {
                 await db.batch(batch);
                 if (env.KV) await env.KV.delete(CURRENT_CACHE_KEY);
                 return Response.json({ success: true, message: `交易成功 (滑点费率 ${(feeRate*100).toFixed(2)}%)`, log: logMsg });
+            }
+
+            if (action === 'upgrade_tech') {
+                const { techId } = body;
+                const TECH_CONFIG = {
+                    'overclock': { name: '神经超频', desc: '挂机算力 +5%', costBase: 1000, costMult: 1.5, maxLv: 20 },
+                    'scanner':   { name: '量子嗅探', desc: '股市手续费 -1%', costBase: 5000, costMult: 2.0, maxLv: 10 },
+                    'firewall':  { name: '逻辑硬化', desc: '被动 i币产出 +5%', costBase: 2000, costMult: 1.4, maxLv: 20 }
+                };
+                
+                if (!TECH_CONFIG[techId]) return Response.json({ error: '未知科技' });
+                
+                const currentTechs = JSON.parse(user.tech_levels || '{}');
+                const curLv = currentTechs[techId] || 0;
+                const conf = TECH_CONFIG[techId];
+                
+                if (curLv >= conf.maxLv) return Response.json({ error: '已达最高等级' });
+                
+                const cost = Math.floor(conf.costBase * Math.pow(conf.costMult, curLv));
+                
+                if ((user.k_coins || 0) < cost) return Response.json({ error: `K币不足 (需 ${cost})` });
+                
+                // 扣费 & 升级
+                currentTechs[techId] = curLv + 1;
+                await db.prepare("UPDATE users SET k_coins = k_coins - ?, tech_levels = ? WHERE id = ?")
+                    .bind(cost, JSON.stringify(currentTechs), user.id).run();
+                    
+                return Response.json({ success: true, message: `研发成功：${conf.name} Lv.${curLv + 1}`, level: curLv + 1 });
             }
             
             if (action === 'withdraw') {
