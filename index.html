@@ -1271,131 +1271,154 @@
                 </div>
 
                 <div id="view-about" class="view-section" style="display:none;">
-                    <h2>// SYSTEM LEVELS</h2>
-                    <p>通过签到、发帖、评论积累经验值 (XP)，提升权限等级。</p>
-                    <table class="tech-table">
-                        <thead><tr><th>等级 (LEVEL)</th><th>称号 (TITLE)</th><th>所需经验 (XP)</th></tr></thead>
-                        <tbody id="levelTableBody">
-                            <!-- JS 动态生成 -->
-                        </tbody>
-                    </table>
-                    <!-- 👇👇👇 将以下代码复制到 view-about 的经验表格下方 👇👇👇 -->
+                    <div class="node-header">
+                        <h2>// SYSTEM PROTOCOLS (生存手册)</h2>
+                        <div class="node-status" style="border-color:#fff; color:#fff;">VER: 4.5.0</div>
+                    </div>
 
-                    <div style="margin-top: 40px; border-top: 1px dashed #333; padding-top: 20px;">
-                        <h2 style="color: #00f3ff; letter-spacing: 2px;">// N.E.T. FINANCIAL PROTOCOLS v3.0</h2>
+                    <!-- 1. 等级体系 -->
+                    <div class="glass-card" style="margin-bottom: 20px;">
+                        <h3>🧬 权限等级 (Clearance Level)</h3>
+                        <p style="font-size:0.8rem; color:#888;">通过签到、发帖、评论积累经验值 (XP)。</p>
+                        <div class="table-responsive">
+                            <table class="tech-table">
+                                <thead><tr><th>LV</th><th>称号 (TITLE)</th><th>所需经验 (XP)</th></tr></thead>
+                                <tbody id="levelTableBody">
+                                    <!-- JS 动态生成，此处保持空或保留原有 JS 逻辑 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 2. N.E.T. 金融协议 (股市核心) -->
+                    <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 20px;">
+                        <h2 style="color: #00f3ff; letter-spacing: 2px;">// N.E.T. FINANCIAL MARKET</h2>
                         <p style="color: #888; font-size: 0.9rem; margin-bottom: 20px;">
-                            本交易所接入全息模拟系统。所有资本行为受 [N.E.T.] 核心算法监管。<br>
-                            <span style="color:#ff3333">警告：市场具有极高风险，请理性参与。</span>
+                            本交易所接入 EVA 全息模拟系统。所有资本行为受智能合约监管。<br>
+                            <span style="color:#ff3333">警告：市场具有极高风险，破产将触发强制清算。</span>
                         </p>
                     
-                        <!-- 1. 宏观与股票架构 -->
-                        <div class="glass-card" style="margin-bottom: 20px; border-left: 3px solid #00f3ff;">
-                            <h3 style="color: #fff;">🌍 宏观纪元与标的 (Macro & Assets)</h3>
+                        <!-- 2.1 宏观与神格 -->
+                        <div class="glass-card" style="margin-bottom: 20px; border-left: 3px solid #bd00ff;">
+                            <h3 style="color: #bd00ff;">🧠 EVA-L00P (主脑神格)</h3>
                             <p style="font-size: 0.85rem; color: #ccc; margin-bottom: 10px;">
-                                世界状态每 <strong>12小时</strong> 轮转一次，直接决定全市场的底层物理规则。
+                                股市不再是随机游走，它拥有情绪。EVA 会监控全服资金流向：
+                            </p>
+                            <ul style="list-style: none; padding: 0; font-size: 0.8rem; color: #aaa; line-height: 1.6;">
+                                <li style="margin-bottom:5px;">🔵 <strong>CALM (冷静)：</strong> 市场平稳，遵循技术面波动。</li>
+                                <li style="margin-bottom:5px;">👿 <strong>GREED (贪婪)：</strong> 当全服持仓过高时触发。EVA 会增加抛压（诱多杀多），挂机掉落率降低。</li>
+                                <li style="margin-bottom:5px;">😱 <strong>PANIC (恐慌)：</strong> 当大量玩家亏损离场时触发。EVA 会尝试拉升（暴力反弹），挂机掉落率翻倍。</li>
+                            </ul>
+                        </div>
+
+                        <!-- 2.2 宏观纪元 -->
+                        <div class="glass-card" style="margin-bottom: 20px; border-left: 3px solid #00f3ff;">
+                            <h3 style="color: #fff;">🌍 宏观纪元 (World Era)</h3>
+                            <p style="font-size: 0.85rem; color: #ccc; margin-bottom: 10px;">
+                                世界状态每 <strong>12小时</strong> 轮转一次，决定板块强弱。
                             </p>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:0.8rem;">
                                 <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:4px;">
-                                    <strong style="color:#00f3ff">🔵 霓虹盛世 (NEON AGE)</strong><br>
-                                    科技繁荣，全市场波动降低，利好科技股 (GOLD)。
+                                    <strong style="color:#00f3ff">🔵 霓虹盛世</strong><br>
+                                    利好：科技(GOLD)、医疗(GREEN)<br>全市场波动率适中。
                                 </div>
                                 <div style="background:rgba(255,51,51,0.1); padding:10px; border-radius:4px;">
-                                    <strong style="color:#ff3333">🔴 企业战争 (CORP WAR)</strong><br>
-                                    动荡加剧，军工股 (RED) 波动率翻倍，避险情绪高涨。
+                                    <strong style="color:#ff3333">🔴 企业战争</strong><br>
+                                    利好：军工(RED)<br>利空：娱乐(PINK)<br>市场剧烈震荡。
                                 </div>
                                 <div style="background:rgba(100,100,100,0.1); padding:10px; border-radius:4px;">
-                                    <strong style="color:#888">⚫ 数据大崩塌 (DATA CRASH)</strong><br>
-                                    大萧条模式，流动性枯竭，极易发生踩踏式暴跌。
+                                    <strong style="color:#888">⚫ 数据大崩塌</strong><br>
+                                    利好：能源(PURPLE) (避险)<br>全市场流动性枯竭，易发生踩踏。
                                 </div>
                             </div>
-                            <div style="margin-top:15px; border-top:1px dashed #333; padding-top:10px; font-size:0.8rem; color:#aaa;">
-                                <p>🛡️ <strong>蓝盾安全 (BLUE)：</strong> 大盘蓝筹，股本约 200万，波动稳健。</p>
-                                <p>⚡ <strong>神经元科技 (GOLD)：</strong> 中盘成长，股本约 100万，跟随科技周期。</p>
-                                <p>💥 <strong>荒坂军工 (RED)：</strong> 小盘妖股，股本约 60万，极易被资金拉爆。</p>
-                            </div>
                         </div>
                     
-                        <!-- 2. 风控红线 (核心规则) -->
+                        <!-- 2.3 风控红线 -->
                         <div class="glass-card" style="margin-bottom: 20px; border-color: #ff3333;">
-                            <h3 style="color: #ff3333;">🛡️ 监管局风控红线 (SEC-LEVEL 5)</h3>
-                            <p style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">触发以下规则将被系统自动熔断或驳回交易。</p>
+                            <h3 style="color: #ff3333;">🛡️ 交易风控红线 (SEC Protocols)</h3>
                             <ul style="list-style: none; padding: 0; color: #ccc; font-size: 0.9rem; line-height: 1.8;">
-                                <li>⏱️ <strong>交易冷却 (CD)：</strong> 同一只股票，每 <strong>30秒</strong> 只能操作一次。</li>
-                                <li>🔒 <strong>做空锁仓 (T+1)：</strong> 建立空单后，必须持有至少 <strong>60秒</strong> 方可平仓。</li>
-                                <li>🐳 <strong>反垄断限制：</strong> 单个公司持仓不得超过流通盘的 <strong>20%</strong>。</li>
-                                <li>⚡ <strong>防击穿限制：</strong> 单笔下单量不得超过流通盘的 <strong>1.0%</strong>。</li>
-                                <li>⛔ <strong>做空熔断：</strong> 当股价低于发行价的 <strong>30%</strong> 时，禁止做空。</li>
-                                <li>💸 <strong>动态成本：</strong> 基础手续费 <strong>0.5%</strong>。大额交易将触发滑点惩罚。</li>
+                                <li>⏱️ <strong>T+0 冷却：</strong> 单个股票操作间隔 <strong>30秒</strong> (升级公司可缩短)。</li>
+                                <li>🔒 <strong>做空锁仓：</strong> 建立空单后，必须持有至少 <strong>60秒</strong> 方可平仓。</li>
+                                <li>💸 <strong>动态滑点：</strong> 单笔交易量越大，滑点(手续费)越高，防止秒杀盘口。</li>
+                                <li>☠️ <strong>破产清算：</strong> 当股价 <span style="color:#f33">跌破发行价 20%</span> 时，股票强制退市。所有持仓强制平仓，仅返还 30% 残值。股票将于次日重组。</li>
                             </ul>
                         </div>
-                    
-                        <!-- 3. 公司与情报 -->
-                        <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
-                            <!-- 公司升级 -->
-                            <div class="glass-card" style="flex: 1; min-width: 300px; border-color:gold;">
-                                <!-- 在 index.html 的 view-about 中替换原表格 -->
-                            <h3 style="color: #fff;">🏗️ 公司架构升级路线</h3>
-                            <p style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">升级公司可获得：保证金减免、手续费折扣、冷却缩减及持仓上限提升。</p>
+                    </div>
+
+                    <!-- 3. NEURAL CLOUD (挂机规则) -->
+                    <div style="margin-top: 30px; border-top: 1px dashed #333; padding-top: 20px;">
+                        <h2 style="color: #0f0; letter-spacing: 2px;">// PROJECT NEURAL CLOUD</h2>
+                        <p style="color: #888; font-size: 0.9rem; margin-bottom: 20px;">
+                            部署自动化攻性程序，在后台持续入侵企业服务器。
+                        </p>
+
+                        <!-- 3.1 单位体系 -->
+                        <div class="glass-card" style="margin-bottom: 20px; border-color: #0f0;">
+                            <h3 style="color: #0f0;">🤖 僵尸网络编队 (Botnet)</h3>
                             <div class="table-responsive">
                                 <table class="tech-table">
-                                    <thead>
+                                    <thead><tr><th>代号</th><th>定位</th><th>升级消耗</th><th>特性</th></tr></thead>
+                                    <tbody style="font-size:0.8rem;">
                                         <tr>
-                                            <th style="color:#00f3ff">等级</th>
-                                            <th>架构名称</th>
-                                            <th>保证金</th>
-                                            <th>手续费</th>
-                                            <th>冷却</th>
-                                            <th>持仓</th>
-                                            <th style="color:gold">升级K币</th>
+                                            <td style="color:#fff">脚本小子</td>
+                                            <td>入门</td>
+                                            <td style="color:#00f3ff">纯 i币</td>
+                                            <td>无限量供应，新手起步必备。</td>
                                         </tr>
-                                    </thead>
-                                    <tbody style="font-size: 0.8rem;">
-                                        <tr><td>Lv.0</td><td>皮包公司</td><td>100%</td><td>100%</td><td>30s</td><td>20%</td><td>-</td></tr>
-                                        <tr><td>Lv.1</td><td>车库工作室</td><td>98%</td><td>100%</td><td>30s</td><td>20%</td><td>2,000</td></tr>
-                                        <tr><td>Lv.2</td><td>量化作坊</td><td>95%</td><td>90%</td><td>27s</td><td>20%</td><td>5,000</td></tr>
-                                        <tr><td>Lv.3</td><td>小型私募</td><td>92%</td><td>90%</td><td>27s</td><td>24%</td><td>10,000</td></tr>
-                                        <tr><td>Lv.4</td><td>高频交易室</td><td>90%</td><td>80%</td><td>21s</td><td>24%</td><td>20,000</td></tr>
-                                        <tr><td>Lv.5</td><td>区域游资</td><td>88%</td><td>80%</td><td>21s</td><td>30%</td><td>40,000</td></tr>
-                                        <tr><td>Lv.6</td><td>数据对冲基金</td><td>85%</td><td>70%</td><td>18s</td><td>30%</td><td>80,000</td></tr>
-                                        <tr><td>Lv.7</td><td>跨国资本</td><td>82%</td><td>70%</td><td>18s</td><td>36%</td><td>150,000</td></tr>
-                                        <tr><td>Lv.8</td><td>暗池巨鲸</td><td>80%</td><td>60%</td><td>15s</td><td>40%</td><td>300,000</td></tr>
-                                        <tr><td>Lv.9</td><td>市场做市商</td><td>75%</td><td>50%</td><td>12s</td><td>50%</td><td>600,000</td></tr>
-                                        <tr><td>Lv.10</td><td>荒坂塔顶层</td><td>70%</td><td>0%</td><td>0s</td><td>100%</td><td>1,000,000</td></tr>
+                                        <tr>
+                                            <td style="color:#aaa">数据水蛭</td>
+                                            <td>经济</td>
+                                            <td>i币 / 硬件</td>
+                                            <td>DPS较低，但能增加<span style="color:#aaa">废旧硬件</span>的掉落率。</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="color:#00f3ff">攻性防壁</td>
+                                            <td>坦克</td>
+                                            <td>i币 / 硬件</td>
+                                            <td>中坚力量，性价比均衡。</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="color:#bd00ff">幽灵 AI</td>
+                                            <td>旗舰</td>
+                                            <td>i币 / 硬件</td>
+                                            <td>极高造价，极高输出，后期推塔核心。</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
-                    
-                            <!-- 情报局 -->
-                            <div class="glass-card" style="flex: 1; min-width: 300px; border-color:#bd00ff;">
-                                <h3 style="color: #bd00ff;">👁️ 情报局 (Insider Net)</h3>
-                                <p style="font-size: 0.85rem; color: #ccc; line-height: 1.6;">
-                                    普通用户只能看到模糊的市场情绪（买盘汹涌/多空平衡）。<br><br>
-                                    <strong style="color:#fff">付费订阅者 (5000k/24h)</strong> 可解锁：
-                                </p>
-                                <ul style="font-size:0.8rem; color:#aaa; margin-top:5px;">
-                                    <li>✓ 精确到个位数的买卖盘净差值</li>
-                                    <li>✓ 识别主力资金流向</li>
-                                    <li>✓ 解锁专属紫色 INSIDER 标识</li>
+                            <p style="font-size:0.7rem; color:#666; margin-top:5px;">* 注：高级单位采用【混合供能】。偶数级消耗资金(i币)，奇数级消耗材料(硬件)。</p>
+                        </div>
+
+                        <!-- 3.2 资源循环 -->
+                        <div class="glass-card" style="margin-bottom: 20px;">
+                            <h3 style="color: gold;">📦 战利品与内幕 (Loot Loop)</h3>
+                            <div style="font-size:0.9rem; color:#ccc; line-height:1.6;">
+                                <p><strong>1. 废旧硬件 (Scrap)：</strong> 升级高级单位的必需品。挂机层数越高，掉落越多。</p>
+                                <p><strong>2. 企业数据包 (Data Packet)：</strong> 极稀有掉落。使用后进行随机判定：</p>
+                                <ul style="margin-left:15px; color:#aaa; font-size:0.8rem;">
+                                    <li><span style="color:#0f0">60% 概率</span>：获得股市 <strong>神经链接预测</strong> (显示未来1分钟涨跌概率)。</li>
+                                    <li><span style="color:#00f3ff">30% 概率</span>：窃取企业资金 (直接获得大量 i币)。</li>
+                                    <li><span style="color:#f33">10% 概率</span>：触发追踪程序 (获得硬件但扣除 i币作为罚款)。</li>
                                 </ul>
                             </div>
                         </div>
-                    
-                        <!-- 4. 破产机制 -->
-                        <div class="glass-card" style="border-top: 3px solid #f33;">
-                            <h3 style="color: #fff;">☠️ 破产清算与重组 (Death & Rebirth)</h3>
-                            <div style="font-size: 0.9rem; color: #aaa; line-height: 1.8;">
-                                <p>当股票价格击穿 <span style="color:#f33">发行价 × 20%</span> 时，触发强制退市程序：</p>
-                                <ol style="margin-left: 20px; padding: 0;">
-                                    <li>股票立即停牌，所有交易终止。</li>
-                                    <li>持有该股票的公司账户被强制平仓。</li>
-                                    <li>系统返还当前市值的 <span style="color:#00f3ff">30%</span> 作为清算残值。</li>
-                                    <li><strong>次日重组：</strong> 该代码将以全新的股本和发行价重新上市 (Reroll)。</li>
-                                </ol>
-                            </div>
+                    </div>
+
+                    <!-- 4. 经济循环总览 -->
+                    <div class="glass-card" style="margin-top: 30px; border: 1px solid #444; background: rgba(0,0,0,0.5);">
+                        <h3 style="text-align:center; color:#fff;">♾️ 经济内循环 (The Loop)</h3>
+                        <div style="text-align:center; font-size:0.8rem; color:#aaa; line-height:2;">
+                            打工/股市 <span style="color:#00f3ff">赚取 i币</span> ➔ 升级 <span style="color:#fff">脚本小子</span><br>
+                            挂机产出 <span style="color:#aaa">废旧硬件</span> ➔ 升级 <span style="color:#bd00ff">幽灵 AI</span><br>
+                            挂机掉落 <span style="color:gold">数据包</span> ➔ 开启 <span style="color:#0f0">股市预测</span><br>
+                            股市 <span style="color:#f33">暴富</span> ➔ 购买 <span style="color:gold">公司架构/VIP</span>
                         </div>
                     </div>
-                </div>
-            </div>   
+
+                    <div style="margin-top: 40px; text-align: center; color: #666; font-size: 0.7rem;">
+                        SYSTEM KERNEL V4.5.0 // END OF FILE
+                    </div>
+                </div>   
 
                 <div id="view-feedback" class="view-section" style="display:none;">
                     <h2>// FEEDBACK CENTER</h2>
@@ -1631,9 +1654,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.11"></script>
+    <script src="script.js?v=10.12"></script>
 </body>
 </html>
+
 
 
 
