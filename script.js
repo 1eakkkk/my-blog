@@ -6787,92 +6787,6 @@ function startMatrixRain() {
     }, 50);
 }
 
-// === 研发中心逻辑 ===
-const TECH_CONF = {
-    'overclock': { name: '神经超频', desc: '挂机算力(DPS) +5%', icon: '⚡' },
-    'scanner':   { name: '量子嗅探', desc: '股市手续费 -1%', icon: '📡' },
-    'firewall':  { name: '逻辑硬化', desc: '打工收益 +5%', icon: '🛡️' }
-};
-
-window.openTechModal = function() {
-    const modal = document.getElementById('tech-modal');
-    const grid = document.getElementById('techGrid');
-    modal.style.display = 'flex';
-    grid.innerHTML = 'Loading...';
-    
-    // 这里简单处理：复用 currentUser 里的 tech_levels (需要先确保 checkSecurity 更新了它)
-    // 或者重新请求 stock 接口获取最新 tech。
-    // 假设 loadStockMarket 已经把 techs 存到了 window.myTechs
-    renderTechGrid();
-};
-
-function renderTechGrid() {
-    const grid = document.getElementById('techGrid');
-    grid.innerHTML = '';
-    
-    // 默认值
-    const myTechs = window.myTechs || {}; 
-    // 注意：需要在 loadStockMarket 的 success 里加一句 window.myTechs = data.techs;
-
-    // 后端配置副本 (用于显示价格，简单起见写死倍率，实际应从后端拉取或保持同步)
-    const COSTS = {
-        'overclock': { base: 1000, mult: 1.5, max: 20 },
-        'scanner':   { base: 5000, mult: 2.0, max: 10 },
-        'firewall':  { base: 2000, mult: 1.4, max: 20 }
-    };
-
-    for (let id in TECH_CONF) {
-        const t = TECH_CONF[id];
-        const c = COSTS[id];
-        const lv = myTechs[id] || 0;
-        const cost = Math.floor(c.base * Math.pow(c.mult, lv));
-        const isMax = lv >= c.max;
-        
-        const div = document.createElement('div');
-        div.className = 'glass-card';
-        div.style.padding = '10px';
-        div.style.display = 'flex';
-        div.style.justifyContent = 'space-between';
-        div.style.alignItems = 'center';
-        
-        div.innerHTML = `
-            <div style="text-align:left;">
-                <div style="color:#bd00ff; font-weight:bold;">${t.icon} ${t.name} <span style="color:#fff; font-size:0.8rem">Lv.${lv}</span></div>
-                <div style="font-size:0.7rem; color:#888;">${t.desc}</div>
-            </div>
-            <button onclick="doUpgradeTech('${id}')" class="mini-action-btn" ${isMax ? 'disabled' : ''} style="height:auto; padding:5px 10px;">
-                ${isMax ? 'MAX' : cost.toLocaleString() + ' k'}
-            </button>
-        `;
-        grid.appendChild(div);
-    }
-}
-
-window.doUpgradeTech = async function(id) {
-    if(!confirm("确认消耗 K币 进行研发？")) return;
-    try {
-        const res = await fetch(`${API_BASE}/stock`, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ action: 'upgrade_tech', techId: id })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast(data.message, 'success');
-            // 刷新数据
-            loadStockMarket(); 
-            // 稍后刷新弹窗 (因为 loadStockMarket 是异步的，这里做个简单延时或链式调用)
-            setTimeout(() => {
-                if(window.myTechs) window.myTechs[id] = data.level; // 手动乐观更新
-                renderTechGrid();
-                checkSecurity(); // 刷新K币余额
-            }, 500);
-        } else {
-            showToast(data.error, 'error');
-        }
-    } catch(e) { showToast('Error'); }
-};
-
 // === 🔨 硬件锻造 (Hardware Forge) ===
 
 let forgeData = {};
@@ -6967,6 +6881,7 @@ window.doForgeUpgrade = async function(key) {
         }
     } catch(e) { showToast('Network Error'); }
 };
+
 
 
 
