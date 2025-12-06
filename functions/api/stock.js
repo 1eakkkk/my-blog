@@ -1007,18 +1007,28 @@ export async function onRequest(context) {
                 // === 应用天赋 Buff ===
                 const currentLvConf = COMPANY_LEVELS[companyLevel] || COMPANY_LEVELS[0];
                 const finalCooldown = BASE_TRADE_COOLDOWN * currentLvConf.cd; // 冷却缩减
-                const finalFeeRate = BASE_FEE_RATE * currentLvConf.fee;       // 手续费折扣
                 const finalMaxHoldPct = BASE_MAX_HOLDING_PCT * currentLvConf.hold; // 持仓上限提升
 
-                // 先读取 forge 等级
+                // === 1. 计算基础费率 (基于公司等级) ===
+                // 注意：这里必须用 let，因为后面我们要修改它
+                let finalFeeRate = BASE_FEE_RATE * currentLvConf.fee;       
+
+                // === 2. 应用【硬件锻造】Buff (量子嗅探) ===
+                // 读取锻造等级
                 const forge = await db.prepare("SELECT levels FROM user_forge WHERE user_id=?").bind(user.id).first();
                 const forgeLv = JSON.parse(forge?.levels || '{}');
                 const snifferLv = forgeLv['sniffer'] || 0;
-                
-                // 原费率 - (等级 * 0.001) -> 每级减 0.1%
-                let finalFeeRate = baseFeeRate - (snifferLv * 0.001); 
-                if (finalFeeRate < 0.001) finalFeeRate = 0.001; // 保底 0.1%
-                
+
+                // 叠加折扣：每级减少 0.1% (0.001)
+                if (snifferLv > 0) {
+                    finalFeeRate = finalFeeRate - (snifferLv * 0.001);
+                }
+
+                // 保底机制：费率最低不能低于 0.1%
+                if (finalFeeRate < 0.001) finalFeeRate = 0.001;
+
+                // === 3. 继续后续计算 ===
+                const finalMaxHoldPct = BASE_MAX_HOLDING_PCT * currentLvConf.hold;
                 if (timeDiff >= finalCooldown) {
                     currentAccVol = 0; 
                 } else {
