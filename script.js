@@ -60,6 +60,21 @@ const WORK_CATALOG = {
 
 let workTicker = null; // 定时器
 
+// === 公司等级配置 (前端副本 - 请保持与后端 stock.js 一致) ===
+const COMPANY_LEVELS_CONF = {
+    0:  { margin: 1.00, fee: 1.0 },
+    1:  { margin: 0.98, fee: 1.0 },
+    2:  { margin: 0.95, fee: 0.9 },
+    3:  { margin: 0.92, fee: 0.9 },
+    4:  { margin: 0.90, fee: 0.8 },
+    5:  { margin: 0.88, fee: 0.8 },
+    6:  { margin: 0.85, fee: 0.7 },
+    7:  { margin: 0.82, fee: 0.7 },
+    8:  { margin: 0.80, fee: 0.6 },
+    9:  { margin: 0.75, fee: 0.5 },
+    10: { margin: 0.70, fee: 0.4 } // <--- 已更新：费率 0.4
+};
+let currentCompanyLevel = 0; // 用于记录当前等级
 // 1. 检查并播放
 async function checkBroadcasts() {
     try {
@@ -4948,6 +4963,7 @@ window.loadStockMarket = async function() {
             companyInfo = { capital: data.capital, type: data.companyType };
             isGlobalMarketClosed = (data.status && !data.status.isOpen);
             renderStockDashboard(currentStockSymbol); // <--- 然后调用渲染
+            currentCompanyLevel = data.companyLevel || 0; 
 
             // 渲染 EVA 状态
             const evaEl = document.getElementById('evaStatusDisplay');
@@ -5556,10 +5572,15 @@ window.tradeStock = async function(action, isAuto = false) {
     const slippage = (amount / totalShares) * 5; 
     const feeRate = 0.005 + slippage;
     const fee = Math.floor(orderVal * feeRate);
-    const marginRate = 1.0; 
+    const conf = COMPANY_LEVELS_CONF[currentCompanyLevel] || COMPANY_LEVELS_CONF[0];
+        
+        // 应用折扣 (保证金折扣 & 手续费折扣)
+    const marginRate = conf.margin; 
+    const feeRate = (0.005 + slippage) * conf.fee; // 基础费率 * 等级折扣
+        
+    const fee = Math.floor(orderVal * feeRate); // 重新计算优惠后的手续费
     const margin = Math.floor((orderVal / leverage) * marginRate);
     const totalCost = margin + fee;
-
     // 4. 确认弹窗 (关键修改：如果是自动交易，直接跳过)
     if (!isAuto) {
         const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
@@ -6745,6 +6766,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
