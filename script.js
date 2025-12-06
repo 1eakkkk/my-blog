@@ -6508,7 +6508,7 @@ function updateIdleUI(data) {
                 <span style="color:#0f0; font-size:0.8rem;">+${u.base_dps} dps</span>
             </div>
             <div style="font-size:0.7rem; color:#888; margin-bottom:8px;">${u.desc}</div>
-            <button onclick="upgradeUnit('${key}')" class="${btnClass}" style="width:100%; margin:0; font-size:0.8rem; ${btnStyle}">
+            <button onclick="upgradeUnit('${key}', this)" class="${btnClass}" style="width:100%; margin:0; font-size:0.8rem; ${btnStyle}">
                 UPGRADE (${cost.toLocaleString()} ${currencyIcon})
             </button>
         `;
@@ -6576,8 +6576,16 @@ function addIdleLog(msg, color='#0f0') {
     if (box.children.length > 8) box.lastChild.remove();
 }
 
-// 4. 交互操作
-window.upgradeUnit = async function(key) {
+// 4. 交互操作 (优化版：即时反馈 + 全局刷新)
+window.upgradeUnit = async function(key, btnElement) {
+    // 1. 即时反馈：防止重复点击，给出视觉提示
+    if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.innerHTML = `<span class="loading-dots">UPGRADING</span>`;
+        btnElement.style.opacity = '0.7';
+        btnElement.style.cursor = 'wait';
+    }
+
     try {
         const res = await fetch(`${API_BASE}/idle`, {
             method: 'POST',
@@ -6585,15 +6593,35 @@ window.upgradeUnit = async function(key) {
             body: JSON.stringify({ action: 'upgrade', unit: key })
         });
         const data = await res.json();
+        
         if (data.success) {
-            showToast('升级成功', 'success');
-            loadIdleGame(); // 刷新数据
+            showToast(`升级完成！当前等级 Lv.${data.level}`, 'success');
+            
+            // 2. 关键：同时刷新【侧边栏余额】和【挂机界面】
+            // Promise.all 让两个请求并行，加快速度
+            await Promise.all([
+                checkSecurity(), // 刷新 i币 (侧边栏)
+                loadIdleGame()   // 刷新 硬件/等级/按钮状态 (挂机区)
+            ]);
+            
         } else {
             showToast(data.error, 'error');
+            // 如果失败了，恢复按钮状态 (成功的话 loadIdleGame 会重绘按钮，不用恢复)
+            if (btnElement) {
+                btnElement.disabled = false;
+                btnElement.innerHTML = 'UPGRADE FAILED';
+                setTimeout(() => btnElement.innerHTML = 'RETRY', 1000);
+            }
         }
-    } catch(e) { showToast('Error'); }
+    } catch(e) { 
+        console.error(e);
+        showToast('网络连接超时', 'error');
+        if (btnElement) {
+            btnElement.disabled = false;
+            btnElement.innerHTML = 'ERROR';
+        }
+    }
 };
-
 window.claimIdle = async function() {
     const btn = document.getElementById('btnIdleClaim');
     btn.disabled = true; btn.innerText = "SYNCING...";
@@ -6687,6 +6715,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
