@@ -208,7 +208,7 @@ async function getOrUpdateMarket(env, db) {
     if (cachedData && ((now - cachedData.timestamp < 5000) || isLocked)) {
         return cachedData.payload;
     }
-    if (env.KV) await env.KV.put(LOCK_KEY, "1", { expirationTtl: 10 });
+    if (env.KV) await env.KV.put(LOCK_KEY, "1", { expirationTtl: 60 });
     
 
     const bjHour = getBJHour(now);
