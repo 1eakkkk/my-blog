@@ -6891,21 +6891,23 @@ window.closeForgeModal = function() {
 };
 
 async function loadForgeData() {
-    const container = document.getElementById('forge-list'); // 弹窗里的列表容器 ID
-    if (!container) return;
-    container.innerHTML = '<div style="text-align:center;color:#666">LOADING DATA...</div>';
-
-    try {
-        const res = await fetch(`${API_BASE}/forge?t=${Date.now()}`);
-        const data = await res.json();
-        
-        if (data.success) {
-            forgeData = data;
-            renderForgeList();
-        }
-    } catch(e) { console.error(e); }
+    // 强制刷新一次用户信息，确保拿到最新等级
+    await checkSecurity(); 
+    
+    // 从 currentUser 中读取
+    const levels = JSON.parse(currentUser.forge_levels || '{}');
+    
+    // 配置表 (前端副本)
+    const config = {
+        'overclock': { name: '神经超频', base_cost: 1000, desc: '挂机算力(DPS) +5%', max: 50 },
+        'sniffer':   { name: '量子嗅探', base_cost: 5000, desc: '股市手续费 -1%', max: 10 },
+        'hardening': { name: '逻辑硬化', base_cost: 2000, desc: '打工收益 +5%', max: 20 }
+    };
+    
+    // 构造伪造的数据对象传给渲染函数，复用原有逻辑
+    forgeData = { levels, config };
+    renderForgeList();
 }
-
 function renderForgeList() {
     const container = document.getElementById('forge-list');
     container.innerHTML = '';
@@ -6942,21 +6944,18 @@ function renderForgeList() {
 
 window.doForgeUpgrade = async function(key) {
     try {
-        const res = await fetch(`${API_BASE}/forge`, {
+        // 改为调用 stock 接口
+        const res = await fetch(`${API_BASE}/stock`, {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ type: key })
+            body: JSON.stringify({ action: 'upgrade_forge', type: key })
         });
         const data = await res.json();
         
         if (data.success) {
-            // === 🔍 调试弹窗 ===
-            console.log("DEBUG INFO:", data.debug);
-            alert(`升级成功！\n后端调试信息：\n尝试写入: ${data.debug.trying_to_save}\n实际回读: ${data.debug.verified_saved_data}`);
-            
-            checkSecurity(); 
-            // 延迟 500ms 再拉取，防止数据库延迟
-            setTimeout(loadForgeData, 500); 
+            showToast(data.message, 'success');
+            // 刷新数据
+            loadForgeData(); 
         } else {
             showToast(data.error, 'error');
         }
