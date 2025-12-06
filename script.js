@@ -6950,15 +6950,15 @@ window.doForgeUpgrade = async function(key) {
         const data = await res.json();
         
         if (data.success) {
-            showToast('升级成功！', 'success');
+            // === 🔍 调试弹窗 ===
+            console.log("DEBUG INFO:", data.debug);
+            alert(`升级成功！\n后端调试信息：\n尝试写入: ${data.debug.trying_to_save}\n实际回读: ${data.debug.verified_saved_data}`);
             
-            // 强制刷新：先清空数据对象，确保下次必须重拉
-            forgeData = {}; 
-            
-            await Promise.all([
-                checkSecurity(), // 刷新钱
-                loadForgeData()  // 重新从服务器拉取最新等级
-            ]);
+            checkSecurity(); 
+            // 延迟 500ms 再拉取，防止数据库延迟
+            setTimeout(loadForgeData, 500); 
+        } else {
+            showToast(data.error, 'error');
         }
     } catch(e) { showToast('Network Error'); }
 };
