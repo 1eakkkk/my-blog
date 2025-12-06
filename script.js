@@ -4951,6 +4951,26 @@ window.loadStockMarket = async function() {
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             isGlobalMarketClosed = (data.status && !data.status.isOpen);
+
+            // 渲染 EVA 状态
+            const evaEl = document.getElementById('evaStatusDisplay');
+            const descEl = document.getElementById('evaDescDisplay');
+            
+            if (evaEl && data.eva) {
+                const e = data.eva.emotion;
+                let color = '#fff';
+                let icon = '😐';
+                
+                if (e === 'CALM') { color = '#00f3ff'; icon = '🔵'; }
+                if (e === 'GREED') { color = '#ff3333'; icon = '👿'; } // 红色恶魔
+                if (e === 'PANIC') { color = '#bd00ff'; icon = '😱'; } // 紫色惊恐
+                
+                evaEl.innerHTML = `${icon} <span style="color:${color}">${e}</span>`;
+                descEl.innerText = data.eva.desc;
+                
+                // 动态修改页面的氛围光 (可选，增加沉浸感)
+                document.body.style.setProperty('--glow-color', color); 
+            }
             
             // 2. 宏观纪元显示
             const tickerText = data.era ? `🌍 [${data.era.name}] ${data.era.desc}` : "MARKET OPEN";
@@ -6631,6 +6651,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
