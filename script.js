@@ -6450,30 +6450,66 @@ function updateIdleUI(data) {
     }
 
     // 渲染单位
+    // 渲染单位
     const list = document.getElementById('idleUnits');
     list.innerHTML = '';
     
+    // 汇率 (需与后端一致)
+    const coinExchangeRate = 50; 
+
     for (let key in data.config) {
         const u = data.config[key];
         const lv = data.levels[key] || 0;
-        const cost = Math.floor(u.base_cost * Math.pow(u.cost_inc, lv));
+        
+        let cost = 0;
+        let currencyIcon = '';
+        let canAfford = false;
+        let colorClass = '';
+
+        // === 前端混合消耗判断 ===
+        if (key === 'kiddie') {
+            // T1 全 i币
+            cost = Math.floor(u.base_cost * coinExchangeRate * Math.pow(u.cost_inc, lv));
+            currencyIcon = 'i';
+            canAfford = (currentUser.coins >= cost); // 注意：这里需要依赖全局 currentUser
+            colorClass = '#00f3ff'; // 蓝色代表钱
+        } else {
+            // T2-T4 交替
+            if (lv % 2 === 0) {
+                // 偶数 -> i币
+                cost = Math.floor(u.base_cost * coinExchangeRate * Math.pow(u.cost_inc, lv));
+                currencyIcon = 'i';
+                canAfford = (currentUser.coins >= cost);
+                colorClass = '#00f3ff'; 
+            } else {
+                // 奇数 -> 硬件
+                cost = Math.floor(u.base_cost * Math.pow(u.cost_inc, lv));
+                currencyIcon = '🔩';
+                canAfford = (data.scrap >= cost);
+                colorClass = '#ccc'; // 白色代表硬件
+            }
+        }
         
         // 样式处理
-        const canBuy = data.scrap >= cost;
-        const color = canBuy ? '#fff' : '#666';
-        const btnStyle = canBuy ? 'border-color:#fff; color:#fff;' : 'border-color:#333; color:#666; cursor:not-allowed;';
+        const btnClass = canAfford ? 'cyber-btn' : 'cyber-btn disabled';
+        const btnStyle = canAfford 
+            ? `border-color:${colorClass}; color:${colorClass};` 
+            : 'border-color:#333; color:#666; cursor:not-allowed;';
         
+        // 单位名字颜色：已解锁高亮，未解锁灰色
+        const nameColor = lv > 0 ? '#fff' : '#888';
+
         const div = document.createElement('div');
         div.className = 'glass-card';
         div.style.padding = '10px';
         div.innerHTML = `
             <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span style="color:${color}; font-weight:bold;">${u.name} <span style="font-size:0.7rem; color:#666;">Lv.${lv}</span></span>
+                <span style="color:${nameColor}; font-weight:bold;">${u.name} <span style="font-size:0.7rem; color:#666;">Lv.${lv}</span></span>
                 <span style="color:#0f0; font-size:0.8rem;">+${u.base_dps} dps</span>
             </div>
             <div style="font-size:0.7rem; color:#888; margin-bottom:8px;">${u.desc}</div>
-            <button onclick="upgradeUnit('${key}')" class="cyber-btn" style="width:100%; margin:0; font-size:0.8rem; ${btnStyle}">
-                UPGRADE (${cost} 🔩)
+            <button onclick="upgradeUnit('${key}')" class="${btnClass}" style="width:100%; margin:0; font-size:0.8rem; ${btnStyle}">
+                UPGRADE (${cost.toLocaleString()} ${currencyIcon})
             </button>
         `;
         list.appendChild(div);
@@ -6651,6 +6687,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
