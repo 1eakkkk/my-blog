@@ -4,7 +4,10 @@
 const STOCKS_CONFIG = {
     'BLUE': { name: '蓝盾安全', color: '#00f3ff', share_range: [1500000, 2000000], price_range: [800, 1200] },
     'GOLD': { name: '神经元科技', color: '#ffd700', share_range: [1000000, 1500000], price_range: [2000, 3000] },
-    'RED':  { name: '荒坂军工', color: '#ff3333', share_range: [600000, 900000], price_range: [3500, 5000] }
+    'RED':  { name: '荒坂军工', color: '#ff3333', share_range: [600000, 900000], price_range: [3500, 5000] },
+    'PURPLE': { name: '虚空能源', color: '#bd00ff', share_range: [2500000, 3500000], price_range: [400, 600] }, // 公用事业，盘大价低，适合新手
+    'GREEN':  { name: '康陶医疗', color: '#00ff00', share_range: [900000, 1300000], price_range: [1800, 2800] }, // 生物医药，受政策影响大
+    'PINK':   { name: '夜氏传媒', color: '#ff00de', share_range: [700000, 1100000], price_range: [1200, 2200] }  // 娱乐传媒，波动极快
 };
 
 // === 🤖 机器人假名库 (气氛组) ===
@@ -16,9 +19,11 @@ const BOT_NAMES = [
 
 // === 2. 宏观与风控 ===
 const MACRO_ERAS = [
-    { code: 'NEON_AGE', name: '霓虹盛世', desc: '全市场流动性充裕，易暴涨。', buff: { vol: 1.2, gold_bias: 1.2, red_bias: 1.0 } },
-    { code: 'CORP_WAR', name: '企业战争', desc: '局势动荡，波动率极高。', buff: { vol: 1.5, gold_bias: 0.7, red_bias: 1.3 } },
-    { code: 'DATA_CRASH', name: '数据大崩塌', desc: '大萧条，阴跌不止。', buff: { vol: 0.8, gold_bias: 0.8, red_bias: 0.8 } }
+    { code: 'NEON_AGE', name: '霓虹盛世', desc: '全市场流动性充裕，易暴涨。', buff: { vol: 1.2, gold_bias: 1.2, red_bias: 1.0, green_bias: 1.1 } },
+    { code: 'CORP_WAR', name: '企业战争', desc: '局势动荡，军工暴涨，娱乐暴跌。', buff: { vol: 1.5, gold_bias: 0.7, red_bias: 1.5, pink_bias: 0.6 } },
+    { code: 'DATA_CRASH', name: '数据大崩塌', desc: '大萧条，阴跌不止，能源抗跌。', buff: { vol: 0.8, gold_bias: 0.8, red_bias: 0.8, purple_bias: 1.1 } },
+    { code: 'BIO_PLAGUE', name: '生化危机', desc: '疫病蔓延，医疗股被爆炒。', buff: { vol: 1.3, green_bias: 1.6, pink_bias: 0.8, blue_bias: 1.2 } },
+    { code: 'NET_CELEB', name: '全网狂欢', desc: '娱乐至死，传媒股受追捧。', buff: { vol: 1.1, pink_bias: 1.5, red_bias: 0.8, purple_bias: 0.9 } }
 ];
 
 const TRADE_COOLDOWN = 30 * 1000;
@@ -44,24 +49,44 @@ const MARKET_MODES = {
     3: { name: '低波市', code: 'QUIET',  depth_mod: 0.5, icon: '🌫️' }
 };
 
+// 新闻库 (大幅扩充)
 const NEWS_DB = {
     'BLUE': [
-        { weight: 20, factor: 1.3, msg: "季度财报超预期，现金流强劲。" }, { weight: 20, factor: 0.8, msg: "服务器维护成本激增。" },
-        { weight: 10, factor: 1.5, msg: "获得政府防火墙二期工程订单。" }, { weight: 10, factor: 0.6, msg: "部分用户投诉误报率上升。" },
-        { weight: 5, factor: 2.0, msg: "发布量子加密算法，黑客渗透率归零。" }, { weight: 5, factor: 0.3, msg: "核心数据库遭受 DDoS 攻击！" },
-        { weight: 1, factor: 3.0, msg: "【重磅】市政厅宣布其为唯一安全供应商！" }, { weight: 1, factor: 0.1, msg: "【突发】0-day 漏洞数据泄露，面临巨额索赔！" }
+        { weight: 20, factor: 1.2, msg: "季度财报超预期，现金流强劲。" }, { weight: 20, factor: 0.8, msg: "服务器维护成本激增。" },
+        { weight: 10, factor: 1.4, msg: "获得政府防火墙二期工程订单。" }, { weight: 10, factor: 0.6, msg: "部分用户投诉误报率上升。" },
+        { weight: 5, factor: 1.8, msg: "发布量子加密算法，黑客渗透率归零。" }, { weight: 5, factor: 0.3, msg: "核心数据库遭受 DDoS 攻击！" },
+        { weight: 1, factor: 2.5, msg: "【重磅】市政厅宣布其为唯一安全供应商！" }, { weight: 1, factor: 0.1, msg: "【突发】0-day 漏洞数据泄露，面临巨额索赔！" }
     ],
     'GOLD': [
-        { weight: 20, factor: 1.3, msg: "义体原材料成本大幅下降。" }, { weight: 20, factor: 0.8, msg: "医保法案推迟，影响报销。" },
-        { weight: 10, factor: 1.6, msg: "新款义体‘赫尔墨斯’销量暴增。" }, { weight: 10, factor: 0.5, msg: "数千名用户投诉芯片过热。" },
-        { weight: 5, factor: 2.1, msg: "排异反应抑制剂通过临床三期！" }, { weight: 5, factor: 0.2, msg: "被曝在贫民窟进行非法实验。" },
-        { weight: 1, factor: 3.5, msg: "【神迹】宣布实现完美意识上传！" }, { weight: 1, factor: 0.05, msg: "【灾难】核心 AI 产生自我意识并反叛！" }
+        { weight: 20, factor: 1.2, msg: "义体原材料成本大幅下降。" }, { weight: 20, factor: 0.8, msg: "医保法案推迟，影响报销。" },
+        { weight: 10, factor: 1.5, msg: "新款义体‘赫尔墨斯’销量暴增。" }, { weight: 10, factor: 0.5, msg: "数千名用户投诉芯片过热。" },
+        { weight: 5, factor: 1.9, msg: "排异反应抑制剂通过临床三期！" }, { weight: 5, factor: 0.2, msg: "被曝在贫民窟进行非法实验。" },
+        { weight: 1, factor: 3.0, msg: "【神迹】宣布实现完美意识上传！" }, { weight: 1, factor: 0.05, msg: "【灾难】核心 AI 产生自我意识并反叛！" }
     ],
     'RED': [
-        { weight: 20, factor: 1.3, msg: "边境摩擦带来大量订单。" }, { weight: 20, factor: 0.8, msg: "一批常规弹药运输延误。" },
-        { weight: 10, factor: 1.6, msg: "成功镇压局部暴乱。" }, { weight: 10, factor: 0.5, msg: "反战组织举行大规模抗议。" },
-        { weight: 5, factor: 2.2, msg: "发布‘半人马’机甲，威慑力拉满。" }, { weight: 5, factor: 0.2, msg: "国际法庭冻结其海外资产。" },
-        { weight: 1, factor: 4.0, msg: "【战争】第四次企业战争爆发！" }, { weight: 1, factor: 0.05, msg: "【覆灭】内部爆发夺权内战，业务瘫痪！" }
+        { weight: 20, factor: 1.2, msg: "边境摩擦带来大量订单。" }, { weight: 20, factor: 0.8, msg: "一批常规弹药运输延误。" },
+        { weight: 10, factor: 1.5, msg: "成功镇压局部暴乱。" }, { weight: 10, factor: 0.5, msg: "反战组织举行大规模抗议。" },
+        { weight: 5, factor: 2.0, msg: "发布‘半人马’机甲，威慑力拉满。" }, { weight: 5, factor: 0.2, msg: "国际法庭冻结其海外资产。" },
+        { weight: 1, factor: 3.5, msg: "【战争】第四次企业战争爆发！" }, { weight: 1, factor: 0.05, msg: "【覆灭】内部爆发夺权内战，业务瘫痪！" }
+    ],
+    // === 新增 ===
+    'PURPLE': [
+        { weight: 20, factor: 1.1, msg: "核聚变电站运行效率提升。" }, { weight: 20, factor: 0.9, msg: "输电网络老化，需大额维修。" },
+        { weight: 10, factor: 1.3, msg: "宣布下调工业用电价格，获政府补贴。" }, { weight: 10, factor: 0.7, msg: "贫民窟发生大规模偷电行为。" },
+        { weight: 5, factor: 1.6, msg: "发现新型高能矿脉，成本减半！" }, { weight: 5, factor: 0.4, msg: "主反应堆发生轻微泄漏事故。" },
+        { weight: 1, factor: 2.0, msg: "【突破】可控冷聚变技术商用化成功！" }, { weight: 1, factor: 0.2, msg: "【事故】核心电网瘫痪，全城大停电！" }
+    ],
+    'GREEN': [
+        { weight: 20, factor: 1.2, msg: "流感疫苗销量稳步增长。" }, { weight: 20, factor: 0.8, msg: "新药研发周期延长。" },
+        { weight: 10, factor: 1.5, msg: "获得创伤小组的长期采购合同。" }, { weight: 10, factor: 0.6, msg: "一款止痛药被指有成瘾风险。" },
+        { weight: 5, factor: 1.9, msg: "纳米修复机器人获FDA批准。" }, { weight: 5, factor: 0.3, msg: "实验室病毒样本意外泄露！" },
+        { weight: 1, factor: 2.8, msg: "【奇迹】断肢再生技术完美攻克！" }, { weight: 1, factor: 0.1, msg: "【丑闻】被曝在合成肉中掺杂不明化学物。" }
+    ],
+    'PINK': [
+        { weight: 20, factor: 1.3, msg: "旗下虚拟偶像演唱会门票售罄。" }, { weight: 20, factor: 0.7, msg: "头部主播跳槽竞争对手。" },
+        { weight: 10, factor: 1.6, msg: "超梦体验片《赛博朋克2078》好评如潮。" }, { weight: 10, factor: 0.5, msg: "平台服务器宕机，用户无法登陆。" },
+        { weight: 5, factor: 2.0, msg: "收购最大的地下黑客论坛。" }, { weight: 5, factor: 0.2, msg: "涉嫌利用潜意识广告洗脑被调查。" },
+        { weight: 1, factor: 3.2, msg: "【爆款】全网脑机接口覆盖率突破 90%！" }, { weight: 1, factor: 0.05, msg: "【封杀】因传播违禁数据，主营业务被叫停！" }
     ]
 };
 
@@ -235,8 +260,12 @@ async function getOrUpdateMarket(env, db) {
             const isCatchUp = (i < missed - 1); 
 
             let eraBias = 1.0;
-            if (sym === 'GOLD') eraBias = currentEra.buff.gold_bias;
-            if (sym === 'RED') eraBias = currentEra.buff.red_bias;
+            
+            // 动态读取 buff 字段 (例如 gold_bias, purple_bias)
+            const buffKey = sym.toLowerCase() + '_bias';
+            if (currentEra.buff[buffKey]) {
+                eraBias = currentEra.buff[buffKey];
+            }
             
             let baseDepthRatio = 0.005; 
             let buyDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
