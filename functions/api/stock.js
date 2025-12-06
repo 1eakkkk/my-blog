@@ -743,7 +743,7 @@ export async function onRequest(context) {
                             status, 
                             era, 
                             isInsider, 
-                            prediction, // <--- 新增字段
+                            prediction: prediction,
                             eva: eva
                         });
                     }
