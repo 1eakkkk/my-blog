@@ -37,19 +37,19 @@ const MARKET_MODES = {
 };
 // ===================================================
 
-// === 3. 公司天赋树 ===
+// === 3. 公司天赋树 (v3.2 更新：增加维护费) ===
 const COMPANY_LEVELS = {
-    0:  { name: "皮包公司",     cost: 0,       margin: 1.00, fee: 1.0, cd: 1.0, hold: 1.0 },
-    1:  { name: "车库工作室",   cost: 2000,    margin: 0.98, fee: 1.0, cd: 1.0, hold: 1.0 },
-    2:  { name: "量化作坊",     cost: 5000,    margin: 0.95, fee: 0.9, cd: 0.9, hold: 1.0 },
-    3:  { name: "小型私募",     cost: 10000,   margin: 0.92, fee: 0.9, cd: 0.9, hold: 1.2 },
-    4:  { name: "高频交易室",   cost: 20000,   margin: 0.90, fee: 0.8, cd: 0.7, hold: 1.2 },
-    5:  { name: "区域游资",     cost: 40000,   margin: 0.88, fee: 0.8, cd: 0.7, hold: 1.5 },
-    6:  { name: "数据对冲基金", cost: 80000,   margin: 0.85, fee: 0.7, cd: 0.6, hold: 1.5 },
-    7:  { name: "跨国资本",     cost: 150000,  margin: 0.82, fee: 0.7, cd: 0.6, hold: 1.8 },
-    8:  { name: "暗池巨鲸",     cost: 300000,  margin: 0.80, fee: 0.6, cd: 0.5, hold: 2.0 },
-    9:  { name: "市场做市商",   cost: 600000,  margin: 0.75, fee: 0.5, cd: 0.4, hold: 2.5 },
-    10: { name: "荒坂塔顶层",   cost: 1000000, margin: 0.70, fee: 0.0, cd: 0.0, hold: 5.0 } 
+    0:  { name: "皮包公司",     cost: 0,       margin: 1.00, fee: 1.0, cd: 1.0, hold: 1.0, maint: 0 },
+    1:  { name: "车库工作室",   cost: 2000,    margin: 0.98, fee: 1.0, cd: 1.0, hold: 1.0, maint: 5 },
+    2:  { name: "量化作坊",     cost: 5000,    margin: 0.95, fee: 0.9, cd: 0.9, hold: 1.0, maint: 20 },
+    3:  { name: "小型私募",     cost: 10000,   margin: 0.92, fee: 0.9, cd: 0.9, hold: 1.2, maint: 50 },
+    4:  { name: "高频交易室",   cost: 20000,   margin: 0.90, fee: 0.8, cd: 0.7, hold: 1.2, maint: 100 },
+    5:  { name: "区域游资",     cost: 40000,   margin: 0.88, fee: 0.8, cd: 0.7, hold: 1.5, maint: 200 },
+    6:  { name: "数据对冲基金", cost: 80000,   margin: 0.85, fee: 0.7, cd: 0.6, hold: 1.5, maint: 500 },
+    7:  { name: "跨国资本",     cost: 150000,  margin: 0.82, fee: 0.7, cd: 0.6, hold: 1.8, maint: 1000 },
+    8:  { name: "暗池巨鲸",     cost: 300000,  margin: 0.80, fee: 0.6, cd: 0.5, hold: 2.0, maint: 2000 },
+    9:  { name: "市场做市商",   cost: 600000,  margin: 0.75, fee: 0.5, cd: 0.4, hold: 2.5, maint: 5000 },
+    10: { name: "荒坂塔顶层",   cost: 1000000, margin: 0.70, fee: 0.4, cd: 0.3, hold: 5.0, maint: 10000 } 
 };
 
 function calculateTotalUpgradeCost(level) {
