@@ -166,21 +166,51 @@ export async function onRequest(context) {
             }
 
             // Action: 升级
+            // Action: 升级 (v4.3 混合供能版)
             if (body.action === 'upgrade') {
                 const u = UNITS[body.unit];
                 if (!u) return Response.json({ error: '无效单位' });
                 
                 const curLv = levels[body.unit] || 0;
-                // 费用公式
-                const cost = Math.floor(u.base_cost * Math.pow(u.cost_inc, curLv));
+                
+                // === 混合消耗逻辑 ===
+                let costType = 'scrap'; // 默认消耗硬件
+                let costAmount = 0;
+                const coinExchangeRate = 50; // 1 硬件价值约等于 50 i币 (设定汇率)
+
+                if (body.unit === 'kiddie') {
+                    // T1 脚本小子：永远消耗 i币 (让新手快速起步)
+                    costType = 'coins';
+                    // 基础花费 10 * 50 = 500 i币起步
+                    costAmount = Math.floor(u.base_cost * coinExchangeRate * Math.pow(u.cost_inc, curLv));
+                } else {
+                    // T2-T4 高级单位：交替升级
+                    // 偶数等级(0, 2, 4...) -> 升下一级消耗 i币 (购买设备)
+                    // 奇数等级(1, 3, 5...) -> 升下一级消耗 硬件 (改装优化)
+                    if (curLv % 2 === 0) {
+                        costType = 'coins';
+                        costAmount = Math.floor(u.base_cost * coinExchangeRate * Math.pow(u.cost_inc, curLv));
+                    } else {
+                        costType = 'scrap';
+                        costAmount = Math.floor(u.base_cost * Math.pow(u.cost_inc, curLv));
+                    }
+                }
 
                 // 检查资源
-                if (save.scrap_hardware < cost) return Response.json({ error: `废旧硬件不足 (需 ${cost})` });
+                if (costType === 'coins') {
+                    if (user.coins < costAmount) return Response.json({ error: `i币不足 (需 ${costAmount.toLocaleString()})` });
+                    // 扣 i币
+                    await db.prepare("UPDATE users SET coins = coins - ? WHERE id = ?").bind(costAmount, user.id).run();
+                } else {
+                    if (save.scrap_hardware < costAmount) return Response.json({ error: `硬件不足 (需 ${costAmount})` });
+                    // 扣 硬件
+                    await db.prepare("UPDATE idle_saves SET scrap_hardware = scrap_hardware - ? WHERE user_id = ?").bind(costAmount, user.id).run();
+                }
 
+                // 执行升级
                 levels[body.unit] = curLv + 1;
-                
-                await db.prepare("UPDATE idle_saves SET scrap_hardware=scrap_hardware-?, unit_levels=? WHERE user_id=?")
-                    .bind(cost, JSON.stringify(levels), user.id).run();
+                await db.prepare("UPDATE idle_saves SET unit_levels=? WHERE user_id=?")
+                    .bind(JSON.stringify(levels), user.id).run();
 
                 return Response.json({ success: true, message: '升级成功', level: curLv + 1 });
             }
