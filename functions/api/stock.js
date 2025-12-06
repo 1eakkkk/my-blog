@@ -756,7 +756,8 @@ export async function onRequest(context) {
                             era, 
                             isInsider, 
                             prediction: prediction,
-                            eva: eva
+                            eva: eva,
+                            serverTime: Date.now()
                         });
                     }
                 }
