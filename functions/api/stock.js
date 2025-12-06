@@ -220,6 +220,45 @@ async function getOrUpdateMarket(env, db) {
     let updates = [];
     let logsToWrite = []; 
 
+    // === EVA-L00P: 全球经济感知 (Global Awareness) ===
+    // 这是一个低频操作，我们利用 KV 缓存 5 分钟，避免每次都查全库
+    const EVA_CACHE_KEY = "eva_l00p_state";
+    let evaState = { total_coins: 1000000, total_stocks_val: 500000, greed: 0.5 };
+    
+    let cachedEva = null;
+    try { cachedEva = await env.KV.get(EVA_CACHE_KEY, {type:'json'}); } catch(e){}
+    
+    if (cachedEva) {
+        evaState = cachedEva;
+    } else {
+        // 重新扫描全服经济 (EVA 正在观察人类...)
+        try {
+            // 统计所有人的现金
+            const resMoney = await db.prepare("SELECT SUM(coins) as c FROM users").first();
+            // 统计所有人的持仓市值 (估算)
+            const resStocks = await db.prepare("SELECT SUM(amount * avg_price) as s FROM company_positions").first();
+            
+            const money = resMoney.c || 1000000; // 防止除0
+            const stockVal = resStocks.s || 100000;
+            
+            evaState = {
+                total_coins: money,
+                total_stocks_val: stockVal,
+                // 贪婪指数: 持仓占比 (0~1)
+                greed: stockVal / (money + stockVal)
+            };
+            // 存入缓存 5分钟
+            await env.KV.put(EVA_CACHE_KEY, JSON.stringify(evaState), {expirationTtl: 300});
+        } catch(e) { console.error("EVA Scan Failed", e); }
+    }
+    
+    // EVA 的心情 (Market Sentiment Modifier)
+    // 贪婪指数过高(>0.7) -> 倾向于暴跌清洗 (Kill Long)
+    // 贪婪指数过低(<0.3) -> 倾向于拉升诱多 (Lure Long)
+    let evaBias = 0;
+    if (evaState.greed > 0.7) evaBias = -0.005; // 强力做空压力
+    else if (evaState.greed < 0.3) evaBias = 0.003; // 温和做多推力
+
     // === 1. 初始化检查 (支持增量添加新股票) ===
     // 获取当前数据库里已有的股票列表
     const existingSymbols = new Set(states.results.map(s => s.symbol));
@@ -464,9 +503,19 @@ async function getOrUpdateMarket(env, db) {
 
             // 7. 价格计算 (v3.3 调优)
             // 波动率因子：如果深度很大(dynamicLiq大)，需要更大的力气才能推动，所以稍微补偿一点波动率
+            // 1. 注入全服贪婪偏差
+            let evaForce = evaBias;
+            
+            // 2. 昼夜波函数 (Day/Night Cycle)
+            // 模拟人类作息：UTC 12:00-24:00 (亚洲深夜) 波动率降低，容易阴跌
+            const hour = new Date(simT).getUTCHours();
+            const isNight = (hour >= 16 || hour <= 2); // 对应北京时间 0点~10点
+            if (isNight) {
+                evaForce -= 0.001; // 夜间流动性枯竭带来的自然损耗
+            }
             const volatilityFactor = 35.0 * currentEra.buff.vol * Math.sqrt(dynamicLiq); 
             
-            const delta = (buyDepth - sellDepth) / totalShares * volatilityFactor;
+            const delta = ((buyDepth - sellDepth) / totalShares * volatilityFactor) + evaForce;
             const clampedDelta = Math.max(-0.06, Math.min(0.06, delta)); // 放宽到 6%
             
             // v3.3 噪声修复：调回 0.6% ~ 0.8%，让人感觉市场是活的
