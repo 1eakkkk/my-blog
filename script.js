@@ -6873,6 +6873,93 @@ window.doUpgradeTech = async function(id) {
     } catch(e) { showToast('Error'); }
 };
 
+// === 🔨 硬件锻造 (Hardware Forge) ===
+
+let forgeData = {};
+
+// 打开锻造弹窗
+window.openForgeModal = async function() {
+    const modal = document.getElementById('forge-modal'); // 确保你的 HTML 里弹窗 ID 是这个
+    if (modal) modal.style.display = 'flex';
+    
+    // 加载数据
+    await loadForgeData();
+};
+
+window.closeForgeModal = function() {
+    document.getElementById('forge-modal').style.display = 'none';
+};
+
+async function loadForgeData() {
+    const container = document.getElementById('forge-list'); // 弹窗里的列表容器 ID
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center;color:#666">LOADING DATA...</div>';
+
+    try {
+        const res = await fetch(`${API_BASE}/forge`);
+        const data = await res.json();
+        
+        if (data.success) {
+            forgeData = data;
+            renderForgeList();
+        }
+    } catch(e) { console.error(e); }
+}
+
+function renderForgeList() {
+    const container = document.getElementById('forge-list');
+    container.innerHTML = '';
+    
+    const { levels, config } = forgeData;
+    
+    for (let key in config) {
+        const conf = config[key];
+        const lv = levels[key] || 0;
+        const cost = Math.floor(conf.base_cost * Math.pow(1.1, lv)); // 对应后端的 1.1 倍率
+        const isMax = lv >= conf.max;
+        
+        const btnText = isMax ? 'MAX' : `${cost.toLocaleString()} k`;
+        const btnClass = (currentUser.k_coins >= cost && !isMax) ? 'cyber-btn' : 'cyber-btn disabled';
+        const btnAction = (currentUser.k_coins >= cost && !isMax) ? `onclick="doForgeUpgrade('${key}')"` : '';
+        const btnStyle = (currentUser.k_coins >= cost && !isMax) ? 'border-color:#bd00ff; color:#bd00ff;' : 'border-color:#333; color:#666; cursor:not-allowed;';
+
+        const html = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding-bottom:15px; border-bottom:1px dashed #333;">
+                <div style="flex:1;">
+                    <div style="color:#fff; font-weight:bold; font-size:1rem;">
+                        ⚡ ${conf.name} <span style="color:#bd00ff;">Lv.${lv}</span>
+                    </div>
+                    <div style="font-size:0.7rem; color:#888; margin-top:5px;">${conf.desc}</div>
+                </div>
+                <button ${btnAction} class="${btnClass}" style="width:auto; margin:0; padding:5px 15px; ${btnStyle}">
+                    ${btnText}
+                </button>
+            </div>
+        `;
+        container.innerHTML += html;
+    }
+}
+
+window.doForgeUpgrade = async function(key) {
+    try {
+        const res = await fetch(`${API_BASE}/forge`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ type: key })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast('升级成功！', 'success');
+            // 刷新侧边栏钱数
+            checkSecurity(); 
+            // 重新加载列表以更新等级和价格
+            loadForgeData(); 
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) { showToast('Network Error'); }
+};
 
 
 
