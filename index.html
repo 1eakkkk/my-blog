@@ -678,27 +678,38 @@
                                 </div>
                             </div>
 
-                            <!-- 新增：市场情绪与压力监控 -->
-                            <div style="display:flex; gap:15px; margin-bottom:15px; align-items:center; background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; border:1px solid #333;">
-                                <div style="flex:1;">
-                                    <div style="font-size:0.7rem; color:#888;">EVA-L00P STATUS</div>
+                            <!-- 3. 市场综合状态栏 (EVA + 天气 + 压力) -->
+                            <div style="display:flex; gap:10px; margin-bottom:15px; background:rgba(0,0,0,0.4); padding:10px; border-radius:4px; border:1px solid #333;">
+                                
+                                <!-- 左侧：EVA 监视器 -->
+                                <div style="flex:1; border-right:1px solid #444; padding-right:10px;">
+                                    <div style="font-size:0.7rem; color:#888;">EVA-L00P STATE</div>
                                     <div id="evaStatusDisplay" style="font-size:1rem; font-weight:bold; color:#fff; text-shadow:0 0 5px rgba(255,255,255,0.5);">
-                                        Scanning...
+                                        --
                                     </div>
                                     <div id="evaDescDisplay" style="font-size:0.6rem; color:#aaa; margin-top:2px;">...</div>
                                 </div>
-                                <div style="flex:2;">
+
+                                <!-- 中间：个股天气 (恢复显示) -->
+                                <div style="flex:1; border-right:1px solid #444; padding-right:10px; padding-left:5px;">
+                                    <div style="font-size:0.7rem; color:#888;">LOCAL WEATHER / 天气</div>
+                                    <div id="marketModeDisplay" style="font-size:1rem; font-weight:bold; color:#fff;">
+                                        --
+                                    </div>
+                                    <div style="font-size:0.6rem; color:#aaa; margin-top:2px;">影响流动性深度</div>
+                                </div>
+
+                                <!-- 右侧：资金压力条 -->
+                                <div style="flex:2; padding-left:5px;">
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#888; margin-bottom:5px;">
-                                        <span>SELL PRESSURE</span>
-                                        <span>BUY PRESSURE</span>
+                                        <span>SELL VOL</span>
+                                        <span>BUY VOL</span>
                                     </div>
                                     <div class="pressure-bar-bg" style="width:100%; height:8px; background:#333; border-radius:4px; position:relative; overflow:hidden;">
-                                        <!-- 中心线 -->
                                         <div style="position:absolute; left:50%; top:0; bottom:0; width:2px; background:#fff; z-index:2;"></div>
-                                        <!-- 压力条：动态宽度 -->
                                         <div id="pressureBar" style="height:100%; width:50%; background:#444; transition: all 0.5s;"></div>
                                     </div>
-                                    <div id="pressureText" style="text-align:center; font-size:0.7rem; color:#aaa; margin-top:3px;">资金博弈中...</div>
+                                    <div id="pressureText" style="text-align:center; font-size:0.7rem; color:#aaa; margin-top:3px;">--</div>
                                 </div>
                             </div>
                             
@@ -1620,9 +1631,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.10"></script>
+    <script src="script.js?v=10.11"></script>
 </body>
 </html>
+
 
 
 
