@@ -749,9 +749,11 @@ export async function onRequest(context) {
                     }
                 }
             }
-            // ... GET 返回数据部分保持不变 ...
-            const chartData = {}; const stockMeta = {};
+            // === 1. 准备 K线图数据 (chartData) ===
+            const chartData = {}; 
+            const stockMeta = {};
             const historyResults = await db.prepare("SELECT symbol, price as p, created_at as t FROM market_history WHERE created_at > ? ORDER BY created_at ASC").bind(Date.now() - 7200000).all();
+            
             for (let sym in STOCKS_CONFIG) {
                 chartData[sym] = historyResults.results.filter(r => r.symbol === sym);
                 if (chartData[sym].length === 0 && market[sym]) chartData[sym] = [{ t: market[sym].t, p: market[sym].p }];
@@ -772,10 +774,70 @@ export async function onRequest(context) {
                     issue_p: market[sym] ? market[sym].issue_p : 1000
                 };
             }
+
+            // === 2. 准备日志数据 ===
             const logsRes = await db.prepare("SELECT * FROM market_logs WHERE created_at < ? ORDER BY created_at DESC LIMIT 20").bind(Date.now()).all();
             const logs = logsRes.results.map(l => ({ time: l.created_at, msg: l.msg, type: l.type }));
 
-            return Response.json({ success: true, hasCompany, bankrupt: false, market: chartData, meta: stockMeta, news: logs, positions, capital: hasCompany ? company.capital : 0, totalEquity: totalEquity, companyType: hasCompany ? company.type : 'none', companyLevel: companyLevel, userK: user.k_coins || 0, userExp: user.xp || 0, status, era, isInsider });
+            // === 3. 神经链接预测逻辑 (从破产逻辑里移出来的) ===
+            const now = Date.now();
+            const buffActive = (user.stock_buff_exp || 0) > now;
+            let prediction = null;
+
+            if (buffActive) {
+                const timeLeft = Math.floor(((user.stock_buff_exp || 0) - now) / 1000);
+                prediction = {};
+                prediction.timeLeft = timeLeft;
+                
+                for (let sym in market) {
+                    const m = market[sym];
+                    const pressure = m.pressure || 0;
+                    
+                    let eraBias = 1.0;
+                    const buffKey = sym.toLowerCase() + '_bias';
+                    if (era && era.buff && era.buff[buffKey]) eraBias = era.buff[buffKey];
+                    
+                    let score = 50;
+                    score += (pressure / 5000) * 10;
+                    if (eraBias > 1.0) score += 15;
+                    else if (eraBias < 1.0) score -= 15;
+                    
+                    const val = m.p / m.issue_p;
+                    if (val < 0.8) score += 10;
+                    if (val > 1.5) score -= 10;
+
+                    score = Math.max(10, Math.min(90, Math.round(score)));
+                    
+                    prediction[sym] = {
+                        prob: score,
+                        trend: score > 50 ? 'UP' : (score < 50 ? 'DOWN' : 'FLAT')
+                    };
+                }
+            }
+
+            // === 4. 最终返回 (补全了 eva 和 prediction) ===
+            return Response.json({ 
+                success: true, 
+                hasCompany, 
+                bankrupt: false, 
+                market: chartData, 
+                meta: stockMeta, 
+                news: logs, 
+                positions, 
+                capital: hasCompany ? company.capital : 0, 
+                totalEquity: totalEquity, 
+                companyType: hasCompany ? company.type : 'none', 
+                companyLevel: companyLevel, 
+                userK: user.k_coins || 0, 
+                userExp: user.xp || 0, 
+                status, 
+                era, 
+                isInsider, 
+                
+                // 👇 这两行是你之前缺失的 👇
+                eva: eva,           
+                prediction: prediction 
+            });
         }
 
         if (method === 'POST') {
