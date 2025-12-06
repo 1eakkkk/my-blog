@@ -1019,6 +1019,7 @@ export async function onRequest(context) {
                 // === 2. 应用【硬件锻造】Buff (量子嗅探) ===
                 // 读取锻造等级
                 // ✅ 直接从用户信息读取，不再查表
+                const uForge = await db.prepare("SELECT forge_levels FROM users WHERE id=?").bind(user.id).first();
                 const forgeLv = JSON.parse(user.forge_levels || '{}');
                 const snifferLv = forgeLv['sniffer'] || 0;
 
