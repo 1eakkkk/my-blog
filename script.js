@@ -6388,7 +6388,11 @@ async function loadIdleGame() {
             
             // === 修复点：变量名统一 ===
             idleData.max_hp = data.hp;       // 后端返回的是本层总血量
-            idleData.cur_hp = data.hp;       // 每次加载重置为满血 (因为前端只是模拟)
+            let pendingDamage = data.offline_sec * data.dps;
+            // 限制：不能超过当前血量（防止前端显示bug，虽然理论上后端已结算过溢出伤害）
+            if (pendingDamage >= idleData.max_hp) pendingDamage = idleData.max_hp - 1;
+            
+            idleData.cur_hp = idleData.max_hp - pendingDamage;
             
             idleData.config = data.config;
             idleData.levels = data.levels;
@@ -6627,6 +6631,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
