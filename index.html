@@ -631,6 +631,15 @@
                                     <button id="btnBankrupt" class="mini-action-btn" style="color:#666; border-color:#666; margin-top:10px; width:100%; display:none;">🏳️ 申请破产清算</button>
                                 </div>
                             </div>
+                            <!-- 研发中心 (新增) -->
+                            <div class="glass-card" style="flex:1; min-width:280px; border-color:#bd00ff;">
+                                <h3>⚙️ 核心研发 / R&D</h3>
+                                <p style="font-size:0.8rem; color:#666; margin-bottom:10px;">消耗 K币 永久强化自身属性。</p>
+                                <div id="techList">
+                                    <!-- JS 动态生成 -->
+                                    <button class="cyber-btn" onclick="openTechModal()">进入实验室</button>
+                                </div>
+                            </div>
                         </div>
                             <!-- 在 biz-dashboard 里，资本运作卡片下方添加 -->
                         <div class="glass-card" style="margin-top:20px; border-color:#00f3ff; min-height:400px;">
@@ -849,6 +858,16 @@
                                             </div>
                                         </div>
                                         <!-- 👆👆👆 新增结束 👆👆👆 -->
+                                        <!-- 研发弹窗 -->
+                                        <div id="tech-modal" class="modal-overlay" style="display:none;">
+                                            <div class="modal-card glass-card" style="width: 400px; max-width:90%;">
+                                                <h3 style="color:#bd00ff;">HARDWARE FORGE // 硬件锻造</h3>
+                                                <div id="techGrid" style="display:grid; gap:10px; margin-top:15px;">
+                                                    <!-- JS 填充 -->
+                                                </div>
+                                                <button onclick="document.getElementById('tech-modal').style.display='none'" class="cyber-btn" style="margin-top:15px; border-color:#666; color:#888;">关闭</button>
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                 </div>
@@ -1654,39 +1673,7 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.12"></script>
+    <script src="script.js?v=10.13"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
