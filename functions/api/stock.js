@@ -360,7 +360,7 @@ async function getOrUpdateMarket(env, db) {
             let newsMsg = null;
 
             if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
-                if (Math.random() < 0.2) { 
+                if (Math.random() < 0.1) { 
                     nextNewsT = simT;
                     const news = pickWeightedNews(sym);
                     if (news) {
