@@ -4992,11 +4992,26 @@ window.loadStockMarket = async function() {
                 }
             }
 
-            // 4. 公司等级显示
+            // 4. 公司等级显示 (修复版：补全 Lv.0 - Lv.10)
             const lvEl = document.getElementById('companyLevelDisplay');
             if (lvEl && data.companyLevel !== undefined) {
-                const lvNames = ["皮包公司", "量化工作室", "高频交易中心", "金融巨鳄"];
-                lvEl.innerText = `Lv.${data.companyLevel}: ${lvNames[data.companyLevel]}`;
+                const lvNames = [
+                    "皮包公司",     // Lv.0
+                    "车库工作室",   // Lv.1
+                    "量化作坊",     // Lv.2
+                    "小型私募",     // Lv.3
+                    "高频交易室",   // Lv.4
+                    "区域游资",     // Lv.5
+                    "数据对冲基金", // Lv.6
+                    "跨国资本",     // Lv.7
+                    "暗池巨鲸",     // Lv.8
+                    "市场做市商",   // Lv.9
+                    "荒坂塔顶层"    // Lv.10
+                ];
+                
+                // 增加防错判定，防止以后等级更高出现 undefined
+                const title = lvNames[data.companyLevel] || "未知实体";
+                lvEl.innerText = `Lv.${data.companyLevel}: ${title}`;
             }
 
             // 5. 渲染核心仪表盘 (调用独立函数，更新价格/市值/压力条等)
@@ -6729,6 +6744,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
