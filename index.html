@@ -638,7 +638,23 @@
                                 <h3 style="color:#00f3ff; margin:0;">📊 二级市场 / STOCK EXCHANGE</h3>
                                 <button onclick="loadStockMarket()" class="mini-action-btn">🔄 刷新行情</button>
                             </div>
-                            
+
+                            <!-- 🧠 神经链接预测栏 (默认隐藏) -->
+                            <div id="neuralLinkBanner" style="display:none; background:linear-gradient(90deg, rgba(189,0,255,0.2) 0%, rgba(0,0,0,0) 100%); border-left:3px solid #bd00ff; padding:10px; margin-bottom:10px; align-items:center;">
+                                <div style="flex:1;">
+                                    <div style="font-size:0.8rem; color:#bd00ff; font-weight:bold;">
+                                        🧠 NEURAL LINK ACTIVE // 神经链接已激活
+                                    </div>
+                                    <div style="font-size:0.7rem; color:#ccc;">
+                                        AI 预测下一分钟走势: <span id="neuralProb" style="font-size:1.2rem; font-weight:bold; color:#fff;">--%</span> 
+                                        <span id="neuralTrend" style="margin-left:5px;">--</span>
+                                    </div>
+                                </div>
+                                <div style="font-size:0.7rem; color:#bd00ff; text-align:right;">
+                                    剩余时间<br>
+                                    <span id="neuralTimer" style="font-family:'JetBrains Mono'; font-size:1rem;">00:00</span>
+                                </div>
+                            </div>
                                 <!-- 顶部数据看板 -->
                             <div class="stock-stats-row" style="display:flex; justify-content:space-between; margin-bottom:10px; background:rgba(0,0,0,0.3); padding:10px; border-radius:4px; border:1px solid #333;">
                                 <div class="stat-box"><div class="label">OPEN</div><div class="val" id="stockOpen">--</div></div>
@@ -1601,9 +1617,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.9"></script>
+    <script src="script.js?v=10.10"></script>
 </body>
 </html>
+
 
 
 
