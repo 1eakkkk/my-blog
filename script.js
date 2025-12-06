@@ -5018,7 +5018,7 @@ window.loadStockMarket = async function() {
             }
 
             // 10. 重绘图表与持仓文字
-            if (typeof  === 'function') {
+            if (typeof switchStock === 'function') {
                 drawInteractiveChart(currentStockSymbol, null);
                 updatePositionUI(currentStockSymbol);
             }
@@ -6351,6 +6351,7 @@ function checkAutoTrigger(currentPrice_Unused) {
         }
     }
 }
+
 
 
 
