@@ -93,18 +93,16 @@ export async function onRequest(context) {
                     
                     // 1. 废旧硬件 (Scrap) - 基础掉落 (30% + 水蛭加成)
                     // 以前是 levels['leech']，注意变量名是否一致
+                    let baseScrap = 1; 
                     let leechLv = levels['leech'] || 0; 
                     let scrapRate = 0.30 + (leechLv * 0.05); 
-                    if (Math.random() < scrapRate) {
-                        totalScrap += Math.floor(1 + (currentL / 50)); // 层数越高给越多
+                    if (Math.random() < critRate) {
+                // 暴击！随着层数增加，暴击数量也会增加
+                        baseScrap += Math.floor(1 + (currentL / 20)); 
                     }
-
+                    totalScrap += baseScrap;
                     // 2. 违规算法缓存 (Illegal Algo) - 只能卖钱 (10%)
-                    if (Math.random() < 0.10) {
-                        // 这里的逻辑是直接折算成额外 i币，或者存入新字段
-                        // 为了简单，我们先直接折算成大量 i币 (这也是一种“卖出”)
-                        totalCoins += 50; 
-                    }
+                    if (Math.random() < 0.10) totalCoins += 50; 
 
                     // 3. 企业数据包 (Data Packet) - 稀有 (1%)
                     // 每 100 层概率提升 0.5%
