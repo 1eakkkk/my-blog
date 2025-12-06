@@ -91,13 +91,36 @@ export async function onRequest(context) {
                     // 计算掉落
                     totalCoins += getLayerCoinReward(currentL);
                     
-                    // 硬件掉落：基础 10% + 水蛭加成 (每级 +2%)
-                    let scrapRate = 0.10 + ((levels['leech'] || 0) * 0.02);
-                    if (Math.random() < scrapRate) totalScrap++;
+                    // 1. 废旧硬件 (Scrap) - 基础掉落 (30% + 水蛭加成)
+                    // 以前是 levels['leech']，注意变量名是否一致
+                    let leechLv = levels['leech'] || 0; 
+                    let scrapRate = 0.30 + (leechLv * 0.05); 
+                    if (Math.random() < scrapRate) {
+                        totalScrap += Math.floor(1 + (currentL / 50)); // 层数越高给越多
+                    }
 
-                    // 数据包掉落：基础 0.5% (极稀有)
-                    if (Math.random() < 0.005) totalPackets++;
-                } else {
+                    // 2. 违规算法缓存 (Illegal Algo) - 只能卖钱 (10%)
+                    if (Math.random() < 0.10) {
+                        // 这里的逻辑是直接折算成额外 i币，或者存入新字段
+                        // 为了简单，我们先直接折算成大量 i币 (这也是一种“卖出”)
+                        totalCoins += 50; 
+                    }
+
+                    // 3. 企业数据包 (Data Packet) - 稀有 (1%)
+                    // 每 100 层概率提升 0.5%
+                    let packetRate = 0.01 + Math.floor(currentL / 100) * 0.005;
+                    if (Math.random() < packetRate) {
+                        totalPackets++;
+                    }
+
+                    // 4. [超稀有] 黑域异常样本 (Blackzone Sample) - 传说 (0.05%)
+                    // 这是一个全局 Buff 道具，我们暂时先存到 data_packets 字段里，
+                    // 但为了区分，我们可以在前端显示时说 "你获得了一个特殊数据包"
+                    // 或者数据库增加一个 'special_items' 字段。
+                    // 鉴于目前数据库结构，我们先让它作为 "3个数据包" 的大奖爆出。
+                    if (Math.random() < 0.0005) {
+                        totalPackets += 3; // 大爆
+                    }
                     break; 
                 }
             }
@@ -142,24 +165,55 @@ export async function onRequest(context) {
             return Response.json({ success: true, message: '升级成功', level: curLv + 1 });
         }
 
-        // 3. 使用数据包 (Use Packet) - 股市 Buff
+        // 3. 使用数据包 (Hack: 内幕交易)
         if (body.action === 'use_packet') {
             if (save.data_packets < 1) return Response.json({ error: '没有数据包' });
             
-            // 增加 10 分钟 Buff 时间
-            // 如果当前已有 Buff，则延长；否则从现在开始
-            // 需要先查一下当前 user.stock_buff_exp (这里为了省一次查询，直接用 update 逻辑处理)
+            // === 随机效果判定 (RNG) ===
+            const rand = Math.random();
+            let effectType = '';
+            let message = '';
             
-            // 获取当前 Buff 状态
-            const uData = await db.prepare("SELECT stock_buff_exp FROM users WHERE id=?").bind(user.id).first();
-            let newExp = Math.max(now, uData.stock_buff_exp || 0) + (10 * 60 * 1000);
+            if (rand < 0.60) {
+                // 60% 概率: 普通内幕 (股市预测 Buff)
+                effectType = 'buff';
+                message = '解析成功：获得短期股市预测算法 (持续10分钟)';
+                
+                const uData = await db.prepare("SELECT stock_buff_exp FROM users WHERE id=?").bind(user.id).first();
+                let newExp = Math.max(now, uData.stock_buff_exp || 0) + (10 * 60 * 1000);
+                await db.prepare("UPDATE users SET stock_buff_exp=? WHERE id=?").bind(newExp, user.id).run();
+                
+            } else if (rand < 0.90) {
+                // 30% 概率: 漏洞补丁 (直接修补公司资金/给一笔钱)
+                // 模拟“降低创业失败率”比较复杂，不如直接给一笔“风险风投”
+                effectType = 'cash';
+                const windfall = 2000; // 意外之财
+                message = `漏洞利用成功：从企业账户窃取了 ${windfall} k币！`;
+                await db.prepare("UPDATE users SET k_coins = k_coins + ? WHERE id=?").bind(windfall, user.id).run();
+                
+            } else {
+                // 10% 概率: 市场污染 (Market Distortion) - 所谓的“副作用”
+                // 其实是给玩家一个巨大的临时算力 Buff，还是反向 Buff？
+                // 既然是副作用，我们可以扣除一点点当前算力，或者...
+                // 按照你的设计，这是一个短期的全局事件。
+                // 简化实现：获得大量“废旧硬件”但扣除少量“i币” (痕迹清理费)
+                effectType = 'distortion';
+                const scrapGain = 500;
+                const coinCost = 1000;
+                
+                if (user.coins < coinCost) {
+                    message = "解密失败：触发追踪程序，紧急断开连接。";
+                } else {
+                    message = `数据污染：获得 ${scrapGain} 硬件，但支付了 ${coinCost} i币用于清理痕迹。`;
+                    await db.prepare("UPDATE users SET coins = coins - ? WHERE id=?").bind(coinCost, user.id).run();
+                    await db.prepare("UPDATE idle_saves SET scrap_hardware = scrap_hardware + ? WHERE user_id=?").bind(scrapGain, user.id).run();
+                }
+            }
 
-            await db.batch([
-                db.prepare("UPDATE idle_saves SET data_packets=data_packets-1 WHERE user_id=?").bind(user.id),
-                db.prepare("UPDATE users SET stock_buff_exp=? WHERE id=?").bind(newExp, user.id)
-            ]);
+            // 消耗道具
+            await db.prepare("UPDATE idle_saves SET data_packets=data_packets-1 WHERE user_id=?").bind(user.id).run();
 
-            return Response.json({ success: true, message: '股市预测算法已优化 (持续10分钟)' });
+            return Response.json({ success: true, message: message, effect: effectType });
         }
     }
 
