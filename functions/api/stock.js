@@ -524,12 +524,36 @@ async function getOrUpdateMarket(env, db) {
 
             // --- 写入机器人日志 (Bot Log) ---
             // 为了不刷屏，只有 5% 的概率记录机器人的操作，且只记录非追赶阶段
-            if (!isCatchUp && botAction !== 'none' && Math.random() < 0.05) {
-                const actionText = botAction === 'buy' ? '大笔买入' : '高位抛售';
-                const typeText = botAction === 'buy' ? 'good' : 'bad'; // 绿色或红色
+            if (!isCatchUp && botAction !== 'none' && Math.random() < 0.15) {
+                let msg = "";
+                
+                // 1. 定义文案模板库
+                if (botAction === 'buy') {
+                    const buyTemplates = [
+                        `[机构异动] 监测到主力资金正在大笔买入...`,
+                        `[量子算法] 触发趋势跟随策略，自动加仓。`,
+                        `[暗池交易] 出现神秘巨额买单，来源加密。`,
+                        `[AI投顾] 判定估值偏低，启动价值回归程序。`,
+                        `[北上资金] 跨境资本正在抢筹 ${sym}。`,
+                        `[荒坂资本] 内部交易席位出现买入信号。`
+                    ];
+                    msg = buyTemplates[Math.floor(Math.random() * buyTemplates.length)];
+                } else {
+                    const sellTemplates = [
+                        `[机构异动] 监测到主力资金正在高位抛售...`,
+                        `[高频交易] 毫秒级做空指令已下达。`,
+                        `[风控系统] 触发止损红线，执行强制平仓。`,
+                        `[做市商] 正在释放流动性，大单流出。`,
+                        `[康陶科技] 股东减持公告引发恐慌抛售。`,
+                        `[未知信号] 检测到大规模获利盘离场。`
+                    ];
+                    msg = sellTemplates[Math.floor(Math.random() * sellTemplates.length)];
+                }
+
+                const typeText = botAction === 'buy' ? 'good' : 'bad'; 
                 logsToWrite.push({
                     sym: sym, 
-                    msg: `[机构异动] 监测到主力资金正在${actionText}...`, 
+                    msg: msg, 
                     type: typeText, 
                     t: simT
                 });
