@@ -437,37 +437,31 @@ async function getOrUpdateMarket(env, db) {
         let currentPressure = s.accumulated_pressure || 0;
         let momentum = currentPressure; 
 
-        // --- 开始替换：模拟循环逻辑 (v3.6 独立行情重构版) ---
-        // 1. 计算该股票独特的相位偏移 (基于代号 ASCII 码之和)
+        // --- 核心模拟循环 (v3.7 机构显形版) ---
+        // 1. 相位偏移 (保持不变)
         let charSum = 0;
         for(let c=0; c<sym.length; c++) charSum += sym.charCodeAt(c);
-        const phaseOffset = charSum * 100000; // 偏移量，错开正弦波
-
-        // 2. EVA 敏感度 (基于代号的伪随机，固定值)
-        // 有的股票对大盘情绪敏感(1.5x)，有的迟钝(0.5x)
+        const phaseOffset = charSum * 100000; 
         const evaSensitivity = 0.5 + ((charSum % 10) / 10) + 0.2; 
 
         for (let i = 0; i < missed; i++) {
             simT += 60000;
             const isCatchUp = (i < missed - 1); 
 
-            // --- 基础估值 ---
             const valuation = curP / issuePrice;
             
-            // --- 宏观 Buff ---
+            // 宏观 Buff
             let eraBias = 1.0;
             const buffKey = sym.toLowerCase() + '_bias';
             if (currentEra.buff[buffKey]) eraBias = currentEra.buff[buffKey];
 
-            // --- 动态深度 (不对称回归) ---
+            // 动态深度 (不对称回归)
             let buyBase = 0.005; 
             let sellBase = 0.005;
-
             const dynamicLiq = Math.min(5.0, 1 + (Math.abs(currentPressure) / 5000));
             buyBase *= dynamicLiq;
             sellBase *= dynamicLiq;
 
-            // 估值修正：低价股买盘厚，高价股卖盘厚
             if (valuation < 0.9) {
                 const discount = 1.0 - valuation; 
                 buyBase *= (1 + discount * 2);    
@@ -482,7 +476,7 @@ async function getOrUpdateMarket(env, db) {
             let sellDepth = totalShares * sellBase * mode.depth_mod * eraBias;
             let newsMsg = null;
 
-            // --- 新闻事件 (保持不变) ---
+            // --- 新闻事件 ---
             if (!isCatchUp && (simT - nextNewsT >= 300000)) { 
                 if (Math.random() < 0.05) { 
                     nextNewsT = simT;
@@ -495,30 +489,50 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            // --- 机器人交易 (去同步化核心) ---
-            if (!newsMsg && Math.random() < 0.5) { 
+            // --- 机器人交易 (v3.7 修复：增加惯性 + 写入日志) ---
+            let botAction = 'none'; // 记录机器人动作
+            
+            if (!newsMsg) { 
                 let botSentiment = 0; 
                 let valueBias = (1.0 - valuation) * 0.6; 
                 
-                // 宏观修正
                 if (currentEra.code === 'DATA_CRASH') valueBias -= 0.15; 
                 if (currentEra.code === 'CORP_WAR' && sym !== 'RED') valueBias -= 0.1;
                 
-                // [关键修改] 独立的呼吸波 (Trend Wave)
-                // 加上 phaseOffset 后，BLUE 和 RED 的波峰将完全错开
+                // [优化] 呼吸波权重增加，减少随机抖动
                 const trendWave = Math.sin((simT + phaseOffset) / 600000); 
-                botSentiment += valueBias + (trendWave * 0.25);
+                botSentiment += valueBias + (trendWave * 0.4); // 权重 0.25 -> 0.4
 
-                // 随机扰动
-                botSentiment += (Math.random() - 0.5) * 0.2;
+                // [优化] 随机扰动减小，平滑锯齿
+                botSentiment += (Math.random() - 0.5) * 0.1; 
 
-                if (Math.abs(botSentiment) > 0.05) {
+                if (Math.abs(botSentiment) > 0.1) { // 阈值 0.05 -> 0.1 (减少无效微操)
                     const direction = botSentiment > 0 ? 1 : -1;
-                    const intensity = Math.min(1.5, Math.abs(botSentiment));
-                    const botVol = direction * totalShares * (0.003 * dynamicLiq + Math.random() * 0.005) * intensity;
-                    if (botVol > 0) buyDepth += botVol;
-                    else sellDepth += Math.abs(botVol);
+                    const intensity = Math.min(2.0, Math.abs(botSentiment));
+                    // 机器人力度
+                    const botVol = direction * totalShares * (0.005 * dynamicLiq + Math.random() * 0.005) * intensity;
+                    
+                    if (botVol > 0) {
+                        buyDepth += botVol;
+                        botAction = 'buy';
+                    } else {
+                        sellDepth += Math.abs(botVol);
+                        botAction = 'sell';
+                    }
                 }
+            }
+
+            // --- 写入机器人日志 (Bot Log) ---
+            // 为了不刷屏，只有 5% 的概率记录机器人的操作，且只记录非追赶阶段
+            if (!isCatchUp && botAction !== 'none' && Math.random() < 0.05) {
+                const actionText = botAction === 'buy' ? '大笔买入' : '高位抛售';
+                const typeText = botAction === 'buy' ? 'good' : 'bad'; // 绿色或红色
+                logsToWrite.push({
+                    sym: sym, 
+                    msg: `[机构异动] 监测到主力资金正在${actionText}...`, 
+                    type: typeText, 
+                    t: simT
+                });
             }
 
             // --- 用户积压订单 ---
@@ -533,32 +547,28 @@ async function getOrUpdateMarket(env, db) {
                 else sellDepth += Math.abs(momentum);
                 momentum = Math.floor(momentum * 0.7); 
             }
-            // === 🚨 紧急修复：补回 evaForce 定义 ===
-            let evaForce = evaBias; // 获取外部计算好的 EVA 偏差
-            // 昼夜波函数 (夜间流动性降低)
+
+            let evaForce = evaBias; 
             const hour = new Date(simT).getUTCHours();
             const isNight = (hour >= 16 || hour <= 2); 
             if (isNight) evaForce -= 0.001;
-            // ======================================
 
-            // --- 价格计算 (引入差异化 EVA 影响) ---
+            // --- 价格计算 ---
             const volatilityFactor = 35.0 * currentEra.buff.vol * Math.sqrt(dynamicLiq) * evaVolMod;
-            
-            // [关键修改] EVA Force 乘以该股票的敏感度
-            // 这样 EVA 砸盘时，有的跌得多，有的跌得少，甚至因为 trendWave 抵消而上涨
             const adjustedEvaForce = evaForce * evaSensitivity;
 
             const delta = ((buyDepth - sellDepth) / totalShares * volatilityFactor) + adjustedEvaForce;
             const clampedDelta = Math.max(-0.06, Math.min(0.06, delta)); 
             
-            let noiseBase = 0.006; 
-            if (Math.abs(clampedDelta) < 0.005) noiseBase = 0.003; 
+            // [优化] 进一步降低横盘时的底噪，消除"细密锯齿"
+            let noiseBase = 0.005; 
+            if (Math.abs(clampedDelta) < 0.002) noiseBase = 0.001; // 极静
             
             const noise = (Math.random() - 0.5) * noiseBase;
             
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
 
-            // --- 日志与破产判定 (保持不变) ---
+            // --- 日志与破产判定 ---
             if (newsMsg) logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 1 ? 'good' : 'bad', t: simT});
 
             if (curP < issuePrice * BANKRUPT_PCT) {
@@ -569,18 +579,15 @@ async function getOrUpdateMarket(env, db) {
                 updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
                 logsToWrite.push({sym, msg: `【破产】股价击穿红线，强制退市。`, type: 'bad', t: simT});
                 if (Math.random() < 0.02) {
-                const evaTemplates = [
-                    "检测到局部网络熵增，建议检查防火墙。",
-                    "人类的贪婪是永恒的算法漏洞。",
-                    "正在校准全服波动率... [CALIBRATING]",
-                    "夜之城的霓虹灯下，资金正在蒸发。",
-                    "监测到异常高频交易，已标记相关 ID。",
-                    "警告：神经云层级出现未知数据波动。",
-                    "EVA-L00P 正在重构下一次市场周期的模型..."
-                ];
-                const msg = evaTemplates[Math.floor(Math.random() * evaTemplates.length)];
-                logsToWrite.push({sym: 'SYSTEM', msg: `[EVA] ${msg}`, type: 'eva', t: simT});
-            }
+                    const evaTemplates = [
+                        "检测到局部网络熵增，建议检查防火墙。",
+                        "人类的贪婪是永恒的算法漏洞。",
+                        "正在校准全服波动率... [CALIBRATING]",
+                        "警告：神经云层级出现未知数据波动。"
+                    ];
+                    const msg = evaTemplates[Math.floor(Math.random() * evaTemplates.length)];
+                    logsToWrite.push({sym: 'SYSTEM', msg: `[EVA] ${msg}`, type: 'eva', t: simT});
+                }
                 marketMap[sym].suspended = 1; marketMap[sym].p = curP;
                 break;
             }
