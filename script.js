@@ -6951,15 +6951,18 @@ window.doForgeUpgrade = async function(key) {
         
         if (data.success) {
             showToast('升级成功！', 'success');
-            // 刷新侧边栏钱数
-            checkSecurity(); 
-            // 重新加载列表以更新等级和价格
-            loadForgeData(); 
-        } else {
-            showToast(data.error, 'error');
+            
+            // 强制刷新：先清空数据对象，确保下次必须重拉
+            forgeData = {}; 
+            
+            await Promise.all([
+                checkSecurity(), // 刷新钱
+                loadForgeData()  // 重新从服务器拉取最新等级
+            ]);
         }
     } catch(e) { showToast('Network Error'); }
 };
+
 
 
 
