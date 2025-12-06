@@ -63,16 +63,13 @@ export async function onRequest(context) {
         for (let key in UNITS) {
             if (levels[key]) totalDPS += levels[key] * UNITS[key].base_dps;
         }
-        // ...
-        // ✅ 读取 user 表里的 forge_levels 字段 (我们在 idle.js 开头查询 user 时需要确保查了这个字段)
-        // 为了保险，这里再单查一次 user 表的这个字段
+        
+        // ✅ 替换为：
         const uForge = await db.prepare("SELECT forge_levels FROM users WHERE id=?").bind(user.id).first();
         const forgeLv = JSON.parse(uForge?.forge_levels || '{}');
         const overclockLv = forgeLv['overclock'] || 0;
         
-        // 最终 DPS * (1 + 等级 * 0.05) -> 每级加 5%
         totalDPS = totalDPS * (1 + overclockLv * 0.05);
-
         // === GET: 获取状态 ===
         if (request.method === 'GET') {
             const timeDiff = Math.max(0, (now - save.last_claim_time) / 1000);
