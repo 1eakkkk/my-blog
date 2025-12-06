@@ -157,9 +157,16 @@ function randRange(min, max) { return Math.floor(Math.random() * (max - min + 1)
 function getBJTime(ts) { return new Date(ts + (8 * 60 * 60 * 1000)); }
 function getBJHour(ts) { return getBJTime(ts).getUTCHours(); }
 function getBJDateStr(ts) { return new Date(ts + 8*3600000).toISOString().split('T')[0]; }
-function calculatePositionValue(pos, currentPrice) {
-    const qty = pos.amount; const avg = pos.avg_price; const lev = pos.leverage || 1;
-    const principal = (avg * Math.abs(qty)) / lev;
+// 辅助函数：计算持仓价值 (v4.5 修复：计入保证金折扣)
+function calculatePositionValue(pos, currentPrice, marginRate = 1.0) {
+    const qty = pos.amount; 
+    const avg = pos.avg_price; 
+    const lev = pos.leverage || 1;
+    
+    // 本金 = (均价 * 数量 / 杠杆) * 折扣率
+    // 之前漏乘了 marginRate，导致虚高
+    const principal = ((avg * Math.abs(qty)) / lev) * marginRate;
+    
     let profit = (qty > 0) ? (currentPrice - avg) * qty : (avg - currentPrice) * Math.abs(qty);
     return Math.floor(principal + profit);
 }
@@ -650,13 +657,20 @@ export async function onRequest(context) {
                 let tempEquity = company.capital;
                 let hasLeverage = false; 
 
+                let currentMarginRate = 1.0;
+                if (COMPANY_LEVELS[companyLevel]) {
+                    currentMarginRate = COMPANY_LEVELS[companyLevel].margin;
+                }
                 for (const pos of positions) {
                     if (!market[pos.stock_symbol] || !market[pos.stock_symbol].p) {
                         isDataValid = false;
                         break; 
                     }
                     const currentP = market[pos.stock_symbol].p;
-                    tempEquity += calculatePositionValue(pos, currentP);
+                    
+                    // 传入 currentMarginRate
+                    tempEquity += calculatePositionValue(pos, currentP, currentMarginRate);
+                    
                     if (pos.leverage > 1 || pos.amount < 0) hasLeverage = true;
                 }
 
