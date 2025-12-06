@@ -4947,6 +4947,7 @@ window.loadStockMarket = async function() {
             stockMeta = data.meta || {}; 
             companyInfo = { capital: data.capital, type: data.companyType };
             isGlobalMarketClosed = (data.status && !data.status.isOpen);
+            renderStockDashboard(currentStockSymbol); // <--- 然后调用渲染
 
             // 渲染 EVA 状态
             const evaEl = document.getElementById('evaStatusDisplay');
@@ -6744,6 +6745,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
