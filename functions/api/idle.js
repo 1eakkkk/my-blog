@@ -23,6 +23,11 @@ export async function onRequest(context) {
     const db = env.DB;
 
     try {
+        let evaEmotion = 'CALM';
+        try {
+            const evaData = await env.KV.get("eva_l00p_state", {type:'json'});
+            if (evaData) evaEmotion = evaData.emotion;
+        } catch(e) {}
         // 1. 鉴权
         const cookie = request.headers.get('Cookie');
         if (!cookie) return Response.json({ error: 'Auth' }, { status: 401 });
@@ -113,8 +118,17 @@ export async function onRequest(context) {
                         // 3. 违规算法
                         if (Math.random() < 0.10) totalCoins += 50;
 
-                        // 4. 企业数据包
+                        // 4. 企业数据包 (受 EVA 情绪极大影响)
                         let packetRate = 0.02 + Math.floor(currentL / 100) * 0.005;
+                        
+                        // === EVA 情绪修正 ===
+                        if (evaEmotion === 'GREED') {
+                            packetRate *= 0.5; // 贪婪时刻，极难掉落 (EVA 捂紧口袋)
+                        } else if (evaEmotion === 'PANIC') {
+                            packetRate *= 2.0; // 恐慌时刻，疯狂掉落 (EVA 撒币救市)
+                        }
+                        // ===================
+
                         if (Math.random() < packetRate) totalPackets++;
 
                     } else {
