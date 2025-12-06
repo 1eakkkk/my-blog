@@ -4201,12 +4201,8 @@ async function loadHomeSystem() {
         const data = await res.json();
         
         if (data.success) {
-            // === 插入操作按钮栏 ===
-            // 找到或创建操作栏容器 (插入在 grid 之前)
             if (data.serverTime) {
-                serverTimeOffset = data.serverTime - Date.now();
-                // 打印一下差异，方便调试 (单位毫秒)
-                console.log("Time Offset:", serverTimeOffset); 
+                window.serverTimeOffset = data.serverTime - Date.now();
             }
             let actionBar = document.getElementById('cabin-action-bar');
             if (!actionBar) {
@@ -6149,7 +6145,8 @@ window.startRealtimeCountdown = function() {
         }
 
         const now = Date.now();
-        let diff = Math.ceil((targetNextUpdateTime - now) / 1000);
+        const adjustedNow = now + (window.serverTimeOffset || 0);
+        let diff = Math.ceil((targetNextUpdateTime - adjustedNow) / 1000);
 
         // === 核心修复逻辑 ===
         if (diff <= 0) {
@@ -6732,6 +6729,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
