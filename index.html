@@ -229,6 +229,11 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline> <polyline points="2 12 12 17 22 12"></polyline></svg>
                     数据家园
                 </a>
+                
+                <a href="#idle" class="nav-link" style="color: #bd00ff;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M12 2a10 10 0 1 0 10 10H12V2z"></path><path d="M12 2a10 10 0 0 1 10 10"></path><path d="M12 12L2.1 12.05"></path></svg>
+                    神经云挂机
+                </a>
 
                 <a href="#business" class="nav-link" style="color: #00f3ff;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
@@ -819,6 +824,60 @@
                                 </div>
                             </div>     
                         </div>
+                    </div>
+                </div>
+
+                <!-- NEURAL CLOUD 挂机视图 -->
+                <div id="view-idle" class="view-section" style="display:none;">
+                    <div class="node-header">
+                        <h2>NEURAL CLOUD // 神经云</h2>
+                        <div class="node-status" style="border-color:#00f3ff; color:#00f3ff;">AUTO-HACKING...</div>
+                    </div>
+                
+                    <!-- 顶部：资源栏 -->
+                    <div class="idle-stats-bar glass-card" style="display:flex; justify-content:space-around; margin-bottom:20px; padding:15px;">
+                        <div style="text-align:center;">
+                            <div style="font-size:0.8rem; color:#888;">LAYER (层数)</div>
+                            <div id="idleLayerDisplay" style="font-size:1.8rem; font-weight:bold; color:#fff;">--</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:0.8rem; color:#bd00ff;">DATA BLOCKS (算力区块)</div>
+                            <div id="idleBlocksDisplay" style="font-size:1.8rem; font-weight:bold; color:#bd00ff;">--</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:0.8rem; color:#0f0;">TOTAL DPS (总算力)</div>
+                            <div id="idleDpsDisplay" style="font-size:1.8rem; font-weight:bold; color:#0f0;">--</div>
+                        </div>
+                    </div>
+                
+                    <!-- 中间：战斗模拟终端 -->
+                    <div class="glass-card" style="margin-bottom:20px; min-height:200px; position:relative; overflow:hidden;">
+                        <!-- 进度条 -->
+                        <div style="position:absolute; top:0; left:0; width:100%; height:4px; background:#333;">
+                            <div id="idleHpBar" style="width:100%; height:100%; background:#f33; transition: width 0.2s;"></div>
+                        </div>
+                        
+                        <!-- 怪物信息 -->
+                        <div style="text-align:center; margin-top:20px;">
+                            <h3 id="idleEnemyName" style="color:#f33; margin:0;">FIREWALL Lv.1</h3>
+                            <div id="idleHpText" style="font-size:0.8rem; color:#666;">HP: 100 / 100</div>
+                        </div>
+                
+                        <!-- 战斗日志 (滚动) -->
+                        <div id="idleBattleLog" style="height:120px; overflow-y:hidden; font-family:'JetBrains Mono'; font-size:0.8rem; color:#aaa; padding:10px; margin-top:10px; border-top:1px dashed #333; display:flex; flex-direction:column-reverse;">
+                            <div>> SYSTEM READY...</div>
+                        </div>
+                
+                        <!-- 领奖按钮 (浮动在右下) -->
+                        <button onclick="claimIdleRewards()" id="btnIdleClaim" class="cyber-btn" style="position:absolute; bottom:15px; right:15px; width:auto; border-color:#0f0; color:#0f0; background:rgba(0,0,0,0.8); z-index:10;">
+                            📥 提取收益 (同步)
+                        </button>
+                    </div>
+                
+                    <!-- 底部：单位升级列表 -->
+                    <div class="idle-units-grid" id="idleUnitsList" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:15px;">
+                        <!-- JS 动态生成 -->
+                        <div style="text-align:center; color:#666;">Loading Daemons...</div>
                     </div>
                 </div>
 
@@ -1531,9 +1590,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.8"></script>
+    <script src="script.js?v=10.9"></script>
 </body>
 </html>
+
 
 
 
