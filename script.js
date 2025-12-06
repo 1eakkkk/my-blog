@@ -6373,10 +6373,9 @@ let idleData = {
     levels: {}
 };
 
-// 1. 加载游戏
 async function loadIdleGame() {
     const view = document.getElementById('view-idle');
-    if (!view || view.style.display === 'none') return; // 不在页面不加载
+    if (!view || view.style.display === 'none') return; 
 
     try {
         const res = await fetch(`${API_BASE}/idle`);
@@ -6385,23 +6384,24 @@ async function loadIdleGame() {
         if (data.success) {
             idleData.dps = data.dps;
             idleData.layer = data.layer;
-            idleData.hp = data.hp;
-            idleData.cur_hp = data.hp; // 重置满血
+            idleData.blocks = data.blocks;
+            
+            // === 修复点：变量名统一 ===
+            idleData.max_hp = data.hp;       // 后端返回的是本层总血量
+            idleData.cur_hp = data.hp;       // 每次加载重置为满血 (因为前端只是模拟)
+            
             idleData.config = data.config;
             idleData.levels = data.levels;
             
-            // 更新 UI
             updateIdleUI(data);
             
-            // 启动动画循环
             if (idleData.timer) clearInterval(idleData.timer);
             idleData.timer = setInterval(idleLoop, 100);
             
-            // 启动矩阵背景
             startMatrixRain();
             
-            // 离线收益提示
-            if (data.offline_sec > 60) {
+            // 只有当离线时间真的很长才提示，避免刷新页面也弹
+            if (data.offline_sec > 300) {
                 addIdleLog(`检测到离线信号: ${Math.floor(data.offline_sec)}秒`, '#aaa');
                 addIdleLog(`正在后台计算哈希碰撞... 请点击 [同步]`, '#fff');
             }
@@ -6456,29 +6456,55 @@ function updateIdleUI(data) {
     }
 }
 
-// 3. 前端模拟循环 (假打)
 function idleLoop() {
-    if (idleData.dps <= 0) return;
+    // 防错：如果还没加载到数据，默认设为 100 以免除以 0
+    if (!idleData.max_hp) idleData.max_hp = 100;
+    if (idleData.cur_hp === undefined) idleData.cur_hp = idleData.max_hp;
+
+    // 1. 扣血逻辑
+    if (idleData.dps > 0) {
+        const dmg = idleData.dps / 10; 
+        idleData.cur_hp -= dmg;
+    }
+
+    // 2. 计算百分比 (修复：确保基于 max_hp 计算)
+    let percent = ((idleData.max_hp - idleData.cur_hp) / idleData.max_hp) * 100;
     
-    const dmg = idleData.dps / 10;
-    idleData.cur_hp -= dmg;
-    
+    // 视觉修正
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+
+    // 3. 更新 DOM
+    const bar = document.getElementById('idleProgressBar');
+    const txt = document.getElementById('idleProgressText');
+    if (bar) bar.style.width = `${percent}%`;
+    // 修复：强制保留1位小数，确保看起来在动
+    if (txt) txt.innerText = `CRACKING: ${percent.toFixed(1)}%`;
+
+    // 4. 层级突破模拟
     if (idleData.cur_hp <= 0) {
-        // 层数突破
         idleData.layer++;
-        idleData.hp = Math.floor(100 * Math.pow(1.10, idleData.layer - 1));
-        idleData.cur_hp = idleData.hp;
+        // 怪物成长公式 (需与后端 getLayerHP 保持一致: 100 * 1.1^(layer-1))
+        idleData.max_hp = Math.floor(100 * Math.pow(1.10, idleData.layer - 1));
+        idleData.cur_hp = idleData.max_hp; // 重置满血
         
         document.getElementById('idleLayer').innerText = `L-${String(idleData.layer).padStart(3, '0')}`;
         
-        // 随机生成日志
+        // 假装掉落了点东西 (为了视觉爽感)
         const logs = [
-            `破解防火墙节点 [${Math.random().toString(16).substr(2, 6)}]... 成功`,
-            `上传木马 payload... 覆盖率 100%`,
-            `获取 root 权限... 层级突破`,
-            `数据溢出... 收集碎片`
+            `ROOT ACCESS GRANTED...`,
+            `正在覆写扇区... 完成`,
+            `防火墙已瓦解... 层级 +1`,
+            `数据流拦截成功...`
         ];
         addIdleLog(logs[Math.floor(Math.random() * logs.length)], '#0f0');
+        
+        // 进度条闪回效果
+        if (bar) {
+            bar.style.width = '0%';
+            bar.style.transition = 'none';
+            setTimeout(() => { bar.style.transition = 'width 0.1s linear'; }, 50);
+        }
     }
 }
 
@@ -6601,6 +6627,7 @@ function startMatrixRain() {
         }
     }, 50);
 }
+
 
 
 
