@@ -584,7 +584,7 @@ async function getOrUpdateMarket(env, db) {
 
     if (updates.length > 0) await db.batch(updates);
 
-    const result = { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra };
+    const result = { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra, eva: evaState };
     if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     return result;
 }
