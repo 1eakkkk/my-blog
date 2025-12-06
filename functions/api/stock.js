@@ -339,6 +339,7 @@ async function getOrUpdateMarket(env, db) {
         let currentPressure = s.accumulated_pressure || 0;
         let momentum = currentPressure; 
 
+        // --- 开始替换：模拟循环逻辑 (v3.1 修复锯齿版) ---
         for (let i = 0; i < missed; i++) {
             simT += 60000;
             const isCatchUp = (i < missed - 1); 
@@ -348,6 +349,7 @@ async function getOrUpdateMarket(env, db) {
             const buffKey = sym.toLowerCase() + '_bias';
             if (currentEra.buff[buffKey]) eraBias = currentEra.buff[buffKey];
             
+            // 价格保护机制：跌破发行价越多，反弹阻力越小
             let baseDepthRatio = 0.005; 
             const priceRatio = curP / issuePrice;
             if (priceRatio < 1.0) {
@@ -359,8 +361,9 @@ async function getOrUpdateMarket(env, db) {
             let sellDepth = totalShares * baseDepthRatio * mode.depth_mod * eraBias;
             let newsMsg = null;
 
-            if (!isCatchUp && (simT - nextNewsT >= 240000)) { 
-                if (Math.random() < 0.1) { 
+            // 1. 新闻事件生成 (概率降低，避免频繁冲击)
+            if (!isCatchUp && (simT - nextNewsT >= 300000)) { // 改为5分钟冷却
+                if (Math.random() < 0.05) { // 5% 概率生成新闻
                     nextNewsT = simT;
                     const news = pickWeightedNews(sym);
                     if (news) {
@@ -371,45 +374,71 @@ async function getOrUpdateMarket(env, db) {
                 }
             }
 
-            if (!newsMsg && Math.random() < 0.6) { 
+            // 2. 机器人交易 (Bot) - 优化：增加趋势惯性，减少随机抽风
+            if (!newsMsg && Math.random() < 0.5) { 
                 const valuation = curP / issuePrice;
                 let botSentiment = 0; 
-                let valueBias = (1.0 - valuation) * 0.8; 
-                if (currentEra.code === 'DATA_CRASH') valueBias -= 0.3; 
+                
+                // 估值回归逻辑
+                let valueBias = (1.0 - valuation) * 0.5; // 降低回归力度，让趋势更自然
+                
+                // 宏观修正
+                if (currentEra.code === 'DATA_CRASH') valueBias -= 0.2; 
                 if (currentEra.code === 'CORP_WAR' && sym !== 'RED') valueBias -= 0.1;
-                if (currentEra.code === 'NEON_AGE' && (sym === 'BLUE' || sym === 'GOLD')) valueBias += 0.2; 
-                const trendBlock = Math.floor(simT / 300000); 
-                let trendDir = (trendBlock % 2 === 0) ? 1 : -1;
-                if (Math.random() < 0.4) botSentiment += trendDir * 0.3;
-                else botSentiment += valueBias;
-                if (valuation > 0.6 && valuation < 0.9 && Math.random() < 0.3) botSentiment = -0.5; 
-                botSentiment += (Math.random() - 0.5) * 0.4;
+                if (currentEra.code === 'NEON_AGE' && (sym === 'BLUE' || sym === 'GOLD')) valueBias += 0.15; 
+                
+                // 趋势惯性 (Trend Inertia)
+                // 利用时间戳生成一个缓慢变化的正弦波，模拟主力资金的进出周期
+                const trendWave = Math.sin(simT / 600000); // 10分钟一个周期
+                botSentiment += valueBias + (trendWave * 0.3);
 
-                if (Math.abs(botSentiment) > 0.1) {
+                // 随机扰动 (大幅降低)
+                botSentiment += (Math.random() - 0.5) * 0.2;
+
+                if (Math.abs(botSentiment) > 0.05) {
                     const direction = botSentiment > 0 ? 1 : -1;
-                    const intensity = Math.min(1.5, Math.abs(botSentiment));
-                    const botVol = direction * totalShares * (0.003 + Math.random() * 0.007) * intensity;
+                    // 限制机器人单次最大力度
+                    const intensity = Math.min(1.2, Math.abs(botSentiment));
+                    const botVol = direction * totalShares * (0.002 + Math.random() * 0.005) * intensity;
                     if (botVol > 0) buyDepth += botVol;
                     else sellDepth += Math.abs(botVol);
                 }
             }
 
+            // 3. 用户积压订单处理 (Catch-up 阶段首帧处理)
             if (i === 0) {
                 if (currentPressure > 0) buyDepth += currentPressure;
                 else sellDepth += Math.abs(currentPressure);
             }
+            
+            // 4. 动量衰减 (Momentum Decay)
             if (Math.abs(momentum) > 10) {
                 if (momentum > 0) buyDepth += momentum;
                 else sellDepth += Math.abs(momentum);
-                momentum = Math.floor(momentum * 0.6); 
+                momentum = Math.floor(momentum * 0.7); // 衰减慢一点，让大单影响更持久平滑
             }
 
-            const volatilityFactor = 50.0 * currentEra.buff.vol; 
+            // 5. 价格计算核心公式 (关键修复点)
+            const volatilityFactor = 30.0 * currentEra.buff.vol; // 降低基础波动率系数 (原50)
+            
+            // 计算供需差 (Delta)
             const delta = (buyDepth - sellDepth) / totalShares * volatilityFactor;
-            const clampedDelta = Math.max(-0.08, Math.min(0.08, delta));
-            const noise = (Math.random() - 0.5) * 0.02;
+            
+            // 限制单分钟最大涨跌幅 (防瞬间崩盘)
+            const clampedDelta = Math.max(-0.05, Math.min(0.05, delta)); 
+            
+            // *** 核心修复：大幅降低随机底噪 ***
+            // 原来是 0.02 (2%)，现在改为 0.003 (0.3%)，减少锯齿
+            // 如果处于横盘状态 (clampedDelta 很小)，噪声更小
+            let noiseBase = 0.003;
+            if (Math.abs(clampedDelta) < 0.01) noiseBase = 0.001; 
+            
+            const noise = (Math.random() - 0.5) * noiseBase;
+            
+            // 应用价格
             curP = Math.max(1, Math.round(curP * (1 + clampedDelta + noise)));
 
+            // 6. 记录日志与破产判定
             if (newsMsg) logsToWrite.push({sym, msg: `[${STOCKS_CONFIG[sym].name}] ${newsMsg.msg}`, type: newsMsg.factor > 1 ? 'good' : 'bad', t: simT});
 
             if (curP < issuePrice * BANKRUPT_PCT) {
@@ -424,6 +453,7 @@ async function getOrUpdateMarket(env, db) {
             }
             updates.push(db.prepare("INSERT INTO market_history (symbol, price, created_at) VALUES (?, ?, ?)").bind(sym, curP, simT));
         }
+        // --- 结束替换 ---
 
         if (marketMap[sym].suspended !== 1) {
             updates.push(db.prepare("UPDATE market_state SET current_price=?, last_update=?, last_news_time=?, accumulated_pressure=0 WHERE symbol=?").bind(curP, simT, nextNewsT, sym));
