@@ -584,11 +584,16 @@ async function getOrUpdateMarket(env, db) {
 
     if (updates.length > 0) await db.batch(updates);
 
-    const result = { market: marketMap, status: { isOpen: !isMarketClosed }, era: currentEra, eva: evaState };
+    const result = { 
+        market: marketMap, 
+        status: { isOpen: !isMarketClosed }, 
+        era: currentEra, 
+        eva: evaState // <--- 必须有这一行！
+    };
+    
     if (env.KV) await env.KV.put(CACHE_KEY, JSON.stringify({ timestamp: now, payload: result }), { expirationTtl: 60 });
     return result;
 }
-
 export async function onRequest(context) {
     try {
         const { request, env } = context;
@@ -610,7 +615,7 @@ export async function onRequest(context) {
 
         const company = await db.prepare("SELECT * FROM user_companies WHERE user_id = ?").bind(user.id).first();
         const method = request.method;
-        const { market, status, era } = await getOrUpdateMarket(env, db);
+        const { market, status, era, eva } = await getOrUpdateMarket(env, db);
 
         const isInsider = user.insider_exp > Date.now();
 
@@ -738,7 +743,8 @@ export async function onRequest(context) {
                             status, 
                             era, 
                             isInsider, 
-                            prediction // <--- 新增字段
+                            prediction, // <--- 新增字段
+                            eva: eva
                         });
                     }
                 }
