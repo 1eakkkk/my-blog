@@ -6048,6 +6048,10 @@ window.setTradeAmount = function(type) {
     }
 };
 
+// ================================================================
+// === 👇👇👇 请复制以下代码，粘贴到 script.js 的最末尾 👇👇👇 ===
+// ================================================================
+
 // === 自动化交易 & 倒计时系统 ===
 
 let autoTradeState = {
@@ -6083,33 +6087,27 @@ window.startRealtimeCountdown = function() {
 
         // === 核心修复逻辑 ===
         if (diff <= 0) {
-            // 1. 时间归零，说明服务器该更新了，但前端还没拿到新数据
+            // 1. 时间归零
             diff = 0;
-            timerEl.innerText = "同步中..."; // 显示同步中，而不是死板的 0
-            timerEl.style.color = "#ff00de"; // 变成粉色提示同步中
-            timerEl.style.opacity = (now % 500 < 250) ? '0.5' : '1'; // 急速闪烁
+            timerEl.innerText = "SYNC"; 
+            timerEl.style.color = "#ff00de"; // 粉色
+            timerEl.style.opacity = (now % 500 < 250) ? '0.5' : '1'; 
 
-            // 2. 触发加速轮询 (如果还没加速)
-            // 正常是5秒一次，现在每1秒请求一次，直到拿到新数据
+            // 2. 触发加速轮询
             if (!isFastPolling) {
                 console.log("⚡ 倒计时归零，启动加速轮询...");
                 isFastPolling = true;
-                // 清除正常的 5s 定时器
                 if (window.stockAutoRefreshTimer) clearInterval(window.stockAutoRefreshTimer);
-                // 开启 1s 急速定时器
                 window.stockAutoRefreshTimer = setInterval(() => {
-                    loadStockMarket();
+                    if (document.visibilityState !== 'hidden') loadStockMarket();
                 }, 1000);
-                // 立即执行一次
                 loadStockMarket();
             }
         } else {
             // 倒计时正常 (>0)
             if (diff <= 10) {
                 timerEl.style.color = '#ff3333';
-                timerEl.style.opacity = (diff <= 3 && now % 500 < 250) ? '0' : '1';
                 if (diff <= 5) {
-                    // 快速呼吸
                     timerEl.style.opacity = (now % 500 < 250) ? '0.4' : '1';
                 } else {
                     timerEl.style.opacity = '1';
@@ -6120,13 +6118,12 @@ window.startRealtimeCountdown = function() {
             }
             timerEl.innerText = diff + "s";
 
-            // 3. 恢复正常轮询 (如果之前是加速状态，且现在diff很大，说明拿到新数据了)
-            if (isFastPolling && diff > 50) { // 新的一分钟开始了
+            // 3. 恢复正常轮询
+            if (isFastPolling && diff > 50) {
                 console.log("✅ 同步完成，恢复正常轮询");
                 isFastPolling = false;
                 if (window.stockAutoRefreshTimer) clearInterval(window.stockAutoRefreshTimer);
                 window.stockAutoRefreshTimer = setInterval(() => {
-                    // 页面可见时才刷新
                     if (document.visibilityState !== 'hidden') {
                         const bizView = document.getElementById('view-business');
                         if (bizView && bizView.style.display !== 'none') loadStockMarket();
@@ -6138,7 +6135,7 @@ window.startRealtimeCountdown = function() {
     }, 1000);
 };
 
-// === 1. 切换面板显示 (打开时刷新当前股票信息) ===
+// === 1. 切换面板显示 ===
 window.toggleAutoTradePanel = function() {
     const panel = document.getElementById('autoTradeConfig');
     const arrow = document.getElementById('autoTradeArrow');
@@ -6148,13 +6145,12 @@ window.toggleAutoTradePanel = function() {
         panel.style.display = 'block';
         arrow.innerText = '▲';
         
-        // 自动填入当前股票信息
         const nameMap = {'BLUE':'蓝盾安全', 'GOLD':'神经元科技', 'RED':'荒坂军工', 'PURPLE':'虚空能源', 'GREEN':'康陶医疗', 'PINK':'夜氏传媒'};
         const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333', 'PURPLE':'#bd00ff', 'GREEN':'#00ff00', 'PINK':'#ff00de'};
         
         if (currentStockSymbol && display) {
-            const name = nameMap[currentStockSymbol];
-            const color = colorMap[currentStockSymbol];
+            const name = nameMap[currentStockSymbol] || currentStockSymbol;
+            const color = colorMap[currentStockSymbol] || '#fff';
             display.innerHTML = `<span style="color:${color}">${name} (${currentStockSymbol})</span>`;
         }
     } else {
@@ -6163,7 +6159,7 @@ window.toggleAutoTradePanel = function() {
     }
 };
 
-// === 2. 启动挂机 (锁定目标股票) ===
+// === 2. 启动挂机 ===
 window.startAutoTrade = function() {
     const action = document.getElementById('autoAction').value;
     const target = parseInt(document.getElementById('autoPriceTarget').value);
@@ -6171,31 +6167,28 @@ window.startAutoTrade = function() {
     const lev = parseInt(document.getElementById('stockLeverage').value) || 1;
 
     if (!target || target <= 0) return showToast("请输入目标价格", "error");
-    if (!amount || amount <= 0) return showToast("请输入执行数量 (上方输入框)", "error");
+    if (!amount || amount <= 0) return showToast("请输入执行数量", "error");
     if (!currentStockSymbol) return;
 
-    // 锁定状态
     autoTradeState = {
         running: true,
-        symbol: currentStockSymbol, // 👈 关键：锁死当前这只股票
+        symbol: currentStockSymbol,
         action: action,
         targetPrice: target,
         amount: amount,
         leverage: lev
     };
 
-    // UI 变更
     document.getElementById('autoTradeConfig').style.display = 'none';
     const statusBox = document.getElementById('autoTradeStatus');
     statusBox.style.display = 'block';
     
-    // 更新状态条信息
-    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
-    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
+    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂', 'PURPLE':'虚空', 'GREEN':'康陶', 'PINK':'夜氏'};
+    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333', 'PURPLE':'#bd00ff', 'GREEN':'#00ff00', 'PINK':'#ff00de'};
     
     const stockNameEl = document.getElementById('statusStockName');
-    stockNameEl.innerText = nameMap[currentStockSymbol];
-    stockNameEl.style.color = colorMap[currentStockSymbol];
+    stockNameEl.innerText = nameMap[currentStockSymbol] || currentStockSymbol;
+    stockNameEl.style.color = colorMap[currentStockSymbol] || '#fff';
 
     const actionText = action === 'buy' ? '买入' : '卖出';
     const actionColor = action === 'buy' ? '#0f0' : '#f33';
@@ -6207,41 +6200,34 @@ window.startAutoTrade = function() {
     document.getElementById('statusCondition').innerText = symbol;
     document.getElementById('statusTarget').innerText = target;
     
-    showToast(`挂机已启动：监控 [${nameMap[currentStockSymbol]}]`, "success");
+    showToast(`挂机已启动：监控 [${nameMap[currentStockSymbol] || currentStockSymbol}]`, "success");
 };
 
-// === 3. 核心：每秒检查价格 (支持跨 Tab 监控) ===
-function checkAutoTrigger(currentPrice_Unused) {
+// === 3. 停止挂机 ===
+window.stopAutoTrade = function() {
+    autoTradeState.running = false;
+    document.getElementById('autoTradeStatus').style.display = 'none';
+    document.getElementById('autoTradeConfig').style.display = 'block';
+    showToast("挂机已停止", "info");
+};
+
+// === 4. 核心：每秒检查价格 ===
+function checkAutoTrigger() {
     if (!autoTradeState.running) return;
     
-    // 目标股票代号
     const targetSym = autoTradeState.symbol;
-    
-    // 这里的关键：不仅仅看 currentPrice，而是去 marketData 里找目标股票的最新价
-    // 这样即使你现在在看 BLUE，后台挂机的 RED 依然能触发
     if (!marketData || !marketData[targetSym] || marketData[targetSym].length === 0) return;
     
     const dataList = marketData[targetSym];
     const realTimePrice = dataList[dataList.length - 1].p;
 
     let triggered = false;
-
-    // 买入逻辑：价格 <= 目标
-    if (autoTradeState.action === 'buy' && realTimePrice <= autoTradeState.targetPrice) {
-        triggered = true;
-    }
-    // 卖出逻辑：价格 >= 目标
-    else if (autoTradeState.action === 'sell' && realTimePrice >= autoTradeState.targetPrice) {
-        triggered = true;
-    }
+    if (autoTradeState.action === 'buy' && realTimePrice <= autoTradeState.targetPrice) triggered = true;
+    else if (autoTradeState.action === 'sell' && realTimePrice >= autoTradeState.targetPrice) triggered = true;
 
     if (triggered) {
-        // 临时把输入框的值改写，确保 tradeStock 读取正确
-        // 注意：因为 tradeStock 依赖 currentStockSymbol，我们需要临时欺骗一下，或者改写 tradeStock
-        // 最稳妥的方法是直接发请求，但为了复用逻辑，我们这里做一个简单的上下文切换
-        
         const originalSymbol = currentStockSymbol;
-        currentStockSymbol = targetSym; // 临时切换上下文
+        currentStockSymbol = targetSym; 
         
         document.getElementById('stockTradeAmount').value = autoTradeState.amount;
         document.getElementById('stockLeverage').value = autoTradeState.leverage;
@@ -6252,123 +6238,82 @@ function checkAutoTrigger(currentPrice_Unused) {
         
         stopAutoTrade();
         
-        // 强提示
         const box = document.getElementById('marketTicker');
         if(box) {
-            const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
-            box.innerHTML = `<span style="color:#bd00ff; font-weight:bold; background:rgba(0,0,0,0.8); padding:5px;">🤖 自动交易：${nameMap[targetSym]} 执行成功！</span>`;
+            box.innerHTML = `<span style="color:#bd00ff; font-weight:bold; background:rgba(0,0,0,0.8); padding:5px;">🤖 自动交易触发成功！</span>`;
             setTimeout(() => { if(typeof loadStockMarket==='function') loadStockMarket(); }, 2000);
         }
     }
 }
 
-// === 2. 启动挂机 (锁定目标股票) ===
-window.startAutoTrade = function() {
-    const action = document.getElementById('autoAction').value;
-    const target = parseInt(document.getElementById('autoPriceTarget').value);
-    const amount = parseInt(document.getElementById('stockTradeAmount').value);
-    const lev = parseInt(document.getElementById('stockLeverage').value) || 1;
-
-    if (!target || target <= 0) return showToast("请输入目标价格", "error");
-    if (!amount || amount <= 0) return showToast("请输入执行数量 (上方输入框)", "error");
-    if (!currentStockSymbol) return;
-
-    // 锁定状态
-    autoTradeState = {
-        running: true,
-        symbol: currentStockSymbol, // 👈 关键：锁死当前这只股票
-        action: action,
-        targetPrice: target,
-        amount: amount,
-        leverage: lev
-    };
-
-    // UI 变更
-    document.getElementById('autoTradeConfig').style.display = 'none';
-    const statusBox = document.getElementById('autoTradeStatus');
-    statusBox.style.display = 'block';
+// === 5. 交易核心函数 (修复版：支持自动交易) ===
+window.tradeStock = async function(action, isAuto = false) {
+    const amountVal = document.getElementById('stockTradeAmount').value;
+    const amount = parseInt(amountVal);
+    const leverage = parseInt(document.getElementById('stockLeverage').value); 
     
-    // 更新状态条信息
-    const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
-    const colorMap = {'BLUE':'#00f3ff', 'GOLD':'#ffd700', 'RED':'#ff3333'};
-    
-    const stockNameEl = document.getElementById('statusStockName');
-    stockNameEl.innerText = nameMap[currentStockSymbol];
-    stockNameEl.style.color = colorMap[currentStockSymbol];
-
-    const actionText = action === 'buy' ? '买入' : '卖出';
-    const actionColor = action === 'buy' ? '#0f0' : '#f33';
-    const typeEl = document.getElementById('statusActionType');
-    typeEl.innerText = actionText;
-    typeEl.style.color = actionColor;
-
-    const symbol = action === 'buy' ? '≤' : '≥';
-    document.getElementById('statusCondition').innerText = symbol;
-    document.getElementById('statusTarget').innerText = target;
-    
-    showToast(`挂机已启动：监控 [${nameMap[currentStockSymbol]}]`, "success");
-};
-
-// 4. 停止挂机
-window.stopAutoTrade = function() {
-    autoTradeState.running = false;
-    document.getElementById('autoTradeStatus').style.display = 'none';
-    document.getElementById('autoTradeConfig').style.display = 'block';
-    showToast("挂机已停止", "info");
-};
-
-// 5. 核心：每秒检查价格 (在 loadStockMarket 中调用)
-function checkAutoTrigger(currentPrice_Unused) {
-    if (!autoTradeState.running) return;
-    
-    // 目标股票代号
-    const targetSym = autoTradeState.symbol;
-    
-    // 这里的关键：不仅仅看 currentPrice，而是去 marketData 里找目标股票的最新价
-    // 这样即使你现在在看 BLUE，后台挂机的 RED 依然能触发
-    if (!marketData || !marketData[targetSym] || marketData[targetSym].length === 0) return;
-    
-    const dataList = marketData[targetSym];
-    const realTimePrice = dataList[dataList.length - 1].p;
-
-    let triggered = false;
-
-    // 买入逻辑：价格 <= 目标
-    if (autoTradeState.action === 'buy' && realTimePrice <= autoTradeState.targetPrice) {
-        triggered = true;
+    if (!amount || amount <= 0) {
+        if (!isAuto) showToast("请输入有效数量", "error");
+        return;
     }
-    // 卖出逻辑：价格 >= 目标
-    else if (autoTradeState.action === 'sell' && realTimePrice >= autoTradeState.targetPrice) {
-        triggered = true;
+    if (!currentStockSymbol) return showToast("请先选择股票", "error");
+
+    if (!marketData || !marketData[currentStockSymbol] || marketData[currentStockSymbol].length === 0) {
+        return showToast("正在同步行情，请稍后...", "error");
+    }
+    const curP = marketData[currentStockSymbol][marketData[currentStockSymbol].length - 1].p;
+    
+    // 弹窗确认 (仅手动交易)
+    if (!isAuto) {
+        const orderVal = curP * amount;
+        // 估算费用 (简单估算)
+        const feeRate = 0.005 + 0.01; // 基础+预估滑点
+        const fee = Math.floor(orderVal * feeRate);
+        const margin = Math.floor((orderVal / leverage));
+        const totalCost = margin + fee;
+
+        const actionMap = { 'buy': '买入 (做多)', 'sell': '卖出 / 做空', 'cover': '平空 (结算)' };
+        const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂', 'PURPLE':'虚空', 'GREEN':'康陶', 'PINK':'夜氏'};
+        
+        let confirmMsg = `【交易确认】\n\n标的：${nameMap[currentStockSymbol]||currentStockSymbol}\n方向：${actionMap[action]}\n数量：${amount.toLocaleString()} 股\n现价：${curP}\n----------------\n`;
+        
+        const isOpening = action === 'buy' || (action === 'sell' && (!myPositions || !myPositions.find(p=>p.stock_symbol===currentStockSymbol && p.amount>0)));
+
+        if (isOpening) {
+            confirmMsg += `预估保证金：${margin.toLocaleString()}\n预估费用：${fee.toLocaleString()}\n总计扣款：${totalCost.toLocaleString()} (公司资金)\n`;
+        } else {
+            confirmMsg += `预估费用：${fee.toLocaleString()}\n`;
+        }
+        confirmMsg += `\n确认执行吗？`;
+
+        if (!confirm(confirmMsg)) return;
     }
 
-    if (triggered) {
-        // 临时把输入框的值改写，确保 tradeStock 读取正确
-        // 注意：因为 tradeStock 依赖 currentStockSymbol，我们需要临时欺骗一下，或者改写 tradeStock
-        // 最稳妥的方法是直接发请求，但为了复用逻辑，我们这里做一个简单的上下文切换
-        
-        const originalSymbol = currentStockSymbol;
-        currentStockSymbol = targetSym; // 临时切换上下文
-        
-        document.getElementById('stockTradeAmount').value = autoTradeState.amount;
-        document.getElementById('stockLeverage').value = autoTradeState.leverage;
-        
-        tradeStock(autoTradeState.action).then(() => {
-            // 交易完成后切回来
-            currentStockSymbol = originalSymbol;
+    try {
+        const res = await fetch(`${API_BASE}/stock`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action, symbol: currentStockSymbol, amount, leverage })
         });
+        const data = await res.json();
         
-        stopAutoTrade();
-        
-        // 强提示
-        const box = document.getElementById('marketTicker');
-        if(box) {
-            const nameMap = {'BLUE':'蓝盾', 'GOLD':'神经元', 'RED':'荒坂'};
-            box.innerHTML = `<span style="color:#bd00ff; font-weight:bold; background:rgba(0,0,0,0.8); padding:5px;">🤖 自动交易：${nameMap[targetSym]} 执行成功！</span>`;
-            setTimeout(() => { if(typeof loadStockMarket==='function') loadStockMarket(); }, 2000);
+        if (data.success) {
+            showToast(data.message, "success");
+            if (!isAuto) document.getElementById('stockTradeAmount').value = '';
+            if(typeof addUserLog === 'function') {
+                addUserLog(data.log, (action === 'buy' || action === 'cover') ? 'buy' : 'sell');
+            }
+            loadStockMarket(); 
+        } else {
+            showToast(data.error, "error");
+            if (isAuto) stopAutoTrade();
         }
+    } catch(e) { 
+        console.error(e);
+        showToast("交易请求失败", "error"); 
     }
-}
+};
+
 
 
 
