@@ -135,11 +135,8 @@ export async function onRequest(context) {
                     }
                 }
                 
-                // === 时间低保 (Passive Scraps) ===
-                // 无论打没打死怪，只要挂机了，每 5 分钟 (300s) 必给 1 个硬件
-                // 这样 DPS 低的新手也能攒资源
-                if (timeDiff > 300) {
-                    totalScrap += Math.floor(timeDiff / 300);
+                if (layersCleared === 0 && timeDiff > 60) {
+                    totalCoins += Math.floor(timeDiff * 0.1); // 每分钟给 6 i币
                 }
 
                 // === 时间结算逻辑 ===
