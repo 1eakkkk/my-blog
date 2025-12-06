@@ -1,4 +1,4 @@
-// --- START OF FILE functions/api/forge.js (v4.4 Fix) ---
+// --- START OF FILE functions/api/forge.js (Final Stable) ---
 
 const FORGE_CONFIG = {
     'overclock': { name: '神经超频', base_cost: 1000, desc: '挂机算力(DPS) +5%', max: 50 },
@@ -17,54 +17,57 @@ export async function onRequest(context) {
     const user = await db.prepare('SELECT id, k_coins FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
     if (!user) return Response.json({ error: 'Auth Failed' }, { status: 401 });
 
-    // 2. 读取锻造存档 (增加容错)
+    // 2. 读取存档
+    // 这一步非常关键：我们要看看数据库里到底有没有这一行
     let save = await db.prepare("SELECT * FROM user_forge WHERE user_id = ?").bind(user.id).first();
     
-    // 如果没有存档，默认为空对象
+    // 如果没读到，我们在内存里造一个空的，但这不代表数据库里有
     const levels = save ? JSON.parse(save.levels || '{}') : {};
 
-    // === GET: 获取列表 ===
+    // === GET ===
     if (request.method === 'GET') {
-        return Response.json({
-            success: true,
-            levels: levels,
-            config: FORGE_CONFIG
-        });
+        return Response.json({ success: true, levels, config: FORGE_CONFIG });
     }
 
     // === POST: 升级 ===
     if (request.method === 'POST') {
         const body = await request.json();
         const type = body.type;
-        
         const conf = FORGE_CONFIG[type];
-        if (!conf) return Response.json({ error: '未知硬件类型' });
+        
+        if (!conf) return Response.json({ error: '未知类型' });
 
         const curLv = levels[type] || 0;
-        if (curLv >= conf.max) return Response.json({ error: '已升至满级' });
+        if (curLv >= conf.max) return Response.json({ error: '满级' });
 
-        // 价格公式：基础价 * 1.1^等级
         const cost = Math.floor(conf.base_cost * Math.pow(1.1, curLv));
+        if (user.k_coins < cost) return Response.json({ error: 'K币不足' });
 
-        if (user.k_coins < cost) return Response.json({ error: `K币不足 (需 ${cost.toLocaleString()})` });
-
-        // 计算新等级
+        // 更新内存里的等级
         levels[type] = curLv + 1;
-        const newLevelsStr = JSON.stringify(levels);
+        const levelStr = JSON.stringify(levels);
 
-        // === 🚨 核心修复：使用 Upsert (插入或更新) ===
-        // 这样即使数据库里之前没有你的记录，也会自动创建，不会导致"扣了钱没升级"
-        await db.batch([
-            // 1. 扣钱
-            db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(cost, user.id),
-            
-            // 2. 强制保存 (如果冲突则更新)
-            db.prepare(`
-                INSERT INTO user_forge (user_id, levels) VALUES (?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET levels = excluded.levels
-            `).bind(user.id, newLevelsStr)
-        ]);
+        // === 3. 稳健保存逻辑 (Fool-proof Save) ===
+        // 先扣钱
+        const batch = [
+            db.prepare("UPDATE users SET k_coins = k_coins - ? WHERE id = ?").bind(cost, user.id)
+        ];
 
-        return Response.json({ success: true, message: '锻造成功', new_level: curLv + 1 });
+        // 再保存等级
+        if (save) {
+            // 情况A: 数据库里有记录 -> 执行 UPDATE
+            batch.push(
+                db.prepare("UPDATE user_forge SET levels = ? WHERE user_id = ?").bind(levelStr, user.id)
+            );
+        } else {
+            // 情况B: 数据库里没记录 -> 执行 INSERT
+            batch.push(
+                db.prepare("INSERT INTO user_forge (user_id, levels) VALUES (?, ?)").bind(user.id, levelStr)
+            );
+        }
+
+        await db.batch(batch);
+
+        return Response.json({ success: true, message: '升级成功', new_level: curLv + 1 });
     }
 }
