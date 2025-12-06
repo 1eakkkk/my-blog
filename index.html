@@ -1234,15 +1234,34 @@
                         <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
                             <!-- 公司升级 -->
                             <div class="glass-card" style="flex: 1; min-width: 300px; border-color:gold;">
-                                <h3 style="color: gold;">🏗️ 公司架构与杠杆</h3>
-                                <p style="font-size: 0.8rem; color: #ccc;">消耗 K币 升级公司，获取更低的保证金率 (更高的资金利用率)。</p>
-                                <table class="tech-table" style="font-size:0.8rem;">
-                                    <thead><tr><th>等级</th><th>架构</th><th>保证金</th></tr></thead>
-                                    <tbody>
-                                        <tr><td>Lv.0</td><td>皮包公司</td><td>100%</td></tr>
-                                        <tr><td>Lv.1</td><td>量化工作室</td><td>95%</td></tr>
-                                        <tr><td>Lv.2</td><td>高频中心</td><td>90%</td></tr>
-                                        <tr><td>Lv.3</td><td>金融巨鳄</td><td>85%</td></tr>
+                                <!-- 在 index.html 的 view-about 中替换原表格 -->
+                            <h3 style="color: #fff;">🏗️ 公司架构升级路线</h3>
+                            <p style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">升级公司可获得：保证金减免、手续费折扣、冷却缩减及持仓上限提升。</p>
+                            <div class="table-responsive">
+                                <table class="tech-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="color:#00f3ff">等级</th>
+                                            <th>架构名称</th>
+                                            <th>保证金</th>
+                                            <th>手续费</th>
+                                            <th>冷却</th>
+                                            <th>持仓</th>
+                                            <th style="color:gold">升级K币</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody style="font-size: 0.8rem;">
+                                        <tr><td>Lv.0</td><td>皮包公司</td><td>100%</td><td>100%</td><td>30s</td><td>20%</td><td>-</td></tr>
+                                        <tr><td>Lv.1</td><td>车库工作室</td><td>98%</td><td>100%</td><td>30s</td><td>20%</td><td>2,000</td></tr>
+                                        <tr><td>Lv.2</td><td>量化作坊</td><td>95%</td><td>90%</td><td>27s</td><td>20%</td><td>5,000</td></tr>
+                                        <tr><td>Lv.3</td><td>小型私募</td><td>92%</td><td>90%</td><td>27s</td><td>24%</td><td>10,000</td></tr>
+                                        <tr><td>Lv.4</td><td>高频交易室</td><td>90%</td><td>80%</td><td>21s</td><td>24%</td><td>20,000</td></tr>
+                                        <tr><td>Lv.5</td><td>区域游资</td><td>88%</td><td>80%</td><td>21s</td><td>30%</td><td>40,000</td></tr>
+                                        <tr><td>Lv.6</td><td>数据对冲基金</td><td>85%</td><td>70%</td><td>18s</td><td>30%</td><td>80,000</td></tr>
+                                        <tr><td>Lv.7</td><td>跨国资本</td><td>82%</td><td>70%</td><td>18s</td><td>36%</td><td>150,000</td></tr>
+                                        <tr><td>Lv.8</td><td>暗池巨鲸</td><td>80%</td><td>60%</td><td>15s</td><td>40%</td><td>300,000</td></tr>
+                                        <tr><td>Lv.9</td><td>市场做市商</td><td>75%</td><td>50%</td><td>12s</td><td>50%</td><td>600,000</td></tr>
+                                        <tr><td>Lv.10</td><td>荒坂塔顶层</td><td>70%</td><td>0%</td><td>0s</td><td>100%</td><td>1,000,000</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -1513,6 +1532,7 @@
     <script src="script.js?v=10.8"></script>
 </body>
 </html>
+
 
 
 
