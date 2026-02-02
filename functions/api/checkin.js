@@ -81,10 +81,6 @@ export async function onRequestPost(context) {
       await db.prepare('UPDATE users SET coins = coins + ?, k_coins = COALESCE(k_coins, 0) + ?, last_check_in = ?, consecutive_days = ? WHERE id = ?')
         .bind(coinAdd, kCoinAdd, today, newConsecutive, user.id).run();
 
-      // 2. 更新任务进度 (user_tasks)
-      await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code = 'checkin' AND category = 'daily' AND status = 0 AND period_key = ?`)
-        .bind(user.id, today).run();
-      
       // 3. 增加经验
       const xpResult = await addXpWithCap(db, user.id, xpAdd, today);
 
@@ -105,3 +101,4 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ success: false, message: '签到系统故障: ' + e.message }), { status: 500 });
   }
 }
+
