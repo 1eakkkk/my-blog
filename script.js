@@ -1352,8 +1352,6 @@ async function handleRoute() {
         tryRestoreDraft();
     } else if (hash === '#node') {
         if(views.node) views.node.style.display = 'block';
-        // 高亮导航（如果有的话，手动添加active类）
-        loadNodeConsole();
     } else if (hash === '#duel') {
         if (views.duel) views.duel.style.display = 'block';
         loadDuels();
@@ -3064,51 +3062,6 @@ window.adminSearchUsers = async function() {
     }
 };
 
-// === N.O.D.E Console Logic ===
-
-async function loadNodeConsole() {
-    const userEl = document.getElementById('nodeUser');
-    const costEl = document.getElementById('nodeCostDisplay');
-    const btn = document.getElementById('exploreBtn');
-    
-    if(currentUser) {
-        userEl.innerText = (currentUser.nickname || currentUser.username).toUpperCase();
-    }
-
-    // 判断今日是否已免费探索
-    // 我们需要简单判断本地状态，或者后端返回。
-    // 为了准确，这里我们假设 currentUser 数据中已经包含了 last_node_explore_date 
-    // (注意：checkSecurity 需要确保返回了这个新字段，或者我们在这里单独调一次 user 接口，或者直接依靠后端返回的错误来判断)
-    
-    // 简单起见，我们直接显示通用文本，由点击后的反馈决定
-    costEl.innerHTML = "正在同步卫星数据...";
-    
-    // 获取最新状态 (复用 /api/user 稍微有点重，但最准确)
-    try {
-        const res = await fetch(`${API_BASE}/user`);
-        const data = await res.json();
-        if(data.loggedIn) {
-            currentUser = data; // 更新全局状态
-            const today = new Date(new Date().getTime() + 8*3600*1000).toISOString().split('T')[0];
-            const isFree = (data.last_node_explore_date !== today);
-            
-            if(isFree) {
-                costEl.innerHTML = `本次扫描消耗: <span style="color:#0f0">0 i币 (每日免费)</span>`;
-                
-                // === 修改这里：汉化按钮 ===
-                btn.innerText = "启动扫描程序 (免费)";
-            } else {
-                costEl.innerHTML = `本次扫描消耗: <span style="color:#ff00de">50 i币</span> (余额: ${data.coins})`;
-                
-                // === 修改这里：汉化按钮 ===
-                btn.innerText = "启动扫描程序 (-50)";
-            }
-        }
-    } catch(e) {
-        costEl.innerText = "连接中断";
-    }
-}
-
 function addNodeLog(msg, type='') {
     const logBox = document.getElementById('nodeLog');
     const div = document.createElement('div');
@@ -3127,180 +3080,6 @@ function addNodeLog(msg, type='') {
         if (i >= msg.length) clearInterval(interval);
     }, 20); // 打字速度
 }
-
-window.exploreNode = async function() {
-    const btn = document.getElementById('exploreBtn');
-    const centerBtn = document.getElementById('centralNode');
-    
-    if(btn.disabled) return;
-    
-    btn.disabled = true;
-    centerBtn.classList.add('scanning'); // 触发CSS旋转/发光动画
-    addNodeLog("CONNECTING TO NODE...", "info");
-
-    try {
-        // 模拟扫描延迟
-        await new Promise(r => setTimeout(r, 800));
-
-        const res = await fetch(`${API_BASE}/node`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'}
-        });
-        const data = await res.json();
-        
-        centerBtn.classList.remove('scanning');
-
-        if (data.success) {
-            const rarityClass = `rarity-${data.rarity}`; // 自动对应 .rarity-epic 等
-            let logType = "";
-            if (data.type === 'glitch') logType = "error";
-            else if (data.type === 'item' || data.type === 'mission') logType = "warn";
-            else if (data.type === 'reward_coin' || data.type === 'reward_xp') logType = "info";
-            
-            addNodeLog(data.message, rarityClass);
-
-            if (data.rarity === 'legendary') {
-                document.body.style.animation = "shake 0.5s";
-                setTimeout(()=>document.body.style.animation="", 500);
-            }
-            // === 核心修改：立即更新全局状态和UI ===
-            
-            // 1. 更新全局变量
-            if (currentUser) {
-                if (data.new_coins !== undefined) currentUser.coins = data.new_coins;
-                if (data.new_xp !== undefined) currentUser.xp = data.new_xp;
-            }
-
-            // 2. 更新侧边栏：金币
-            const coinEl = document.getElementById('coinCount');
-            if (coinEl && data.new_coins !== undefined) {
-                // 做一个简单的数字跳动效果（可选）
-                coinEl.innerText = data.new_coins;
-                coinEl.style.color = '#00ff00';
-                setTimeout(() => coinEl.style.color = '', 500); // 闪一下绿色
-            }
-
-            // 3. 更新侧边栏：经验条和等级
-            if (data.new_xp !== undefined) {
-                const xpText = document.getElementById('xpText');
-                const xpBar = document.getElementById('xpBar');
-                const badgesArea = document.getElementById('badgesArea');
-                
-                // 重新计算等级
-                const levelInfo = calculateLevel(data.new_xp);
-                
-                if (xpText) xpText.textContent = `${data.new_xp} / ${levelInfo.next}`;
-                if (xpBar) xpBar.style.width = `${levelInfo.percent}%`;
-
-                // 如果升级了，刷新徽章区域
-                if (badgesArea && currentUser) {
-                     badgesArea.innerHTML = getBadgesHtml(currentUser) + `<div id="logoutBtn">EXIT</div>`;
-                     // 因为 innerHTML 覆盖了 DOM，需要重新绑定退出按钮事件
-                     const logoutBtn = document.getElementById('logoutBtn');
-                     if(logoutBtn) logoutBtn.onclick = doLogout;
-                }
-                if (data.rarity === 'epic' || data.rarity === 'legendary') {
-                    setTimeout(loadNodeBroadcast, 1000); 
-                }
-            }
-
-            // 4. 刷新控制台自身的按钮状态
-            loadNodeConsole(); 
-
-        } else {
-            addNodeLog("ERROR: " + data.error, "error");
-            showToast(data.error, 'error');
-        }
-    } catch (e) {
-        centerBtn.classList.remove('scanning');
-        addNodeLog("CRITICAL FAILURE: NETWORK LOST", "error");
-        console.error(e);
-    } finally {
-        btn.disabled = false;
-    }
-};
-
-window.multiExploreNode = async function() {
-    const btn = document.getElementById('multiExploreBtn');
-    const centerBtn = document.getElementById('centralNode');
-    
-    if(btn.disabled) return;
-    
-    // === 修改点 1: 删除了 confirm 弹窗确认 ===
-    // if(!confirm("确定消耗 250 i币 进行 5 次快速检索吗？")) return; 
-
-    btn.disabled = true;
-    centerBtn.classList.add('scanning'); 
-    
-    // === 修改点 2: 立即打印连接日志，仿照单抽风格 ===
-    // 使用 addNodeLog 会自动添加 "> " 前缀
-    addNodeLog("ESTABLISHING HIGH-SPEED CONNECTION...", "info"); 
-
-    try {
-        await new Promise(r => setTimeout(r, 800)); // 稍微增加一点延迟感，更有“连接中”的感觉
-
-        const res = await fetch(`${API_BASE}/node`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'multi_explore' })
-        });
-        const data = await res.json();
-        
-        centerBtn.classList.remove('scanning');
-
-        if (data.success) {
-            // 1. 播放最高稀有度的特效
-            if (data.rarity === 'legendary') {
-                document.body.style.animation = "shake 0.5s";
-                setTimeout(()=>document.body.style.animation="", 500);
-            }
-
-            // 2. 打印 5 条日志
-            data.summary.forEach((msg, idx) => {
-                setTimeout(() => {
-                    let type = '';
-                    if (msg.includes('[EPIC]')) type = 'rarity-epic';
-                    else if (msg.includes('[LEGENDARY]')) type = 'rarity-legendary';
-                    else if (msg.includes('[RARE]')) type = 'rarity-rare';
-                    else if (msg.includes('[GLITCH]')) type = 'rarity-glitch';
-                    
-                    addNodeLog(msg, type);
-                }, idx * 200); 
-            });
-
-            // 3. 更新 UI
-            if (currentUser) {
-                currentUser.coins = data.new_coins;
-                currentUser.xp = data.new_xp;
-            }
-            // 刷新侧边栏
-            const coinEl = document.getElementById('coinCount');
-            if (coinEl) coinEl.innerText = data.new_coins;
-            
-            // 刷新经验条
-            const xpText = document.getElementById('xpText');
-            const xpBar = document.getElementById('xpBar');
-            if (xpText && xpBar) {
-                const levelInfo = calculateLevel(data.new_xp);
-                xpText.textContent = `${data.new_xp} / ${levelInfo.next}`;
-                xpBar.style.width = `${levelInfo.percent}%`;
-            }
-
-            // 刷新按钮状态
-            loadNodeConsole();
-
-        } else {
-            addNodeLog("ERROR: " + data.error, "error");
-            showToast(data.error, 'error');
-        }
-    } catch (e) {
-        centerBtn.classList.remove('scanning');
-        addNodeLog("CRITICAL FAILURE: NETWORK LOST", "error");
-        console.error(e);
-    } finally {
-        btn.disabled = false;
-    }
-};
 
 // 拉取全服广播
 async function loadNodeBroadcast() {
@@ -4366,3 +4145,4 @@ window.spinRoulette = async function() {
         btn.disabled = false;
     }
 };
+
