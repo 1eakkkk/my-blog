@@ -4205,3 +4205,164 @@ window.resetNavOrder = function() {
     location.reload();
 };
 
+// === 摸金系统逻辑 ===
+window.startLoot = async function(tier) {
+    const circle = document.getElementById('scanCircle');
+    const text = document.getElementById('scanText');
+    const resBox = document.getElementById('scanResult');
+    
+    // 锁定界面
+    document.querySelectorAll('.loot-tier').forEach(b => b.style.pointerEvents = 'none');
+    resBox.style.display = 'none';
+    text.innerText = "CONNECTING...";
+    text.style.color = "#fff";
+    
+    try {
+        const res = await fetch(`${API_BASE}/node`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ tier: tier })
+        });
+        const data = await res.json();
+        
+        if (!data.success) {
+            showToast(data.error, 'error');
+            document.querySelectorAll('.loot-tier').forEach(b => b.style.pointerEvents = 'auto');
+            text.innerText = "ERROR";
+            text.style.color = "red";
+            return;
+        }
+
+        // 开始动画
+        circle.className = 'scan-circle spinning';
+        // 根据稀有度决定转速颜色 (视觉欺骗)
+        // 实际上 spin_time 是后端决定的
+        let color = '#fff'; // white
+        if (data.result.spin_time > 3000) color = '#00f3ff'; // blue
+        if (data.result.spin_time > 6000) color = '#ffd700'; // gold
+        if (data.result.spin_time > 9000) color = '#ff3333'; // red
+        
+        text.innerText = "SCANNING...";
+        
+        // 倒计时动画
+        setTimeout(() => {
+            circle.style.borderColor = color;
+            circle.style.borderTopColor = "#fff";
+            text.style.color = color;
+        }, data.result.spin_time * 0.5);
+
+        // 结束动画，显示结果
+        setTimeout(() => {
+            circle.className = 'scan-circle'; // 停
+            circle.style.borderColor = data.result.color;
+            
+            text.innerText = "";
+            
+            // 渲染结果
+            resBox.style.display = 'block';
+            document.getElementById('scanItemName').innerText = data.result.name;
+            document.getElementById('scanItemName').style.color = data.result.color;
+            document.getElementById('scanItemValue').innerText = `+${data.result.total_value} i币`;
+            
+            // 渲染格子
+            const gridBox = document.getElementById('scanItemGrid');
+            gridBox.innerHTML = '';
+            for(let i=0; i<data.result.grids; i++) {
+                const g = document.createElement('div');
+                g.className = 'grid-block';
+                g.style.backgroundColor = data.result.color;
+                g.style.boxShadow = `0 0 5px ${data.result.color}`;
+                gridBox.appendChild(g);
+            }
+            
+            // 刷新余额
+            checkSecurity();
+            document.querySelectorAll('.loot-tier').forEach(b => b.style.pointerEvents = 'auto');
+            
+            // 震动
+            if (data.result.spin_time > 6000) {
+                navigator.vibrate && navigator.vibrate(200);
+            }
+
+        }, data.result.spin_time);
+
+    } catch(e) {
+        showToast("网络错误", "error");
+        document.querySelectorAll('.loot-tier').forEach(b => b.style.pointerEvents = 'auto');
+    }
+};
+
+// === 幸运轮盘逻辑 ===
+window.openRouletteModal = function() {
+    document.getElementById('roulette-modal').style.display = 'flex';
+};
+window.closeRouletteModal = function() {
+    document.getElementById('roulette-modal').style.display = 'none';
+};
+window.setRouletteBet = function(val) {
+    document.getElementById('rouletteInput').value = val;
+};
+
+window.spinRoulette = async function() {
+    const input = document.getElementById('rouletteInput');
+    const wheelVal = document.getElementById('wheelResult');
+    const wheel = document.getElementById('rouletteWheel');
+    const val = parseInt(input.value);
+    
+    if(!val || val < 10) return showToast("最小下注 10 i币", "error");
+    
+    const btn = document.querySelector('#roulette-modal button:last-child');
+    btn.disabled = true;
+    
+    wheel.style.transition = 'transform 0.2s linear';
+    wheel.style.transform = 'rotate(0deg)';
+    wheelVal.innerText = "...";
+    
+    // 假转圈动画
+    let deg = 0;
+    const spinAnim = setInterval(() => {
+        deg += 30;
+        wheel.style.transform = `rotate(${deg}deg)`;
+    }, 50);
+
+    try {
+        const res = await fetch(`${API_BASE}/roulette`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ amount: val })
+        });
+        const data = await res.json();
+        
+        setTimeout(() => {
+            clearInterval(spinAnim);
+            wheel.style.transition = 'none';
+            wheel.style.transform = 'rotate(0deg)';
+            
+            if (data.success) {
+                const mult = data.multiplier;
+                wheelVal.innerText = `x${mult}`;
+                
+                let color = '#fff';
+                if (mult === 0) color = '#666';
+                if (mult >= 2) color = '#00f3ff';
+                if (mult >= 5) color = '#ff3333';
+                
+                wheelVal.style.color = color;
+                
+                if (mult < 1) showToast(`运气不佳... ${data.net_change} i币`, 'error');
+                else showToast(`恭喜！赢得 ${data.win_amount} i币`, 'success');
+                
+                checkSecurity();
+            } else {
+                showToast(data.error, 'error');
+                wheelVal.innerText = "Err";
+            }
+            btn.disabled = false;
+        }, 1000); // 至少转1秒
+        
+    } catch(e) {
+        clearInterval(spinAnim);
+        showToast("网络错误", "error");
+        btn.disabled = false;
+    }
+};
