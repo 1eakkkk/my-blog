@@ -3984,22 +3984,22 @@ window.resetNavOrder = function() {
     location.reload();
 };
 
-// === 1. 摸金系统逻辑 (Looting - 视觉升级版) ===
+// === 1. 摸金系统逻辑 (纯净版) ===
 window.startLoot = async function(tier) {
     const circle = document.getElementById('scanCircle');
     const text = document.getElementById('scanText');
     const resBox = document.getElementById('scanResult');
     const gridBox = document.getElementById('scanItemGrid');
     
-    // 锁定界面
+    // 锁定界面 & 初始化状态
     document.querySelectorAll('.loot-tier').forEach(b => b.style.pointerEvents = 'none');
-    resBox.style.display = 'none';
-    resBox.className = 'scan-item-display'; // 重置动画类
-    gridBox.innerHTML = ''; // 清空格子
+    resBox.classList.remove('pop-in'); // 隐藏结果框
+    resBox.style.display = 'none'; 
+    gridBox.innerHTML = ''; 
     
-    text.innerText = "CONNECTING...";
+    text.innerText = "SEARCHING"; // 简单提示
     text.style.color = "#00f3ff";
-    text.style.textShadow = "0 0 10px #00f3ff";
+    text.style.opacity = "1"; // 确保文字显示
     
     try {
         const res = await fetch(`${API_BASE}/node`, {
@@ -4018,86 +4018,85 @@ window.startLoot = async function(tier) {
         }
 
         // 1. 启动雷达动画
-        circle.className = 'scan-circle radar-scan'; // 切换到雷达模式
+        circle.className = 'scan-circle radar-scan';
         
-        // 2. 动态颜色与文字跳动
+        // 2. 颜色变化逻辑 (根据时长)
         const spinTime = data.result.spin_time;
-        let colorStep = 0;
-        const colors = ['#fff', '#0f0', '#00f3ff', '#bd00ff', '#ffd700', '#ff3333']; // 白绿蓝紫金红
+        // 定义颜色阶梯
+        const colors = ['#fff', '#0f0', '#00f3ff', '#bd00ff', '#ffd700', '#ff3333'];
+        let colorIndex = 0;
         
-        // 文字乱码特效
-        const scrambleInterval = setInterval(() => {
-            text.innerText = Math.random().toString(36).substring(2, 8).toUpperCase();
-        }, 80);
+        // 文字不再乱码，而是简单的 ... 呼吸效果
+        let dotCount = 0;
+        const textInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            text.innerText = "SEARCHING" + ".".repeat(dotCount);
+        }, 300);
 
-        // 颜色递进逻辑 (根据稀有度决定最终停在哪)
-        // 简单模拟：如果时间很长，颜色就慢慢变
-        const colorAnim = setInterval(() => {
-            if (colorStep < colors.length - 1) {
-                // 只有当剩余时间足够时才变色，防止低级物品变红
-                // 逻辑：每 800ms 变一次色，或者根据 spin_time 比例
-                // 这里为了简单视觉效果，随机变色，最后定格
-                circle.style.borderColor = colors[colorStep % colors.length];
-                circle.style.boxShadow = `0 0 20px ${colors[colorStep % colors.length]}`;
-                colorStep++;
+        // 颜色渐变动画
+        const colorInterval = setInterval(() => {
+            if (colorIndex < colors.length - 1) {
+                const col = colors[colorIndex % colors.length];
+                circle.style.borderColor = "transparent"; // 雷达模式不需要边框
+                // 我们可以改变雷达扫描头的颜色
+                circle.style.borderTopColor = col;
+                circle.style.boxShadow = `0 0 20px ${col}`;
+                text.style.color = col;
+                colorIndex++;
             }
-        }, spinTime / 5);
+        }, 800); // 每0.8秒变色一次
 
         // 3. 结束动画，显示结果
         setTimeout(() => {
-            clearInterval(scrambleInterval);
-            clearInterval(colorAnim);
+            clearInterval(textInterval);
+            clearInterval(colorInterval);
             
-            circle.className = 'scan-circle'; // 停
-            circle.style.borderColor = data.result.color;
-            circle.style.boxShadow = `0 0 30px ${data.result.color}`;
+            circle.className = 'scan-circle'; // 停止转动
+            circle.style.borderColor = data.result.color; // 定格颜色
+            circle.style.boxShadow = `0 0 30px ${data.result.color}66`;
             
-            text.innerText = "FOUND";
-            text.style.color = data.result.color;
-            text.style.textShadow = `0 0 10px ${data.result.color}`;
+            // 关键：隐藏背景文字，防止重叠
+            text.style.opacity = "0"; 
             
             // 渲染结果面板
             resBox.style.display = 'block';
-            resBox.classList.add('pop-in'); // 弹窗动画
+            void resBox.offsetWidth; // 触发重绘
+            resBox.classList.add('pop-in');
             resBox.style.border = `1px solid ${data.result.color}`;
-            resBox.style.boxShadow = `inset 0 0 20px ${data.result.color}33`; // 33 是透明度
+            resBox.style.boxShadow = `0 0 30px ${data.result.color}22`; // 柔和光晕
 
             document.getElementById('scanItemName').innerText = data.result.name;
             document.getElementById('scanItemName').style.color = data.result.color;
-            document.getElementById('scanItemValue').innerText = `估值: ${data.result.total_value} i`;
+            document.getElementById('scanItemValue').innerText = `估值: ${data.result.total_value.toLocaleString()} i`;
             
-            // === 核心：渲染形状 (CSS Grid) ===
+            // === 渲染形状 (CSS Grid) ===
             const w = data.result.width;
             const h = data.result.height;
-            
-            // 设置容器宽度：每格 20px + 间隙 2px
-            const blockSize = 25; // 格子大小
+            const blockSize = 30; // 加大格子
             const gap = 2;
+            
             gridBox.style.display = 'grid';
             gridBox.style.gridTemplateColumns = `repeat(${w}, ${blockSize}px)`;
-            gridBox.style.width = `${w * blockSize + (w-1)*gap}px`;
-            gridBox.style.margin = '10px auto';
             gridBox.style.gap = `${gap}px`;
+            // 计算总宽度，居中
+            // gridBox 在 CSS 里已经是 inline-grid + margin:auto
 
             for(let i=0; i < (w*h); i++) {
                 const g = document.createElement('div');
                 g.className = 'grid-block';
                 g.style.width = `${blockSize}px`;
                 g.style.height = `${blockSize}px`;
-                // 背景色带一点透明度，边框实色
-                g.style.backgroundColor = `${data.result.color}44`; 
+                // 填充色
+                g.style.backgroundColor = `${data.result.color}66`; 
                 g.style.borderColor = data.result.color;
                 gridBox.appendChild(g);
             }
             
-            // 刷新余额
             checkSecurity();
             document.querySelectorAll('.loot-tier').forEach(b => b.style.pointerEvents = 'auto');
             
-            // 震动反馈
-            if (spinTime > 3000) {
-                if(navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            }
+            // 震动
+            if (spinTime > 3000 && navigator.vibrate) navigator.vibrate([100, 50, 100]);
 
         }, spinTime);
 
@@ -4105,6 +4104,8 @@ window.startLoot = async function(tier) {
         console.error(e);
         showToast("网络错误", "error");
         document.querySelectorAll('.loot-tier').forEach(b => b.style.pointerEvents = 'auto');
+        text.style.opacity = "1";
+        text.innerText = "ERROR";
     }
 };
 
@@ -4182,5 +4183,6 @@ window.spinRoulette = async function() {
         btn.disabled = false;
     }
 };
+
 
 
