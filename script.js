@@ -767,91 +767,6 @@ function renderLevelTable() {
     });
 }
 
-// === 任务中心加载逻辑 (新版) ===
-async function loadTasks() { 
-    // 1. 获取容器，如果页面没渲染完就跳过
-    const dailyContainer = document.getElementById('dailyTaskList');
-    const weeklyContainer = document.getElementById('weeklyTaskList');
-    
-    // 侧边栏小红点逻辑
-    const navTask = document.querySelector('a[href="#tasks"]');
-    
-    try{ 
-        const res = await fetch(`${API_BASE}/tasks`); 
-        const data = await res.json(); 
-        
-        // 计算是否有可领取的奖励 (status === 0 是进行中，status === 2 是已领，我们需要找 进度>=目标 且 status !== 2 的)
-        // 实际上后端 status 0 代表未领。我们通过 progress >= target 来判断可领
-        // 简单逻辑：遍历所有任务，看有没有 (progress >= target && status === 0)
-        
-        let hasClaimable = false;
-        const checkClaim = (t) => { if(t.progress >= t.target && t.status === 0) hasClaimable = true; };
-        
-        if (data.daily) data.daily.forEach(checkClaim);
-        if (data.weekly) data.weekly.forEach(checkClaim);
-
-        if(navTask) {
-            if (hasClaimable) {
-                navTask.innerHTML = `任务中心 <span style="background:#0f0;width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 5px #0f0;"></span>`;
-            } else {
-                navTask.innerHTML = `任务中心`;
-            }
-        }
-
-        // 只有当前在任务页面才渲染 DOM
-        if(!dailyContainer) return; 
-        
-        dailyContainer.innerHTML = '';
-        weeklyContainer.innerHTML = '';
-
-        const renderTask = (t, container) => {
-            const isDone = t.progress >= t.target;
-            const isClaimed = t.status === 2;
-            
-            // 在 loadTasks 函数内部，替换 btnHtml 的赋值逻辑：
-
-            let btnHtml = '';
-            if (isClaimed) {
-                // 已领取
-                btnHtml = `<div class="task-status-badge claimed">✓ 已完成</div>`;
-            } else if (isDone) {
-                // 可领取：文字改成简短的 "领取"
-                btnHtml = `<button onclick="claimTaskNew(${t.id})" class="cyber-btn task-claim-btn">领取</button>`;
-            } else {
-                // 进行中
-                btnHtml = `<div class="task-status-text">${t.progress} / ${t.target}</div>`;
-            }
-
-            const percent = Math.min(100, (t.progress / t.target) * 100);
-            
-            const div = document.createElement('div');
-            div.className = 'glass-card';
-            div.style.marginBottom = '10px';
-            div.style.padding = '10px';
-            if(isClaimed) div.style.opacity = '0.6';
-
-            div.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <div style="font-weight:bold; font-size:0.9rem;">${t.description}</div>
-                    ${btnHtml}
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#888; margin-bottom:5px;">
-                    <span>奖励: ${t.reward_xp} XP, ${t.reward_coins} i</span>
-                </div>
-                <div class="xp-bar-bg" style="height:4px;"><div class="xp-bar-fill" style="width:${percent}%; background:${isDone ? '#0f0' : 'var(--accent-blue)'}"></div></div>
-            `;
-            container.appendChild(div);
-        };
-
-        if(data.daily.length === 0) dailyContainer.innerHTML = '暂无任务';
-        else data.daily.forEach(t => renderTask(t, dailyContainer));
-
-        if(data.weekly.length === 0) weeklyContainer.innerHTML = '暂无任务';
-        else data.weekly.forEach(t => renderTask(t, weeklyContainer));
-
-    } catch(e){ console.error(e); } 
-}
-
 // === 新的领取函数 (Claim Task) ===
 window.claimTaskNew = async function(taskId) {
     try {
@@ -864,7 +779,6 @@ window.claimTaskNew = async function(taskId) {
         if (data.success) {
             showToast(data.message, 'success');
             checkSecurity(); // 刷新钱
-            loadTasks();     // 刷新列表状态
         } else {
             showToast(data.error, 'error');
         }
@@ -886,7 +800,6 @@ window.claimTask = async function() {
         if (data.success) {
             showToast(data.message, 'success');
             checkSecurity(); 
-            loadTasks();     
         } else {
             showToast(data.error, 'error');
             if(btn) btn.disabled = false;
@@ -894,27 +807,6 @@ window.claimTask = async function() {
     } catch (e) {
         showToast("领取失败: 网络错误");
         if(btn) btn.disabled = false;
-    }
-};
-
-window.rerollTask = async function() {
-    if(!confirm("确定消耗 10 i币 刷新今日任务吗？")) return;
-    try {
-        const res = await fetch(`${API_BASE}/tasks`, { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'reroll' })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showToast("任务已刷新！");
-            checkSecurity(); 
-            loadTasks();     
-        } else {
-            showToast(data.error, 'error');
-        }
-    } catch (e) {
-        showToast("刷新失败");
     }
 };
 
@@ -1246,9 +1138,7 @@ async function checkSecurity() {
         checkNotifications();
         setInterval(() => {
             checkNotifications();
-            loadTasks(); 
         }, 60000);
-        loadTasks(); 
         checkForDrafts();
         
         // === 修复：延迟调用路由，解决刷新空白问题 ===
@@ -1384,7 +1274,6 @@ function initApp() {
 const views = {
     home: document.getElementById('view-home'),
     write: document.getElementById('view-write'),
-    tasks: document.getElementById('view-tasks'),
     node: document.getElementById('view-node'),
     duel: document.getElementById('view-duel'),
     leaderboard: document.getElementById('view-leaderboard'),
@@ -1461,9 +1350,6 @@ async function handleRoute() {
         if(views.write) views.write.style.display = 'block';
         const link = document.getElementById('navWrite'); if(link) link.classList.add('active');
         tryRestoreDraft();
-    } else if (hash === '#tasks') {
-        if(views.tasks) views.tasks.style.display = 'block';
-        loadTasks();
     } else if (hash === '#node') {
         if(views.node) views.node.style.display = 'block';
         // 高亮导航（如果有的话，手动添加active类）
@@ -1559,7 +1445,6 @@ window.doCheckIn = async function() {
         showToast(data.message, 'success');
         if (data.success) {
             checkSecurity();
-            loadTasks();
         }
     } catch (e) {
         showToast("签到失败: 网络错误");
@@ -2115,7 +2000,6 @@ async function doPost(e) {
             cancelEditPost(); 
             
             checkSecurity(); 
-            loadTasks();
             sessionStorage.removeItem('homeScrollY');
             loadPosts(true);
             
@@ -2128,7 +2012,7 @@ async function doPost(e) {
         btn.disabled = false; 
     } 
 }
-window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return showToast("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); window.location.reload(); } else showToast(data.error, 'error'); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true); loadTasks(); } else { showToast(data.error, 'error'); } } } catch(e) { showToast("网络连接错误", 'error'); } finally { if(btn) btn.disabled = false; } };
+window.submitComment = async function() { const input = document.getElementById('commentInput'); const content = input.value.trim(); const parentId = input.dataset.parentId || null; if(!content) return showToast("内容不能为空"); const btn = document.querySelector('.comment-input-box button:first-of-type'); if(btn) btn.disabled = true; try { if (isEditingComment) { const res = await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'edit', id: editingCommentId, content: content }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); window.location.reload(); } else showToast(data.error, 'error'); } else { const res = await fetch(`${API_BASE}/comments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ post_id: currentPostId, content: content, parent_id: parentId }) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); input.value = ''; cancelReply(); loadNativeComments(currentPostId, true);  } else { showToast(data.error, 'error'); } } } catch(e) { showToast("网络连接错误", 'error'); } finally { if(btn) btn.disabled = false; } };
 window.prepareReply = function(commentId, username) { const input = document.getElementById('commentInput'); input.dataset.parentId = commentId || ""; input.placeholder = username ? `回复 @${username} ...` : "输入你的看法..."; input.focus(); let cancelBtn = document.getElementById('cancelReplyBtn'); if (!cancelBtn) { cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelReplyBtn'; cancelBtn.className = 'cyber-btn'; cancelBtn.style.width = 'auto'; cancelBtn.style.marginLeft = '10px'; cancelBtn.style.fontSize = '0.8rem'; cancelBtn.style.padding = '5px 10px'; cancelBtn.innerText = '取消回复'; cancelBtn.onclick = cancelReply; document.querySelector('.comment-input-box').appendChild(cancelBtn); } cancelBtn.style.display = 'inline-block'; };
 window.cancelReply = function() { const input = document.getElementById('commentInput'); input.dataset.parentId = ""; input.placeholder = "输入你的看法... (支持纯文本)"; const cancelBtn = document.getElementById('cancelReplyBtn'); if(cancelBtn) cancelBtn.style.display = 'none'; };
 function checkForDrafts() { 
@@ -2671,7 +2555,6 @@ async function loadUserProfile(username) {
                 list.appendChild(div);
             });
         }
-        loadTasks();
 
     } catch(e) {
         showToast("加载失败", "error");
@@ -2791,7 +2674,6 @@ async function loadLeaderboard() {
             card.innerHTML = `<h3>${board.title}</h3><ul class="rank-list">${listHtml}</ul>`;
             container.appendChild(card);
         });
-        loadTasks(); 
 
     } catch (e) {
         container.innerHTML = 'Error loading leaderboard.';
@@ -3324,9 +3206,6 @@ window.exploreNode = async function() {
 
             // 4. 刷新控制台自身的按钮状态
             loadNodeConsole(); 
-            
-            // 5. 如果触发了任务，刷新任务列表
-            if (data.type === 'mission') loadTasks();
 
         } else {
             addNodeLog("ERROR: " + data.error, "error");
@@ -4325,3 +4204,4 @@ window.resetNavOrder = function() {
     localStorage.removeItem('nav_order');
     location.reload();
 };
+
