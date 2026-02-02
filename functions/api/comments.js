@@ -139,8 +139,6 @@ export async function onRequestPost(context) {
       }
   }
 
-  // === 5. 更新任务进度 ===
-  await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code LIKE 'comment_%' AND status = 0`).bind(user.id).run();
 
   return new Response(JSON.stringify({ success: true, message: `发布成功${xpMsg}` }));
 }
