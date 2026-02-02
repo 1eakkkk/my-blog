@@ -7,11 +7,6 @@ const CATALOG = {
     'vip_14': { cost: 120, name: 'VIP 进阶卡', type: 'vip', days: 14, icon: '⚡', rarity: 'rare' },
     'vip_30': { cost: 210, name: 'VIP 尊享月卡', type: 'vip', days: 30, icon: '👑', rarity: 'epic' },
 
-    // === 🌱 家园种子 (Seeds) - 新增部分 ===
-    'seed_moss':    { cost: 20,  name: '种子:低频苔藓', type: 'consumable', category: 'consumable', icon: '🌿', desc: '家园基础作物，4小时成熟', rarity: 'common' },
-    'seed_quantum': { cost: 100, name: '种子:量子枝条', type: 'consumable', category: 'consumable', icon: '🎋', desc: '中级作物，12小时成熟', rarity: 'rare' },
-    'seed_vine':    { cost: 300, name: '种子:修复算法藤', type: 'consumable', category: 'consumable', icon: '🧬', desc: '高级作物，24小时成熟', rarity: 'epic' },
-
     // === 💳 功能道具 ===
     'rename_card': { cost: 100, name: '改名卡', type: 'consumable', category: 'consumable', icon: '💳', desc: '修改一次昵称', rarity: 'common' },
     'top_card':    { cost: 500, name: '置顶卡(24h)', type: 'consumable', category: 'consumable', icon: '📌', desc: '将帖子置顶24小时', rarity: 'rare' },
