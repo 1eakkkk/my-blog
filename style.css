@@ -3499,13 +3499,14 @@ body.bg-fire {
     font-size: 1.1rem;
 }
 
-/* 格子样式 (更像游戏背包) */
+/* 格子容器 */
 .grid-visual {
-    margin: 10px auto;
-    background: rgba(0,0,0,0.5); /* 容器深底 */
-    padding: 2px;
+    margin: 15px auto; /* 上下留白，水平居中 */
+    padding: 5px;      /* 增加一点内边距 */
     border-radius: 4px;
-    display: inline-grid; /* 关键：改为 inline-grid 配合 JS */
+    background: rgba(0,0,0,0.3); /* 稍微深一点的底色，衬托物品 */
+    width: fit-content; /* 关键：让容器宽度适应内容 */
+    min-width: 50px;    /* 最小宽度 */
 }
 
 .grid-block {
@@ -3569,5 +3570,6 @@ body.bg-fire {
     .loot-controls { flex-direction: column; }
     .loot-tier { display: flex; justify-content: space-between; align-items: center; padding: 15px; }
 }
+
 
 
