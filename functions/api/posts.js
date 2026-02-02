@@ -131,10 +131,6 @@ export async function onRequestPost(context) {
   
   const xpResult = await addXpWithCap(db, user.id, xpBase, today); 
 
-  await db.batch([
-      db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code LIKE 'post_%' AND status = 0`).bind(user.id)
-  ]);
-
   return new Response(JSON.stringify({ success: true, message: `发布成功！${xpResult.msg}` }));
 }
 
@@ -227,4 +223,5 @@ export async function onRequestDelete(context) {
     if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
     else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
 }
+
 
