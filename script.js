@@ -4076,6 +4076,8 @@ window.startLoot = async function(tier) {
             const gap = 2;
             
             gridBox.style.display = 'grid';
+            gridBox.style.justifyContent = 'center'; 
+            gridBox.style.alignContent = 'center';
             gridBox.style.gridTemplateColumns = `repeat(${w}, ${blockSize}px)`;
             gridBox.style.gap = `${gap}px`;
             // 计算总宽度，居中
@@ -4183,6 +4185,7 @@ window.spinRoulette = async function() {
         btn.disabled = false;
     }
 };
+
 
 
 
