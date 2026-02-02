@@ -3391,7 +3391,9 @@ body.bg-fire {
     box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
 }
 
-/* 扫描圈动画 */
+/* --- N.O.D.E 摸金样式 (Visual Upgrade) --- */
+
+/* 扫描圈容器 */
 .scanner-visual {
     width: 200px; height: 200px;
     margin: 0 auto 30px;
@@ -3399,38 +3401,87 @@ body.bg-fire {
     display: flex;
     justify-content: center;
     align-items: center;
+    /* 背景加一个暗雷达网格 */
+    background: 
+        radial-gradient(transparent 30%, rgba(0,243,255,0.1) 31%, transparent 32%),
+        radial-gradient(transparent 60%, rgba(0,243,255,0.1) 61%, transparent 62%);
+    border-radius: 50%;
 }
 
+/* 扫描圈本体 */
 .scan-circle {
     position: absolute;
     width: 100%; height: 100%;
-    border: 5px solid #333;
-    border-top: 5px solid #00f3ff;
+    border: 2px solid #333; /* 默认暗色 */
     border-radius: 50%;
     transition: all 0.3s;
+    box-shadow: 0 0 10px #000;
 }
 
-.spinning { animation: spin 0.5s linear infinite; }
-@keyframes spin { 0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);} }
+/* 雷达扫描动画 (转起来！) */
+.radar-scan {
+    border-color: transparent; /* 转的时候隐藏静态边框 */
+    border-top: 4px solid #fff; /* 扫描头 */
+    border-right: 4px solid transparent;
+    box-shadow: 0 0 15px #fff;
+    animation: radar-spin 1s linear infinite;
+    /* 增加一个扫描拖尾效果 (用伪元素) */
+}
+.radar-scan::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 70%, rgba(255,255,255,0.1) 90%, rgba(255,255,255,0.5) 100%);
+}
+
+@keyframes radar-spin { 
+    0% { transform: rotate(0deg); } 
+    100% { transform: rotate(360deg); } 
+}
 
 .scan-text {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #fff;
-    text-shadow: 0 0 10px rgba(255,255,255,0.5);
+    font-size: 1.8rem;
+    font-weight: 900;
+    font-family: 'Courier New', monospace;
     z-index: 2;
+    letter-spacing: 2px;
 }
 
-/* 结果展示 */
-.scan-item-display { z-index: 5; background: rgba(0,0,0,0.9); padding: 10px; border-radius: 8px; width: 100%; }
-#scanItemName { font-size: 1.1rem; margin-bottom: 5px; font-weight: bold; }
-#scanItemValue { color: gold; font-size: 1.2rem; margin-top: 5px; }
-
-/* 格子可视化 (Grid Visual) */
-.grid-visual {
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin: 5px auto; max-width: 60px;
+/* 结果展示框 (出货弹出) */
+.scan-item-display {
+    position: absolute; /* 盖在圆圈上面 */
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.95);
+    padding: 15px;
+    border-radius: 8px;
+    min-width: 180px;
+    transform: scale(0.9);
+    opacity: 0;
+    /* 初始隐藏，JS控制显示 */
 }
-.grid-block { width: 12px; height: 12px; border: 1px solid #555; background: rgba(255,255,255,0.2); }
+
+/* 弹出动画 */
+.pop-in {
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes popIn {
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* 格子样式 (背包风格) */
+.grid-block {
+    /* 宽高等由 JS 动态计算 */
+    border: 1px solid; /* 边框颜色由 JS 控制 */
+    box-sizing: border-box;
+}
+
+#scanItemValue {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: bold;
+    margin-top: 8px;
+    padding-top: 5px;
+    border-top: 1px dashed #333;
+}
 
 /* 等级入口按钮 */
 .loot-controls { display: flex; gap: 10px; justify-content: center; }
@@ -3480,3 +3531,4 @@ body.bg-fire {
     .loot-controls { flex-direction: column; }
     .loot-tier { display: flex; justify-content: space-between; align-items: center; padding: 15px; }
 }
+
