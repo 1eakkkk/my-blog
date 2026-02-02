@@ -11,15 +11,6 @@ export async function onRequestGet(context) {
       if(u) currentUserId = u.user_id;
   }
 
-  // 2. 更新任务进度 (view_rank)
-  if (currentUserId) {
-      const today = new Date(new Date().getTime() + 8*3600*1000).toISOString().split('T')[0];
-      try {
-          await db.prepare(`UPDATE user_tasks SET progress = progress + 1 WHERE user_id = ? AND task_code = 'view_rank' AND category = 'daily' AND status = 0 AND period_key = ?`)
-            .bind(currentUserId, today).run();
-      } catch(e) {}
-  }
-
   // 3. 核心查询逻辑
   const results = await db.batch([
       // 0: 经验榜
