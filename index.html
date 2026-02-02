@@ -319,53 +319,78 @@
                     <button id="loadMoreBtn" class="cyber-btn" onclick="loadPosts(false)" style="display:none; margin: 20px auto; max-width: 300px;">加载更多</button>
                 </div>
 
-                <!-- N.O.D.E 控制台视图 (Void Theme) -->
+                <!-- N.O.D.E 摸金 / 幸运轮盘 -->
                 <div id="view-node" class="view-section" style="display:none;">
-                    <div class="node-console-wrapper">
-                        <div class="node-header">
-                            <h2>N.O.D.E // SYSTEM</h2>
-                            <div class="node-status">LINK: <span id="nodeUser">...</span></div>
+                    <div class="node-container">
+                        <!-- 顶部：幸运轮盘入口 -->
+                        <div style="text-align:right; margin-bottom:10px;">
+                            <button onclick="openRouletteModal()" class="cyber-btn" style="width:auto; border-color:#bc13fe; color:#bc13fe;">
+                                🎰 幸运轮盘 / ROULETTE
+                            </button>
                         </div>
-                        <!-- 新增：全服广播跑马灯 -->
-                        <div class="node-broadcast">
-                            <span class="broadcast-content" id="nodeTicker">SYSTEM ONLINE... WAITING FOR SIGNALS...</span>
-                        </div>
-                    
-                        <!-- 雷达可视区域 -->
-                        <div class="node-visualizer">
-                            <div class="radar-circle"></div>
-                            <div class="radar-line"></div>
+                
+                        <!-- 摸金主区域 -->
+                        <div class="loot-scanner-box">
+                            <!-- 扫描动画圈 -->
+                            <div class="scanner-visual">
+                                <div class="scan-circle" id="scanCircle"></div>
+                                <div class="scan-text" id="scanText">STANDBY</div>
+                                <div class="scan-item-display" id="scanResult" style="display:none;">
+                                    <div id="scanItemName">???</div>
+                                    <div id="scanItemGrid" class="grid-visual"></div>
+                                    <div id="scanItemValue">0 i</div>
+                                </div>
+                            </div>
+                
+                            <!-- 三个等级入口 -->
+                            <div class="loot-controls">
+                                <div class="loot-tier basic" onclick="startLoot('basic')">
+                                    <h3>初级场</h3>
+                                    <p>花费: 10 i</p>
+                                    <div class="tier-tag">低风险</div>
+                                </div>
+                                <div class="loot-tier mid" onclick="startLoot('mid')">
+                                    <h3>中级场</h3>
+                                    <p>花费: 50 i</p>
+                                    <div class="tier-tag">75% 胜率</div>
+                                </div>
+                                <div class="loot-tier adv" onclick="startLoot('adv')">
+                                    <h3>高级场</h3>
+                                    <p>花费: 150 i</p>
+                                    <div class="tier-tag danger">高风险博弈</div>
+                                </div>
+                            </div>
                             
-                            <!-- 装饰点 -->
-                            <div class="node-point" style="top:25%; left:25%"></div>
-                            <div class="node-point" style="top:75%; left:65%"></div>
-                            <div class="node-point" style="top:35%; left:80%"></div>
-                
-                            <!-- 核心交互按钮 -->
-                            <div id="centralNode" class="central-node" onclick="exploreNode()">
+                            <div style="margin-top:15px; font-size:0.8rem; color:#666; text-align:center;">
+                                * 扫描时间越长，物品越稀有。红光必出大货。<br>
+                                物品自动回收为 i 币。
                             </div>
                         </div>
+                    </div>
+                </div>
                 
-                        <!-- 控制面板 -->
-                        <div class="node-controls">
-                            <p id="nodeCostDisplay">CALIBRATING...</p>
-                            <div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
-                                <!-- 单抽按钮 -->
-                                <button id="exploreBtn" onclick="exploreNode()">
-                                    启动扫描程序 (-50)
-                                </button>
-                                
-                                <!-- 5连抽按钮：去掉了内联样式，依靠 CSS 渲染 -->
-                                <button id="multiExploreBtn" onclick="multiExploreNode()">
-                                    快速检索 x5 (-250)
-                                </button>
-                            </div>
+                <!-- 轮盘弹窗 -->
+                <div id="roulette-modal" class="modal-overlay" style="display:none;">
+                    <div class="modal-card glass-card" style="text-align:center;">
+                        <h3 style="color:#bc13fe;">LUCKY ROULETTE</h3>
+                        <div class="roulette-wheel" id="rouletteWheel">
+                            <div class="wheel-pointer">▼</div>
+                            <div class="wheel-text" id="wheelResult">-</div>
                         </div>
-                
-                        <!-- 日志终端 -->
-                        <div class="console-log" id="nodeLog">
-                            <div class="log-line">> SYSTEM INITIALIZED...</div>
-                            <div class="log-line">> AWAITING COMMAND...</div>
+                        
+                        <div style="margin:20px 0;">
+                            <label>下注金额:</label>
+                            <div style="display:flex; gap:10px; justify-content:center; margin-top:5px;">
+                                <button onclick="setRouletteBet(10)" class="cyber-btn mini">10</button>
+                                <button onclick="setRouletteBet(100)" class="cyber-btn mini">100</button>
+                                <button onclick="setRouletteBet(500)" class="cyber-btn mini">500</button>
+                            </div>
+                            <input type="number" id="rouletteInput" class="cyber-input" placeholder="自定义金额" style="margin-top:10px; text-align:center;">
+                        </div>
+                        
+                        <div style="display:flex; gap:10px;">
+                            <button onclick="closeRouletteModal()" class="cyber-btn" style="border-color:#666; color:#888;">离开</button>
+                            <button onclick="spinRoulette()" class="cyber-btn" style="border-color:#bc13fe; color:#bc13fe;">SPIN!</button>
                         </div>
                     </div>
                 </div>
@@ -1136,6 +1161,7 @@
     <script src="script.js?v=10.13"></script>
 </body>
 </html>
+
 
 
 
