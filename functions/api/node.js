@@ -12,8 +12,8 @@ const RARITY_CONFIG = {
 
 // === 2. 场次配置 (决定能抽到哪些稀有度) ===
 const TIERS = {
-    'basic': { name: '初级场', cost: 10,  pool: ['white', 'green', 'blue'] }, 
-    'mid':   { name: '中级场', cost: 50,  pool: ['green', 'blue', 'purple', 'gold'] }, 
+    'basic': { name: '初级场', cost: 10,  pool: ['white', 'green', 'blue', 'purple', 'gold', 'red'] }, 
+    'mid':   { name: '中级场', cost: 50,  pool: ['green', 'blue', 'purple', 'gold', 'red'] }, 
     'adv':   { name: '高级场', cost: 150, pool: ['blue', 'purple', 'gold', 'red'] } 
 };
 
@@ -130,19 +130,27 @@ export async function onRequestPost(context) {
     // 总价值
     const totalValue = valPerGrid * totalGrids;
 
-    // 净利润 (可能为负)
-    const profit = totalValue - config.cost;
-    const rConfig = RARITY_CONFIG[selectedItem.rarity];
-
-    // === 4. 数据库写入 ===
+    // === 4. 核心修改：入库逻辑 ===
+    const now = Date.now();
     const updates = [];
-    updates.push(db.prepare("UPDATE users SET coins = coins + ? WHERE id = ?").bind(profit, user.id));
 
-    // 红光全服广播
+    // 1. 扣除门票费 (只扣钱，不加钱)
+    updates.push(db.prepare("UPDATE users SET coins = coins - ? WHERE id = ?").bind(config.cost, user.id));
+
+    // 2. 物品存入背包 (新增逻辑)
+    // 注意：摸金物品通常不可堆叠(因为价值不同)，所以每次都 INSERT 新记录
+    // category='loot' 用于区分是摸金物品还是商城道具
+    const icon = selectedItem.icon || '📦'; 
+    updates.push(db.prepare(`
+        INSERT INTO user_items (user_id, item_id, category, quantity, val, rarity, width, height, created_at) 
+        VALUES (?, ?, 'loot', 1, ?, ?, ?, ?, ?)
+    `).bind(user.id, selectedItem.name, totalValue, selectedItem.rarity, width, height, now));
+
+    // 3. 红光全服广播 (保持不变)
     if (selectedItem.rarity === 'red') {
-        const msg = `🔥 [传说出货] ${user.nickname||user.username} 在【${config.name}】摸出了 <span style="color:#ff3333;font-weight:bold;">[${selectedItem.name}]</span> (价值 ${totalValue.toLocaleString()} i币)!`;
+        const msg = `🔥 [传说出货] ${user.nickname||user.username} 在【${config.name}】摸出了 <span style="color:#ff3333;font-weight:bold;">[${selectedItem.name}]</span> (估值 ${totalValue.toLocaleString()} i)!`;
         updates.push(db.prepare("INSERT INTO broadcasts (user_id, nickname, tier, content, style_color, status, start_time, end_time, created_at) VALUES (?, ?, 'high', ?, 'rainbow', 'active', ?, ?, ?)")
-            .bind(user.id, 'SYSTEM', msg, Date.now(), Date.now() + 86400000, Date.now()));
+            .bind(user.id, 'SYSTEM', msg, now, now + 21600000, now));
     }
 
     await db.batch(updates);
@@ -151,13 +159,14 @@ export async function onRequestPost(context) {
         success: true,
         result: {
             name: selectedItem.name,
-            rarity: selectedItem.rarity, // 返回稀有度key ('red', 'green'...)
-            color: rConfig.color,        // 返回颜色代码
+            rarity: selectedItem.rarity,
+            color: RARITY_CONFIG[selectedItem.rarity].color,
             width: width,
             height: height,
             total_value: totalValue,
-            spin_time: rConfig.spin
+            spin_time: RARITY_CONFIG[selectedItem.rarity].spin
         },
-        new_balance: user.coins + profit
+        // 注意：这里不再返回 new_balance，因为钱扣掉了，物品进包了
+        message: "物品已存入背包"
     });
 }
