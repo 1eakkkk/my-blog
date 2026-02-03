@@ -3969,3 +3969,52 @@ body.bg-fire {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================
+   🔧 紧急修复补丁 (Fix Sidebar & Modal)
+   ========================================= */
+
+/* 1. 修复侧边栏挤压问题 (核心) */
+.sidebar {
+    flex-shrink: 0 !important; /* 禁止侧边栏被压缩 */
+    min-width: 280px !important; /* 强制最小宽度 */
+    width: 280px !important;
+}
+
+/* 2. 修复批量出售弹窗样式 */
+.bulk-options-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important; /* 强制两列 */
+    gap: 12px !important;
+}
+
+.bulk-opt {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 10px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    background: rgba(0,0,0,0.4);
+    height: 45px;
+    /* 解决文字换行难看的问题 */
+    white-space: nowrap; 
+}
+
+.bulk-opt input {
+    margin-right: 8px !important;
+    transform: scale(1.2);
+}
+
+/* 3. 修复 F12 手机模式下的适配 */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed !important;
+        left: -280px; /* 手机上默认隐藏 */
+    }
+    .sidebar.open {
+        left: 0;
+    }
+}
