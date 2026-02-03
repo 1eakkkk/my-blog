@@ -2804,6 +2804,62 @@ async function loadInventory(filterCategory = 'all') {
             const itemDesc = catalogItem ? catalogItem.desc : '';
 
             let actionBtn = '';
+            if (item.category === 'loot') {
+            // 1. 定义稀有度颜色映射
+            const colorMap = {
+                'white': '#a0a0a0', 
+                'green': '#55ff55', 
+                'blue': '#00ccff', 
+                'purple': '#d000ff', 
+                'gold': '#ffd700', 
+                'red': '#ff3333'
+            };
+            // 防止数据缺失导致报错，默认白色
+            const rarityColor = colorMap[item.rarity] || '#fff'; 
+            // 2. 动态生成微缩网格 (Mini Grid)
+            // 根据物品的 width 动态设置 CSS Grid 的列数
+            let gridHtml = `<div class="mini-grid" style="display:grid; gap:2px; width:fit-content; margin:0 auto 10px; grid-template-columns:repeat(${item.width || 1}, 10px);">`;
+            
+            // 循环生成格子 div
+            const totalGrids = (item.width || 1) * (item.height || 1);
+            for(let k = 0; k < totalGrids; k++) {
+                gridHtml += `<div style="width:10px; height:10px; background:${rarityColor}; opacity:0.4; border:1px solid ${rarityColor}; box-shadow:0 0 2px ${rarityColor};"></div>`;
+            }
+            gridHtml += `</div>`;
+    
+            // 3. 生成操作按钮 (卖出 / 展示)
+            // 注意：这里将 item.val, item.item_id 等参数传给处理函数
+            actionBtn = `
+                <div style="display:flex; gap:5px; margin-top:10px;">
+                    <button onclick="sellItem('${item.id}', '${item.item_id}', ${item.val})" class="cyber-btn" style="flex:1; border-color:#ffd700; color:#ffd700; font-size:0.75rem; padding:5px 0;">
+                        💰 卖出 (${item.val})
+                    </button>
+                    <button onclick="showcaseItem('${item.id}')" class="cyber-btn" style="flex:1; border-color:#fff; color:#fff; font-size:0.75rem; padding:5px 0;">
+                        📢 展示
+                    </button>
+                </div>
+            `;
+            
+            // 4. 替换原本的图标变量
+            // (注意：这里假设你在之前的代码中定义了 itemIcon 变量，如果没有，请直接在最终innerHTML里替换)
+            // 如果你的 loadInventory 结构是 let itemIcon = ...，请在这里覆盖它：
+            // itemIcon = gridHtml; 
+            
+            // 为了保险起见，下面是完整的 innerHTML 生成逻辑，你可以直接用这段逻辑覆盖之前的：
+            const div = document.createElement('div');
+            div.className = `glass-card shop-item ${item.rarity || ''}`;
+            div.innerHTML = `
+                <div class="item-icon" style="height:auto; min-height:60px; display:flex; align-items:center; justify-content:center;">
+                    ${gridHtml}
+                </div>
+                <h3 style="margin:5px 0; font-size:0.9rem; color:${rarityColor}">${item.item_id}</h3> <!-- item_id 存的是中文名 -->
+                <p style="font-size:0.7rem; color:#888; margin-bottom:5px;">形状: ${item.width}x${item.height} | 稀有度: ${item.rarity.toUpperCase()}</p>
+                ${actionBtn}
+            `;
+            c.appendChild(div);
+            
+            return; // 结束当前循环，防止执行下面通用的渲染逻辑
+            }
             
             // 1. 消耗品逻辑 (Consumable)
             if (item.category === 'consumable') {
@@ -4251,9 +4307,91 @@ function renderPubMessages(list) {
         const div = document.createElement('div');
         div.id = `pub-msg-${msg.id}`; // 赋予唯一 ID
         div.style.animation = "fadeIn 0.3s ease"; // 新消息动画
+        if (msg.type === 'showcase') {
+            let data;
+            try {
+                // 解析存储在 content 字段里的 JSON 数据
+                data = JSON.parse(msg.content);
+            } catch (e) {
+                console.error("解析展示物品失败", e);
+                return; // 数据损坏，跳过渲染
+            }
+    
+            // 定义颜色映射
+            const colorMap = {
+                'white': '#a0a0a0', 
+                'green': '#55ff55', 
+                'blue': '#00ccff', 
+                'purple': '#d000ff', 
+                'gold': '#ffd700', 
+                'red': '#ff3333'
+            };
+            const color = colorMap[data.rarity] || '#fff';
+    
+            // 生成展示卡片的 HTML 结构
+            div.className = 'pub-msg-sys'; // 复用系统消息的基础样式
+            div.style.textAlign = 'left';  // 强制左对齐
+            div.style.padding = '0';       //以此为容器
+            div.style.border = 'none';
+            div.style.backgroundColor = 'transparent';
+    
+            // 动态生成格子 (Card Grid)
+            // 使用 10px 的小格子适应聊天框
+            let gridHtml = '';
+            const totalGrids = (data.w || 1) * (data.h || 1);
+            for(let k = 0; k < totalGrids; k++) {
+                gridHtml += `<div style="width:12px; height:12px; background:${color}; opacity:0.6; border:1px solid ${color}; box-shadow:0 0 2px ${color};"></div>`;
+            }
+    
+            div.innerHTML = `
+                <div class="pub-showcase-card" style="
+                    border: 1px solid ${color}; 
+                    box-shadow: 0 0 15px ${color}22; 
+                    background: rgba(0,0,0,0.8);
+                    padding: 10px;
+                    border-radius: 8px;
+                    display: inline-block;
+                    margin-left: 45px; /* 与上方头像对齐的缩进 */
+                    min-width: 200px;
+                ">
+                    <!-- 头部：谁展示了什么 -->
+                    <div style="font-size:0.75rem; color:#888; margin-bottom:8px; border-bottom:1px dashed #333; padding-bottom:5px;">
+                        <span style="color:#fff; font-weight:bold;">${msg.nickname}</span> 展示了战利品:
+                    </div>
+                    
+                    <!-- 主体：左侧格子，右侧信息 -->
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <!-- 格子容器 -->
+                        <div style="
+                            display: grid; 
+                            grid-template-columns: repeat(${data.w}, 12px); 
+                            gap: 2px; 
+                            padding: 5px; 
+                            border: 1px dashed #444; 
+                            border-radius: 4px;
+                        ">
+                            ${gridHtml}
+                        </div>
+                        
+                        <!-- 物品信息 -->
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="font-size:1rem; font-weight:bold; color:${color}; text-shadow:0 0 5px ${color}66;">
+                                ${data.name}
+                            </span>
+                            <span style="font-size:0.7rem; color:#aaa; margin-top:2px;">
+                                稀有度: ${data.rarity.toUpperCase()}
+                            </span>
+                            <span style="font-size:0.8rem; color:#FFD700; font-family:'JetBrains Mono', monospace; margin-top:5px;">
+                                估值: ${data.val.toLocaleString()} i
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } 
 
         // 2. 特殊消息处理
-        if (msg.type === 'treat') {
+        else if (msg.type === 'treat') {
             div.className = 'pub-msg-sys';
             div.innerHTML = `🍺 ${msg.content}`;
         } else {
@@ -4325,6 +4463,70 @@ window.sendPubAction = async function(action) {
     refreshPubChat();
 };
 
+// === 物品操作函数 (出售) ===
+window.sellItem = async function(dbId, name, val) {
+    // 二次确认，防止手滑
+    if (!confirm(`⚠️ 交易确认\n\n物品：[${name}]\n回收价：${val} i币\n\n确定要出售给回收商吗？`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/inventory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                action: 'sell', 
+                itemId: dbId, 
+                category: 'loot' // 标记类别
+            })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(`交易成功！获得 ${val} i币`, 'success');
+            // 并行刷新：背包 + 余额
+            await Promise.all([
+                loadInventory('loot'), // 刷新背包并停留在 loot 分类
+                checkSecurity()        // 刷新侧边栏余额
+            ]);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("网络连接失败", "error");
+    }
+};
+
+// === 物品操作函数 (展示到酒馆) ===
+window.showcaseItem = async function(dbId) {
+    if (!confirm("确定要将此物品展示到【赛博酒馆】吗？\n所有在线玩家都将看到这张数据卡片。")) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/inventory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                action: 'showcase', 
+                itemId: dbId 
+            })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast("已发送展示信号！", 'success');
+            // 自动跳转到酒馆页面查看效果
+            window.location.hash = '#pub';
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("展示失败", "error");
+    }
+};
 
 
 
