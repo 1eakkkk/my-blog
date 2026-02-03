@@ -3571,5 +3571,112 @@ body.bg-fire {
     .loot-tier { display: flex; justify-content: space-between; align-items: center; padding: 15px; }
 }
 
+/* --- 赛博酒馆样式 --- */
+.pub-header {
+    flex-shrink: 0;
+    margin-bottom: 10px;
+    padding: 15px;
+    border-bottom: 1px solid #ff00de;
+}
+
+.pub-music-box {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid #333;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pub-chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* 隐藏滚动条 */
+    scrollbar-width: none; 
+}
+
+.pub-input-area {
+    flex-shrink: 0;
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    border-top: 1px solid #333;
+}
+
+/* 消息气泡 */
+.pub-msg-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    animation: fadeIn 0.2s ease;
+}
+
+.pub-avatar {
+    width: 35px; height: 35px;
+    border-radius: 4px;
+    border: 1px solid #333;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.pub-content {
+    background: rgba(255,255,255,0.05);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #ddd;
+    word-break: break-all;
+}
+
+.pub-name {
+    font-size: 0.75rem;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+/* 特殊消息类型 */
+.pub-msg-sys {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #ff00de;
+    margin: 5px 0;
+    border-top: 1px dashed #333;
+    border-bottom: 1px dashed #333;
+    padding: 2px;
+}
+
+.pub-msg-roll .pub-content {
+    color: #ffd700;
+    border: 1px solid #ffd700;
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.pub-msg-treat .pub-content {
+    color: #fff;
+    background: linear-gradient(90deg, #ff00de, #bd00ff);
+    box-shadow: 0 0 10px rgba(255, 0, 222, 0.4);
+    font-weight: bold;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    #view-pub {
+        height: calc(100vh - 70px) !important; /* 减去底部导航 */
+        padding-bottom: 0; /* 去掉默认padding */
+    }
+    .pub-header {
+        padding: 10px;
+    }
+    .pub-music-box {
+        display: none; /* 手机屏幕小，先隐藏点歌条，或者缩小 */
+    }
+}
 
 
