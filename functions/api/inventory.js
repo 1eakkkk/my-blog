@@ -88,52 +88,66 @@ export async function onRequest(context) {
               return new Response(JSON.stringify({ error: '展示失败: 数据库错误' }));
           }
       }
-      // === 4. 批量出售 (Batch Sell) ===
+      // === 4. 批量出售 (Batch Sell) - 修复版 ===
       if (action === 'sell_batch') {
-          const { rarities } = await request.json(); // 例如: ['white', 'green']
-          
-          if (!rarities || rarities.length === 0) {
-              return new Response(JSON.stringify({ error: '未选择任何稀有度' }));
-          }
+          try {
+              const { rarities } = await request.json(); 
+              
+              // 1. 基础校验
+              if (!rarities || !Array.isArray(rarities) || rarities.length === 0) {
+                  return new Response(JSON.stringify({ error: '请至少选择一种稀有度' }), { status: 400 });
+              }
 
-          // 安全检查：防止 SQL 注入，构建 (?,?,?) 占位符
-          const placeholders = rarities.map(() => '?').join(',');
-          
-          // 1. 先计算总价值和数量
-          // 注意：必须限制 user_id 和 category='loot'
-          const stats = await db.prepare(`
-              SELECT SUM(val) as total_val, COUNT(*) as total_count 
-              FROM user_items 
-              WHERE user_id = ? 
-                AND category = 'loot' 
-                AND rarity IN (${placeholders})
-          `).bind(user.id, ...rarities).first();
-
-          const totalVal = stats.total_val || 0;
-          const count = stats.total_count || 0;
-
-          if (count === 0) {
-              return new Response(JSON.stringify({ error: '没有符合条件的物品' }));
-          }
-
-          // 2. 执行删除与加钱
-          await db.batch([
-              db.prepare(`
-                  DELETE FROM user_items 
+              // 2. 构造安全的 SQL 占位符
+              // 如果 rarities = ['white', 'green'] -> placeholders = "?,?"
+              const placeholders = rarities.map(() => '?').join(',');
+              
+              // 3. 先查询统计 (用于反馈)
+              // 注意：必须用 try-catch 包裹数据库操作
+              const querySql = `
+                  SELECT SUM(val) as total_val, COUNT(*) as total_count 
+                  FROM user_items 
                   WHERE user_id = ? 
                     AND category = 'loot' 
                     AND rarity IN (${placeholders})
-              `).bind(user.id, ...rarities),
+              `;
               
-              db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(totalVal, user.id)
-          ]);
+              // 参数展开：[user.id, 'white', 'green']
+              const stats = await db.prepare(querySql).bind(user.id, ...rarities).first();
 
-          return new Response(JSON.stringify({ 
-              success: true, 
-              message: `清理完成！共售出 ${count} 件物品，回收 ${totalVal} i币` 
-          }));
+              // 防止 stats 为空 (虽然 COUNT 通常会有结果，但为了稳健)
+              const totalVal = (stats && stats.total_val) ? stats.total_val : 0;
+              const count = (stats && stats.total_count) ? stats.total_count : 0;
+
+              if (count === 0) {
+                  return new Response(JSON.stringify({ success: false, error: '背包中没有符合条件的物品' }));
+              }
+
+              // 4. 执行删除与加钱 (事务)
+              await db.batch([
+                  db.prepare(`
+                      DELETE FROM user_items 
+                      WHERE user_id = ? 
+                        AND category = 'loot' 
+                        AND rarity IN (${placeholders})
+                  `).bind(user.id, ...rarities),
+                  
+                  db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(totalVal, user.id)
+              ]);
+
+              return new Response(JSON.stringify({ 
+                  success: true, 
+                  message: `成功清理 ${count} 件物品，回收资金 +${totalVal.toLocaleString()} i币` 
+              }));
+
+          } catch (err) {
+              // 捕获真正的错误并返回给前端
+              return new Response(JSON.stringify({ 
+                  success: false, 
+                  error: "数据库错误: " + err.message 
+              }), { status: 200 }); // 返回 200 让前端能弹窗显示 error
+          }
       }
-  }
   
   return new Response(JSON.stringify({ error: 'Method Error' }));
 }
