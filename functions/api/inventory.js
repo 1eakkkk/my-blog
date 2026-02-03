@@ -88,22 +88,22 @@ export async function onRequest(context) {
               return new Response(JSON.stringify({ error: '展示失败: 数据库错误' }));
           }
       }
-      // === 4. 批量出售 (Batch Sell) - 修复版 ===
+      // === 4. 批量出售 (Batch Sell) - 终极修复版 ===
       if (action === 'sell_batch') {
           try {
-              const { rarities } = await request.json(); 
+              const body = await request.json();
+              const rarities = body.rarities; // 获取数组
               
-              // 1. 基础校验
+              // 1. 严格校验
               if (!rarities || !Array.isArray(rarities) || rarities.length === 0) {
-                  return new Response(JSON.stringify({ error: '请至少选择一种稀有度' }), { status: 400 });
+                  return new Response(JSON.stringify({ error: '未选择任何稀有度' }), { status: 400 });
               }
 
-              // 2. 构造安全的 SQL 占位符
-              // 如果 rarities = ['white', 'green'] -> placeholders = "?,?"
+              // 2. 构造安全的 SQL 语句 (手动拼接 ? 占位符)
+              // 例如 rarities 是 ['white', 'green'] -> placeholders 变成 "?, ?"
               const placeholders = rarities.map(() => '?').join(',');
               
-              // 3. 先查询统计 (用于反馈)
-              // 注意：必须用 try-catch 包裹数据库操作
+              // 3. 统计价值 (Params 数组包含: user.id, ...rarities)
               const querySql = `
                   SELECT SUM(val) as total_val, COUNT(*) as total_count 
                   FROM user_items 
@@ -112,27 +112,29 @@ export async function onRequest(context) {
                     AND rarity IN (${placeholders})
               `;
               
-              // 参数展开：[user.id, 'white', 'green']
-              const stats = await db.prepare(querySql).bind(user.id, ...rarities).first();
+              const queryParams = [user.id, ...rarities];
+              
+              // 执行查询
+              const stats = await db.prepare(querySql).bind(...queryParams).first();
 
-              // 防止 stats 为空 (虽然 COUNT 通常会有结果，但为了稳健)
               const totalVal = (stats && stats.total_val) ? stats.total_val : 0;
               const count = (stats && stats.total_count) ? stats.total_count : 0;
 
               if (count === 0) {
-                  return new Response(JSON.stringify({ success: false, error: '背包中没有符合条件的物品' }));
+                  return new Response(JSON.stringify({ success: false, error: '背包中没有符合这些条件的物品' }));
               }
 
               // 4. 执行删除与加钱 (事务)
+              const deleteSql = `
+                  DELETE FROM user_items 
+                  WHERE user_id = ? 
+                    AND category = 'loot' 
+                    AND rarity IN (${placeholders})
+              `;
+
               await db.batch([
-                  db.prepare(`
-                      DELETE FROM user_items 
-                      WHERE user_id = ? 
-                        AND category = 'loot' 
-                        AND rarity IN (${placeholders})
-                  `).bind(user.id, ...rarities),
-                  
-                  db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(totalVal, user.id)
+                  db.prepare(deleteSql).bind(...queryParams), // 删除
+                  db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(totalVal, user.id) // 加钱
               ]);
 
               return new Response(JSON.stringify({ 
@@ -141,11 +143,11 @@ export async function onRequest(context) {
               }));
 
           } catch (err) {
-              // 捕获真正的错误并返回给前端
+              // 捕获错误并返回给前端，而不是报红色的 500
               return new Response(JSON.stringify({ 
                   success: false, 
-                  error: "数据库错误: " + err.message 
-              }), { status: 200 }); // 返回 200 让前端能弹窗显示 error
+                  error: "系统错误: " + err.message 
+              }), { status: 200 });
           }
       }
   
