@@ -4240,56 +4240,75 @@ async function refreshPubChat() {
     } catch(e) {}
 }
 
+// === 修复版：赛博酒馆渲染 (增量更新 + 气泡样式) ===
 function renderPubMessages(list) {
     const container = document.getElementById('pubChatList');
     if (!container) return;
     
-    // 如果是第一次加载，清空
-    if (container.innerHTML.includes('连接加密')) container.innerHTML = '';
+    // 如果是首次加载且里面有"连接中"的提示，清空它
+    if (container.querySelector('div') && container.querySelector('div').innerText.includes('连接')) {
+        container.innerHTML = '';
+    }
 
-    // 简单的增量更新检测：只渲染 ID 比当前大的（或者简单起见，全部重绘，3秒一次问题不大）
-    // 为了平滑，我们建议全部重绘，但保留滚动位置
-    
-    const isBottom = container.scrollHeight - container.scrollTop === container.clientHeight;
-    
-    container.innerHTML = '';
-    let latestMusic = "暂无点歌...";
+    let hasNewMessage = false;
 
+    // 遍历新列表
     list.forEach(msg => {
-        // 提取最新一首点歌
-        if (msg.type === 'music') latestMusic = `🎵 ${msg.content} (by ${msg.nickname})`;
+        // 1. 检查该消息是否已存在 (通过 ID 判断)
+        // 假设每条消息 div 的 id 为 pub-msg-{id}
+        if (document.getElementById(`pub-msg-${msg.id}`)) {
+            return; // 已存在，跳过
+        }
 
+        hasNewMessage = true;
         const div = document.createElement('div');
-        
-        // 渲染不同类型
+        div.id = `pub-msg-${msg.id}`; // 赋予唯一 ID
+        div.style.animation = "fadeIn 0.3s ease"; // 新消息动画
+
+        // 2. 特殊消息处理
         if (msg.type === 'treat') {
             div.className = 'pub-msg-sys';
             div.innerHTML = `🍺 ${msg.content}`;
-        } else if (msg.type === 'music') {
-            div.className = 'pub-msg-sys';
-            div.style.color = '#00f3ff';
-            div.innerHTML = `🎵 ${msg.nickname} 点了一首歌: ${msg.content}`;
         } else {
-            // 普通/Roll
+            // 3. 普通消息/Roll - 处理样式
             div.className = `pub-msg-row ${msg.type === 'roll' ? 'pub-msg-roll' : ''}`;
+            
+            // 获取头像
             const avatar = renderUserAvatar({username: msg.username, avatar_url: msg.avatar_url});
             
+            // 获取气泡样式
+            let bubbleClass = '';
+            if (msg.type !== 'roll') { // Roll 不应用气泡，使用特殊样式
+                if (typeof SHOP_CATALOG !== 'undefined') {
+                    const bubbleItem = SHOP_CATALOG.find(i => i.id === msg.equipped_bubble_style);
+                    if (bubbleItem) bubbleClass = bubbleItem.css;
+                }
+            }
+
+            // 获取名字颜色
+            let nameClass = '';
+            if (typeof SHOP_CATALOG !== 'undefined') {
+                const nameItem = SHOP_CATALOG.find(i => i.id === msg.name_color);
+                if (nameItem) nameClass = nameItem.css;
+            }
+
+            // 4. 组装 HTML
+            // 注意：这里复用了 .msg-bubble 的部分 CSS，但做了一些调整
             div.innerHTML = `
                 <div class="pub-avatar">${avatar}</div>
-                <div>
-                    <div class="pub-name">${msg.nickname || msg.username} <span style="font-size:0.6rem;opacity:0.5">${new Date(msg.created_at).toLocaleTimeString()}</span></div>
-                    <div class="pub-content">${parseMarkdown(msg.content)}</div>
+                <div style="flex:1; min-width:0;">
+                    <div class="pub-name ${nameClass}">${msg.nickname || msg.username} <span style="font-size:0.6rem;opacity:0.5;margin-left:5px;">${new Date(msg.created_at).toLocaleTimeString()}</span></div>
+                    <div class="pub-content ${bubbleClass}">${parseMarkdown(msg.content)}</div>
                 </div>
             `;
         }
         container.appendChild(div);
     });
 
-    // 更新跑马灯
-    document.getElementById('pubMusicTicker').innerText = latestMusic;
-
-    // 如果原来在底部，保持在底部
-    if (isBottom) container.scrollTop = container.scrollHeight;
+    // 只有当有新消息时才滚动到底部
+    if (hasNewMessage) {
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
 window.sendPubMsg = async function() {
@@ -4319,17 +4338,6 @@ window.sendPubAction = async function(action) {
     refreshPubChat();
 };
 
-window.requestSong = async function() {
-    const song = prompt("请输入歌名 (消耗 50 i):");
-    if(!song) return;
-    
-    await fetch(`${API_BASE}/pub`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: 'music', content: song })
-    });
-    refreshPubChat();
-};
 
 
 
