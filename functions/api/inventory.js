@@ -88,6 +88,51 @@ export async function onRequest(context) {
               return new Response(JSON.stringify({ error: '展示失败: 数据库错误' }));
           }
       }
+      // === 4. 批量出售 (Batch Sell) ===
+      if (action === 'sell_batch') {
+          const { rarities } = await request.json(); // 例如: ['white', 'green']
+          
+          if (!rarities || rarities.length === 0) {
+              return new Response(JSON.stringify({ error: '未选择任何稀有度' }));
+          }
+
+          // 安全检查：防止 SQL 注入，构建 (?,?,?) 占位符
+          const placeholders = rarities.map(() => '?').join(',');
+          
+          // 1. 先计算总价值和数量
+          // 注意：必须限制 user_id 和 category='loot'
+          const stats = await db.prepare(`
+              SELECT SUM(val) as total_val, COUNT(*) as total_count 
+              FROM user_items 
+              WHERE user_id = ? 
+                AND category = 'loot' 
+                AND rarity IN (${placeholders})
+          `).bind(user.id, ...rarities).first();
+
+          const totalVal = stats.total_val || 0;
+          const count = stats.total_count || 0;
+
+          if (count === 0) {
+              return new Response(JSON.stringify({ error: '没有符合条件的物品' }));
+          }
+
+          // 2. 执行删除与加钱
+          await db.batch([
+              db.prepare(`
+                  DELETE FROM user_items 
+                  WHERE user_id = ? 
+                    AND category = 'loot' 
+                    AND rarity IN (${placeholders})
+              `).bind(user.id, ...rarities),
+              
+              db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(totalVal, user.id)
+          ]);
+
+          return new Response(JSON.stringify({ 
+              success: true, 
+              message: `清理完成！共售出 ${count} 件物品，回收 ${totalVal} i币` 
+          }));
+      }
   }
   
   return new Response(JSON.stringify({ error: 'Method Error' }));
