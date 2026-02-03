@@ -217,6 +217,11 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
                     数据格斗场
                 </a>
+
+                <a href="#pub" class="nav-link" style="color:#ff00de;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v18M16 3v18M3 21h18M3 3h18"/></svg>
+                    赛博酒馆
+                </a>
         
                 <!-- 私信与好友 -->
                 <a href="#chat" class="nav-link" id="navChat">
@@ -317,6 +322,46 @@
                     </div>
                     <div id="posts-list" class="posts-grid"></div>
                     <button id="loadMoreBtn" class="cyber-btn" onclick="loadPosts(false)" style="display:none; margin: 20px auto; max-width: 300px;">加载更多</button>
+                </div>
+
+                <!-- 赛博酒馆视图 -->
+                <div id="view-pub" class="view-section" style="display:none; height: calc(100vh - 100px); display:flex; flex-direction:column;">
+                    <!-- 顶部状态栏 -->
+                    <div class="pub-header glass-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <h2 style="margin:0; color:#ff00de; text-shadow:0 0 10px #ff00de;">🍸 NIGHT CITY PUB</h2>
+                                <div style="font-size:0.7rem; color:#888;">在线酒客: <span id="pubOnlineCount" style="color:#fff">0</span></div>
+                            </div>
+                            <!-- 点歌显示 -->
+                            <div class="pub-music-box">
+                                <span style="color:#00f3ff;">🎵 NOW PLAYING:</span>
+                                <marquee id="pubMusicTicker" style="width:150px; vertical-align:middle; color:#fff;">暂无点歌...</marquee>
+                                <button onclick="requestSong()" class="mini-action-btn" style="border-color:#00f3ff; color:#00f3ff;">点歌(50)</button>
+                            </div>
+                        </div>
+                        <!-- 快捷操作区 -->
+                        <div style="display:flex; gap:10px; margin-top:10px; justify-content:flex-end;">
+                            <button onclick="sendPubAction('treat')" class="cyber-btn" style="width:auto; margin:0; border-color:#ffd700; color:#ffd700; font-size:0.8rem;">
+                                🍺 全场买单 (1000 i)
+                            </button>
+                            <button onclick="sendPubAction('roll')" class="cyber-btn" style="width:auto; margin:0; border-color:#fff; color:#fff; font-size:0.8rem;">
+                                🎲 掷骰子
+                            </button>
+                        </div>
+                    </div>
+                
+                    <!-- 聊天记录区 -->
+                    <div id="pubChatList" class="pub-chat-area">
+                        <!-- 动态加载 -->
+                        <div style="text-align:center; color:#666; margin-top:20px;">连接加密频段...</div>
+                    </div>
+                
+                    <!-- 底部输入框 -->
+                    <div class="pub-input-area glass-card">
+                        <input type="text" id="pubInput" class="cyber-input" placeholder="输入消息..." style="margin:0; flex:1;">
+                        <button onclick="sendPubMsg()" class="cyber-btn" style="width:auto; margin:0; padding:0 20px;">发送</button>
+                    </div>
                 </div>
 
                 <!-- N.O.D.E 摸金 / 幸运轮盘 -->
@@ -1158,9 +1203,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.13"></script>
+    <script src="script.js?v=10.2"></script>
 </body>
 </html>
+
 
 
 
