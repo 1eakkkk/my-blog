@@ -3712,3 +3712,112 @@ body.bg-fire {
     display: inline-block;
 }
 
+/* =========================================
+   📱 移动端深度适配：赛博酒馆 (Cyber Pub)
+   ========================================= */
+@media (max-width: 768px) {
+    
+    /* 1. 主视图容器：强制全屏，解决浏览器地址栏伸缩导致的跳动 */
+    #view-pub {
+        position: fixed !important; /* 固定定位，不随页面滚动 */
+        top: 0; 
+        left: 0; 
+        width: 100vw;
+        height: 100dvh !important; /* 使用动态视口高度，兼容 iOS/Android */
+        margin: 0 !important;      /* 去除 content 的默认 margin */
+        padding: 0 !important;     /* 去除 padding */
+        z-index: 40;               /* 保证在背景之上，但低于侧边栏 */
+        background: #050505;       /* 深色背景防止透底 */
+        display: flex;             /* 确保是 flex 布局 */
+        flex-direction: column;
+    }
+
+    /* 2. 顶部导航栏适配 */
+    .pub-header {
+        /* 增加顶部内边距，避开左上角的“☰”菜单按钮 */
+        padding-top: 50px !important; 
+        padding-left: 15px;
+        padding-right: 15px;
+        background: rgba(10, 10, 10, 0.95); /* 加深背景，防止遮挡感 */
+        flex-shrink: 0;
+    }
+
+    /* 调整标题文字大小 */
+    .pub-header h2 {
+        font-size: 1.2rem;
+    }
+
+    /* 快捷按钮组 (请客/掷骰子) */
+    .pub-header div[style*="display:flex"] {
+        gap: 8px !important;
+    }
+    
+    /* 缩小按钮，防止一行放不下 */
+    .pub-header .cyber-btn {
+        padding: 4px 8px !important;
+        font-size: 0.75rem !important;
+        height: auto !important;
+    }
+
+    /* 3. 聊天列表区域 */
+    #pubChatList {
+        flex: 1; /* 自动占据剩余空间 */
+        overflow-y: scroll !important; /* 强制允许滚动 */
+        -webkit-overflow-scrolling: touch; /* iOS 惯性滚动 */
+        padding: 10px 15px;
+        padding-bottom: 20px; /* 底部留点空隙 */
+        background: transparent; /* 透出背景 */
+    }
+
+    /* 4. 底部输入框区域 (关键修复) */
+    .pub-input-area {
+        flex-shrink: 0; /* 禁止被压缩 */
+        background: #111;
+        border-top: 1px solid #333;
+        padding: 10px 15px;
+        
+        /* 适配 iPhone X+ 底部黑条 (Home Indicator) */
+        padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+        
+        /* 确保在键盘弹出时能浮动上来 (Flex布局通常自动处理，加此保底) */
+        position: relative; 
+        z-index: 50;
+    }
+
+    /* 输入框样式微调 */
+    #pubInput {
+        margin: 0 !important;
+        height: 40px;
+        font-size: 16px; /* 防止 iOS 自动放大 */
+        border-radius: 20px; /* 圆角更像聊天软件 */
+        padding-left: 15px;
+    }
+
+    /* 发送按钮 */
+    .pub-input-area button {
+        height: 40px;
+        border-radius: 20px;
+        padding: 0 15px !important;
+        min-width: 70px;
+    }
+    
+    /* 5. 消息气泡适配 */
+    .pub-msg-row {
+        gap: 8px; /* 减小头像和气泡间距 */
+    }
+    
+    .pub-avatar {
+        width: 32px; height: 32px; /* 缩小头像 */
+    }
+    
+    .pub-content {
+        font-size: 0.9rem;
+        padding: 8px 10px;
+        max-width: 100%; /* 允许气泡撑满 */
+    }
+    
+    /* 系统消息 (掷骰子/请客) 字号缩小 */
+    .pub-msg-sys {
+        font-size: 0.75rem;
+    }
+}
