@@ -79,6 +79,9 @@ export async function onRequest(context) {
 
         // 3. 普通发言 (删除 Music 逻辑)
         if (content) {
+            if (content.length > 300) {
+                return Response.json({ error: '消息过长 (限300字)' });
+            }
             const last = await db.prepare('SELECT created_at FROM pub_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').bind(user.id).first();
             if (last && (now - last.created_at < 1000)) return Response.json({ error: '说话太快了' });
 
