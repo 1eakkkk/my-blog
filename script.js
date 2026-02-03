@@ -1291,7 +1291,8 @@ const views = {
     leaderboard: document.getElementById('view-leaderboard'),
     post: document.getElementById('view-post'),
     shop: document.getElementById('view-shop'),
-    inventory: document.getElementById('view-inventory') ,
+    inventory: document.getElementById('view-inventory'),
+    pub: document.getElementById('view-pub'),
     chat: document.getElementById('view-chat'),
     settings: document.getElementById('view-settings'),
     about: document.getElementById('view-about'),
@@ -1409,6 +1410,10 @@ async function handleRoute() {
     } else if (hash === '#feedback') {
         if(views.feedback) views.feedback.style.display = 'block';
         const link = document.querySelector('a[href="#feedback"]'); if(link) link.classList.add('active');
+        // 在 handleRoute 函数内添加
+    } else if (hash === '#pub') {
+        document.getElementById('view-pub').style.display = 'flex'; // 注意是 flex
+        loadPub();
     } else if (hash === '#chat') {
         if(views.chat) views.chat.style.display = 'block';
         const link = document.getElementById('navChat'); if(link) link.classList.add('active');
@@ -4198,6 +4203,133 @@ window.spinRoulette = async function() {
     }
 };
 
+// === 赛博酒馆逻辑 ===
+let pubPollInterval = null;
+let lastPubMsgId = 0;
+
+function loadPub() {
+    // 启动轮询
+    refreshPubChat();
+    if (pubPollInterval) clearInterval(pubPollInterval);
+    pubPollInterval = setInterval(refreshPubChat, 3000); // 3秒刷新一次
+    
+    // PC端回车发送
+    const input = document.getElementById('pubInput');
+    if(input) {
+        input.onkeydown = (e) => {
+            if(e.key === 'Enter') sendPubMsg();
+        };
+    }
+}
+
+async function refreshPubChat() {
+    // 如果不在酒馆页面，停止高频轮询（改为低频或停止）
+    if (window.location.hash !== '#pub') {
+        if(pubPollInterval) clearInterval(pubPollInterval);
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/pub`);
+        const data = await res.json();
+        
+        if (data.success) {
+            document.getElementById('pubOnlineCount').innerText = data.online;
+            renderPubMessages(data.list);
+        }
+    } catch(e) {}
+}
+
+function renderPubMessages(list) {
+    const container = document.getElementById('pubChatList');
+    if (!container) return;
+    
+    // 如果是第一次加载，清空
+    if (container.innerHTML.includes('连接加密')) container.innerHTML = '';
+
+    // 简单的增量更新检测：只渲染 ID 比当前大的（或者简单起见，全部重绘，3秒一次问题不大）
+    // 为了平滑，我们建议全部重绘，但保留滚动位置
+    
+    const isBottom = container.scrollHeight - container.scrollTop === container.clientHeight;
+    
+    container.innerHTML = '';
+    let latestMusic = "暂无点歌...";
+
+    list.forEach(msg => {
+        // 提取最新一首点歌
+        if (msg.type === 'music') latestMusic = `🎵 ${msg.content} (by ${msg.nickname})`;
+
+        const div = document.createElement('div');
+        
+        // 渲染不同类型
+        if (msg.type === 'treat') {
+            div.className = 'pub-msg-sys';
+            div.innerHTML = `🍺 ${msg.content}`;
+        } else if (msg.type === 'music') {
+            div.className = 'pub-msg-sys';
+            div.style.color = '#00f3ff';
+            div.innerHTML = `🎵 ${msg.nickname} 点了一首歌: ${msg.content}`;
+        } else {
+            // 普通/Roll
+            div.className = `pub-msg-row ${msg.type === 'roll' ? 'pub-msg-roll' : ''}`;
+            const avatar = renderUserAvatar({username: msg.username, avatar_url: msg.avatar_url});
+            
+            div.innerHTML = `
+                <div class="pub-avatar">${avatar}</div>
+                <div>
+                    <div class="pub-name">${msg.nickname || msg.username} <span style="font-size:0.6rem;opacity:0.5">${new Date(msg.created_at).toLocaleTimeString()}</span></div>
+                    <div class="pub-content">${parseMarkdown(msg.content)}</div>
+                </div>
+            `;
+        }
+        container.appendChild(div);
+    });
+
+    // 更新跑马灯
+    document.getElementById('pubMusicTicker').innerText = latestMusic;
+
+    // 如果原来在底部，保持在底部
+    if (isBottom) container.scrollTop = container.scrollHeight;
+}
+
+window.sendPubMsg = async function() {
+    const input = document.getElementById('pubInput');
+    const txt = input.value.trim();
+    if (!txt) return;
+    
+    input.value = ''; // 立即清空
+    await fetch(`${API_BASE}/pub`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ content: txt })
+    });
+    refreshPubChat();
+};
+
+window.sendPubAction = async function(action) {
+    if (action === 'treat') {
+        if(!confirm("确定消耗 1000 i币 请全场（随机10人）喝酒吗？\n大家会感谢你的！")) return;
+    }
+    
+    await fetch(`${API_BASE}/pub`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: action })
+    });
+    refreshPubChat();
+};
+
+window.requestSong = async function() {
+    const song = prompt("请输入歌名 (消耗 50 i):");
+    if(!song) return;
+    
+    await fetch(`${API_BASE}/pub`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'music', content: song })
+    });
+    refreshPubChat();
+};
 
 
 
