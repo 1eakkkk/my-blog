@@ -20,6 +20,48 @@ export async function onRequest(context) {
   // POST: 装备/卸下道具
   if (request.method === 'POST') {
       const { action, itemId, category } = await request.json();
+      // 1. 出售物品 (Sell)
+      if (action === 'sell') {
+          const item = await db.prepare('SELECT * FROM user_items WHERE id = ? AND user_id = ?').bind(itemId, user.id).first();
+          if (!item) return new Response(JSON.stringify({ error: '物品不存在' }));
+          if (item.category !== 'loot') return new Response(JSON.stringify({ error: '该物品不可出售' }));
+
+          const value = item.val || 0;
+          if (value <= 0) return new Response(JSON.stringify({ error: '物品无价值' }));
+
+          await db.batch([
+              db.prepare('DELETE FROM user_items WHERE id = ?').bind(itemId),
+              db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(value, user.id)
+          ]);
+
+          return new Response(JSON.stringify({ success: true, message: `出售成功，获得 ${value} i币` }));
+        }
+
+        // 2. 展示物品 (Showcase) -> 发送到酒馆
+        if (action === 'showcase') {
+          const item = await db.prepare('SELECT * FROM user_items WHERE id = ? AND user_id = ?').bind(itemId, user.id).first();
+          if (!item) return new Response(JSON.stringify({ error: '物品不存在' }));
+
+          const now = Date.now();
+            // 构造一个特殊的 JSON 内容存入 meta_data (或者直接存入 content)
+            // 为了简单，我们存入 content，前端解析
+            // 格式: SHOWCASE::{JSON_DATA}
+          const itemData = JSON.stringify({
+              name: item.item_id, // 名字存在 item_id 字段里
+              val: item.val,
+              rarity: item.rarity,
+              w: item.width,
+              h: item.height
+          });
+
+            // 限制展示频率 (10秒一次)
+            // ... (省略防刷逻辑) ...
+
+          await db.prepare(`INSERT INTO pub_messages (user_id, username, nickname, avatar_url, content, type, created_at) VALUES (?, ?, ?, ?, ?, 'showcase', ?)`)
+              .bind(user.id, user.username, user.nickname, user.avatar_url, itemData, 'showcase', now).run();
+
+          return new Response(JSON.stringify({ success: true, message: '已展示到赛博酒馆' }));
+      }
       const columnMap = {
           'background': 'equipped_bg',
           'post_style': 'equipped_post_style',
