@@ -333,21 +333,18 @@
                                 <h2 style="margin:0; color:#ff00de; text-shadow:0 0 10px #ff00de;">🍸 NIGHT CITY PUB</h2>
                                 <div style="font-size:0.7rem; color:#888;">在线酒客: <span id="pubOnlineCount" style="color:#fff">0</span></div>
                             </div>
-                            <!-- 点歌显示 -->
-                            <div class="pub-music-box">
-                                <span style="color:#00f3ff;">🎵 NOW PLAYING:</span>
-                                <marquee id="pubMusicTicker" style="width:150px; vertical-align:middle; color:#fff;">暂无点歌...</marquee>
-                                <button onclick="requestSong()" class="mini-action-btn" style="border-color:#00f3ff; color:#00f3ff;">点歌(50)</button>
+                            
+                            <!-- 删除了原本这里的 pub-music-box -->
+                            
+                            <!-- 快捷操作区 (移到右侧) -->
+                            <div style="display:flex; gap:10px;">
+                                <button onclick="sendPubAction('treat')" class="cyber-btn" style="width:auto; margin:0; border-color:#ffd700; color:#ffd700; font-size:0.8rem; padding: 5px 10px;">
+                                    🍺 请客 (1k)
+                                </button>
+                                <button onclick="sendPubAction('roll')" class="cyber-btn" style="width:auto; margin:0; border-color:#fff; color:#fff; font-size:0.8rem; padding: 5px 10px;">
+                                    🎲 掷骰子
+                                </button>
                             </div>
-                        </div>
-                        <!-- 快捷操作区 -->
-                        <div style="display:flex; gap:10px; margin-top:10px; justify-content:flex-end;">
-                            <button onclick="sendPubAction('treat')" class="cyber-btn" style="width:auto; margin:0; border-color:#ffd700; color:#ffd700; font-size:0.8rem;">
-                                🍺 全场买单 (1000 i)
-                            </button>
-                            <button onclick="sendPubAction('roll')" class="cyber-btn" style="width:auto; margin:0; border-color:#fff; color:#fff; font-size:0.8rem;">
-                                🎲 掷骰子
-                            </button>
                         </div>
                     </div>
                 
@@ -1203,9 +1200,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.2"></script>
+    <script src="script.js?v=10.33"></script>
 </body>
 </html>
+
 
 
 
