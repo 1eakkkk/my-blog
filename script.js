@@ -83,15 +83,28 @@ function showHud(item, isOverload) {
     
     // 设置内容
     userEl.innerText = item.nickname || "SYSTEM";
-    contentEl.innerText = item.content;
     
-    // 设置颜色
+    // === 核心修复：使用 DOMPurify 净化后通过 innerHTML 渲染 ===
+    // 这样 HTML 标签 (如 <span style="...">) 就会被渲染成样式，而不是显示为代码
+    if (typeof DOMPurify !== 'undefined') {
+        contentEl.innerHTML = DOMPurify.sanitize(item.content);
+    } else {
+        contentEl.innerHTML = item.content; // 降级方案
+    }
+    
+    // 设置颜色 (如果后端发送了特定的 color 字段，则应用)
     if (item.style_color === 'rainbow') {
-        contentEl.className = 'hud-content color-rainbow'; // 复用之前的彩虹类
-        contentEl.style.color = 'transparent'; // 必须设为透明才能透出背景渐变
+        contentEl.className = 'hud-content color-rainbow';
+        contentEl.style.color = 'transparent';
     } else {
         contentEl.className = 'hud-content';
-        contentEl.style.color = item.style_color || '#fff';
+        // 如果内容里已经包含了 span 样式，这里就不需要重复设置 color 了
+        // 除非内容是纯文本，才使用 item.style_color
+        if (!item.content.includes('<span')) {
+            contentEl.style.color = item.style_color || '#fff';
+        } else {
+            contentEl.style.color = 'inherit'; // 继承 span 的颜色
+        }
     }
     
     // 彩蛋模式
@@ -103,7 +116,6 @@ function showHud(item, isOverload) {
     }
     
     hud.style.display = 'flex';
-    // 移除之前的退出动画类（如果有）
     box.classList.remove('hud-exit');
 }
 
@@ -4185,6 +4197,7 @@ window.spinRoulette = async function() {
         btn.disabled = false;
     }
 };
+
 
 
 
