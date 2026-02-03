@@ -3679,4 +3679,36 @@ body.bg-fire {
     }
 }
 
+/* --- 赛博酒馆气泡适配 --- */
+
+/* 让 pub-content 能够接受气泡样式 */
+.pub-content {
+    background: rgba(255,255,255,0.05); /* 默认底色 */
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #ddd;
+    word-break: break-all;
+    display: inline-block; /* 关键：根据文字长度自适应 */
+    max-width: 100%;
+    margin-top: 2px;
+}
+
+/* 覆盖默认气泡样式中的一些冲突属性 */
+.pub-content.bubble-pink,
+.pub-content.bubble-green,
+.pub-content.bubble-blue,
+.pub-content.bubble-gold {
+    color: inherit !important; /* 部分气泡可能强制了颜色，这里重置或保持 */
+    /* 如果你的 bubble-xxx 类里有 align-self，这里不需要覆盖，因为 flex 结构不同 */
+}
+
+/* 名字颜色在酒馆的适配 */
+.pub-name.color-rainbow,
+.pub-name.color-fire,
+.pub-name.color-ice,
+.pub-name.color-gold {
+    font-size: 0.8rem !important; /* 保持小字体 */
+    display: inline-block;
+}
 
