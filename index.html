@@ -1199,36 +1199,45 @@
             </div>
         </div>
     </div>
-    <!-- 批量出售弹窗 -->
+    <!-- 批量出售弹窗 (UI 修复版) -->
     <div id="bulk-sell-modal" class="modal-overlay" style="display:none;">
-        <div class="modal-card glass-card" style="max-width:320px;">
-            <h3 style="color:#ff3333; margin-top:0;">批量回收协议</h3>
-            <p style="font-size:0.8rem; color:#888; margin-bottom:15px;">请勾选要一键出售的物品稀有度：</p>
+        <div class="modal-card glass-card" style="max-width:350px; padding:25px;">
+            <div style="text-align:center; margin-bottom:20px;">
+                <h3 style="color:#ff3333; margin:0; font-size:1.4rem;">♻️ 资源回收协议</h3>
+                <p style="font-size:0.8rem; color:#666; margin-top:5px;">勾选要清空的战利品等级</p>
+            </div>
             
+            <!-- 选项网格：两列布局，对齐更好 -->
             <div class="bulk-options-grid">
                 <label class="bulk-opt" style="border-color:#aaa; color:#aaa;">
-                    <input type="checkbox" value="white" checked> ⚪ 破损 (White)
+                    <input type="checkbox" value="white" checked> 
+                    <span>⚪ 破损废料</span>
                 </label>
                 <label class="bulk-opt" style="border-color:#0f0; color:#0f0;">
-                    <input type="checkbox" value="green" checked> 🟢 普通 (Green)
+                    <input type="checkbox" value="green" checked> 
+                    <span>🟢 普通物资</span>
                 </label>
                 <label class="bulk-opt" style="border-color:#00f3ff; color:#00f3ff;">
-                    <input type="checkbox" value="blue"> 🔵 稀有 (Blue)
+                    <input type="checkbox" value="blue"> 
+                    <span>🔵 稀有装备</span>
                 </label>
                 <label class="bulk-opt" style="border-color:#bd00ff; color:#bd00ff;">
-                    <input type="checkbox" value="purple"> 🟣 史诗 (Purple)
+                    <input type="checkbox" value="purple"> 
+                    <span>🟣 史诗藏品</span>
                 </label>
                 <label class="bulk-opt" style="border-color:#FFD700; color:#FFD700;">
-                    <input type="checkbox" value="gold"> 🟡 传说 (Gold)
+                    <input type="checkbox" value="gold"> 
+                    <span>🟡 传说秘宝</span>
                 </label>
                 <label class="bulk-opt" style="border-color:#ff3333; color:#ff3333;">
-                    <input type="checkbox" value="red"> 🔴 机密 (Red)
+                    <input type="checkbox" value="red"> 
+                    <span>🔴 机密文件</span>
                 </label>
             </div>
     
-            <div style="margin-top:20px; display:flex; gap:10px;">
-                <button onclick="document.getElementById('bulk-sell-modal').style.display='none'" class="cyber-btn" style="border-color:#666; color:#888;">取消</button>
-                <button onclick="submitBulkSell()" class="cyber-btn danger">确认出售</button>
+            <div style="margin-top:25px; display:flex; gap:15px;">
+                <button onclick="document.getElementById('bulk-sell-modal').style.display='none'" class="cyber-btn" style="border-color:#666; color:#888; flex:1;">取消</button>
+                <button onclick="submitBulkSell()" class="cyber-btn danger" style="background:#ff3333; color:black; border:none; font-weight:bold; flex:1.5; text-shadow:none;">确认一键出售</button>
             </div>
         </div>
     </div>
@@ -1243,6 +1252,7 @@
     <script src="script.js?v=10.36"></script>
 </body>
 </html>
+
 
 
 
