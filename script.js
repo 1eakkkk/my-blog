@@ -2756,13 +2756,23 @@ window.loadBlockedUsers = async function() {
     }
 };
 
-// === 切换背包标签 ===
+// === 切换背包标签 (修复版：联动批量按钮) ===
 window.switchInventoryTab = function(type) {
     // 1. UI 高亮切换
     document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
     
-    // 2. 重新加载并筛选
+    // 2. 控制批量按钮的显示/隐藏
+    const bulkBtn = document.getElementById('inventory-controls');
+    if (bulkBtn) {
+        if (type === 'loot') {
+            bulkBtn.style.display = 'block';
+        } else {
+            bulkBtn.style.display = 'none';
+        }
+    }
+    
+    // 3. 重新加载并筛选
     loadInventory(type);
 };
 
@@ -4528,6 +4538,62 @@ window.showcaseItem = async function(dbId) {
     }
 };
 
+// === 批量出售逻辑 ===
+window.openBulkSellModal = function() {
+    document.getElementById('bulk-sell-modal').style.display = 'flex';
+};
+
+window.submitBulkSell = async function() {
+    // 1. 获取选中的稀有度
+    const checkboxes = document.querySelectorAll('.bulk-opt input:checked');
+    const rarities = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (rarities.length === 0) {
+        return showToast("请至少选择一种稀有度", "error");
+    }
+    
+    // 安全警告：如果选了金或红，弹窗警告
+    if (rarities.includes('gold') || rarities.includes('red')) {
+        if (!confirm("⚠️ 高能预警\n\n您勾选了 [传说] 或 [机密] 级物品。\n这些物品极其稀有，确定要一键出售吗？")) {
+            return;
+        }
+    }
+    
+    // 2. 锁定按钮防止重复提交
+    const btn = document.querySelector('#bulk-sell-modal .danger');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "SELLING...";
+    
+    try {
+        const res = await fetch(`${API_BASE}/inventory`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                action: 'sell_batch', 
+                rarities: rarities 
+            })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            document.getElementById('bulk-sell-modal').style.display = 'none';
+            // 刷新
+            await Promise.all([
+                loadInventory('loot'),
+                checkSecurity()
+            ]);
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络错误", "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+};
 
 
 
