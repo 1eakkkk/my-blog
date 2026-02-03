@@ -2504,7 +2504,6 @@ async function loadUserProfile(username) {
         document.getElementById('profileBadges').innerHTML = getBadgesHtml(u); // 复用之前的徽章函数
         const ncp = Math.floor(
             (u.coins || 0)/1000 + 
-            (u.k_coins || 0)/100 + 
             (u.xp || 0)/100
         );
         
@@ -4325,6 +4324,7 @@ window.sendPubAction = async function(action) {
     });
     refreshPubChat();
 };
+
 
 
 
