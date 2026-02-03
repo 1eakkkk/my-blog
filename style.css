@@ -3887,3 +3887,38 @@ body.bg-fire {
         width: 36px !important;
         height: 36px !important;
         min-width: 36p
+
+/* --- 批量出售弹窗样式 --- */
+.bulk-options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.bulk-opt {
+    display: block;
+    padding: 8px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.3s;
+    background: rgba(0,0,0,0.3);
+    /* 禁止双击选中文字 */
+    user-select: none;
+}
+
+.bulk-opt:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* 当 checkbox 被选中时，给 label 加个背景高亮 (需要 JS 配合或使用 :has) */
+/* 现代浏览器支持 :has，如果不支持则只显示默认勾选框 */
+.bulk-opt:has(input:checked) {
+    background: rgba(255,255,255,0.15);
+    box-shadow: inset 0 0 5px currentColor;
+}
+
+.bulk-opt input {
+    margin-right: 5px;
+}
