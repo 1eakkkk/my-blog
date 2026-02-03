@@ -718,6 +718,12 @@
                         <button class="inv-tab-btn" onclick="switchInventoryTab('name_color')">🌈 昵称</button>
                         <button class="inv-tab-btn" onclick="switchInventoryTab('consumable')">📦 消耗品</button>
                     </div>
+                    <!-- 批量操作栏 (默认隐藏，JS控制显示) -->
+                    <div id="inventory-controls" style="display:none; margin-bottom:15px; text-align:right;">
+                        <button onclick="openBulkSellModal()" class="cyber-btn" style="width:auto; border-color:#ff3333; color:#ff3333;">
+                            🗑️ 批量出售 / BULK SELL
+                        </button>
+                    </div>
 
                     <div id="inventoryList" class="shop-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:15px;">
                         Loading...
@@ -1192,7 +1198,40 @@
                 <button id="previewBuyBtn" class="cyber-btn" style="border-color:#0f0; color:#0f0;">立即购买</button>
             </div>
         </div>
-    </div>                    
+    </div>
+    <!-- 批量出售弹窗 -->
+    <div id="bulk-sell-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card glass-card" style="max-width:320px;">
+            <h3 style="color:#ff3333; margin-top:0;">批量回收协议</h3>
+            <p style="font-size:0.8rem; color:#888; margin-bottom:15px;">请勾选要一键出售的物品稀有度：</p>
+            
+            <div class="bulk-options-grid">
+                <label class="bulk-opt" style="border-color:#aaa; color:#aaa;">
+                    <input type="checkbox" value="white" checked> ⚪ 破损 (White)
+                </label>
+                <label class="bulk-opt" style="border-color:#0f0; color:#0f0;">
+                    <input type="checkbox" value="green" checked> 🟢 普通 (Green)
+                </label>
+                <label class="bulk-opt" style="border-color:#00f3ff; color:#00f3ff;">
+                    <input type="checkbox" value="blue"> 🔵 稀有 (Blue)
+                </label>
+                <label class="bulk-opt" style="border-color:#bd00ff; color:#bd00ff;">
+                    <input type="checkbox" value="purple"> 🟣 史诗 (Purple)
+                </label>
+                <label class="bulk-opt" style="border-color:#FFD700; color:#FFD700;">
+                    <input type="checkbox" value="gold"> 🟡 传说 (Gold)
+                </label>
+                <label class="bulk-opt" style="border-color:#ff3333; color:#ff3333;">
+                    <input type="checkbox" value="red"> 🔴 机密 (Red)
+                </label>
+            </div>
+    
+            <div style="margin-top:20px; display:flex; gap:10px;">
+                <button onclick="document.getElementById('bulk-sell-modal').style.display='none'" class="cyber-btn" style="border-color:#666; color:#888;">取消</button>
+                <button onclick="submitBulkSell()" class="cyber-btn danger">确认出售</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 移动端底部快捷发帖按钮 (仿微博) -->
     <div id="mobile-post-btn" onclick="window.location.hash='#write'">
@@ -1201,9 +1240,10 @@
         </svg>
     </div>
                         
-    <script src="script.js?v=10.35"></script>
+    <script src="script.js?v=10.36"></script>
 </body>
 </html>
+
 
 
 
