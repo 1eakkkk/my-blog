@@ -336,13 +336,20 @@
                             
                             <!-- 删除了原本这里的 pub-music-box -->
                             
-                            <!-- 快捷操作区 (移到右侧) -->
+                            <!-- 快捷操作区 -->
                             <div style="display:flex; gap:10px;">
+                                <button onclick="sendPubAction('slots')" class="cyber-btn" style="width:auto; margin:0; border-color:#bd00ff; color:#bd00ff; font-size:0.8rem; padding: 5px 10px;">
+                                    🎰 老虎机(20)
+                                </button>
+                                <button onclick="sendPubAction('bang')" class="cyber-btn" style="width:auto; margin:0; border-color:#ff3333; color:#ff3333; font-size:0.8rem; padding: 5px 10px;">
+                                    🔫 左轮
+                                </button>
+                                <!-- 原有的按钮 -->
                                 <button onclick="sendPubAction('treat')" class="cyber-btn" style="width:auto; margin:0; border-color:#ffd700; color:#ffd700; font-size:0.8rem; padding: 5px 10px;">
-                                    🍺 请客 (1k)
+                                    🍺 请客
                                 </button>
                                 <button onclick="sendPubAction('roll')" class="cyber-btn" style="width:auto; margin:0; border-color:#fff; color:#fff; font-size:0.8rem; padding: 5px 10px;">
-                                    🎲 掷骰子
+                                    🎲 骰子
                                 </button>
                             </div>
                         </div>
@@ -1126,6 +1133,7 @@
     <script src="script.js?v=10.5"></script>
 </body>
 </html>
+
 
 
 
