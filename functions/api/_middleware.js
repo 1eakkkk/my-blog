@@ -12,7 +12,7 @@ export async function onRequest(context) {
 
   const now = Date.now();
   const windowSize = 60 * 1000; // 1分钟窗口
-  const limit = 30; // 限制：每分钟最多 30 次写操作 (发帖、评论、点赞等)
+  const limit = 180; // 限制：每分钟最多 180 次写操作 (发帖、评论、点赞等)
 
   // 1. 清理过期记录 (为了不让表无限膨胀，这里顺手清理一下)
   // 注意：生产环境最好用 Cron Trigger 每天清理，但这里简化处理
