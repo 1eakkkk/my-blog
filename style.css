@@ -4019,32 +4019,33 @@ body.bg-fire {
     }
 }
 
-/* --- 修复昵称时间显示 & 优化排版 --- */
+/* --- 修复：昵称与时间戳样式分离 --- */
 .pub-name-row {
     display: flex;
-    align-items: center;
+    align-items: baseline; /* 基线对齐，视觉更舒服 */
+    gap: 8px;
     margin-bottom: 4px;
-    gap: 8px; /* 名字和时间的间距 */
 }
 
-/* 名字文本 */
+/* 昵称：加粗、更亮、稍微加大 */
 .pub-name-text {
-    font-size: 0.85rem;
-    color: #888; /* 默认颜色 */
-    font-weight: bold;
-    line-height: 1.2;
+    font-size: 0.95rem; /* 稍微加大 */
+    color: #fff;        /* 亮白色 */
+    font-weight: 900;   /* 极粗 */
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
 
-/* 时间文本 (强制指定颜色，防止被父级透明度影响) */
+/* 时间：变小、暗灰、等宽字体(更有科技感) */
 .pub-time {
-    font-size: 0.65rem;
-    color: #555 !important; /* 强制深灰色 */
-    opacity: 1 !important;
-    white-space: nowrap;
-    margin-top: 2px;
+    font-family: 'Courier New', monospace; /* 机械风格字体 */
+    font-size: 0.7rem;  /* 明显变小 */
+    color: #666 !important; /* 强制暗灰色 */
+    font-weight: normal;
+    opacity: 0.8 !important;
 }
-
 /* 针对炫彩名字的特殊处理 */
 .pub-name-text.color-rainbow {
     display: inline-block; /* 必须 inline-block 渐变才生效 */
 }
+
