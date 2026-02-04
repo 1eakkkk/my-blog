@@ -4432,7 +4432,10 @@ function renderPubMessages(list) {
             div.innerHTML = `
                 <div class="pub-avatar">${avatar}</div>
                 <div style="flex:1; min-width:0;">
-                    <div class="pub-name ${nameClass}">${msg.nickname || msg.username} <span style="font-size:0.6rem;opacity:0.5;margin-left:5px;">${new Date(msg.created_at).toLocaleTimeString()}</span></div>
+                    <div class="pub-name-row">
+                        <span class="pub-name-text ${nameClass}">${msg.nickname || msg.username}</span>
+                        <span class="pub-time">${new Date(msg.created_at).toLocaleTimeString()}</span>
+                    </div>
                     <div class="pub-content ${bubbleClass}">${parseMarkdown(msg.content)}</div>
                 </div>
             `;
@@ -4594,6 +4597,7 @@ window.submitBulkSell = async function() {
         btn.innerText = originalText;
     }
 };
+
 
 
 
