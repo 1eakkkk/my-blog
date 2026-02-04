@@ -4049,3 +4049,8 @@ body.bg-fire {
     display: inline-block; /* 必须 inline-block 渐变才生效 */
 }
 
+/* 艾特通知高亮 */
+.notify-item.notify-mention {
+    border-left-color: #ff00de; /* 赛博粉边框 */
+    background: rgba(255, 0, 222, 0.05);
+}
