@@ -146,16 +146,64 @@ export async function onRequest(context) {
             return Response.json({ success: true });
         }
 
-        // 5. 普通发言 (删除 Music 逻辑)
+        // 5. 普通发言 (增强版：含艾特通知 + 防骚扰)
         if (content) {
+            // 1. 字数限制校验
             if (content.length > 300) {
                 return Response.json({ error: '消息过长 (限300字)' });
             }
+
+            // 2. 频率限制 (防刷屏)
             const last = await db.prepare('SELECT created_at FROM pub_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').bind(user.id).first();
             if (last && (now - last.created_at < 1000)) return Response.json({ error: '说话太快了' });
 
+            // 3. 插入消息到酒馆
             await db.prepare(`INSERT INTO pub_messages (user_id, username, nickname, avatar_url, content, type, created_at) VALUES (?, ?, ?, ?, ?, 'text', ?)`)
                 .bind(user.id, user.username, username, user.avatar_url, content, now).run();
+
+            // ============================================
+            // === 👇 新增：艾特通知与防骚扰逻辑 👇 ===
+            // ============================================
+            
+            // A. 提取所有被艾特的名字 (去重)
+            // 正则匹配 @非空白字符
+            const mentionMatches = [...content.matchAll(/@([^\s@]+)/g)].map(m => m[1]);
+            const uniqueNames = [...new Set(mentionMatches)]; // 去重，防止一条消息 @同一个人10次
+
+            // 限制单条消息最多触发 5 个人的通知 (防止恶意群发)
+            if (uniqueNames.length > 0 && uniqueNames.length <= 5) {
+                
+                for (const targetName of uniqueNames) {
+                    // B. 查找目标用户 (支持 账号 OR 昵称)
+                    const targetUser = await db.prepare('SELECT id FROM users WHERE username = ? OR nickname = ?').bind(targetName, targetName).first();
+                    
+                    // 如果用户存在，且不是自己
+                    if (targetUser && targetUser.id !== user.id) {
+                        
+                        // C. 防骚扰检查 (Cool-down)
+                        // 检查过去 60秒 内，我是否已经给这个人发过 'mention' 类型的通知
+                        const spamCheck = await db.prepare(`
+                            SELECT id FROM notifications 
+                            WHERE user_id = ? 
+                              AND type = 'mention' 
+                              AND message LIKE ? 
+                              AND created_at > ?
+                        `).bind(targetUser.id, `${username}%`, now - 60000).first();
+
+                        // 如果没有刷屏记录，才发送通知
+                        if (!spamCheck) {
+                            const notifyMsg = `${username} 在酒馆提到了你: "${content.substring(0, 15)}..."`;
+                            
+                            // 插入通知 (Link 指向 #pub)
+                            await db.prepare(`
+                                INSERT INTO notifications (user_id, type, message, link, created_at, is_read) 
+                                VALUES (?, 'mention', ?, '#pub', ?, 0)
+                            `).bind(targetUser.id, notifyMsg, now).run();
+                        }
+                    }
+                }
+            }
+            // ============================================
             
             return Response.json({ success: true });
         }
