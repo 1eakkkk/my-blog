@@ -4031,7 +4031,7 @@ body.bg-fire {
 .pub-name-text {
     font-size: 0.95rem; /* 稍微加大 */
     color: #fff;        /* 亮白色 */
-    font-weight: 900;   /* 极粗 */
+    font-weight: 750;   /* 极粗 */
     letter-spacing: 0.5px;
     text-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
@@ -4039,7 +4039,7 @@ body.bg-fire {
 /* 时间：变小、暗灰、等宽字体(更有科技感) */
 .pub-time {
     font-family: 'Courier New', monospace; /* 机械风格字体 */
-    font-size: 0.7rem;  /* 明显变小 */
+    font-size: 0.65rem;  /* 明显变小 */
     color: #666 !important; /* 强制暗灰色 */
     font-weight: normal;
     opacity: 0.8 !important;
@@ -4054,3 +4054,4 @@ body.bg-fire {
     border-left-color: #ff00de; /* 赛博粉边框 */
     background: rgba(255, 0, 222, 0.05);
 }
+
