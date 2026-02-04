@@ -4608,6 +4608,69 @@ window.submitBulkSell = async function() {
     }
 };
 
+// === 全服乐透逻辑 ===
+let lottoTimerInterval = null;
+
+window.openLottoModal = async function() {
+    document.getElementById('lotto-modal').style.display = 'flex';
+    loadLottoData();
+};
+
+window.closeLottoModal = function() {
+    document.getElementById('lotto-modal').style.display = 'none';
+    if(lottoTimerInterval) clearInterval(lottoTimerInterval);
+};
+
+async function loadLottoData() {
+    try {
+        const res = await fetch(`${API_BASE}/lotto`);
+        const data = await res.json();
+        
+        if (data.success) {
+            document.getElementById('lottoPool').innerText = data.pool.toLocaleString();
+            document.getElementById('lottoMyTickets').innerText = data.my_tickets;
+            
+            // 倒计时逻辑
+            if(lottoTimerInterval) clearInterval(lottoTimerInterval);
+            lottoTimerInterval = setInterval(() => {
+                const diff = data.next_draw - Date.now();
+                if (diff <= 0) {
+                    document.getElementById('lottoTimer').innerText = "开奖计算中...";
+                    loadLottoData(); // 刷新看看是否已开奖
+                } else {
+                    const h = Math.floor(diff / 3600000);
+                    const m = Math.floor((diff % 3600000) / 60000);
+                    const s = Math.floor((diff % 60000) / 1000);
+                    document.getElementById('lottoTimer').innerText = `${h}h ${m}m ${s}s`;
+                }
+            }, 1000);
+        }
+    } catch(e) {
+        console.error("Lotto Error", e);
+    }
+}
+
+window.buyLottoTicket = async function() {
+    const btn = document.querySelector('#lotto-modal button:last-child');
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(`${API_BASE}/lotto`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            loadLottoData();    // 刷新界面
+            checkSecurity();    // 刷新侧边栏余额
+        } else {
+            showToast(data.error, 'error');
+        }
+    } catch(e) {
+        showToast("网络错误");
+    } finally {
+        btn.disabled = false;
+    }
+};
 
 
 
