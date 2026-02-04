@@ -646,28 +646,26 @@ async function compressImage(file, quality = 0.7, maxWidth = 1920) {
     });
 }
 
-
-// Markdown 解析辅助函数 (修复版)
+// Markdown 解析辅助函数 (增强版：支持中文艾特)
 function parseMarkdown(text) {
     if (!text) return '';
     
-    // 1. 先解析 @username (在 MD 解析前处理)
-    let processedText = text.replace(/@(\w+)/g, '<a href="#profile?u=$1" class="mention-link">@$1</a>');
+    // 1. 解析 @username (支持中文、英文、数字、下划线)
+    // 这里的正则 [^\s@]+ 表示匹配除了空格和@之外的连续字符
+    let processedText = text.replace(/@([^\s@]+)/g, '<a href="#profile?u=$1" class="mention-link">@$1</a>');
 
     try {
-        // 2. 解析 MD (确保 marked 库已加载)
-        if (typeof marked === 'undefined') return processedText; // 降级处理
+        if (typeof marked === 'undefined') return processedText;
         const rawHtml = marked.parse(processedText);
         
-        // 3. 净化 (确保 DOMPurify 库已加载)
-        if (typeof DOMPurify === 'undefined') return rawHtml; // 降级处理
+        if (typeof DOMPurify === 'undefined') return rawHtml;
         return DOMPurify.sanitize(rawHtml, {
             ADD_TAGS: ['video', 'source', 'iframe'],     
             ADD_ATTR: ['controls', 'src', 'width', 'height', 'style', 'class', 'href', 'target', 'allowfullscreen'] 
         });
     } catch (e) {
         console.error("Markdown parse error:", e);
-        return text; // 出错时返回纯文本
+        return text;
     }
 }
 
@@ -4671,6 +4669,7 @@ window.buyLottoTicket = async function() {
         btn.disabled = false;
     }
 };
+
 
 
 
