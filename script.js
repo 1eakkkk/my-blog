@@ -4468,12 +4468,22 @@ window.sendPubAction = async function(action) {
         if(!confirm("确定消耗 1000 i币 请全场（随机10人）喝酒吗？\n大家会感谢你的！")) return;
     }
     
-    await fetch(`${API_BASE}/pub`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: action })
-    });
-    refreshPubChat();
+    try {
+        const res = await fetch(`${API_BASE}/pub`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ action: action })
+        });
+        
+        // === 修复核心：操作完成后立即刷新余额和聊天 ===
+        await Promise.all([
+            refreshPubChat(), // 刷新聊天看结果
+            checkSecurity()   // 刷新侧边栏余额
+        ]);
+
+    } catch(e) {
+        console.error(e);
+    }
 };
 
 // === 物品操作函数 (出售) ===
@@ -4597,6 +4607,7 @@ window.submitBulkSell = async function() {
         btn.innerText = originalText;
     }
 };
+
 
 
 
