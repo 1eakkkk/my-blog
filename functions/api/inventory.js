@@ -29,7 +29,7 @@ export async function onRequest(context) {
 
       const { action, itemId, category, rarities } = body;
       
-      // === 1. 装备/卸下 ===
+      // === 1. 装备/卸下 (修复版：增加过期校验) ===
       const columnMap = {
           'background': 'equipped_bg',
           'post_style': 'equipped_post_style',
@@ -39,12 +39,34 @@ export async function onRequest(context) {
       const dbColumn = columnMap[category];
       
       if (action === 'equip') {
-          await db.prepare('UPDATE user_items SET is_equipped = 0 WHERE user_id = ? AND category = ?').bind(user.id, category).run();
-          await db.prepare('UPDATE user_items SET is_equipped = 1 WHERE id = ? AND user_id = ?').bind(itemId, user.id).run();
-          if (dbColumn) {
-              const itemRow = await db.prepare('SELECT item_id FROM user_items WHERE id = ?').bind(itemId).first();
-              if (itemRow) await db.prepare(`UPDATE users SET ${dbColumn} = ? WHERE id = ?`).bind(itemRow.item_id, user.id).run();
+          // 1. 先查询物品详情 (检查是否过期)
+          const item = await db.prepare('SELECT * FROM user_items WHERE id = ? AND user_id = ?').bind(itemId, user.id).first();
+          
+          if (!item) return new Response(JSON.stringify({ error: '物品不存在' }));
+          
+          // 2. 过期检查
+          if (item.expires_at && item.expires_at > 0 && item.expires_at < Date.now()) {
+              // 如果已过期，自动标记为未装备，并返回错误
+              await db.prepare('UPDATE user_items SET is_equipped = 0 WHERE id = ?').bind(itemId).run();
+              // 如果正好是当前装备的，清除 users 表状态
+              if (dbColumn) {
+                  // 只有当 users 表里的特效正是这个物品时才清除 (防止误删新买的同类物品)
+                  await db.prepare(`UPDATE users SET ${dbColumn} = NULL WHERE id = ? AND ${dbColumn} = ?`).bind(user.id, item.item_id).run();
+              }
+              return new Response(JSON.stringify({ success: false, error: '该物品已过期，无法装备' }), { status: 400 });
           }
+
+          // 3. 正常装备流程
+          // 先卸下同类别的其他道具
+          await db.prepare('UPDATE user_items SET is_equipped = 0 WHERE user_id = ? AND category = ?').bind(user.id, category).run();
+          // 装备当前道具
+          await db.prepare('UPDATE user_items SET is_equipped = 1 WHERE id = ?').bind(itemId).run();
+          
+          // 同步到 users 表
+          if (dbColumn) {
+              await db.prepare(`UPDATE users SET ${dbColumn} = ? WHERE id = ?`).bind(item.item_id, user.id).run();
+          }
+          
           return new Response(JSON.stringify({ success: true, message: '装备成功' }));
       }
       
