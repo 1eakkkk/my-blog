@@ -2432,9 +2432,21 @@ function renderNotifications(list) {
     
     list.forEach(n => { 
         const div=document.createElement('div'); 
-        div.className=`notify-item ${n.is_read?'':'unread'}`; 
+        
+        // 动态判断类型，如果是 mention (艾特)，加个特殊类名
+        const typeClass = n.type === 'mention' ? 'notify-mention' : '';
+        div.className=`notify-item ${n.is_read?'':'unread'} ${typeClass}`; 
+        
+        // 艾特通知加个 @ 图标
+        let icon = '';
+        if (n.type === 'mention') icon = '<span style="color:#ff00de; font-weight:bold; margin-right:5px;">[@]</span>';
+        if (n.type === 'tip') icon = '<span style="color:#FFD700; margin-right:5px;">[💰]</span>';
+
         const delSpan = `<span onclick="event.stopPropagation(); deleteNotify('${n.id}')" style="float:right;color:#666;cursor:pointer;margin-left:10px">[x]</span>`; 
-        div.innerHTML=`<div class="notify-msg">${n.message} ${delSpan}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`; 
+        
+        div.innerHTML=`<div class="notify-msg">${icon}${n.message} ${delSpan}</div><div class="notify-time">${new Date(n.created_at).toLocaleString()}</div>`; 
+        
+        // 点击跳转
         div.onclick = () => readOneNotify(n.id, n.link, div); 
         c.appendChild(div); 
     });
@@ -4669,6 +4681,7 @@ window.buyLottoTicket = async function() {
         btn.disabled = false;
     }
 };
+
 
 
 
