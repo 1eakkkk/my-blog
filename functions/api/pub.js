@@ -51,7 +51,76 @@ export async function onRequest(context) {
             return Response.json({ success: true });
         }
 
-        // 2. 全场买单 (Treat)
+        // 2. Emoji 老虎机 (/slots)
+        if (content === '/slots' || action === 'slots') {
+            const cost = 20;
+            if (user.coins < cost) return Response.json({ error: '余额不足 20 i' });
+
+            await db.prepare('UPDATE users SET coins = coins - ? WHERE id = ?').bind(cost, user.id).run();
+
+            // 奖池符号
+            const icons = ['🍒', '🍋', '🍇', '💎', '7️⃣'];
+            // 随机生成三个
+            const r1 = icons[Math.floor(Math.random() * icons.length)];
+            const r2 = icons[Math.floor(Math.random() * icons.length)];
+            const r3 = icons[Math.floor(Math.random() * icons.length)];
+            
+            const resultStr = `[ ${r1} | ${r2} | ${r3} ]`;
+            let win = 0;
+            let msg = "";
+
+            // 判定逻辑
+            if (r1 === r2 && r2 === r3) {
+                // 3个全同
+                if (r1 === '7️⃣') win = 1000; // 777 大奖
+                else if (r1 === '💎') win = 500; // 钻石奖
+                else win = 200; // 水果奖
+                msg = `${resultStr} 🎰 JACKPOT! 赢得 ${win} i币!`;
+            } else if (r1 === r2 || r2 === r3 || r1 === r3) {
+                // 2个相同 (小奖)
+                win = 30;
+                msg = `${resultStr} 小赚一笔! 赢得 ${win} i币`;
+            } else {
+                msg = `${resultStr} 谢谢惠顾`;
+            }
+
+            if (win > 0) {
+                await db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(win, user.id).run();
+            }
+
+            // 插入消息 (类型设为 slots，前端可以用特殊样式)
+            await db.prepare(`INSERT INTO pub_messages (user_id, username, nickname, avatar_url, content, type, created_at) VALUES (?, ?, ?, ?, ?, 'roll', ?)`)
+                .bind(user.id, user.username, username, user.avatar_url, msg, now).run();
+
+            return Response.json({ success: true });
+        }
+
+        // 3. 赛博左轮 (/bang)
+        if (content === '/bang' || action === 'bang') {
+            // 规则：1/6 概率中弹(扣500)，5/6 概率幸存(得10)
+            const bullet = Math.floor(Math.random() * 6);
+            let msg = "";
+            
+            if (bullet === 0) {
+                // 中弹
+                const fine = 500;
+                // 扣钱，如果不够扣到0
+                await db.prepare('UPDATE users SET coins = MAX(0, coins - ?) WHERE id = ?').bind(fine, user.id).run();
+                msg = `💥 砰！(中弹倒地，支付 ${fine} i币 医疗费)`;
+            } else {
+                // 幸存
+                const reward = 10;
+                await db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(reward, user.id).run();
+                msg = `🔫 咔嚓... (空枪幸存，获得 ${reward} i币 压惊费)`;
+            }
+
+            await db.prepare(`INSERT INTO pub_messages (user_id, username, nickname, avatar_url, content, type, created_at) VALUES (?, ?, ?, ?, ?, 'roll', ?)`)
+                .bind(user.id, user.username, username, user.avatar_url, msg, now).run();
+
+            return Response.json({ success: true });
+        }
+
+        // 4. 全场买单 (Treat)
         if (action === 'treat') {
             const cost = 1000;
             if (user.coins < cost) return Response.json({ error: '余额不足 1000 i币' });
@@ -77,7 +146,7 @@ export async function onRequest(context) {
             return Response.json({ success: true });
         }
 
-        // 3. 普通发言 (删除 Music 逻辑)
+        // 5. 普通发言 (删除 Music 逻辑)
         if (content) {
             if (content.length > 300) {
                 return Response.json({ error: '消息过长 (限300字)' });
