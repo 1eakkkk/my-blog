@@ -5,16 +5,16 @@ const RARITY_CONFIG = {
     'white':  { color: '#a0a0a0', spin: 1100, name: '破损' }, // 1.1s
     'green':  { color: '#55ff55', spin: 1100, name: '普通' }, // 1.1s
     'blue':   { color: '#00ccff', spin: 1600, name: '稀有' }, // 1.6s
-    'purple': { color: '#d000ff', spin: 2400, name: '史诗' }, // 2.4s
-    'gold':   { color: '#ffd700', spin: 3600, name: '传说' }, // 3.6s
-    'red':    { color: '#ff3333', spin: 5500, name: '机密' }  // 5.5s
+    'purple': { color: '#d000ff', spin: 2100, name: '史诗' }, // 2.4s
+    'gold':   { color: '#ffd700', spin: 2900, name: '传说' }, // 3.6s
+    'red':    { color: '#ff3333', spin: 3600, name: '机密' }  // 5.5s
 };
 
 // === 2. 场次配置 (决定能抽到哪些稀有度) ===
 const TIERS = {
     'basic': { name: '初级场', cost: 10,  pool: ['white', 'green', 'blue', 'purple', 'gold', 'red'] }, 
     'mid':   { name: '中级场', cost: 50,  pool: ['green', 'blue', 'purple', 'gold', 'red'] }, 
-    'adv':   { name: '高级场', cost: 150, pool: ['blue', 'purple', 'gold', 'red'] } 
+    'adv':   { name: '高级场', cost: 150, pool: ['purple', 'gold', 'red'] } 
 };
 
 // === 3. 物品库 (LOOT TABLE) - 核心修改 ===
