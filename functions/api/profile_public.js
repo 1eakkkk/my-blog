@@ -18,8 +18,9 @@ export async function onRequestGet(context) {
   // 1. 获取基本信息
   const user = await db.prepare(`
     SELECT id, username, nickname, avatar_variant, avatar_url, bio, role, custom_title, is_vip, xp, created_at, name_color
-    FROM users WHERE username = ?
-  `).bind(targetUsername).first();
+    FROM users 
+    WHERE username = ? OR nickname = ?
+  `).bind(targetUsername, targetUsername).first();
 
   if (!user) return new Response(JSON.stringify({ error: '用户不存在' }), { status: 404 });
 
