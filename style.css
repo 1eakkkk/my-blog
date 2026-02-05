@@ -4056,68 +4056,62 @@ body.bg-fire {
 }
 
 /* =========================================
-   ☯️ 卦象线条强制修复补丁 (Hexagram Fix)
+   ☯️ 卦象无声修复补丁 (Silent Fix)
    ========================================= */
 
+/* 1. 容器强制占位 */
 #hexagram-stage {
-    /* 强制占位，防止高度塌陷 */
-    min-height: 220px !important; 
+    min-height: 240px !important;
     width: 200px !important;
-    
-    /* 布局 */
     display: flex !important;
-    flex-direction: column-reverse !important; /* 从下往上排 */
-    justify-content: center !important;
-    align-items: center !important;
+    flex-direction: column-reverse !important; /* 从下往上 */
     gap: 15px !important;
-    
-    /* 背景方便调试，正式上线可调淡 */
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px dashed rgba(255, 255, 255, 0.1);
-    margin: 0 auto 20px !important;
     padding: 20px !important;
+    background: rgba(0,0,0,0.5) !important;
+    border: 1px dashed #444 !important;
+    margin: 0 auto 20px !important;
 }
 
-/* 线条基础 */
+/* 2. 线条基础 */
 .yao-line {
     width: 100% !important;
     height: 20px !important;
-    min-height: 20px !important; /* 核心：禁止压缩 */
-    flex-shrink: 0 !important;   /* 核心：禁止压缩 */
+    min-height: 20px !important; /* 防止被压扁 */
+    flex-shrink: 0 !important;
     border-radius: 4px;
     display: block !important;
+    margin: 0 !important;
 }
 
-/* 阳爻 (实心白条) */
+/* 3. 阳爻 (实线 - 白色) */
 .yao-yang {
     background-color: #fff !important;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
-    opacity: 1; /* 默认可见 */
+    box-shadow: 0 0 10px rgba(255,255,255,0.8) !important;
+    opacity: 1; 
 }
 
-/* 阴爻 (中间断开) */
+/* 4. 阴爻 (断线 - 透明背景 + 左右两段色块) */
 .yao-yin {
     background: transparent !important;
     box-shadow: none !important;
     display: flex !important;
     justify-content: space-between !important;
-    opacity: 1; /* 默认可见 */
+    opacity: 1;
 }
 
-/* 阴爻的两段 */
+/* 阴爻的左右两段 */
 .yao-yin::before, .yao-yin::after {
-    content: '' !important;
+    content: '' !important; /* 关键！没有这个就不会显示 */
     display: block !important;
-    width: 42% !important;
+    width: 40% !important;
     height: 100% !important;
-    background-color: #00f3ff !important; /* 亮青色 */
+    background-color: #00f3ff !important; /* 青色 */
     box-shadow: 0 0 8px rgba(0, 243, 255, 0.8) !important;
     border-radius: 4px;
 }
-/* 进场动画 */
+
+/* 5. 动画重置 */
 @keyframes slideInYao {
-    0% { opacity: 0; transform: scaleX(0.5); filter: blur(10px); }
+    0% { opacity: 0; transform: scaleX(0.5); filter: blur(5px); }
     100% { opacity: 1; transform: scaleX(1); filter: blur(0); }
 }
-
-
