@@ -4055,3 +4055,43 @@ body.bg-fire {
     background: rgba(255, 0, 222, 0.05);
 }
 
+/* === ☯️ 赛博八卦样式 === */
+
+/* 爻的容器 */
+#hexagram-stage {
+    border: 1px dashed rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    justify-content: center; /* 垂直居中(因为是column-reverse) */
+}
+
+/* 阳爻 (实线) */
+.yao-yang {
+    width: 100%;
+    height: 20px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(255,255,255,0.8);
+    border-radius: 2px;
+}
+
+/* 阴爻 (断开的线) */
+.yao-yin {
+    width: 100%;
+    height: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+.yao-yin::before, .yao-yin::after {
+    content: '';
+    width: 42%; /* 中间留空 16% */
+    height: 100%;
+    background: #00f3ff; /* 阴爻用冷色调 */
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+    border-radius: 2px;
+}
+
+/* 进场动画 */
+@keyframes slideInYao {
+    0% { opacity: 0; transform: scaleX(0); filter: blur(5px); }
+    100% { opacity: 1; transform: scaleX(1); filter: blur(0); }
+}
