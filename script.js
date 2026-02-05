@@ -2322,7 +2322,7 @@ async function checkAdminStatus() {
     } catch (e) { }
 }
 
-async function loadAdminStats() { checkAdminStatus(); }
+async function loadAdminStats() { checkAdminStatus(); loadAdminOnlineList(); loadAdminUserList(); }
 window.toggleInviteSystem = async function() { const enabled = document.getElementById('inviteToggle').checked; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'toggle_invite_system', enabled: enabled}) }); const data = await res.json(); showToast(data.message, 'success'); } catch(e){ showToast("设置失败"); } };
 async function loadAdminInvites() { const tbody = document.querySelector('#adminInviteTable tbody'); if(!tbody) return; tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>'; try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'get_invites'}) }); const data = await res.json(); tbody.innerHTML = ''; if(data.success && data.list.length > 0) { data.list.forEach(inv => { const isExpired = inv.expires_at < Date.now(); let status = '<span style="color:#0f0">可用</span>'; if(inv.is_used) status = '<span style="color:#666">已用</span>'; else if(isExpired) status = '<span style="color:#f00">过期</span>'; const tr = document.createElement('tr'); tr.innerHTML = `<td>${inv.code}</td><td>${status}</td><td>${new Date(inv.expires_at).toLocaleDateString()}</td><td><button onclick="copyText('${inv.code}')" class="mini-action-btn">COPY</button><button onclick="deleteInvite('${inv.code}')" class="mini-action-btn" style="color:#f33">DEL</button></td>`; tbody.appendChild(tr); }); } else { tbody.innerHTML = '<tr><td colspan="4">暂无数据</td></tr>'; } } catch(e) { tbody.innerHTML = '<tr><td colspan="4">Error</td></tr>'; } }
 window.refillInvites = async function() { try { const res = await fetch(`${API_BASE}/admin`, { method: 'POST', body: JSON.stringify({action: 'refill_invites'}) }); const data = await res.json(); if(data.success) { showToast(data.message, 'success'); loadAdminInvites(); } else showToast(data.error, 'error'); } catch(e){ showToast("网络连接错误", 'error'); } };
@@ -4691,6 +4691,111 @@ window.buyLottoTicket = async function() {
     }
 };
 
+// === 管理后台：加载实时在线用户 ===
+window.loadAdminOnlineList = async function() {
+    const tbody = document.querySelector('#adminOnlineTable tbody');
+    if(!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#00f3ff;">SCANNING...</td></tr>';
+    
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_online_users' })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            if (data.list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#666;">当前无人在线</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            const now = Date.now();
+            
+            data.list.forEach(u => {
+                const diff = Math.floor((now - u.last_seen) / 1000);
+                let timeStr = `${diff}秒前`;
+                if(diff > 60) timeStr = `${Math.floor(diff/60)}分前`;
+                
+                html += `
+                    <tr>
+                        <td>
+                            <div style="font-weight:bold; color:#fff;">${u.nickname || u.username}</div>
+                            <div style="font-size:0.7rem; color:#666;">@${u.username}</div>
+                        </td>
+                        <td style="color:#00f3ff; font-family:monospace;">${timeStr}</td>
+                        <td><span style="color:#0f0;">● Online</span></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            // 顺便更新一下顶部的数字统计
+            const statActive = document.getElementById('statActiveUsers');
+            if(statActive) statActive.innerText = data.list.length;
+        } else {
+            tbody.innerHTML = `<tr><td colspan="3" style="color:red;">${data.error}</td></tr>`;
+        }
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="3" style="color:red;">网络错误</td></tr>';
+    }
+};
+
+// === 管理后台：加载注册用户列表 ===
+window.loadAdminUserList = async function() {
+    const tbody = document.querySelector('#adminUserListTable tbody');
+    if(!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#bd00ff;">LOADING DATABASE...</td></tr>';
+    
+    try {
+        const res = await fetch(`${API_BASE}/admin`, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_user_list' })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            let html = '';
+            data.list.forEach(u => {
+                const date = new Date(u.created_at).toLocaleDateString();
+                // 状态颜色
+                let statusHtml = '<span style="color:#0f0">正常</span>';
+                if(u.status === 'banned') statusHtml = '<span style="color:#f33">封禁</span>';
+                
+                html += `
+                    <tr>
+                        <td style="color:#666;">#${u.id}</td>
+                        <td>
+                            <div style="color:#fff;">${u.username}</div>
+                            <div style="font-size:0.7rem; color:#aaa;">${u.nickname || '-'}</div>
+                        </td>
+                        <td>
+                            <div style="color:#FFD700;">${u.coins.toLocaleString()} i</div>
+                            <div style="font-size:0.7rem; color:#bd00ff;">Lv.${calculateLevel(u.xp).lv}</div>
+                        </td>
+                        <td style="font-size:0.8rem;">
+                            <div>${date}</div>
+                            <div>${statusHtml}</div>
+                        </td>
+                        <td>
+                            <button onclick="adminBanUser('${u.id}')" class="mini-action-btn" style="color:#f33; border-color:#f33;">封禁</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            // 更新顶部总人数
+            const statTotal = document.getElementById('statTotalUsers');
+            if(statTotal) statTotal.innerText = data.list.length; // 注意这里只是分页数量，如果要总数得单独API，不过暂且这样显示
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" style="color:red;">${data.error}</td></tr>`;
+        }
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:red;">网络错误</td></tr>';
+    }
+};
 
 
 
