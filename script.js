@@ -4853,73 +4853,85 @@ window.openDivinationModal = function() {
     document.getElementById('divination-modal').style.display = 'flex';
 };
 
-// 2. 开始起卦
+// 2. 开始起卦 (修复版)
 window.startDivination = async function() {
     const btn = document.getElementById('btn-divine');
     const stage = document.getElementById('hexagram-stage');
     
+    // 锁定按钮
     btn.disabled = true;
-    btn.innerText = "正在演算天机...";
+    btn.innerText = "正在演算天机..."; // 显示Loading状态
     
     try {
         // 请求后端
-        const res = await fetch(`${API_BASE}/draw`, { method: 'POST' }); // 注意：后端文件名还是 draw.js
+        const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
         const data = await res.json();
         
+        // 错误处理：如果后端返回失败（如今日已抽过）
         if (!data.success) {
             showToast(data.error, 'error');
-            btn.innerText = "今日已结束";
+            btn.innerText = "今日已结束"; // 保持禁用状态
             return;
         }
 
-        // === 核心动画：一爻一爻生成 ===
+        // === 成功获取数据，开始表演 ===
         btn.style.display = 'none'; // 隐藏按钮，专注动画
-        stage.innerHTML = ''; // 清空
+        stage.innerHTML = ''; // 清空容器
         
-        // data.lines 是一个数组 [1, 0, 1, ...] (初爻 -> 上爻)
-        // 我们使用递归或者定时器来逐个显示
-        
+        // data.lines 是一个数组 [1, 0, 1, 0, 1, 1] (1=阳, 0=阴)
+        // 我们需要确保 data.lines 存在
+        const lines = data.lines || [1,1,1,1,1,1]; // 保底数据防止报错
+
+        // 循环生成动画
         for (let i = 0; i < 6; i++) {
-            await new Promise(resolve => setTimeout(resolve, 800)); // 每 800ms 出一爻
+            // 每次循环等待 800ms
+            await new Promise(resolve => setTimeout(resolve, 800)); 
             
-            const isYang = data.lines[i] === 1;
+            const isYang = lines[i] === 1;
+            
             const yaoDiv = document.createElement('div');
-            yaoDiv.className = isYang ? 'yao-yang' : 'yao-yin';
-            yaoDiv.style.animation = 'slideInYao 0.5s ease-out forwards';
+            // 添加基础类 .yao-line 和 类型类
+            yaoDiv.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
             
-            // 播放音效 (如果之前有音效系统，这里可以加 playSound('scan'))
-            if (window.playSound) window.playSound('scan');
+            // 强制触发动画
+            yaoDiv.style.animation = 'slideInYao 0.6s ease-out forwards';
+            
+            // 播放音效 (确保 playSound 存在才调用，防止报错)
+            if (typeof window.playSound === 'function') {
+                window.playSound('scan'); 
+            }
             
             stage.appendChild(yaoDiv);
         }
 
-        // 动画结束，显示解签
+        // 动画结束，停顿一下展示结果
         await new Promise(resolve => setTimeout(resolve, 600));
-        if (window.playSound) window.playSound('win');
         
+        if (typeof window.playSound === 'function') {
+            window.playSound('win');
+        }
+        
+        // 显示文字结果
         const resBox = document.getElementById('divination-result');
         resBox.style.display = 'block';
+        
         document.getElementById('gua-name').innerText = data.result.name;
         document.getElementById('gua-desc').innerHTML = `
-            <strong style="color:#bc13fe">[${data.result.title}]</strong><br>
-            ${data.result.desc}<br><br>
-            <span style="font-size:0.8rem; color:#888;">${data.message}</span>
+            <div style="font-size:3rem; margin-bottom:10px; color:${data.result.title === '乾' || data.result.title === '坤' ? 'gold' : '#fff'}">${data.result.title}</div>
+            <div style="padding:10px; border-left:3px solid #bc13fe; background:rgba(255,255,255,0.05); margin-bottom:10px;">
+                ${data.result.desc}
+            </div>
+            <div style="font-size:0.8rem; color:#0f0; margin-top:10px;">
+                ${data.message}
+            </div>
         `;
         
-        checkSecurity(); // 刷新经验/金币
+        checkSecurity(); // 刷新侧边栏的经验/金币
 
     } catch (e) {
-        console.error(e);
-        showToast("天机混乱 (网络错误)", "error");
+        console.error("Divination Error:", e);
+        showToast("天机混乱 (数据解析错误)", "error");
         btn.disabled = false;
+        btn.innerText = "重试";
     }
 };
-
-
-
-
-
-
-
-
-
