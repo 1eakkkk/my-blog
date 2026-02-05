@@ -4757,6 +4757,15 @@ window.loadAdminUserList = async function() {
         const data = await res.json();
         
         if (data.success) {
+            // === 新增：更新标题栏的数字显示 ===
+            const titleEl = document.querySelector('#view-admin h3'); // 或者更精确的选择器
+            // 找到包含 "注册用户明细" 的那个 h3 元素
+            const headers = document.querySelectorAll('#view-admin h3');
+            headers.forEach(h => {
+                if(h.innerText.includes('注册用户明细')) {
+                    h.innerText = `📋 注册用户明细 (共 ${data.list.length} 人)`;
+                }
+            });
             let html = '';
             data.list.forEach(u => {
                 const date = new Date(u.created_at).toLocaleDateString();
@@ -4796,6 +4805,7 @@ window.loadAdminUserList = async function() {
         tbody.innerHTML = '<tr><td colspan="5" style="color:red;">网络错误</td></tr>';
     }
 };
+
 
 
 
