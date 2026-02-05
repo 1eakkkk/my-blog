@@ -4880,14 +4880,14 @@ window.openDivinationModal = async function() {
     }
 };
 
-// 2. 点击按钮开始起卦 (带动画)
+// 2. 点击按钮开始起卦 (静音修复版)
 window.startDivination = async function() {
     const btn = document.getElementById('btn-divine');
     const stage = document.getElementById('hexagram-stage');
     
     btn.disabled = true;
     btn.innerText = "正在演算天机...";
-    stage.innerHTML = ''; 
+    stage.innerHTML = ''; // 清空容器
     
     try {
         // 真正抽签
@@ -4896,26 +4896,29 @@ window.startDivination = async function() {
         
         if (!data.success) {
             showToast(data.error, 'error');
+            btn.innerText = "今日已结束"; 
             return;
         }
 
         btn.style.display = 'none'; // 隐藏按钮
 
-        // 动画画线
-        const lines = data.lines || [1,1,1,1,1,1];
+        // 确保 lines 数据存在
+        const lines = data.lines || [1,1,1,1,1,1]; 
+        
+        // 动画画线 (无音效)
         for (let i = 0; i < 6; i++) {
-            await new Promise(r => setTimeout(r, 800));
+            await new Promise(r => setTimeout(r, 800)); // 等待800毫秒
             addYaoLine(lines[i], true); // true = 带动画
-            if (window.playSound) window.playSound('scan');
         }
 
+        // 动画结束，展示文字结果
         await new Promise(r => setTimeout(r, 600));
-        if (window.playSound) window.playSound('win');
         
         showHexagramResult(data);
         checkSecurity();
 
     } catch (e) {
+        console.error(e);
         showToast("天机混乱", "error");
     }
 };
@@ -4966,4 +4969,5 @@ function showHexagramResult(data) {
         ${data.played ? '' : `<div style="font-size:0.8rem; color:#0f0;">${data.message}</div>`}
     `;
 }
+
 
