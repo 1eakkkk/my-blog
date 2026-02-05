@@ -4808,11 +4808,11 @@ window.loadAdminUserList = async function() {
     }
 };
 
-// === ☯️ 赛博卜筮 (I Ching Divination) ===
+// === ☯️ 赛博卜筮 (修复版：自动回看) ===
 
-// 1. 打开弹窗
-window.openDivinationModal = function() {
-    // 检查是否已经存在弹窗 DOM，不存在则创建
+// 1. 打开弹窗 (同时检查状态)
+window.openDivinationModal = async function() {
+    // 确保弹窗 HTML 存在
     if (!document.getElementById('divination-modal')) {
         const modalHtml = `
         <div id="divination-modal" class="modal-overlay" style="display:none;">
@@ -4820,11 +4820,8 @@ window.openDivinationModal = function() {
                 <h3 style="color:#fff; font-family:'Courier New',serif; margin-bottom:10px;">🔮 QUANTUM I-CHING</h3>
                 <p style="color:#888; font-size:0.8rem; margin-bottom:20px;">接入周易算法矩阵... 每日一次</p>
                 
-                <!-- 卦象显示区 (六爻容器) -->
-                <div id="hexagram-stage" style="width:160px; height:200px; display:flex; flex-direction:column-reverse; gap:10px; margin-bottom:20px; position:relative;">
-                    <!-- JS 将在这里动态插入线条 -->
-                    <div class="yao-placeholder"></div>
-                </div>
+                <!-- 卦象显示区 -->
+                <div id="hexagram-stage"></div>
 
                 <!-- 结果文本区 -->
                 <div id="divination-result" style="display:none; animation:fadeIn 1s;">
@@ -4834,6 +4831,7 @@ window.openDivinationModal = function() {
 
                 <!-- 按钮区 -->
                 <div style="margin-top:auto; width:100%;">
+                    <div id="divine-loading" style="display:none; color:#00f3ff;">正在读取天机...</div>
                     <button id="btn-divine" onclick="startDivination()" class="cyber-btn" style="border-color:#fff;">⚡ 开始起卦</button>
                     <button onclick="document.getElementById('divination-modal').style.display='none'" class="cyber-btn" style="border-color:#666; color:#888; margin-top:10px;">离开</button>
                 </div>
@@ -4842,96 +4840,119 @@ window.openDivinationModal = function() {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
     
-    // 重置状态
-    document.getElementById('hexagram-stage').innerHTML = '';
-    document.getElementById('divination-result').style.display = 'none';
+    // 初始化 UI
+    const modal = document.getElementById('divination-modal');
     const btn = document.getElementById('btn-divine');
-    btn.style.display = 'block';
-    btn.disabled = false;
-    btn.innerText = "⚡ 开始起卦";
+    const stage = document.getElementById('hexagram-stage');
+    const resBox = document.getElementById('divination-result');
+    const loading = document.getElementById('divine-loading');
     
-    document.getElementById('divination-modal').style.display = 'flex';
+    stage.innerHTML = '';
+    resBox.style.display = 'none';
+    btn.style.display = 'none'; // 先隐藏按钮
+    loading.style.display = 'block';
+    
+    modal.style.display = 'flex';
+
+    try {
+        // 请求状态：只检查，不抽
+        const res = await fetch(`${API_BASE}/draw`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'check' }) 
+        });
+        const data = await res.json();
+        
+        loading.style.display = 'none';
+
+        if (data.success && data.played) {
+            // === 今日已抽：直接展示结果 (无动画) ===
+            renderHexagram(data.lines); // 画线
+            showHexagramResult(data);   // 显示文字
+        } else {
+            // === 今日未抽：显示开始按钮 ===
+            btn.style.display = 'block';
+            btn.disabled = false;
+            btn.innerText = "⚡ 开始起卦";
+        }
+    } catch(e) {
+        loading.innerText = "连接失败";
+    }
 };
 
-// 2. 开始起卦 (修复版)
+// 2. 点击按钮开始起卦 (带动画)
 window.startDivination = async function() {
     const btn = document.getElementById('btn-divine');
     const stage = document.getElementById('hexagram-stage');
     
-    // 锁定按钮
     btn.disabled = true;
-    btn.innerText = "正在演算天机..."; // 显示Loading状态
+    btn.innerText = "正在演算天机...";
+    stage.innerHTML = ''; 
     
     try {
-        // 请求后端
+        // 真正抽签
         const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
         const data = await res.json();
         
-        // 错误处理：如果后端返回失败（如今日已抽过）
         if (!data.success) {
             showToast(data.error, 'error');
-            btn.innerText = "今日已结束"; // 保持禁用状态
             return;
         }
 
-        // === 成功获取数据，开始表演 ===
-        btn.style.display = 'none'; // 隐藏按钮，专注动画
-        stage.innerHTML = ''; // 清空容器
-        
-        // data.lines 是一个数组 [1, 0, 1, 0, 1, 1] (1=阳, 0=阴)
-        // 我们需要确保 data.lines 存在
-        const lines = data.lines || [1,1,1,1,1,1]; // 保底数据防止报错
+        btn.style.display = 'none'; // 隐藏按钮
 
-        // 循环生成动画
+        // 动画画线
+        const lines = data.lines || [1,1,1,1,1,1];
         for (let i = 0; i < 6; i++) {
-            // 每次循环等待 800ms
-            await new Promise(resolve => setTimeout(resolve, 800)); 
-            
-            const isYang = lines[i] === 1;
-            
-            const yaoDiv = document.createElement('div');
-            // 添加基础类 .yao-line 和 类型类
-            yaoDiv.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
-            
-            // 强制触发动画
-            yaoDiv.style.animation = 'slideInYao 0.6s ease-out forwards';
-            
-            // 播放音效 (确保 playSound 存在才调用，防止报错)
-            if (typeof window.playSound === 'function') {
-                window.playSound('scan'); 
-            }
-            
-            stage.appendChild(yaoDiv);
+            await new Promise(r => setTimeout(r, 800));
+            addYaoLine(lines[i], true); // true = 带动画
+            if (window.playSound) window.playSound('scan');
         }
 
-        // 动画结束，停顿一下展示结果
-        await new Promise(resolve => setTimeout(resolve, 600));
+        await new Promise(r => setTimeout(r, 600));
+        if (window.playSound) window.playSound('win');
         
-        if (typeof window.playSound === 'function') {
-            window.playSound('win');
-        }
-        
-        // 显示文字结果
-        const resBox = document.getElementById('divination-result');
-        resBox.style.display = 'block';
-        
-        document.getElementById('gua-name').innerText = data.result.name;
-        document.getElementById('gua-desc').innerHTML = `
-            <div style="font-size:3rem; margin-bottom:10px; color:${data.result.title === '乾' || data.result.title === '坤' ? 'gold' : '#fff'}">${data.result.title}</div>
-            <div style="padding:10px; border-left:3px solid #bc13fe; background:rgba(255,255,255,0.05); margin-bottom:10px;">
-                ${data.result.desc}
-            </div>
-            <div style="font-size:0.8rem; color:#0f0; margin-top:10px;">
-                ${data.message}
-            </div>
-        `;
-        
-        checkSecurity(); // 刷新侧边栏的经验/金币
+        showHexagramResult(data);
+        checkSecurity();
 
     } catch (e) {
-        console.error("Divination Error:", e);
-        showToast("天机混乱 (数据解析错误)", "error");
-        btn.disabled = false;
-        btn.innerText = "重试";
+        showToast("天机混乱", "error");
     }
 };
+
+// 辅助：画一卦 (静态)
+function renderHexagram(lines) {
+    const stage = document.getElementById('hexagram-stage');
+    stage.innerHTML = '';
+    if(!lines) return;
+    lines.forEach(val => addYaoLine(val, false)); // false = 无动画
+}
+
+// 辅助：添加单条爻
+function addYaoLine(val, animate) {
+    const stage = document.getElementById('hexagram-stage');
+    const div = document.createElement('div');
+    const isYang = (val === 1);
+    
+    div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
+    if (animate) div.style.animation = 'slideInYao 0.6s ease-out forwards';
+    else div.style.opacity = '1'; // 静态直接显示
+    
+    stage.appendChild(div);
+}
+
+// 辅助：显示文字结果
+function showHexagramResult(data) {
+    const resBox = document.getElementById('divination-result');
+    resBox.style.display = 'block';
+    
+    document.getElementById('gua-name').innerText = data.result.name;
+    // 上面截图里 泽风大过 是 data.result.name，下面大字 大过 是 data.result.title
+    document.getElementById('gua-desc').innerHTML = `
+        <div style="font-size:3rem; margin-bottom:10px; color:${['乾','坤'].includes(data.result.title)?'gold':'#fff'}">${data.result.title}</div>
+        <div style="padding:10px; border-left:3px solid #bc13fe; background:rgba(255,255,255,0.05); margin-bottom:10px;">
+            ${data.result.desc}
+        </div>
+        ${data.played ? '' : `<div style="font-size:0.8rem; color:#0f0;">${data.message}</div>`}
+    `;
+}
