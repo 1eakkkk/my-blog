@@ -18,15 +18,23 @@ export async function onRequestPost(context) {
   const { action } = req;
 
   try {
-      // === 1. 获取统计数据 (Get Stats) ===
+      // === 1. 获取统计数据 (修复版：实时 + 日活) ===
       if (action === 'get_stats') {
-          // 使用 try-catch 包裹具体的查询，防止某个表不存在导致整个接口 500
           try {
+              const now = Date.now();
+              const oneDayAgo = now - (24 * 60 * 60 * 1000); // 24小时前
+              const fiveMinAgo = now - (5 * 60 * 1000);      // 5分钟前 (视为在线)
+
+              // 1. 总注册数
               const total = await db.prepare('SELECT COUNT(*) as c FROM users').first();
-              const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-              const active = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(oneDayAgo).first();
               
-              // 容错查询：如果没有 system_settings 表，返回默认值
+              // 2. 24H 日活 (DAU)
+              const dau = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(oneDayAgo).first();
+              
+              // 3. 实时在线 (Online)
+              const online = await db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').bind(fiveMinAgo).first();
+              
+              // 获取系统设置状态
               let inviteRequired = false;
               let turnstileEnabled = false;
               let unreadFb = 0;
@@ -40,14 +48,13 @@ export async function onRequestPost(context) {
 
                   const fbCount = await db.prepare('SELECT COUNT(*) as c FROM feedbacks WHERE is_read = 0').first();
                   if(fbCount) unreadFb = fbCount.c;
-              } catch(tableErr) {
-                  console.log("Admin stats table missing:", tableErr);
-              }
+              } catch(e) {}
 
               return new Response(JSON.stringify({ 
                   success: true, 
                   totalUsers: total ? total.c : 0, 
-                  activeUsers: active ? active.c : 0,
+                  activeUsers: dau ? dau.c : 0,    // 24小时日活
+                  onlineUsers: online ? online.c : 0, // 实时在线 (新字段)
                   inviteRequired,
                   unreadFeedback: unreadFb,
                   turnstileEnabled
