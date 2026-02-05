@@ -4055,58 +4055,69 @@ body.bg-fire {
     background: rgba(255, 0, 222, 0.05);
 }
 
-/* === ☯️ 赛博八卦样式 (修复版) === */
+/* =========================================
+   ☯️ 卦象线条强制修复补丁 (Hexagram Fix)
+   ========================================= */
 
-/* 爻的容器 */
 #hexagram-stage {
-    border: 1px dashed rgba(255,255,255,0.2);
-    background: rgba(0,0,0,0.5);
-    padding: 20px;
-    width: 200px;
-    height: 220px; /* 确保有足够高度容纳6根线 + 间距 */
-    display: flex;
-    flex-direction: column-reverse; /* 从下往上 */
-    gap: 12px; /* 线条间距 */
-    justify-content: center;
-    align-items: center;
-    margin: 0 auto 20px;
-    flex-shrink: 0; /* 防止被挤压 */
+    /* 强制占位，防止高度塌陷 */
+    min-height: 220px !important; 
+    width: 200px !important;
+    
+    /* 布局 */
+    display: flex !important;
+    flex-direction: column-reverse !important; /* 从下往上排 */
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 15px !important;
+    
+    /* 背景方便调试，正式上线可调淡 */
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    margin: 0 auto 20px !important;
+    padding: 20px !important;
 }
 
+/* 线条基础 */
 .yao-line {
-    width: 100%;
-    height: 20px; /* 线条粗细 */
-    border-radius: 2px;
-    flex-shrink: 0; /* 关键：防止高度塌陷 */
+    width: 100% !important;
+    height: 20px !important;
+    min-height: 20px !important; /* 核心：禁止压缩 */
+    flex-shrink: 0 !important;   /* 核心：禁止压缩 */
+    border-radius: 4px;
+    display: block !important;
 }
 
-/* 阳爻 (实线 - 纯白发光) */
+/* 阳爻 (实心白条) */
 .yao-yang {
-    background: #fff;
-    box-shadow: 0 0 15px rgba(255,255,255,0.8);
+    background-color: #fff !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
+    opacity: 1; /* 默认可见 */
 }
 
-/* 阴爻 (断开的线 - 赛博蓝) */
+/* 阴爻 (中间断开) */
 .yao-yin {
-    background: transparent; /* 背景透明 */
-    display: flex;
-    justify-content: space-between;
-    box-shadow: none; /* 清除外层阴影 */
+    background: transparent !important;
+    box-shadow: none !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    opacity: 1; /* 默认可见 */
 }
 
 /* 阴爻的两段 */
 .yao-yin::before, .yao-yin::after {
-    content: '';
-    width: 40%; 
-    height: 100%;
-    background: #00f3ff;
-    box-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
+    content: '' !important;
+    display: block !important;
+    width: 42% !important;
+    height: 100% !important;
+    background-color: #00f3ff !important; /* 亮青色 */
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.8) !important;
     border-radius: 4px;
 }
-
 /* 进场动画 */
 @keyframes slideInYao {
     0% { opacity: 0; transform: scaleX(0.5); filter: blur(10px); }
     100% { opacity: 1; transform: scaleX(1); filter: blur(0); }
 }
+
 
