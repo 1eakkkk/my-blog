@@ -2295,14 +2295,8 @@ async function checkAdminStatus() {
         const data = await res.json();
         
         if (data.success) {
+            // 1. 设置反馈红点
             const badge = document.getElementById('adminFeedbackBadge');
-            
-            // 这是你新增的逻辑，也要确保元素存在再赋值，防止报错
-            const toggle = document.getElementById('turnstileToggle');
-            if (toggle) {
-                toggle.checked = data.turnstileEnabled;
-            }
-
             if (badge) {
                 if (data.unreadFeedback > 0) {
                     badge.style.display = 'inline-block';
@@ -2312,14 +2306,22 @@ async function checkAdminStatus() {
                 }
             }
             
+            // 2. 设置开关状态
+            const toggle = document.getElementById('turnstileToggle');
+            const invToggle = document.getElementById('inviteToggle');
+            if (toggle) toggle.checked = data.turnstileEnabled;
+            if (invToggle) invToggle.checked = data.inviteRequired;
+
+            // 3. === 核心修复：更新三个统计数字 ===
             const statTotal = document.getElementById('statTotalUsers');
-            if (statTotal && statTotal.offsetParent !== null) {
-                statTotal.innerText = data.totalUsers;
-                document.getElementById('statActiveUsers').innerText = data.activeUsers;
-                document.getElementById('inviteToggle').checked = data.inviteRequired;
-            }
+            const statActive = document.getElementById('statActiveUsers');
+            const statOnline = document.getElementById('statRealTimeOnline'); // 新增
+
+            if (statTotal) statTotal.innerText = data.totalUsers;
+            if (statActive) statActive.innerText = data.activeUsers; // 日活
+            if (statOnline) statOnline.innerText = data.onlineUsers; // 实时在线
         }
-    } catch (e) { }
+    } catch (e) { console.error("Admin Stats Error", e); }
 }
 
 async function loadAdminStats() { checkAdminStatus(); loadAdminOnlineList(); loadAdminUserList(); }
@@ -4805,6 +4807,7 @@ window.loadAdminUserList = async function() {
         tbody.innerHTML = '<tr><td colspan="5" style="color:red;">网络错误</td></tr>';
     }
 };
+
 
 
 
