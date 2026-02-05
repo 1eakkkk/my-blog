@@ -891,6 +891,57 @@
                         </div>
                     </div>
 
+                    <!-- === 新增：监控面板区域 === -->
+                    <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
+                        
+                        <!-- 左侧：实时在线监控 -->
+                        <div class="glass-card" style="flex:1; min-width:300px; border-color:#00f3ff;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h3 style="color:#00f3ff; margin:0;">🟢 实时在线监控 (5min)</h3>
+                                <button onclick="loadAdminOnlineList()" class="mini-action-btn" style="border-color:#00f3ff; color:#00f3ff;">🔄 刷新</button>
+                            </div>
+                            <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+                                <table class="tech-table" id="adminOnlineTable">
+                                    <thead>
+                                        <tr>
+                                            <th>用户</th>
+                                            <th>最后活跃</th>
+                                            <th>状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="3" style="text-align:center">点击刷新加载...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 右侧：注册用户明细 -->
+                        <div class="glass-card" style="flex:1; min-width:300px; border-color:#bd00ff;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h3 style="color:#bd00ff; margin:0;">📋 注册用户明细 (Top 100)</h3>
+                                <button onclick="loadAdminUserList()" class="mini-action-btn" style="border-color:#bd00ff; color:#bd00ff;">🔄 刷新</button>
+                            </div>
+                            <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+                                <table class="tech-table" id="adminUserListTable">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>账号/昵称</th>
+                                            <th>资产</th>
+                                            <th>注册时间</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="5" style="text-align:center">点击刷新加载...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- === 新增结束 === -->
+
                     <!-- 2. 站点设置 -->
                     <div class="glass-card" style="margin-bottom:20px;">
                         <h3>SYSTEM CONTROL</h3>
@@ -1163,6 +1214,7 @@
     <script src="script.js?v=10.6"></script>
 </body>
 </html>
+
 
 
 
