@@ -4061,24 +4061,23 @@ body.bg-fire {
 #hexagram-stage {
     border: 1px dashed rgba(255,255,255,0.2);
     background: rgba(0,0,0,0.5);
-    padding: 20px; /* 增加内边距 */
-    width: 180px;  /*稍微加宽 */
-    height: 240px; /* 稍微加高 */
+    padding: 20px;
+    width: 200px;
+    height: 220px; /* 确保有足够高度容纳6根线 + 间距 */
     display: flex;
-    flex-direction: column-reverse; /* 从下往上排 */
-    gap: 15px; /* 增加间距 */
+    flex-direction: column-reverse; /* 从下往上 */
+    gap: 12px; /* 线条间距 */
     justify-content: center;
     align-items: center;
-    margin: 0 auto 20px; /* 居中 */
+    margin: 0 auto 20px;
+    flex-shrink: 0; /* 防止被挤压 */
 }
 
-/* 通用线条样式 */
 .yao-line {
     width: 100%;
-    height: 20px;
-    flex-shrink: 0; /* 关键：禁止被压缩！ */
-    border-radius: 4px;
-    opacity: 0; /* 初始透明，由动画控制显示 */
+    height: 20px; /* 线条粗细 */
+    border-radius: 2px;
+    flex-shrink: 0; /* 关键：防止高度塌陷 */
 }
 
 /* 阳爻 (实线 - 纯白发光) */
@@ -4110,3 +4109,4 @@ body.bg-fire {
     0% { opacity: 0; transform: scaleX(0.5); filter: blur(10px); }
     100% { opacity: 1; transform: scaleX(1); filter: blur(0); }
 }
+
