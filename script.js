@@ -4928,15 +4928,25 @@ function renderHexagram(lines) {
     lines.forEach(val => addYaoLine(val, false)); // false = 无动画
 }
 
-// 辅助：添加单条爻
+// 辅助：添加单条爻 (增强版)
 function addYaoLine(val, animate) {
     const stage = document.getElementById('hexagram-stage');
+    if (!stage) return;
+
     const div = document.createElement('div');
-    const isYang = (val === 1);
+    // 强制转为数字比较，防止 '1' 和 1 不匹配
+    const isYang = (Number(val) === 1);
     
     div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
-    if (animate) div.style.animation = 'slideInYao 0.6s ease-out forwards';
-    else div.style.opacity = '1'; // 静态直接显示
+    
+    if (animate) {
+        // 新起卦：使用动画
+        div.style.animation = 'slideInYao 0.6s ease-out forwards';
+    } else {
+        // 回看：强制不透明，清除动画属性
+        div.style.animation = 'none';
+        div.style.opacity = '1'; 
+    }
     
     stage.appendChild(div);
 }
@@ -4956,3 +4966,4 @@ function showHexagramResult(data) {
         ${data.played ? '' : `<div style="font-size:0.8rem; color:#0f0;">${data.message}</div>`}
     `;
 }
+
