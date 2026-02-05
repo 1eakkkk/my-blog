@@ -4844,6 +4844,18 @@ window.openDivinationModal = async function() {
     const modal = document.getElementById('divination-modal');
     const btn = document.getElementById('btn-divine');
     const stage = document.getElementById('hexagram-stage');
+    if (stage) {
+        stage.style.display = 'flex';
+        stage.style.flexDirection = 'column-reverse'; // 从下往上排
+        stage.style.justifyContent = 'center';
+        stage.style.alignItems = 'center';
+        stage.style.width = '200px';
+        stage.style.minHeight = '240px'; // 给足高度
+        stage.style.margin = '0 auto 20px';
+        stage.style.background = 'rgba(0,0,0,0.3)';
+        stage.style.border = '1px dashed rgba(255,255,255,0.2)';
+        stage.style.padding = '20px';
+    }
     const resBox = document.getElementById('divination-result');
     const loading = document.getElementById('divine-loading');
     
@@ -4931,26 +4943,66 @@ function renderHexagram(lines) {
     lines.forEach(val => addYaoLine(val, false)); // false = 无动画
 }
 
-// 辅助：添加单条爻 (增强版)
+// 辅助：添加单条爻 (JS 强制渲染版)
 function addYaoLine(val, animate) {
     const stage = document.getElementById('hexagram-stage');
     if (!stage) return;
 
+    // 1. 创建主容器 (整行)
     const div = document.createElement('div');
-    // 强制转为数字比较，防止 '1' 和 1 不匹配
     const isYang = (Number(val) === 1);
+
+    // === 核心修复：直接写入内联样式 (无视 CSS 文件) ===
+    div.style.width = '100%';
+    div.style.height = '20px';       // 强制高度
+    div.style.minHeight = '20px';    // 锁死最小高度
+    div.style.marginBottom = '15px'; // 行间距
+    div.style.borderRadius = '4px';
+    div.style.flexShrink = '0';      // 禁止被压缩
+    div.style.display = 'block';     // 确保是块级
     
-    div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
-    
-    if (animate) {
-        // 新起卦：使用动画
-        div.style.animation = 'slideInYao 0.6s ease-out forwards';
+    // 2. 根据阴阳构建内部结构
+    if (isYang) {
+        // === 阳爻：白色实心条 ===
+        div.style.backgroundColor = '#fff';
+        div.style.boxShadow = '0 0 15px rgba(255,255,255,0.9)';
+        div.style.border = '1px solid rgba(255,255,255,0.5)';
     } else {
-        // 回看：强制不透明，清除动画属性
-        div.style.animation = 'none';
-        div.style.opacity = '1'; 
+        // === 阴爻：透明背景 + 两个左右浮动的子块 ===
+        div.style.backgroundColor = 'transparent';
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        div.style.boxShadow = 'none';
+        
+        // 创建左段
+        const left = document.createElement('div');
+        left.style.width = '42%';
+        left.style.height = '100%';
+        left.style.backgroundColor = '#00f3ff'; // 青色
+        left.style.borderRadius = '4px';
+        left.style.boxShadow = '0 0 10px rgba(0, 243, 255, 0.8)';
+        
+        // 创建右段 (克隆左段)
+        const right = left.cloneNode(true);
+        
+        div.appendChild(left);
+        div.appendChild(right);
     }
-    
+
+    // 3. 动画处理 (使用 Web Animation API，不依赖 CSS 类)
+    if (animate) {
+        div.animate([
+            { opacity: 0, transform: 'scaleX(0.5) blur(5px)' },
+            { opacity: 1, transform: 'scaleX(1) blur(0)' }
+        ], {
+            duration: 600,
+            easing: 'ease-out',
+            fill: 'forwards'
+        });
+    } else {
+        div.style.opacity = '1';
+    }
+
     stage.appendChild(div);
 }
 
@@ -4969,5 +5021,6 @@ function showHexagramResult(data) {
         ${data.played ? '' : `<div style="font-size:0.8rem; color:#0f0;">${data.message}</div>`}
     `;
 }
+
 
 
