@@ -1,7 +1,5 @@
-// --- functions/api/draw.js (周易六十四卦版) ---
+// --- functions/api/draw.js (带记忆功能版) ---
 
-// === 1. 64卦数据库 (Key: 从初爻到上爻的二进制, 0=阴, 1=阳) ===
-// 为了节省篇幅，这里使用了精简的解释。你可以随时扩充 desc 内容。
 const HEXAGRAMS = {
     "111111": { name: "乾为天", title: "乾", desc: "元亨利贞。大吉之象，如龙飞天，刚健中正。宜进取，忌傲慢。" },
     "000000": { name: "坤为地", title: "坤", desc: "厚德载物。柔顺伸展，先迷后得。宜包容，利西南，不利东北。" },
@@ -69,36 +67,20 @@ const HEXAGRAMS = {
     "010101": { name: "火水未济", title: "未济", desc: "未完成，充满希望。亨，小狐汔济，濡其尾，无攸利。" }
 };
 
+// ... addXpWithCap, tossCoins 辅助函数保持不变 ...
 async function addXpWithCap(db, userId, amount, today) {
   const user = await db.prepare('SELECT daily_xp, last_xp_date FROM users WHERE id = ?').bind(userId).first();
   let currentDailyXp = (user.last_xp_date === today) ? (user.daily_xp || 0) : 0;
-  
-  if (currentDailyXp >= 120) {
-      await db.prepare('UPDATE users SET last_xp_date = ? WHERE id = ?').bind(today, userId).run();
-      return { added: 0, msg: '今日经验已满' };
-  }
-  
+  if (currentDailyXp >= 120) { await db.prepare('UPDATE users SET last_xp_date = ? WHERE id = ?').bind(today, userId).run(); return { added: 0, msg: '今日经验已满' }; }
   let actualAdd = amount;
   if (currentDailyXp + amount > 120) actualAdd = 120 - currentDailyXp;
-  
-  await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?')
-    .bind(actualAdd, currentDailyXp + actualAdd, today, userId).run();
-    
+  await db.prepare('UPDATE users SET xp = xp + ?, daily_xp = ?, last_xp_date = ? WHERE id = ?').bind(actualAdd, currentDailyXp + actualAdd, today, userId).run();
   return { added: actualAdd, msg: `经验 +${actualAdd}` };
 }
 
-// 模拟三枚铜钱抛掷 (3=背/阳, 2=字/阴)
 function tossCoins() {
-    const coin1 = Math.random() > 0.5 ? 3 : 2;
-    const coin2 = Math.random() > 0.5 ? 3 : 2;
-    const coin3 = Math.random() > 0.5 ? 3 : 2;
-    const sum = coin1 + coin2 + coin3;
-    
-    // 6(老阴), 8(少阴) -> 阴爻(0)
-    // 7(少阳), 9(老阳) -> 阳爻(1)
-    // 这里为了简化，只取本卦，不处理变爻
-    const isYang = (sum % 2 !== 0); 
-    return { val: sum, isYang: isYang ? 1 : 0 };
+    const sum = (Math.random()>0.5?3:2) + (Math.random()>0.5?3:2) + (Math.random()>0.5?3:2);
+    return { val: sum, isYang: (sum % 2 !== 0) ? 1 : 0 };
 }
 
 export async function onRequestPost(context) {
@@ -110,44 +92,63 @@ export async function onRequestPost(context) {
   const user = await db.prepare(`SELECT * FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
   if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }));
 
-  if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号封禁中' }));
-
   const now = Date.now();
   const utc8 = new Date(now + (8 * 60 * 60 * 1000));
   const today = utc8.toISOString().split('T')[0];
 
+  const requestBody = await context.request.json().catch(() => ({}));
+  // 前端传入 action='check' 用于查询状态
+  const isCheck = requestBody.action === 'check';
+
+  // === 1. 检查今日是否已抽 (包含 Check 逻辑) ===
   if (user.last_draw === today) {
-    return new Response(JSON.stringify({ success: false, error: '今日天机已泄，请明日再来。' }));
+      // 核心修改：如果已抽，不报错，而是返回存储的卦象
+      const savedCode = user.daily_hexagram_code;
+      if (savedCode && HEXAGRAMS[savedCode]) {
+          // 把 code 字符串 "101010" 转回数组 [1,0,1,0,1,0]
+          const lines = savedCode.split('').map(Number);
+          
+          return new Response(JSON.stringify({ 
+              success: true, 
+              played: true, // 标记已玩过
+              lines: lines,
+              result: HEXAGRAMS[savedCode],
+              message: "今日卦象已定，宜顺势而为。"
+          }));
+      }
   }
 
-  // === 赛博算卦核心逻辑 ===
-  let binaryCode = "";
-  let lines = []; // 存储每一爻的数据，用于前端动画展示
+  // 如果只是 check 状态，且没抽过，则返回未抽
+  if (isCheck) {
+      return new Response(JSON.stringify({ success: true, played: false }));
+  }
 
-  // 循环 6 次，从初爻(底部)开始向上生成
+  // === 2. 执行新抽奖 ===
+  if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '封禁中' }));
+
+  let binaryCode = "";
+  let lines = [];
   for (let i = 0; i < 6; i++) {
       const toss = tossCoins();
-      binaryCode += toss.isYang; // 字符串拼接: "101010"
-      lines.push(toss.isYang);   // 数组: [1, 0, 1, 0, 1, 0]
+      binaryCode += toss.isYang; 
+      lines.push(toss.isYang);   
   }
 
-  // 查表获取卦象
-  const hexagram = HEXAGRAMS[binaryCode] || { name: "未知数据", title: "??", desc: "信号干扰，无法解析。" };
+  const hexagram = HEXAGRAMS[binaryCode] || { name: "数据溢出", title: "??", desc: "矩阵波动。" };
+  const xpResult = await addXpWithCap(db, user.id, 50, today);
+  const coinReward = Math.floor(Math.random() * 20) + 10;
 
-  // 奖励：每日一卦固定奖励 + 小额随机 i 币
-  const xpResult = await addXpWithCap(db, user.id, 50, today); // 50点经验
-  const coinReward = Math.floor(Math.random() * 20) + 10; // 10-30 i币
-
-  // 更新数据库
+  // 存入 daily_hexagram_code
   await db.batch([
-      db.prepare('UPDATE users SET last_draw = ?, coins = coins + ? WHERE id = ?').bind(today, coinReward, user.id),
-      // 将结果作为系统消息发给用户（可选，这里通过返回值前端展示即可）
+      db.prepare('UPDATE users SET last_draw = ?, daily_hexagram_code = ?, coins = coins + ? WHERE id = ?')
+        .bind(today, binaryCode, coinReward, user.id)
   ]);
 
   return new Response(JSON.stringify({ 
       success: true, 
-      message: `卦象已成。(${xpResult.msg}, i币 +${coinReward})`,
-      lines: lines, // 前端依此画卦
-      result: hexagram // 卦名和解签
+      played: false, // 标记这是新抽的
+      lines: lines,
+      result: hexagram,
+      message: `卦象已成。(${xpResult.msg}, i币 +${coinReward})`
   }));
 }
