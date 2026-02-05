@@ -2893,19 +2893,28 @@ async function loadInventory(filterCategory = 'all') {
             } 
             // 2. 可装备道具逻辑 (Decoration / Timed)
             else {
-                if (item.is_equipped) {
+                // === 修复开始：优先检查过期状态 ===
+                const now = Date.now();
+                const isExpired = item.expires_at > 0 && item.expires_at < now;
+
+                if (isExpired) {
+                    // 如果已过期：按钮变灰，禁止点击
+                    actionBtn = `<button class="cyber-btn" disabled style="width:100%; margin-top:10px; border-color:#333; color:#555; cursor:not-allowed;">🚫 已过期 / EXPIRED</button>`;
+                } 
+                else if (item.is_equipped) {
+                    // 如果正在装备中
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'unequip')" class="cyber-btn" style="border-color:#0f0;color:#0f0;width:100%;margin-top:10px;">已装备 / UNSET</button>`;
                 } else {
+                    // 正常可装备
                     actionBtn = `<button onclick="toggleEquip('${item.id}', '${item.category}', 'equip')" class="cyber-btn" style="width:100%;margin-top:10px;">使用 / EQUIP</button>`;
                 }
                 
-                // 显示剩余时间
-                if (item.expires_at > 0) {
-                    const daysLeft = Math.ceil((item.expires_at - Date.now()) / (86400000));
-                    const expireText = daysLeft > 0 ? `剩余 ${daysLeft} 天` : `已过期`;
-                    const color = daysLeft > 0 ? '#aaa' : '#f33';
-                    actionBtn += `<div style="font-size:0.7rem; color:${color}; margin-top:5px;">${expireText}</div>`;
+                // 显示剩余时间 (仅在未过期时显示倒计时，过期后按钮已说明一切)
+                if (!isExpired && item.expires_at > 0) {
+                    const daysLeft = Math.ceil((item.expires_at - now) / (86400000));
+                    actionBtn += `<div style="font-size:0.7rem; color:#aaa; margin-top:5px;">剩余 ${daysLeft} 天</div>`;
                 }
+                // === 修复结束 ===
             }
             
             // ... (后半部分 div.innerHTML 保持不变)
@@ -4681,6 +4690,7 @@ window.buyLottoTicket = async function() {
         btn.disabled = false;
     }
 };
+
 
 
 
