@@ -202,6 +202,34 @@ export async function onRequestPost(context) {
           return new Response(JSON.stringify({ success: true, message: '已回复' }));
       }
 
+      // === 9. 新增：用户列表与在线监控 ===
+      
+      // A. 获取注册用户列表 (最近 100 人)
+      if (action === 'get_user_list') {
+          // 这里查询 ID, 用户名, 昵称, 余额, 经验, 注册时间, 状态
+          const list = await db.prepare(`
+              SELECT id, username, nickname, coins, xp, created_at, status, last_seen 
+              FROM users 
+              ORDER BY created_at DESC 
+              LIMIT 100
+          `).all();
+          return new Response(JSON.stringify({ success: true, list: list.results }));
+      }
+
+      // B. 获取实时在线用户 (过去 5 分钟内活跃)
+      if (action === 'get_online_users') {
+          const fiveMinAgo = Date.now() - (5 * 60 * 1000);
+          
+          // 查询最近活跃的用户
+          const list = await db.prepare(`
+              SELECT id, username, nickname, last_seen, coins 
+              FROM users 
+              WHERE last_seen > ? 
+              ORDER BY last_seen DESC
+          `).bind(fiveMinAgo).all();
+          
+          return new Response(JSON.stringify({ success: true, list: list.results }));
+      }
       // === 8. 其他功能 (公告、头衔、密钥、余额、搜索、福利) ===
       if (action === 'post_announce') {
           const u = await db.prepare(`SELECT id, username, nickname FROM users WHERE id = (SELECT user_id FROM sessions WHERE session_id = ?)`).bind(sessionId).first();
