@@ -66,8 +66,8 @@ export async function onRequestGet(context) {
       user.status = 'active';
   }
 
-  // 更新最后活跃
-  if (!user.last_seen || (now - user.last_seen > 300000)) {
+  // === 修改后 (1分钟更新一次，更实时) ===
+  if (!user.last_seen || (now - user.last_seen > 60000)) {
       try { await db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(now, user.id).run(); } catch(e) {}
   }
 
@@ -87,3 +87,4 @@ export async function onRequestGet(context) {
       } 
   });
 }
+
