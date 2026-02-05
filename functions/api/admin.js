@@ -211,7 +211,6 @@ export async function onRequestPost(context) {
               SELECT id, username, nickname, coins, xp, created_at, status, last_seen 
               FROM users 
               ORDER BY created_at DESC 
-              LIMIT 100
           `).all();
           return new Response(JSON.stringify({ success: true, list: list.results }));
       }
