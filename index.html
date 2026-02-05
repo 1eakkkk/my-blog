@@ -879,15 +879,24 @@
                 <div id="view-admin" class="view-section" style="display:none;">
                     <h2 style="color:#ff3333">// ADMIN CONSOLE (TOP SECRET)</h2>
 
-                    <!-- 1. 统计数据 -->
-                    <div class="stats-row" style="display:flex; gap:20px; margin-bottom:20px;">
-                        <div class="glass-card" style="flex:1; text-align:center; border-color:#0070f3;">
+                    <!-- 1. 统计数据 (新布局：三栏) -->
+                    <div class="stats-row" style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
+                        <!-- 总用户 -->
+                        <div class="glass-card" style="flex:1; min-width:150px; text-align:center; border-color:#0070f3;">
                             <div style="font-size:0.8rem; color:#888;">TOTAL USERS</div>
-                            <div id="statTotalUsers" style="font-size:2rem; font-weight:bold; color:#fff;">-</div>
+                            <div id="statTotalUsers" style="font-size:1.8rem; font-weight:bold; color:#fff;">-</div>
                         </div>
-                        <div class="glass-card" style="flex:1; text-align:center; border-color:#00ff00;">
-                            <div style="font-size:0.8rem; color:#888;">ACTIVE (24H)</div>
-                            <div id="statActiveUsers" style="font-size:2rem; font-weight:bold; color:#00ff00;">-</div>
+                        
+                        <!-- 实时在线 (绿色高亮) -->
+                        <div class="glass-card" style="flex:1; min-width:150px; text-align:center; border-color:#00ff00; box-shadow:0 0 10px rgba(0,255,0,0.1);">
+                            <div style="font-size:0.8rem; color:#888;">🟢 ONLINE (5min)</div>
+                            <div id="statRealTimeOnline" style="font-size:1.8rem; font-weight:bold; color:#00ff00;">-</div>
+                        </div>
+
+                        <!-- 24H 日活 -->
+                        <div class="glass-card" style="flex:1; min-width:150px; text-align:center; border-color:#ffd700;">
+                            <div style="font-size:0.8rem; color:#888;">📅 ACTIVE (24H)</div>
+                            <div id="statActiveUsers" style="font-size:1.8rem; font-weight:bold; color:#ffd700;">-</div>
                         </div>
                     </div>
 
@@ -1214,6 +1223,7 @@
     <script src="script.js?v=10.6"></script>
 </body>
 </html>
+
 
 
 
