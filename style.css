@@ -4055,43 +4055,58 @@ body.bg-fire {
     background: rgba(255, 0, 222, 0.05);
 }
 
-/* === ☯️ 赛博八卦样式 === */
+/* === ☯️ 赛博八卦样式 (修复版) === */
 
 /* 爻的容器 */
 #hexagram-stage {
-    border: 1px dashed rgba(255,255,255,0.1);
-    background: rgba(0,0,0,0.3);
-    padding: 10px;
-    justify-content: center; /* 垂直居中(因为是column-reverse) */
+    border: 1px dashed rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.5);
+    padding: 20px; /* 增加内边距 */
+    width: 180px;  /*稍微加宽 */
+    height: 240px; /* 稍微加高 */
+    display: flex;
+    flex-direction: column-reverse; /* 从下往上排 */
+    gap: 15px; /* 增加间距 */
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 20px; /* 居中 */
 }
 
-/* 阳爻 (实线) */
+/* 通用线条样式 */
+.yao-line {
+    width: 100%;
+    height: 20px;
+    flex-shrink: 0; /* 关键：禁止被压缩！ */
+    border-radius: 4px;
+    opacity: 0; /* 初始透明，由动画控制显示 */
+}
+
+/* 阳爻 (实线 - 纯白发光) */
 .yao-yang {
-    width: 100%;
-    height: 20px;
     background: #fff;
-    box-shadow: 0 0 10px rgba(255,255,255,0.8);
-    border-radius: 2px;
+    box-shadow: 0 0 15px rgba(255,255,255,0.8);
 }
 
-/* 阴爻 (断开的线) */
+/* 阴爻 (断开的线 - 赛博蓝) */
 .yao-yin {
-    width: 100%;
-    height: 20px;
+    background: transparent; /* 背景透明 */
     display: flex;
     justify-content: space-between;
+    box-shadow: none; /* 清除外层阴影 */
 }
+
+/* 阴爻的两段 */
 .yao-yin::before, .yao-yin::after {
     content: '';
-    width: 42%; /* 中间留空 16% */
+    width: 40%; 
     height: 100%;
-    background: #00f3ff; /* 阴爻用冷色调 */
-    box-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
-    border-radius: 2px;
+    background: #00f3ff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
+    border-radius: 4px;
 }
 
 /* 进场动画 */
 @keyframes slideInYao {
-    0% { opacity: 0; transform: scaleX(0); filter: blur(5px); }
+    0% { opacity: 0; transform: scaleX(0.5); filter: blur(10px); }
     100% { opacity: 1; transform: scaleX(1); filter: blur(0); }
 }
