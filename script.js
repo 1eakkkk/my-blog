@@ -4948,29 +4948,55 @@ function renderInteractiveStage() {
     updateInteractiveState();
 }
 
-// === 修复版：点击揭晓逻辑 ===
+// === 修复版：点击揭晓逻辑 (内联样式强行渲染) ===
 function revealYao(index) {
     if (index !== currentRevealIndex) return;
     
     const lines = currentGuaData.lines || [1,1,1,1,1,1];
-    // 强制转换为数字 1 用于比较
     const isYang = (Number(lines[index]) === 1);
     
-    // 获取当前的占位符 div
     const div = document.getElementById(`yao-btn-${index}`);
-    if (!div) return;
-
-    // 1. 彻底移除旧类名，添加新类名
-    div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
     
-    // 2. 清空内部文字 (移除 "点击显形")
-    div.innerHTML = ''; 
-    
-    // 3. 移除点击事件
+    // 1. 清空旧内容
+    div.innerHTML = '';
     div.onclick = null;
     div.style.cursor = 'default';
+    div.className = ''; // 清除旧类名，防止干扰
+
+    // 2. 强制写入核心样式 (模拟 CSS)
+    div.style.width = '100%';
+    div.style.height = '25px';
+    div.style.minHeight = '25px';
+    div.style.marginBottom = '10px';
+    div.style.borderRadius = '4px';
+    div.style.boxShadow = 'none';
+    div.style.border = 'none';
+    div.style.background = 'transparent';
+    div.style.display = 'block';
+
+    if (isYang) {
+        // === 阳爻：白色实心条 ===
+        div.style.backgroundColor = '#fff';
+        div.style.boxShadow = '0 0 15px rgba(255,255,255,0.9)';
+        div.style.border = '1px solid rgba(255,255,255,0.5)';
+    } else {
+        // === 阴爻：用两个子 div 模拟 ===
+        div.style.display = 'flex';
+        div.style.justifyContent = 'space-between';
+        
+        const left = document.createElement('div');
+        left.style.width = '42%';
+        left.style.height = '100%';
+        left.style.backgroundColor = '#00f3ff';
+        left.style.borderRadius = '4px';
+        left.style.boxShadow = '0 0 10px rgba(0, 243, 255, 0.8)';
+        
+        const right = left.cloneNode(true);
+        div.appendChild(left);
+        div.appendChild(right);
+    }
     
-    // 4. 简单的进入动画
+    // 3. 播放动画
     div.animate([
         { transform: 'scaleX(0.5)', opacity: 0.5 },
         { transform: 'scaleX(1)', opacity: 1 }
@@ -4991,20 +5017,49 @@ function revealYao(index) {
     }
 }
 
-// === 修复版：回看渲染逻辑 ===
+// === 修复版：回看渲染逻辑 (内联样式强行渲染) ===
 function renderHexagram(lines) {
     const stage = document.getElementById('hexagram-stage');
-    if (!stage) return;
-    stage.innerHTML = ''; // 清空
-    
+    stage.innerHTML = '';
     if(!lines) return;
+    
+    // 强制设置容器样式
+    stage.style.display = 'flex';
+    stage.style.flexDirection = 'column-reverse';
+    stage.style.justifyContent = 'center';
+    stage.style.gap = '12px';
+    stage.style.minHeight = '240px'; // 撑开高度
     
     lines.forEach(val => {
         const div = document.createElement('div');
         const isYang = (Number(val) === 1);
         
-        // 赋予正确的类名
-        div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
+        // 强制写入样式
+        div.style.width = '100%';
+        div.style.height = '25px';
+        div.style.minHeight = '25px';
+        div.style.borderRadius = '4px';
+        div.style.flexShrink = '0';
+        
+        if (isYang) {
+            div.style.backgroundColor = '#fff';
+            div.style.boxShadow = '0 0 15px rgba(255,255,255,0.9)';
+        } else {
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.backgroundColor = 'transparent';
+            
+            const left = document.createElement('div');
+            left.style.width = '42%';
+            left.style.height = '100%';
+            left.style.backgroundColor = '#00f3ff';
+            left.style.borderRadius = '4px';
+            left.style.boxShadow = '0 0 10px rgba(0, 243, 255, 0.8)';
+            
+            const right = left.cloneNode(true);
+            div.appendChild(left);
+            div.appendChild(right);
+        }
         
         stage.appendChild(div);
     });
@@ -5077,6 +5132,7 @@ function updateInteractiveState() {
         }
     }
 }
+
 
 
 
