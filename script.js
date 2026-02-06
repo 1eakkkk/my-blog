@@ -4862,6 +4862,24 @@ window.openDivinationModal = async function() {
     const loading = document.getElementById('divine-loading');
     
     stage.innerHTML = '';
+    // 强制样式
+    stage.style.display = 'flex';
+    stage.style.flexDirection = 'column-reverse'; // 从下往上
+    stage.style.alignItems = 'center';            // 居中
+    stage.style.justifyContent = 'center';
+    stage.style.gap = '12px';                     // 间距
+    
+    // ⚠️ 关键点：使用 px 绝对单位，而不是 %
+    stage.style.width = '240px';        
+    stage.style.minWidth = '240px';      // 禁止缩小
+    stage.style.height = '260px';
+    stage.style.minHeight = '260px';     // 禁止变矮
+    stage.style.flexShrink = '0';        // 禁止 Flex 压缩
+    
+    stage.style.margin = '0 auto 20px';
+    stage.style.background = 'rgba(0,0,0,0.3)';
+    stage.style.border = '1px dashed rgba(255,255,255,0.2)';
+    stage.style.padding = '20px';
     resBox.style.display = 'none';
     btn.style.display = 'none'; 
     loading.style.display = 'block';
@@ -4964,7 +4982,8 @@ function revealYao(index) {
     div.className = ''; // 清除旧类名，防止干扰
 
     // 2. 强制写入核心样式 (模拟 CSS)
-    div.style.width = '100%';
+    div.style.width = '180px';
+    div.style.minWidth = '180px';
     div.style.height = '25px';
     div.style.minHeight = '25px';
     div.style.marginBottom = '10px';
@@ -5017,25 +5036,33 @@ function revealYao(index) {
     }
 }
 
-// === 修复版：回看渲染逻辑 (内联样式强行渲染) ===
+// === 修复版：renderHexagram (全量替换) ===
 function renderHexagram(lines) {
     const stage = document.getElementById('hexagram-stage');
+    if (!stage) return;
     stage.innerHTML = '';
-    if(!lines) return;
     
-    // 强制设置容器样式
+    // 再次强制容器样式 (双重保险)
     stage.style.display = 'flex';
     stage.style.flexDirection = 'column-reverse';
+    stage.style.alignItems = 'center';
     stage.style.justifyContent = 'center';
+    stage.style.width = '240px';
+    stage.style.minWidth = '240px';
+    stage.style.minHeight = '260px';
     stage.style.gap = '12px';
-    stage.style.minHeight = '240px'; // 撑开高度
+    stage.style.background = 'rgba(0,0,0,0.3)';
+    stage.style.padding = '20px';
+
+    if(!lines) return;
     
     lines.forEach(val => {
         const div = document.createElement('div');
         const isYang = (Number(val) === 1);
         
-        // 强制写入样式
-        div.style.width = '100%';
+        // ⚠️ 关键修改：固定宽度 180px
+        div.style.width = '180px';
+        div.style.minWidth = '180px';
         div.style.height = '25px';
         div.style.minHeight = '25px';
         div.style.borderRadius = '4px';
@@ -5132,6 +5159,7 @@ function updateInteractiveState() {
         }
     }
 }
+
 
 
 
