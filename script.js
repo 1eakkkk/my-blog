@@ -5028,6 +5028,57 @@ function renderHexagram(lines) {
     });
 }
 
+// =========================================
+// 🚑 补全缺失的卦象辅助函数
+// =========================================
+
+// 1. 显示最终文字结果
+function showHexagramResult(data) {
+    const resBox = document.getElementById('divination-result');
+    if (resBox) resBox.style.display = 'block';
+    
+    const nameEl = document.getElementById('gua-name');
+    if (nameEl) nameEl.innerText = data.result.name;
+    
+    const descEl = document.getElementById('gua-desc');
+    if (descEl) {
+        // 特殊处理：乾卦和坤卦用金色显示
+        const isSpecial = ['乾', '坤'].includes(data.result.title);
+        const titleColor = isSpecial ? 'gold' : '#fff';
+        
+        descEl.innerHTML = `
+            <div style="font-size:3rem; margin-bottom:10px; color:${titleColor}; font-weight:bold;">
+                ${data.result.title}
+            </div>
+            <div style="padding:15px; border-left:3px solid #bc13fe; background:rgba(255,255,255,0.05); margin-bottom:15px; border-radius:4px; line-height:1.6;">
+                ${data.result.desc}
+            </div>
+            <div style="font-size:0.85rem; color:#0f0; margin-top:10px; font-weight:bold;">
+                ${data.message || ''}
+            </div>
+        `;
+    }
+}
+
+// 2. 更新交互状态 (控制哪个格子亮起)
+function updateInteractiveState() {
+    for (let i = 0; i < 6; i++) {
+        const div = document.getElementById(`yao-btn-${i}`);
+        if (!div) continue; // 防错
+
+        if (i === currentRevealIndex) {
+            // 当前待点：高亮，可交互
+            div.classList.add('yao-active');
+            div.style.cursor = 'pointer';
+            div.innerHTML = `<span style="color:#00f3ff; animation:pulse 1s infinite; font-weight:bold;">👆 点击显形</span>`;
+        } else if (i > currentRevealIndex) {
+            // 未解锁：暗淡
+            div.classList.remove('yao-active');
+            div.style.cursor = 'not-allowed';
+            div.innerHTML = `<span style="color:#333;">🔒</span>`;
+        }
+    }
+}
 
 
 
