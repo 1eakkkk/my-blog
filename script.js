@@ -4947,22 +4947,34 @@ window.startDivination = async function() {
     }
 };
 
-// 渲染交互式爻 (从下往上)
 function renderInteractiveStage() {
     const stage = document.getElementById('hexagram-stage');
     stage.innerHTML = '';
     
-    // 生成 6 个占位符，索引 0 是初爻(最下面)
     for (let i = 0; i < 6; i++) {
         const div = document.createElement('div');
         div.className = 'yao-placeholder';
         div.id = `yao-btn-${i}`;
         div.onclick = () => revealYao(i);
+        
+        // === 核心修复：强制占位符样式 ===
+        div.style.width = '180px';      // ⚠️ 固定宽度
+        div.style.minWidth = '180px';
+        div.style.height = '35px';
+        div.style.flexShrink = '0';
+        div.style.background = 'rgba(255,255,255,0.05)';
+        div.style.border = '1px dashed #444';
+        div.style.borderRadius = '4px';
+        div.style.display = 'flex';
+        div.style.justifyContent = 'center';
+        div.style.alignItems = 'center';
+        div.style.cursor = 'not-allowed';
+        div.style.marginBottom = '10px';
+
         div.innerHTML = `<span style="font-size:0.8rem; color:#666;">点击显形</span>`;
         stage.appendChild(div);
     }
     
-    // 激活第一个 (初爻)
     updateInteractiveState();
 }
 
@@ -5159,6 +5171,7 @@ function updateInteractiveState() {
         }
     }
 }
+
 
 
 
