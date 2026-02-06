@@ -912,7 +912,21 @@ async function loadPosts(reset = false) {
                 // 帖子累计打赏金额 (如果数据库没这字段暂时显示0)
                 const tipAmount = post.total_coins || 0; 
 
-                const cleanText = DOMPurify.sanitize(marked.parse(post.content), {ALLOWED_TAGS: []});
+                let cleanText = "";
+                
+                // 1. 尝试使用标准解析
+                if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                    try {
+                        cleanText = DOMPurify.sanitize(marked.parse(post.content), {ALLOWED_TAGS: []});
+                    } catch (e) {
+                        cleanText = post.content; // 解析出错，回退到原文
+                    }
+                } 
+                // 2. 如果库没加载出来，手动去除 HTML 标签 (降级处理)
+                else {
+                    console.warn("DOMPurify/Marked not loaded, using fallback.");
+                    cleanText = post.content ? post.content.replace(/<[^>]*>?/gm, '') : '';
+                }
                 
                 // 作者点击跳转
                 const authorAction = `onclick="event.stopPropagation(); window.location.hash='#profile?u=${post.author_username}'"`;
@@ -5171,6 +5185,7 @@ function updateInteractiveState() {
         }
     }
 }
+
 
 
 
