@@ -4190,3 +4190,79 @@ body.bg-fire {
     cursor: not-allowed;
     flex-shrink: 0;
 }
+
+/* =========================================
+   ☯️ 卦象显示强制修复补丁 (Final Fix)
+   ========================================= */
+
+/* 1. 卦象容器：强制撑开高度，禁止被文字挤压 */
+#hexagram-stage {
+    display: flex !important;
+    flex-direction: column-reverse !important; /* 从下往上排列 */
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 12px !important; /* 线条间距 */
+    
+    /* 核心修复：锁死高度和宽度 */
+    width: 200px !important;
+    min-height: 240px !important; 
+    height: 240px !important;
+    flex-shrink: 0 !important; /* 禁止被压缩 */
+    
+    background: rgba(0, 0, 0, 0.3); /* 深色背景 */
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    margin: 10px auto !important;
+    padding: 20px !important;
+}
+
+/* 2. 占位符 (未翻开时) */
+.yao-placeholder {
+    width: 100% !important;
+    height: 25px !important;
+    min-height: 25px !important;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px dashed #666;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+}
+
+/* 3. 线条通用样式 */
+.yao-line {
+    width: 100% !important;
+    height: 25px !important; /* 增加厚度 */
+    min-height: 25px !important;
+    flex-shrink: 0 !important;
+    border-radius: 4px;
+    display: block !important;
+    margin: 0 !important;
+    opacity: 1 !important; /* 强制不透明 */
+}
+
+/* 4. 阳爻 (实心白条) */
+.yao-yang {
+    background-color: #fff !important;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* 5. 阴爻 (透明背景 + 左右两段) */
+.yao-yin {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    display: flex !important;
+    justify-content: space-between !important;
+}
+
+/* 阴爻的左右两段 */
+.yao-yin::before, .yao-yin::after {
+    content: '' !important;
+    display: block !important;
+    width: 42% !important;
+    height: 100% !important;
+    background-color: #00f3ff !important; /* 青色 */
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.8) !important;
+    border-radius: 4px;
+}
