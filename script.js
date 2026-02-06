@@ -4808,32 +4808,46 @@ window.loadAdminUserList = async function() {
     }
 };
 
-// === ☯️ 赛博卜筮 (修复版：自动回看) ===
+// === 辅助：背景滚动锁定 ===
+function lockScroll() {
+    document.body.style.overflow = 'hidden';
+}
+function unlockScroll() {
+    document.body.style.overflow = '';
+}
 
-// 1. 打开弹窗 (同时检查状态)
+// === ☯️ 赛博卜筮 (手动交互版) ===
+
+// 1. 打开弹窗
 window.openDivinationModal = async function() {
-    // 确保弹窗 HTML 存在
+    // 确保弹窗 HTML 存在 (结构稍微调整以适应滚动)
     if (!document.getElementById('divination-modal')) {
         const modalHtml = `
-        <div id="divination-modal" class="modal-overlay" style="display:none;">
-            <div class="modal-card glass-card" style="text-align:center; min-height:450px; display:flex; flex-direction:column; align-items:center;">
-                <h3 style="color:#fff; font-family:'Courier New',serif; margin-bottom:10px;">🔮 QUANTUM I-CHING</h3>
-                <p style="color:#888; font-size:0.8rem; margin-bottom:20px;">接入周易算法矩阵... 每日一次</p>
+        <div id="divination-modal" class="modal-overlay" style="display:none; align-items:center;">
+            <div class="modal-card glass-card" style="text-align:center; display:flex; flex-direction:column; align-items:center; max-height: 85vh; padding: 20px 15px;">
+                <!-- 头部固定 -->
+                <div style="flex-shrink:0;">
+                    <h3 style="color:#fff; font-family:'Courier New',serif; margin-bottom:5px;">🔮 QUANTUM I-CHING</h3>
+                    <p style="color:#888; font-size:0.8rem; margin-bottom:15px;">接入周易算法矩阵... 每日一次</p>
+                </div>
                 
-                <!-- 卦象显示区 -->
-                <div id="hexagram-stage"></div>
+                <!-- 内容区 (可滚动) -->
+                <div style="flex:1; overflow-y:auto; width:100%; display:flex; flex-direction:column; align-items:center; padding: 10px 0;">
+                    <!-- 卦象显示区 -->
+                    <div id="hexagram-stage"></div>
 
-                <!-- 结果文本区 -->
-                <div id="divination-result" style="display:none; animation:fadeIn 1s;">
-                    <h1 id="gua-name" style="color:#bc13fe; font-size:2rem; margin:10px 0; text-shadow:0 0 10px #bc13fe;"></h1>
-                    <div id="gua-desc" style="color:#ddd; font-size:0.9rem; line-height:1.6; text-align:left; background:rgba(255,255,255,0.05); padding:15px; border-radius:8px;"></div>
+                    <!-- 结果文本区 -->
+                    <div id="divination-result" style="display:none; animation:fadeIn 1s; width:100%;">
+                        <h1 id="gua-name" style="color:#bc13fe; font-size:2rem; margin:10px 0; text-shadow:0 0 10px #bc13fe;"></h1>
+                        <div id="gua-desc" style="color:#ddd; font-size:0.9rem; line-height:1.6; text-align:left; background:rgba(255,255,255,0.05); padding:15px; border-radius:8px;"></div>
+                    </div>
                 </div>
 
-                <!-- 按钮区 -->
-                <div style="margin-top:auto; width:100%;">
-                    <div id="divine-loading" style="display:none; color:#00f3ff;">正在读取天机...</div>
-                    <button id="btn-divine" onclick="startDivination()" class="cyber-btn" style="border-color:#fff;">⚡ 开始起卦</button>
-                    <button onclick="document.getElementById('divination-modal').style.display='none'" class="cyber-btn" style="border-color:#666; color:#888; margin-top:10px;">离开</button>
+                <!-- 底部按钮固定 -->
+                <div style="margin-top:15px; width:100%; flex-shrink:0;">
+                    <div id="divine-loading" style="display:none; color:#00f3ff; margin-bottom:10px;">正在读取天机...</div>
+                    <button id="btn-divine" onclick="startDivination()" class="cyber-btn" style="border-color:#fff;">⚡ 获取卦象数据</button>
+                    <button onclick="closeDivinationModal()" class="cyber-btn" style="border-color:#666; color:#888; margin-top:10px;">离开</button>
                 </div>
             </div>
         </div>`;
@@ -4844,183 +4858,158 @@ window.openDivinationModal = async function() {
     const modal = document.getElementById('divination-modal');
     const btn = document.getElementById('btn-divine');
     const stage = document.getElementById('hexagram-stage');
-    if (stage) {
-        stage.style.display = 'flex';
-        stage.style.flexDirection = 'column-reverse'; // 从下往上排
-        stage.style.justifyContent = 'center';
-        stage.style.alignItems = 'center';
-        stage.style.width = '200px';
-        stage.style.minHeight = '240px'; // 给足高度
-        stage.style.margin = '0 auto 20px';
-        stage.style.background = 'rgba(0,0,0,0.3)';
-        stage.style.border = '1px dashed rgba(255,255,255,0.2)';
-        stage.style.padding = '20px';
-    }
     const resBox = document.getElementById('divination-result');
     const loading = document.getElementById('divine-loading');
     
     stage.innerHTML = '';
     resBox.style.display = 'none';
-    btn.style.display = 'none'; // 先隐藏按钮
+    btn.style.display = 'none'; 
     loading.style.display = 'block';
     
     modal.style.display = 'flex';
+    lockScroll(); // 锁定背景
 
     try {
-        // 请求状态：只检查，不抽
         const res = await fetch(`${API_BASE}/draw`, { 
             method: 'POST', 
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ action: 'check' }) 
         });
         const data = await res.json();
-        
         loading.style.display = 'none';
 
         if (data.success && data.played) {
-            // === 今日已抽：直接展示结果 (无动画) ===
-            renderHexagram(data.lines); // 画线
-            showHexagramResult(data);   // 显示文字
+            // 已玩过：直接显示结果
+            renderHexagram(data.lines, false); 
+            showHexagramResult(data);   
         } else {
-            // === 今日未抽：显示开始按钮 ===
+            // 未玩过：显示开始按钮
             btn.style.display = 'block';
             btn.disabled = false;
-            btn.innerText = "⚡ 开始起卦";
+            btn.innerText = "⚡ 获取卦象数据";
         }
     } catch(e) {
         loading.innerText = "连接失败";
     }
 };
 
-// 2. 点击按钮开始起卦 (静音修复版)
+window.closeDivinationModal = function() {
+    document.getElementById('divination-modal').style.display = 'none';
+    unlockScroll(); // 解锁背景
+};
+
+// 2. 获取数据并生成“待翻开”的牌
+let currentGuaData = null; // 暂存数据
+let currentRevealIndex = 0; // 当前揭示到第几爻
+
 window.startDivination = async function() {
     const btn = document.getElementById('btn-divine');
-    const stage = document.getElementById('hexagram-stage');
-    
     btn.disabled = true;
-    btn.innerText = "正在演算天机...";
-    stage.innerHTML = ''; // 清空容器
+    btn.innerText = "下载天机数据...";
     
     try {
-        // 真正抽签
         const res = await fetch(`${API_BASE}/draw`, { method: 'POST' });
         const data = await res.json();
         
         if (!data.success) {
             showToast(data.error, 'error');
-            btn.innerText = "今日已结束"; 
             return;
         }
 
-        btn.style.display = 'none'; // 隐藏按钮
-
-        // 确保 lines 数据存在
-        const lines = data.lines || [1,1,1,1,1,1]; 
+        // 数据获取成功，进入互动模式
+        currentGuaData = data;
+        currentRevealIndex = 0;
+        btn.style.display = 'none'; // 隐藏主按钮
         
-        // 动画画线 (无音效)
-        for (let i = 0; i < 6; i++) {
-            await new Promise(r => setTimeout(r, 800)); // 等待800毫秒
-            addYaoLine(lines[i], true); // true = 带动画
-        }
-
-        // 动画结束，展示文字结果
-        await new Promise(r => setTimeout(r, 600));
-        
-        showHexagramResult(data);
-        checkSecurity();
+        // 渲染 6 个未知的交互条
+        renderInteractiveStage();
 
     } catch (e) {
-        console.error(e);
         showToast("天机混乱", "error");
     }
 };
 
-// 辅助：画一卦 (静态)
+// 渲染交互式爻 (从下往上)
+function renderInteractiveStage() {
+    const stage = document.getElementById('hexagram-stage');
+    stage.innerHTML = '';
+    
+    // 生成 6 个占位符，索引 0 是初爻(最下面)
+    for (let i = 0; i < 6; i++) {
+        const div = document.createElement('div');
+        div.className = 'yao-placeholder';
+        div.id = `yao-btn-${i}`;
+        div.onclick = () => revealYao(i);
+        div.innerHTML = `<span style="font-size:0.8rem; color:#666;">点击显形</span>`;
+        stage.appendChild(div);
+    }
+    
+    // 激活第一个 (初爻)
+    updateInteractiveState();
+}
+
+// 点击揭晓逻辑
+function revealYao(index) {
+    if (index !== currentRevealIndex) return; // 必须按顺序点
+    
+    const lines = currentGuaData.lines || [1,1,1,1,1,1];
+    const isYang = lines[index] === 1;
+    
+    const div = document.getElementById(`yao-btn-${index}`);
+    
+    // 替换样式为真实的爻
+    div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
+    div.innerHTML = ''; // 清空文字
+    div.onclick = null; // 移除点击事件
+    div.style.animation = 'slideInYao 0.3s ease-out forwards';
+    
+    // 震动反馈
+    if(navigator.vibrate) navigator.vibrate(50);
+
+    currentRevealIndex++;
+    
+    if (currentRevealIndex >= 6) {
+        // 全部揭晓，显示结果
+        setTimeout(() => {
+            showHexagramResult(currentGuaData);
+            checkSecurity();
+        }, 500);
+    } else {
+        // 激活下一个
+        updateInteractiveState();
+    }
+}
+
+// 更新哪个格子可以点
+function updateInteractiveState() {
+    for (let i = 0; i < 6; i++) {
+        const div = document.getElementById(`yao-btn-${i}`);
+        if (i === currentRevealIndex) {
+            // 当前待点：高亮，可交互
+            div.classList.add('yao-active');
+            div.innerHTML = `<span style="color:#00f3ff; animation:pulse 1s infinite;">👆 点击显形</span>`;
+        } else if (i > currentRevealIndex) {
+            // 未解锁：暗淡
+            div.classList.remove('yao-active');
+            div.innerHTML = `<span style="color:#333;">🔒</span>`;
+        }
+    }
+}
+
+// 静态渲染 (回看模式)
 function renderHexagram(lines) {
     const stage = document.getElementById('hexagram-stage');
     stage.innerHTML = '';
     if(!lines) return;
-    lines.forEach(val => addYaoLine(val, false)); // false = 无动画
-}
-
-// 辅助：添加单条爻 (JS 强制渲染版)
-function addYaoLine(val, animate) {
-    const stage = document.getElementById('hexagram-stage');
-    if (!stage) return;
-
-    // 1. 创建主容器 (整行)
-    const div = document.createElement('div');
-    const isYang = (Number(val) === 1);
-
-    // === 核心修复：直接写入内联样式 (无视 CSS 文件) ===
-    div.style.width = '100%';
-    div.style.height = '20px';       // 强制高度
-    div.style.minHeight = '20px';    // 锁死最小高度
-    div.style.marginBottom = '15px'; // 行间距
-    div.style.borderRadius = '4px';
-    div.style.flexShrink = '0';      // 禁止被压缩
-    div.style.display = 'block';     // 确保是块级
     
-    // 2. 根据阴阳构建内部结构
-    if (isYang) {
-        // === 阳爻：白色实心条 ===
-        div.style.backgroundColor = '#fff';
-        div.style.boxShadow = '0 0 15px rgba(255,255,255,0.9)';
-        div.style.border = '1px solid rgba(255,255,255,0.5)';
-    } else {
-        // === 阴爻：透明背景 + 两个左右浮动的子块 ===
-        div.style.backgroundColor = 'transparent';
-        div.style.display = 'flex';
-        div.style.justifyContent = 'space-between';
-        div.style.boxShadow = 'none';
-        
-        // 创建左段
-        const left = document.createElement('div');
-        left.style.width = '42%';
-        left.style.height = '100%';
-        left.style.backgroundColor = '#00f3ff'; // 青色
-        left.style.borderRadius = '4px';
-        left.style.boxShadow = '0 0 10px rgba(0, 243, 255, 0.8)';
-        
-        // 创建右段 (克隆左段)
-        const right = left.cloneNode(true);
-        
-        div.appendChild(left);
-        div.appendChild(right);
-    }
-
-    // 3. 动画处理 (使用 Web Animation API，不依赖 CSS 类)
-    if (animate) {
-        div.animate([
-            { opacity: 0, transform: 'scaleX(0.5) blur(5px)' },
-            { opacity: 1, transform: 'scaleX(1) blur(0)' }
-        ], {
-            duration: 600,
-            easing: 'ease-out',
-            fill: 'forwards'
-        });
-    } else {
-        div.style.opacity = '1';
-    }
-
-    stage.appendChild(div);
+    lines.forEach(val => {
+        const div = document.createElement('div');
+        const isYang = (Number(val) === 1);
+        div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
+        stage.appendChild(div);
+    });
 }
 
-// 辅助：显示文字结果
-function showHexagramResult(data) {
-    const resBox = document.getElementById('divination-result');
-    resBox.style.display = 'block';
-    
-    document.getElementById('gua-name').innerText = data.result.name;
-    // 上面截图里 泽风大过 是 data.result.name，下面大字 大过 是 data.result.title
-    document.getElementById('gua-desc').innerHTML = `
-        <div style="font-size:3rem; margin-bottom:10px; color:${['乾','坤'].includes(data.result.title)?'gold':'#fff'}">${data.result.title}</div>
-        <div style="padding:10px; border-left:3px solid #bc13fe; background:rgba(255,255,255,0.05); margin-bottom:10px;">
-            ${data.result.desc}
-        </div>
-        ${data.played ? '' : `<div style="font-size:0.8rem; color:#0f0;">${data.message}</div>`}
-    `;
-}
 
 
 
