@@ -4163,3 +4163,30 @@ body.bg-fire {
     max-height: 200px; /* 防止文字太长撑破屏幕 */
     overflow-y: auto;
 }
+
+/* 确保线条样式正确 */
+.yao-line {
+    width: 100% !important;
+    height: 20px !important;
+    min-height: 20px !important;
+    margin-bottom: 10px; /* 线条间距 */
+    border-radius: 4px;
+    flex-shrink: 0;
+    /* 默认透明，由 JS 动画控制显示，或者回看时直接置为 1 */
+    opacity: 1; 
+}
+
+/* 占位符样式微调 */
+.yao-placeholder {
+    width: 100%;
+    height: 30px; /* 按钮稍微高一点，好点 */
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed #444;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: not-allowed;
+    flex-shrink: 0;
+}
