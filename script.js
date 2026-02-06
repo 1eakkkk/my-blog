@@ -4950,48 +4950,65 @@ function renderInteractiveStage() {
 
 // === 修复版：点击揭晓逻辑 ===
 function revealYao(index) {
-    if (index !== currentRevealIndex) return; // 必须按顺序点
+    if (index !== currentRevealIndex) return;
     
-    // 获取当前爻的阴阳 (1=阳, 0=阴)
     const lines = currentGuaData.lines || [1,1,1,1,1,1];
+    // 强制转换为数字 1 用于比较
     const isYang = (Number(lines[index]) === 1);
     
+    // 获取当前的占位符 div
     const div = document.getElementById(`yao-btn-${index}`);
-    
-    // 1. 修改样式为真实的爻
+    if (!div) return;
+
+    // 1. 彻底移除旧类名，添加新类名
     div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
-    div.innerHTML = '';     // 清空文字
-    div.onclick = null;     // 移除点击事件
+    
+    // 2. 清空内部文字 (移除 "点击显形")
+    div.innerHTML = ''; 
+    
+    // 3. 移除点击事件
+    div.onclick = null;
     div.style.cursor = 'default';
     
-    // 2. 播放动画 (修复语法错误：filter 和 transform 分开)
+    // 4. 简单的进入动画
     div.animate([
-        { opacity: 0, transform: 'scaleX(0.5)', filter: 'blur(5px)' },
-        { opacity: 1, transform: 'scaleX(1)', filter: 'blur(0)' }
-    ], {
-        duration: 400,
-        easing: 'ease-out',
-        fill: 'forwards'
-    });
-    
-    // 震动反馈
+        { transform: 'scaleX(0.5)', opacity: 0.5 },
+        { transform: 'scaleX(1)', opacity: 1 }
+    ], { duration: 300, fill: 'forwards' });
+
+    // 震动
     if(navigator.vibrate) navigator.vibrate(50);
 
-    // 3. 推进进度
     currentRevealIndex++;
     
     if (currentRevealIndex >= 6) {
-        // 全部揭晓，显示结果
         setTimeout(() => {
             showHexagramResult(currentGuaData);
             checkSecurity();
         }, 500);
     } else {
-        // 激活下一个
         updateInteractiveState();
     }
 }
 
+// === 修复版：回看渲染逻辑 ===
+function renderHexagram(lines) {
+    const stage = document.getElementById('hexagram-stage');
+    if (!stage) return;
+    stage.innerHTML = ''; // 清空
+    
+    if(!lines) return;
+    
+    lines.forEach(val => {
+        const div = document.createElement('div');
+        const isYang = (Number(val) === 1);
+        
+        // 赋予正确的类名
+        div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
+        
+        stage.appendChild(div);
+    });
+}
 // 更新哪个格子可以点
 function updateInteractiveState() {
     for (let i = 0; i < 6; i++) {
@@ -5008,25 +5025,6 @@ function updateInteractiveState() {
     }
 }
 
-// === 修复版：静态渲染 (回看模式) ===
-function renderHexagram(lines) {
-    const stage = document.getElementById('hexagram-stage');
-    stage.innerHTML = '';
-    
-    if(!lines) return;
-    
-    // 既然是回看，直接画出结果，不需要 placeholder
-    lines.forEach(val => {
-        const div = document.createElement('div');
-        const isYang = (Number(val) === 1);
-        
-        div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
-        // 回看模式不需要入场动画，直接显示
-        div.style.opacity = '1'; 
-        
-        stage.appendChild(div);
-    });
-}
 
 // =========================================
 // 🚑 补全缺失的卦象辅助函数
@@ -5079,6 +5077,7 @@ function updateInteractiveState() {
         }
     }
 }
+
 
 
 
