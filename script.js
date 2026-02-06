@@ -4948,24 +4948,36 @@ function renderInteractiveStage() {
     updateInteractiveState();
 }
 
-// 点击揭晓逻辑
+// === 修复版：点击揭晓逻辑 ===
 function revealYao(index) {
     if (index !== currentRevealIndex) return; // 必须按顺序点
     
+    // 获取当前爻的阴阳 (1=阳, 0=阴)
     const lines = currentGuaData.lines || [1,1,1,1,1,1];
-    const isYang = lines[index] === 1;
+    const isYang = (Number(lines[index]) === 1);
     
     const div = document.getElementById(`yao-btn-${index}`);
     
-    // 替换样式为真实的爻
+    // 1. 修改样式为真实的爻
     div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
-    div.innerHTML = ''; // 清空文字
-    div.onclick = null; // 移除点击事件
-    div.style.animation = 'slideInYao 0.3s ease-out forwards';
+    div.innerHTML = '';     // 清空文字
+    div.onclick = null;     // 移除点击事件
+    div.style.cursor = 'default';
+    
+    // 2. 播放动画 (修复语法错误：filter 和 transform 分开)
+    div.animate([
+        { opacity: 0, transform: 'scaleX(0.5)', filter: 'blur(5px)' },
+        { opacity: 1, transform: 'scaleX(1)', filter: 'blur(0)' }
+    ], {
+        duration: 400,
+        easing: 'ease-out',
+        fill: 'forwards'
+    });
     
     // 震动反馈
     if(navigator.vibrate) navigator.vibrate(50);
 
+    // 3. 推进进度
     currentRevealIndex++;
     
     if (currentRevealIndex >= 6) {
@@ -4996,16 +5008,22 @@ function updateInteractiveState() {
     }
 }
 
-// 静态渲染 (回看模式)
+// === 修复版：静态渲染 (回看模式) ===
 function renderHexagram(lines) {
     const stage = document.getElementById('hexagram-stage');
     stage.innerHTML = '';
+    
     if(!lines) return;
     
+    // 既然是回看，直接画出结果，不需要 placeholder
     lines.forEach(val => {
         const div = document.createElement('div');
         const isYang = (Number(val) === 1);
+        
         div.className = `yao-line ${isYang ? 'yao-yang' : 'yao-yin'}`;
+        // 回看模式不需要入场动画，直接显示
+        div.style.opacity = '1'; 
+        
         stage.appendChild(div);
     });
 }
