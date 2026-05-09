@@ -1,0 +1,706 @@
+// === 全局状态 ===
+const API_BASE = '/api';
+let currentUser = null;
+let userRole = 'user';
+let isAppReady = false;
+let currentPage = 1;
+const POSTS_PER_PAGE = 10;
+let isLoadingPosts = false;
+let hasMorePosts = true;
+let isEditingPost = false;
+let editingPostId = null;
+let currentPostId = null;
+let currentPostAuthorId = null;
+let currentLayout = 'list';
+
+// === 主题管理 ===
+function getSavedTheme() {
+  return localStorage.getItem('theme') || 'dark';
+}
+
+function applyTheme(theme) {
+  document.documentElement.removeAttribute('data-theme');
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  // 'auto' — no attribute, CSS media query handles it
+
+  localStorage.setItem('theme', theme);
+
+  document.getElementById('themeLight').classList.toggle('active', theme === 'light');
+  document.getElementById('themeDark').classList.toggle('active', theme === 'dark');
+  document.getElementById('themeAuto').classList.toggle('active', theme === 'auto');
+}
+
+window.setTheme = function (theme) {
+  applyTheme(theme);
+};
+
+// 初始化主题
+applyTheme(getSavedTheme());
+
+// === 工具函数 ===
+window.showToast = function (msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2500);
+};
+
+function parseMarkdown(text) {
+  if (!text) return '';
+  try {
+    if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+      return DOMPurify.sanitize(marked.parse(text));
+    }
+  } catch (e) { }
+  return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+  return new Date(ts).toLocaleDateString('zh-CN');
+}
+
+function renderUserAvatar(userObj) {
+  if (userObj.avatar_url) {
+    return `<img src="${userObj.avatar_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
+  }
+  return generatePixelAvatar(userObj.username, userObj.avatar_variant || 0);
+}
+
+function generatePixelAvatar(username, variant = 0) {
+  let hash = 0;
+  const str = username + variant;
+  for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash |= 0; }
+  const r = (hash & 0xFF0000) >> 16;
+  const g = (hash & 0x00FF00) >> 8;
+  const b = hash & 0x0000FF;
+  return `<svg width="100%" height="100%" viewBox="0 0 8 8"><rect width="8" height="8" fill="rgb(${r},${g},${b})"/><rect x="1" y="1" width="2" height="2" fill="rgba(255,255,255,0.3)"/><rect x="5" y="5" width="2" height="2" fill="rgba(0,0,0,0.3)"/></svg>`;
+}
+
+// === 布局切换 ===
+window.setLayout = function (type) {
+  currentLayout = type;
+  document.getElementById('layoutList').classList.toggle('active', type === 'list');
+  document.getElementById('layoutGrid').classList.toggle('active', type === 'grid');
+  document.getElementById('posts-list').className = type === 'grid' ? 'posts-grid' : 'posts-list';
+};
+
+// === 移动端导航 ===
+window.toggleMobileNav = function () {
+  document.getElementById('navLinks').classList.toggle('open');
+};
+
+// 点击导航链接后关闭移动菜单
+document.addEventListener('click', function (e) {
+  const nav = document.getElementById('navLinks');
+  if (nav && nav.classList.contains('open') && e.target.closest('.nav-link')) {
+    nav.classList.remove('open');
+  }
+});
+
+// === 认证 ===
+async function checkSecurity() {
+  const mask = document.getElementById('loading-mask');
+  try {
+    const res = await fetch(`${API_BASE}/user`);
+    if (!res.ok) throw new Error("API Error");
+    const data = await res.json();
+
+    if (!data.loggedIn) {
+      window.location.replace('/login.html');
+      return;
+    }
+
+    if (data.status === 'banned') {
+      if (mask) {
+        mask.innerHTML = `<div style="border:2px solid #ef4444;padding:30px;background:var(--surface);max-width:90%;text-align:center;border-radius:12px;"><h1 style="color:#ef4444;margin:0 0 12px;">账号已封禁</h1><p style="color:var(--text-secondary);margin:6px 0;">解封: ${new Date(data.ban_expires_at).toLocaleString()}</p><p style="color:var(--text-secondary);margin:6px 0;">理由: ${data.ban_reason || '违反规定'}</p><button onclick="doLogout()" class="btn" style="margin-top:16px;">退出登录</button></div>`;
+        mask.style.opacity = '1';
+        return;
+      }
+    }
+
+    currentUser = data;
+    userRole = data.role || 'user';
+    isAppReady = true;
+
+    // 顶部导航用户信息
+    const displayName = data.nickname || data.username;
+    document.getElementById('navUsername').textContent = displayName;
+    document.getElementById('navAvatar').innerHTML = renderUserAvatar(data);
+
+    // 管理员：显示公告分类
+    if (userRole === 'admin') {
+      const cat = document.getElementById('postCategory');
+      if (cat && !cat.querySelector('option[value="公告"]')) {
+        const opt = document.createElement('option');
+        opt.value = '公告'; opt.innerText = '📢 公告';
+        cat.prepend(opt);
+      }
+    }
+
+    handleRoute();
+    if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
+  } catch (e) {
+    console.error(e);
+    if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
+  }
+}
+
+async function doLogout() {
+  await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+  window.location.href = '/login.html';
+}
+
+// === 路由 ===
+const views = {
+  home: document.getElementById('view-home'),
+  post: document.getElementById('view-post'),
+  write: document.getElementById('view-write'),
+  profile: document.getElementById('view-profile'),
+  settings: document.getElementById('view-settings'),
+  about: document.getElementById('view-about')
+};
+
+async function handleRoute() {
+  const hash = window.location.hash || '#home';
+  const navLinks = document.querySelectorAll('.nav-link');
+
+  Object.values(views).forEach(el => { if (el) el.style.display = 'none'; });
+  navLinks.forEach(el => el.classList.remove('active'));
+
+  if (!isAppReady && hash === '#admin') return;
+
+  if (hash !== '#write' && isEditingPost) {
+    isEditingPost = false; editingPostId = null;
+    const btn = document.querySelector('#postForm button[type="submit"]');
+    if (btn) btn.textContent = '发布';
+    document.getElementById('postTitle').value = '';
+    document.getElementById('postContent').value = '';
+    document.getElementById('cancelEditPostBtn').style.display = 'none';
+  }
+
+  if (hash === '#home') {
+    views.home.style.display = 'block';
+    document.getElementById('navHome').classList.add('active');
+    const list = document.getElementById('posts-list');
+    if (!list || list.children.length === 0) loadPosts(true);
+  } else if (hash.startsWith('#post?id=')) {
+    views.post.style.display = 'block';
+    currentPostId = hash.split('id=')[1].split('&')[0];
+    const commentId = hash.includes('commentId=') ? hash.split('commentId=')[1] : null;
+    loadSinglePost(currentPostId, commentId);
+  } else if (hash === '#write') {
+    views.write.style.display = 'block';
+    document.getElementById('navWrite').classList.add('active');
+  } else if (hash.startsWith('#profile?u=')) {
+    views.profile.style.display = 'block';
+    loadUserProfile(hash.split('=')[1]);
+  } else if (hash === '#profile') {
+    if (currentUser) {
+      views.profile.style.display = 'block';
+      loadUserProfile(currentUser.username);
+    }
+  } else if (hash === '#settings') {
+    views.settings.style.display = 'block';
+    document.getElementById('navSettings').classList.add('active');
+    if (currentUser) {
+      document.getElementById('settingsNickname').value = currentUser.nickname || '';
+      document.getElementById('settingsBio').value = currentUser.bio || '';
+    }
+    loadRecoveryPhrase();
+  } else if (hash === '#about') {
+    views.about.style.display = 'block';
+    document.getElementById('navAbout').classList.add('active');
+  }
+}
+
+// === 帖子加载 ===
+async function loadPosts(reset = false) {
+  const container = document.getElementById('posts-list');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const searchVal = document.getElementById('searchInput')?.value || '';
+  const sortVal = document.getElementById('sortSelect')?.value || 'latest';
+
+  if (reset) { currentPage = 1; hasMorePosts = true; container.innerHTML = ''; if (loadMoreBtn) loadMoreBtn.style.display = 'none'; }
+  if (!hasMorePosts || isLoadingPosts) return;
+  isLoadingPosts = true;
+  if (reset) container.innerHTML = '<div class="loading-spinner"></div>';
+  else if (loadMoreBtn) loadMoreBtn.textContent = '加载中...';
+
+  try {
+    const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&sort=${sortVal}`);
+    const posts = await res.json();
+    if (reset) container.innerHTML = '';
+    if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
+
+    if (posts.length === 0 && currentPage === 1) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>暂无帖子，来写第一篇吧</p></div>';
+    } else {
+      posts.forEach(post => {
+        const author = post.author_nickname || post.author_username || 'Unknown';
+        const timeStr = timeAgo(post.created_at);
+        const cat = post.category || '灌水';
+        const commentCount = post.comment_count || 0;
+
+        let snippet = post.content ? post.content.replace(/<[^>]*>/g, '').replace(/!\[.*?\]\(.*?\)/g, '[图片]').substring(0, 120) : '';
+
+        const card = document.createElement('div');
+        card.className = 'post-card';
+        card.innerHTML = `
+          <div class="card-header">
+            <span class="category-badge${cat === '公告' ? ' announcement' : ''}">${cat}</span>
+            ${post.is_pinned ? '<span style="font-size:0.75rem;color:var(--text-muted);">📌 置顶</span>' : ''}
+          </div>
+          <div class="card-title">${post.title}</div>
+          ${snippet ? `<div class="card-snippet">${snippet}</div>` : ''}
+          <div class="card-meta">
+            <span>👤 ${author}</span>
+            <span>${timeStr}</span>
+            <span>💬 ${commentCount}</span>
+            <span>❤ ${post.like_count || 0}</span>
+          </div>
+        `;
+        card.onclick = () => { window.location.hash = `#post?id=${post.id}`; };
+        container.appendChild(card);
+      });
+      currentPage++;
+    }
+  } catch (e) { console.error(e); }
+  finally {
+    isLoadingPosts = false;
+    if (loadMoreBtn) {
+      loadMoreBtn.style.display = hasMorePosts ? 'block' : 'none';
+      loadMoreBtn.textContent = '加载更多';
+    }
+  }
+}
+
+window.searchPosts = function () { loadPosts(true); };
+
+// === 单帖加载 ===
+async function loadSinglePost(id, targetCommentId = null) {
+  const container = document.getElementById('single-post-content');
+  if (!container) return;
+  container.innerHTML = '<div class="loading-spinner"></div>';
+  document.getElementById('commentsList').innerHTML = '';
+
+  try {
+    const res = await fetch(`${API_BASE}/posts?id=${id}`);
+    const post = await res.json();
+    if (!post || post.error) { container.innerHTML = '<p>帖子不存在</p>'; return; }
+    currentPostAuthorId = post.user_id;
+
+    const author = post.author_nickname || post.author_username || 'Unknown';
+    const timeStr = new Date(post.created_at).toLocaleString();
+    const editedTag = post.updated_at ? ' <span style="color:var(--text-muted);font-size:0.8rem;">(已编辑)</span>' : '';
+    const cat = post.category || '灌水';
+    const parsedContent = parseMarkdown(post.content || '');
+
+    let actionsHtml = '';
+    if (currentUser && (currentUser.id === post.user_id || userRole === 'admin')) {
+      actionsHtml = `<button class="btn btn-sm" onclick="editPostMode(${post.id})">编辑</button>
+        <button class="btn btn-sm btn-danger" onclick="deletePost(${post.id})">删除</button>`;
+    }
+    if (userRole === 'admin') {
+      actionsHtml += `<button class="btn btn-sm" onclick="pinPost(${post.id})">${post.is_pinned ? '取消置顶' : '置顶'}</button>`;
+    }
+
+    container.innerHTML = `
+      <div class="article-header">
+        <span class="category-badge${cat === '公告' ? ' announcement' : ''}" style="margin-bottom:10px;display:inline-block;">${cat}</span>
+        <h1 class="article-title">${post.title}</h1>
+        <div class="article-meta">
+          <span>👤 ${author}</span>
+          <span>${timeStr}${editedTag}</span>
+          <span>💬 ${post.comment_count || 0} 评论</span>
+        </div>
+      </div>
+      <div class="article-content">${parsedContent}</div>
+      <div class="article-actions">
+        <button class="btn btn-sm like-btn ${post.is_liked ? 'liked' : ''}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>
+        ${actionsHtml}
+      </div>
+    `;
+
+    loadComments(id, true, targetCommentId);
+  } catch (e) { container.innerHTML = '<p>加载失败</p>'; }
+}
+
+// === 评论 ===
+let currentCommentPage = 1;
+let hasMoreComments = true;
+
+async function loadComments(postId, reset = false, highlightId = null) {
+  const container = document.getElementById('commentsList');
+  if (reset) { currentCommentPage = 1; hasMoreComments = true; container.innerHTML = ''; }
+  if (!hasMoreComments) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}`);
+    const data = await res.json();
+    const comments = data.results || [];
+    if (comments.length < 20) hasMoreComments = false;
+
+    if (comments.length === 0 && currentCommentPage === 1) {
+      container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px;">还没有评论</p>';
+      return;
+    }
+
+    comments.forEach((c, i) => {
+      const el = createCommentElement(c, false, currentPostAuthorId, (currentCommentPage - 1) * 20 + i);
+      container.appendChild(el);
+    });
+    currentCommentPage++;
+
+    if (highlightId) {
+      setTimeout(() => {
+        const target = document.getElementById(`comment-${highlightId}`);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  } catch (e) { console.error(e); }
+}
+
+function createCommentElement(c, isReply, postAuthorId, floorNumber) {
+  const div = document.createElement('div');
+  div.className = `comment-card${c.is_pinned ? ' pinned' : ''}`;
+  div.id = `comment-${c.id}`;
+
+  const author = c.nickname || c.username || 'Unknown';
+  const timeStr = timeAgo(c.created_at);
+  const parsedContent = parseMarkdown(c.content || '');
+  const pinnedBadge = c.is_pinned ? ' 📌' : '';
+  const authorTag = postAuthorId && c.user_id === postAuthorId ? ' <span style="font-size:0.7rem;color:var(--accent);">作者</span>' : '';
+  const replyTo = c.reply_to_nickname ? ` → @${c.reply_to_nickname}` : '';
+
+  let adminActions = '';
+  if (currentUser && (currentUser.id === c.user_id || userRole === 'admin')) {
+    adminActions += `<span onclick="deleteComment(${c.id})" style="cursor:pointer;color:var(--danger);">删除</span>`;
+  }
+  if (postAuthorId && currentUser && currentUser.id === postAuthorId) {
+    adminActions += `<span onclick="pinComment(${c.id})" style="cursor:pointer;color:var(--text-muted);margin-left:8px;">${c.is_pinned ? '取消置顶' : '置顶'}</span>`;
+  }
+
+  div.innerHTML = `
+    <div class="comment-header">
+      <span class="comment-author">${author}${authorTag}</span>
+      <span class="comment-time">${timeStr}${pinnedBadge}</span>
+      ${replyTo ? `<span class="comment-reply-to">${replyTo}</span>` : ''}
+    </div>
+    <div class="comment-body">${parsedContent}</div>
+    <div class="comment-footer">
+      <button class="btn btn-sm like-btn ${c.is_liked ? 'liked' : ''}" onclick="toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count || 0}</span></button>
+      <button class="btn btn-sm btn-ghost" onclick="prepareReply(${c.id}, '${author}')">回复</button>
+      ${adminActions}
+    </div>
+  `;
+  return div;
+}
+
+window.prepareReply = function (commentId, authorName) {
+  const input = document.getElementById('commentInput');
+  input.dataset.parentId = commentId;
+  input.placeholder = `回复 @${authorName}...`;
+  input.focus();
+  const cancelBtn = document.getElementById('cancelReplyBtn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+};
+
+window.cancelReply = function () {
+  const input = document.getElementById('commentInput');
+  input.dataset.parentId = '';
+  input.placeholder = '写评论... (Markdown 和图片)';
+  document.getElementById('cancelReplyBtn').style.display = 'none';
+};
+
+window.submitComment = async function () {
+  const input = document.getElementById('commentInput');
+  const content = input.value.trim();
+  if (!content) return showToast('内容不能为空', 'error');
+  const parentId = input.dataset.parentId || null;
+
+  try {
+    const res = await fetch(`${API_BASE}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: parseInt(currentPostId), content, parent_id: parentId ? parseInt(parentId) : null })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('评论成功', 'success');
+      input.value = '';
+      cancelReply();
+      loadComments(currentPostId, true);
+    } else {
+      showToast(data.error || '评论失败', 'error');
+    }
+  } catch (e) { showToast('网络错误', 'error'); }
+};
+
+window.deleteComment = async function (id) {
+  if (!confirm('确认删除?')) return;
+  await fetch(`${API_BASE}/comments?id=${id}`, { method: 'DELETE' });
+  loadComments(currentPostId, true);
+};
+
+window.pinComment = async function (id) {
+  await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pin', id }) });
+  loadComments(currentPostId, true);
+};
+
+// === 点赞 ===
+window.toggleLike = async function (id, type, btn) {
+  try {
+    const res = await fetch(`${API_BASE}/like`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_id: id, target_type: type })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const countEl = btn.querySelector('.count');
+      if (countEl) countEl.textContent = data.like_count;
+      btn.classList.toggle('liked', data.action === 'liked');
+    }
+  } catch (e) { }
+};
+
+// === 帖子操作 ===
+window.editPostMode = async function (id) {
+  try {
+    const res = await fetch(`${API_BASE}/posts?id=${id}`);
+    const post = await res.json();
+    isEditingPost = true; editingPostId = id;
+    document.getElementById('postTitle').value = post.title || '';
+    document.getElementById('postContent').value = post.content || '';
+    document.getElementById('postCategory').value = post.category || '灌水';
+    document.querySelector('#postForm button[type="submit"]').textContent = '保存修改';
+    document.getElementById('cancelEditPostBtn').style.display = 'inline-flex';
+    window.location.hash = '#write';
+  } catch (e) { showToast('加载失败', 'error'); }
+};
+
+window.cancelEditPost = function () {
+  isEditingPost = false; editingPostId = null;
+  document.getElementById('postTitle').value = '';
+  document.getElementById('postContent').value = '';
+  document.querySelector('#postForm button[type="submit"]').textContent = '发布';
+  document.getElementById('cancelEditPostBtn').style.display = 'none';
+  window.location.hash = '#home';
+};
+
+window.submitPost = async function (e) {
+  e.preventDefault();
+  const title = document.getElementById('postTitle').value.trim();
+  const content = document.getElementById('postContent').value.trim();
+  const category = document.getElementById('postCategory').value;
+  if (!title && !content) return showToast('标题和内容不能同时为空', 'error');
+
+  try {
+    let res;
+    if (isEditingPost && editingPostId) {
+      res = await fetch(`${API_BASE}/posts`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingPostId, action: 'edit', title, content, category })
+      });
+    } else {
+      res = await fetch(`${API_BASE}/posts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, category })
+      });
+    }
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message || '成功', 'success');
+      cancelEditPost();
+      loadPosts(true);
+    } else { showToast(data.error || '失败', 'error'); }
+  } catch (e) { showToast('网络错误', 'error'); }
+};
+
+window.deletePost = async function (id) {
+  if (!confirm('确定删除? 不可恢复。')) return;
+  try {
+    const res = await fetch(`${API_BASE}/posts?id=${id}`, { method: 'DELETE' });
+    if (res.ok) { showToast('已删除', 'success'); window.location.hash = '#home'; loadPosts(true); }
+    else showToast('删除失败', 'error');
+  } catch (e) { showToast('网络错误', 'error'); }
+};
+
+window.pinPost = async function (id) {
+  const res = await fetch(`${API_BASE}/posts`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, action: 'pin' })
+  });
+  const data = await res.json();
+  if (data.success) { showToast(data.message, 'success'); loadSinglePost(currentPostId); }
+  else showToast(data.error, 'error');
+};
+
+// === 图片上传 ===
+window.uploadImage = async function () {
+  const file = document.getElementById('imageUploadInput').files[0];
+  if (!file) return;
+  const status = document.getElementById('uploadStatus');
+  status.textContent = '上传中...';
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.url) {
+      const isVideo = file.type.startsWith('video/');
+      const insert = isVideo ? `\n<video controls src="${data.url}"></video>\n` : `\n![](${data.url})\n`;
+      document.getElementById('postContent').value += insert;
+      status.textContent = '✓';
+    } else {
+      status.textContent = '失败';
+      showToast(data.error || '上传失败', 'error');
+    }
+  } catch (e) { status.textContent = '失败'; }
+};
+
+window.uploadCommentImage = async function () {
+  const file = document.getElementById('commentImgUpload').files[0];
+  if (!file) return;
+  const status = document.getElementById('commentUploadStatus');
+  status.textContent = '上传中...';
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.url) {
+      const isVideo = file.type.startsWith('video/');
+      const insert = isVideo ? `\n<video controls src="${data.url}"></video>\n` : `\n![](${data.url})\n`;
+      document.getElementById('commentInput').value += insert;
+      status.textContent = '✓';
+    } else { status.textContent = '失败'; }
+  } catch (e) { status.textContent = '失败'; }
+};
+
+// === 个人主页 ===
+async function loadUserProfile(username) {
+  document.getElementById('profileName').textContent = '加载中...';
+  try {
+    const res = await fetch(`${API_BASE}/profile_public?username=${encodeURIComponent(username)}`);
+    const data = await res.json();
+    if (data.error) { document.getElementById('profileName').textContent = data.error; return; }
+
+    document.getElementById('profileName').textContent = data.nickname || data.username;
+    document.getElementById('profileBio').textContent = data.bio || '暂无签名';
+    document.getElementById('statPosts').textContent = data.post_count || 0;
+    document.getElementById('statFollowers').textContent = data.followers_count || 0;
+    document.getElementById('statFollowing').textContent = data.following_count || 0;
+
+    const avatarEl = document.getElementById('profileAvatar');
+    avatarEl.innerHTML = renderUserAvatar(data);
+
+    const postsRes = await fetch(`${API_BASE}/posts?sort=latest&limit=50`);
+    const allPosts = await postsRes.json();
+    const userPosts = Array.isArray(allPosts) ? allPosts.filter(p => p.user_id === data.id) : [];
+    const profilePosts = document.getElementById('profilePosts');
+    if (userPosts.length === 0) {
+      profilePosts.innerHTML = '<div class="empty-state"><p>暂无帖子</p></div>';
+    } else {
+      profilePosts.innerHTML = `<h3 style="margin-bottom:14px;font-weight:650;">TA 的帖子</h3>` +
+        userPosts.map(p => `
+          <div class="post-card" onclick="window.location.hash='#post?id=${p.id}'" style="margin-bottom:8px;">
+            <div class="card-header"><span class="category-badge">${p.category || '灌水'}</span></div>
+            <div class="card-title">${p.title}</div>
+            <div class="card-meta" style="margin-top:6px;">${timeAgo(p.created_at)} · 💬 ${p.comment_count || 0} · ❤ ${p.like_count || 0}</div>
+          </div>
+        `).join('');
+    }
+  } catch (e) { console.error(e); }
+}
+
+// === 恢复短语 ===
+async function loadRecoveryPhrase() {
+  try {
+    const res = await fetch(`${API_BASE}/profile`);
+    const data = await res.json();
+    const el = document.getElementById('settingsRecoveryPhrase');
+    if (el && data.recoveryPhrase) el.textContent = data.recoveryPhrase;
+  } catch (e) { }
+}
+
+window.copyRecoveryPhrase = function () {
+  const el = document.getElementById('settingsRecoveryPhrase');
+  if (el && el.textContent) {
+    navigator.clipboard.writeText(el.textContent).then(() => showToast('已复制', 'success'));
+  }
+};
+
+window.regenerateRecoveryPhrase = async function () {
+  if (!confirm('重新生成后旧恢复短语将失效，确定继续？')) return;
+  try {
+    const res = await fetch(`${API_BASE}/profile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ regenerate_recovery: true })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('settingsRecoveryPhrase').textContent = data.recoveryPhrase;
+      showToast('恢复短语已更新，请保存！', 'success');
+    } else {
+      showToast(data.error, 'error');
+    }
+  } catch (e) { showToast('网络错误', 'error'); }
+};
+
+// === 设置 ===
+window.updateNickname = async function () {
+  const nickname = document.getElementById('settingsNickname').value.trim();
+  if (!nickname) return showToast('昵称不能为空', 'error');
+  try {
+    const res = await fetch(`${API_BASE}/profile`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('昵称已更新', 'success');
+      currentUser.nickname = nickname;
+      document.getElementById('navUsername').textContent = nickname;
+    } else showToast(data.error, 'error');
+  } catch (e) { showToast('网络错误', 'error'); }
+};
+
+window.updateBio = async function () {
+  const bio = document.getElementById('settingsBio').value.trim();
+  try {
+    const res = await fetch(`${API_BASE}/profile`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bio })
+    });
+    const data = await res.json();
+    if (data.success) showToast('签名已更新', 'success');
+    else showToast(data.error, 'error');
+  } catch (e) { showToast('网络错误', 'error'); }
+};
+
+// === 初始化 ===
+function initApp() {
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+  document.addEventListener('click', function (e) {
+    const nav = document.getElementById('navLinks');
+    const btn = document.getElementById('mobileMenuBtn');
+    if (nav && nav.classList.contains('open') && !nav.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      nav.classList.remove('open');
+    }
+  });
+
+  window.addEventListener('hashchange', handleRoute);
+  checkSecurity();
+}
+
+document.addEventListener('DOMContentLoaded', initApp);

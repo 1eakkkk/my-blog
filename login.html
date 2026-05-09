@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://challenges.cloudflare.com">
+  <link rel="dns-prefetch" href="https://challenges.cloudflare.com">
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>登录 | 1eak.cool</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
+  <style>
+    :root {
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-dim: rgba(59, 130, 246, 0.1);
+      --danger: #ef4444;
+      --green: #22c55e;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --bg-secondary: #ffffff;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --bg-secondary: #1e293b;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme]) {
+        --bg: #f8fafc;
+        --bg-secondary: #ffffff;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --text: #1e293b;
+        --text-secondary: #64748b;
+        --text-muted: #94a3b8;
+      }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme]) {
+        --bg: #0f172a;
+        --bg-secondary: #1e293b;
+        --surface: #1e293b;
+        --border: #334155;
+        --text: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      transition: background 0.3s;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    .logo {
+      font-size: 1.4rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .logo .dot { color: var(--accent); }
+
+    .logo-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    /* 主题切换 */
+    .theme-row {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    .theme-toggle {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px;
+    }
+
+    .theme-toggle button {
+      width: 34px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      border-radius: 18px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      color: var(--text-muted);
+    }
+
+    .theme-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px 8px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: all 0.15s;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .form-control {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.15s;
+      margin-bottom: 12px;
+    }
+
+    .form-control:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .form-control::placeholder { color: var(--text-muted); }
+
+    .btn {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      color: #fff;
+      font-family: var(--font);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .msg-box {
+      min-height: 20px;
+      color: var(--danger);
+      font-size: 0.83rem;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .msg-box.success { color: var(--green); }
+
+    .recovery-box {
+      display: none;
+      margin-top: 16px;
+      padding: 12px;
+      border: 1px solid var(--green);
+      border-radius: var(--radius-sm);
+      background: rgba(34, 197, 94, 0.08);
+      font-size: 0.83rem;
+      line-height: 1.6;
+      word-break: break-all;
+    }
+
+    .cf-turnstile { margin-bottom: 12px; display: flex; justify-content: center; }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="logo">1EAK<span class="dot">.</span>COOL</div>
+  <div class="logo-sub">简单的论坛空间</div>
+
+  <div class="theme-row">
+    <div class="theme-toggle" id="themeToggle">
+      <button onclick="setTheme('light')" id="themeLight" title="日间">☀️</button>
+      <button onclick="setTheme('dark')" id="themeDark" class="active" title="夜间">🌙</button>
+      <button onclick="setTheme('auto')" id="themeAuto" title="跟随系统">🖥</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('login')">登录</div>
+    <div class="tab" onclick="switchTab('register')">注册</div>
+    <div class="tab" onclick="switchTab('reset')">忘记密码</div>
+  </div>
+
+  <form id="authForm">
+    <input type="text" id="username" class="form-control" placeholder="用户名" required>
+    <input type="password" id="password" class="form-control" placeholder="密码" required>
+    <input type="text" id="inviteCode" class="form-control" placeholder="邀请码" style="display:none;">
+    <input type="text" id="recoveryKeyInput" class="form-control" placeholder="恢复短语（如 蓝天-白云-青山-绿水）" style="display:none;">
+    <div id="msgBox" class="msg-box"></div>
+    <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXdJPWAee7ZdB" data-theme="dark"></div>
+    <button type="submit" class="btn" id="submitBtn">登录</button>
+  </form>
+
+  <div id="newRecoveryKey" class="recovery-box"></div>
+</div>
+
+<script>
+  let currentMode = 'login';
+  const msgBox = document.getElementById('msgBox');
+  const submitBtn = document.getElementById('submitBtn');
+  const passInput = document.getElementById('password');
+  const keyInput = document.getElementById('recoveryKeyInput');
+  const recoveryBox = document.getElementById('newRecoveryKey');
+  const inviteInput = document.getElementById('inviteCode');
+
+  // 主题
+  function getSavedTheme() { return localStorage.getItem('theme') || 'dark'; }
+  function applyTheme(theme) {
+    document.documentElement.removeAttribute('data-theme');
+    if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', theme);
+    document.getElementById('themeLight').classList.toggle('active', theme === 'light');
+    document.getElementById('themeDark').classList.toggle('active', theme === 'dark');
+    document.getElementById('themeAuto').classList.toggle('active', theme === 'auto');
+  }
+  window.setTheme = applyTheme;
+  applyTheme(getSavedTheme());
+
+  fetch('/api/user').then(res => res.json()).then(data => {
+    if (data.loggedIn) window.location.href = '/index.html';
+  });
+
+  fetch('/api/config')
+    .then(res => res.json())
+    .then(data => {
+      const widget = document.querySelector('.cf-turnstile');
+      if (!data.turnstileEnabled) { if (widget) widget.style.display = 'none'; window.isTurnstileDisabled = true; }
+    })
+    .catch(() => { });
+
+  function switchTab(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    msgBox.textContent = '';
+    msgBox.className = 'msg-box';
+    recoveryBox.style.display = 'none';
+
+    if (mode === 'login') {
+      submitBtn.textContent = '登录';
+      passInput.placeholder = '密码';
+      keyInput.style.display = 'none'; keyInput.removeAttribute('required');
+      inviteInput.style.display = 'none'; inviteInput.removeAttribute('required');
+    } else if (mode === 'register') {
+      submitBtn.textContent = '注册';
+      passInput.placeholder = '设置密码';
+      keyInput.style.display = 'none'; keyInput.removeAttribute('required');
+      inviteInput.style.display = 'block'; inviteInput.required = true;
+    } else if (mode === 'reset') {
+      submitBtn.textContent = '重置密码';
+      passInput.placeholder = '新密码';
+      keyInput.style.display = 'block'; keyInput.required = true;
+      inviteInput.style.display = 'none';
+    }
+  }
+
+  document.getElementById('authForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    const k = keyInput.value;
+    const invite = inviteInput.value;
+    const formData = new FormData(e.target);
+    const token = formData.get('cf-turnstile-response');
+
+    if (!window.isTurnstileDisabled && !token) { msgBox.textContent = '请完成人机验证'; return; }
+
+    submitBtn.disabled = true; submitBtn.textContent = '处理中...'; msgBox.textContent = '';
+
+    let endpoint = '/api/auth/login';
+    let body = { username: u, password: p, turnstileToken: token };
+
+    if (currentMode === 'register') { endpoint = '/api/auth/register'; body.inviteCode = invite; }
+    else if (currentMode === 'reset') { endpoint = '/api/auth/reset'; body = { username: u, newPassword: p, recoveryKey: k }; }
+
+    try {
+      const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (data.success) {
+        if (currentMode === 'login') { window.location.href = '/index.html'; }
+        else if (currentMode === 'register') {
+          msgBox.textContent = '注册成功！请务必保存下方的恢复短语！';
+          msgBox.className = 'msg-box success';
+          recoveryBox.style.display = 'block';
+          recoveryBox.innerHTML = `<strong>恢复短语：</strong><br>${data.recoveryPhrase}<br><br>⚠️ 请截图或复制保存，忘记密码时用它来重置！`;
+          submitBtn.textContent = '前往登录';
+          document.getElementById('authForm').onsubmit = () => { switchTab('login'); return false; };
+        } else if (currentMode === 'reset') { alert('密码已重置，请登录'); switchTab('login'); }
+      } else {
+        msgBox.textContent = data.error || '操作失败';
+        msgBox.className = 'msg-box';
+        if (window.turnstile) turnstile.reset();
+      }
+    } catch (err) {
+      msgBox.textContent = '连接中断，请重试';
+      if (window.turnstile) turnstile.reset();
+    } finally { submitBtn.disabled = false; }
+  };
+</script>
+</body>
+</html>
