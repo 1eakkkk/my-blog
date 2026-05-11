@@ -1227,11 +1227,9 @@ function ensureTOCLayout(contentEl) {
   wrapper.className = 'post-layout';
   contentEl.parentNode.insertBefore(wrapper, contentEl);
   wrapper.appendChild(contentEl);
-  const sidebar = document.getElementById('toc-sidebar');
-  if (sidebar) {
-    wrapper.appendChild(sidebar);
-    sidebar.hidden = false;
-  }
+  const sidebar = document.createElement('aside');
+  sidebar.id = 'toc-sidebar';
+  wrapper.appendChild(sidebar);
 }
 
 function renderTOCSidebar(items) {
