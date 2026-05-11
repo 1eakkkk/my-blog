@@ -17,7 +17,13 @@ export async function onRequestPost(context) {
     return new Response(JSON.stringify({ error: `文件过大，最大支持 ${MAX_SIZE / 1024 / 1024}MB` }), { status: 400 });
   }
 
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'video/mp4', 'video/webm', 'application/pdf'];
+  const ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'mp4', 'webm', 'pdf'];
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+
+  if (!ALLOWED_TYPES.includes(file.type) || !ALLOWED_EXTS.includes(ext)) {
+    return new Response(JSON.stringify({ error: '不支持的文件类型' }), { status: 400 });
+  }
   const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
 
   try {

@@ -28,17 +28,17 @@ export async function onRequestGet(context) {
     users.avatar_variant as author_avatar_variant,
     users.avatar_url as author_avatar_url,
     users.role as author_role,
-    (SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = ${currentUserId || 0}) as is_liked,
+    (SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = ?) as is_liked,
     (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) as comment_count
   `;
 
   try {
     if (id) {
-      const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(id).first();
+      const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(currentUserId || 0, id).first();
       return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
     } else {
       let sql = `SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id`;
-      const params = [];
+      const params = [currentUserId || 0];
       const conditions = [];
 
       if (search) {

@@ -19,6 +19,7 @@ export async function onRequestPost(context) {
   if (!username || !password) return new Response(JSON.stringify({ success: false, error: '信息不完整' }), { status: 400 });
   if (username.length < 2 || username.length > 20) return new Response(JSON.stringify({ success: false, error: '用户名2-20个字符' }), { status: 400 });
   if (password.length < 6) return new Response(JSON.stringify({ success: false, error: '密码至少6位' }), { status: 400 });
+  if (!/^[\u4e00-\u9fa5a-zA-Z0-9_-]+$/.test(username)) return new Response(JSON.stringify({ success: false, error: '用户名只能包含中文、字母、数字、下划线和连字符' }), { status: 400 });
 
   // Turnstile 验证
   const tsSetting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();

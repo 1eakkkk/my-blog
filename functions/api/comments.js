@@ -122,8 +122,16 @@ export async function onRequestDelete(context) {
   const commentId = url.searchParams.get('id');
 
   let result;
-  if (user.role === 'admin') result = await db.prepare('DELETE FROM comments WHERE id = ? OR parent_id = ?').bind(commentId, commentId).run();
-  else result = await db.prepare('DELETE FROM comments WHERE id = ? AND user_id = ?').bind(commentId, user.id).run();
+  if (user.role === 'admin') {
+    result = await db.prepare('DELETE FROM comments WHERE id = ? OR parent_id = ?').bind(commentId, commentId).run();
+  } else {
+    result = await db.prepare('DELETE FROM comments WHERE id = ? AND user_id = ?')
+      .bind(commentId, user.id).run();
+    if (result.meta.changes > 0) {
+      await db.prepare('DELETE FROM comments WHERE parent_id = ?')
+        .bind(commentId).run();
+    }
+  }
 
   if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '评论已删除' }));
   else return new Response(JSON.stringify({ success: false, error: '删除失败' }), { status: 403 });
