@@ -206,6 +206,11 @@ async function handleRoute() {
   Object.values(views).forEach(el => { if (el) el.style.display = 'none'; });
   navLinks.forEach(el => el.classList.remove('active'));
 
+  if (hash !== '#write' && window._draftTimer) {
+    clearInterval(window._draftTimer);
+    window._draftTimer = null;
+  }
+
   if (!isAppReady && hash === '#admin') return;
 
   if (hash !== '#write' && isEditingPost) {
@@ -238,6 +243,11 @@ async function handleRoute() {
   } else if (hash === '#write') {
     views.write.style.display = 'block';
     document.getElementById('navWrite').classList.add('active');
+    restoreDraft();
+    // 自动保存定时器
+    if (!window._draftTimer) {
+      window._draftTimer = setInterval(saveDraft, 3000);
+    }
   } else if (hash.startsWith('#profile?u=')) {
     views.profile.style.display = 'block';
     loadUserProfile(decodeURIComponent(hash.split('=')[1]).trim());
@@ -391,7 +401,13 @@ let hasMoreComments = true;
 
 async function loadComments(postId, reset = false, highlightId = null) {
   const container = document.getElementById('commentsList');
-  if (reset) { currentCommentPage = 1; hasMoreComments = true; container.innerHTML = ''; }
+  if (reset) {
+    currentCommentPage = 1;
+    hasMoreComments = true;
+    container.innerHTML = '';
+    const btn = document.getElementById('loadMoreComments');
+    if (btn) btn.style.display = 'none';
+  }
   if (!hasMoreComments) return;
 
   try {
@@ -432,13 +448,25 @@ async function loadComments(postId, reset = false, highlightId = null) {
     });
     currentCommentPage++;
 
+    const loadMoreBtn = document.getElementById('loadMoreComments');
+    if (loadMoreBtn) {
+      loadMoreBtn.style.display = hasMoreComments ? 'block' : 'none';
+      loadMoreBtn.querySelector('button').textContent = '加载更多评论';
+    }
+
     if (highlightId) {
       setTimeout(() => {
         const target = document.getElementById(`comment-${highlightId}`);
         if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 300);
     }
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+    const loadMoreBtn = document.getElementById('loadMoreComments');
+    if (loadMoreBtn && loadMoreBtn.style.display !== 'none') {
+      loadMoreBtn.querySelector('button').textContent = '加载失败，点击重试';
+    }
+  }
 }
 
 function createCommentElement(c, isReply, postAuthorId, floorNumber) {
@@ -591,8 +619,45 @@ window.cancelEditPost = function () {
   document.getElementById('postContent').value = '';
   document.getElementById('postCategory').value = '灌水';
   document.querySelector('#postForm button[type="submit"]').textContent = '发布';
+  clearDraft();
   window.location.hash = '#home';
 };
+
+const DRAFT_KEY = 'postDraft';
+
+function saveDraft() {
+  if (isEditingPost) return;
+  const title = document.getElementById('postTitle').value;
+  const content = document.getElementById('postContent').value;
+  const category = document.getElementById('postCategory').value;
+  if (!title && !content) return;
+  localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content, category }));
+  const status = document.getElementById('draftStatus');
+  if (status) status.textContent = '草稿已保存';
+  setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+}
+
+function restoreDraft() {
+  if (isEditingPost) return;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    if (!draft.title && !draft.content) return;
+    document.getElementById('postTitle').value = draft.title || '';
+    document.getElementById('postContent').value = draft.content || '';
+    if (draft.category) document.getElementById('postCategory').value = draft.category;
+    const status = document.getElementById('draftStatus');
+    if (status) status.textContent = '已恢复草稿';
+    setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+  } catch (e) {}
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+  const status = document.getElementById('draftStatus');
+  if (status) status.textContent = '';
+}
 
 window.submitPost = async function (e) {
   e.preventDefault();
@@ -617,6 +682,7 @@ window.submitPost = async function (e) {
     const data = await res.json();
     if (data.success) {
       showToast(data.message || '成功', 'success');
+      clearDraft();
       cancelEditPost();
       loadPosts(true);
     } else { showToast(data.error || '失败', 'error'); }

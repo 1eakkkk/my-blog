@@ -126,6 +126,9 @@
         </div>
       </div>
       <div id="commentsList" class="comments-list"></div>
+      <div id="loadMoreComments" style="display:none;text-align:center;margin-top:12px;">
+        <button class="btn btn-ghost" onclick="loadComments(currentPostId)">加载更多评论</button>
+      </div>
     </div>
   </div>
 
@@ -306,7 +309,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.3.6</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.3.7</strong> · 2026-05-11</p>
     </div>
 
     <div class="about-section">
@@ -334,6 +337,7 @@
         <details open>
           <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.3.x (2026-05-11)</summary>
           <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p><strong>v2.3.7</strong> — 帖子内容长度限制(50000字)、发帖草稿自动保存、评论区加载更多按钮</p>
             <p><strong>v2.3.6</strong> — 限流机制从D1改为KV(性能提升)、session过期自动清理</p>
             <p><strong>v2.3.5</strong> — 评论字数限制(前后端500字校验)、搜索空状态文案优化、回复提示条持久显示</p>
             <p><strong>v2.3.4</strong> — 评论楼中楼缩进、楼层号、回复标签、子评论分组渲染、回复提示条</p>

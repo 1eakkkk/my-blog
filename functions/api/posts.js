@@ -86,6 +86,7 @@ export async function onRequestPost(context) {
 
   let { title, content, category } = await context.request.json();
 
+  if (content && content.length > 50000) return new Response(JSON.stringify({ success: false, error: '内容过长，最多50000字' }), { status: 400 });
   if ((!title || !title.trim()) && (!content || !content.trim())) {
     return new Response(JSON.stringify({ success: false, error: '标题和内容不能同时为空' }), { status: 400 });
   }
@@ -118,6 +119,7 @@ export async function onRequestPut(context) {
     if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
     if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
 
+    if (content && content.length > 50000) return new Response(JSON.stringify({ success: false, error: '内容过长，最多50000字' }), { status: 400 });
     if ((!title || !title.trim()) && (!content || !content.trim())) {
       return new Response(JSON.stringify({ success: false, error: '不能全为空' }), { status: 400 });
     }
