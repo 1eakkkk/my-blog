@@ -63,6 +63,20 @@ window.showToast = function (msg, type = 'info') {
   setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2500);
 };
 
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '[图片]')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*{1,3}|_{1,3})(.*?)\1/g, '$2')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '代码')
+    .replace(/^>\s+/gm, '')
+    .replace(/[-*+]\s+/g, '')
+    .replace(/\|/g, ' ')
+    .replace(/~{2}(.*?)~{2}/g, '$1');
+}
+
 function parseMarkdown(text) {
   if (!text) return '';
   try {
@@ -279,7 +293,7 @@ async function loadPosts(reset = false) {
         const cat = post.category || '灌水';
         const commentCount = post.comment_count || 0;
 
-        let snippet = post.content ? post.content.replace(/<[^>]*>/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '[图片]').replace(/\[图片\]\s*\[图片\]/g, '[图片]').substring(0, 120) : '';
+        let snippet = post.content ? stripMarkdown(post.content.replace(/<[^>]*>/g, '')).replace(/\[图片\](\s*\[图片\])+/g, '[图片]').substring(0, 120) : '';
 
         const card = document.createElement('div');
         card.className = 'post-card';
@@ -618,10 +632,11 @@ window.uploadCommentImage = async function () {
 };
 
 // === 个人主页 ===
-async function loadUserProfile(username) {
+async function loadUserProfile(param) {
   document.getElementById('profileName').textContent = '加载中...';
   try {
-    const res = await fetch(`${API_BASE}/profile_public?username=${encodeURIComponent(username)}`);
+    const isId = /^\d+$/.test(param);
+    const res = await fetch(`${API_BASE}/profile_public?${isId ? 'id' : 'username'}=${encodeURIComponent(param)}`);
     const data = await res.json();
     if (data.error) { document.getElementById('profileName').textContent = data.error; return; }
 
@@ -921,9 +936,9 @@ window.showAdminDetail = async function (type) {
     if (type === 'online') {
       const list = data.users || [];
       content.innerHTML = list.length === 0 ? '<p style="color:var(--text-muted);">暂无在线用户</p>' :
-        list.map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.username}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.8rem;">${new Date(u.last_seen).toLocaleTimeString()}</span></div>`).join('');
+        list.map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.id}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.8rem;">${new Date(u.last_seen).toLocaleTimeString()}</span></div>`).join('');
     } else if (type === 'users') {
-      content.innerHTML = (data.users || []).map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.username}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.78rem;">${new Date(u.created_at).toLocaleDateString()}</span></div>`).join('');
+      content.innerHTML = (data.users || []).map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.id}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.78rem;">${new Date(u.created_at).toLocaleDateString()}</span></div>`).join('');
     } else if (type === 'posts') {
       content.innerHTML = (data.posts || []).map(p => `<div style="padding:8px 0;border-bottom:1px solid var(--border);"><a href="#post?id=${p.id}" onclick="document.getElementById('adminDetailModal').style.display='none'" style="font-weight:500;">${p.title}</a><div style="font-size:0.78rem;color:var(--text-muted);">${p.author_name} · ${new Date(p.created_at).toLocaleDateString()} · ${p.category}</div></div>`).join('');
     }
@@ -978,6 +993,10 @@ function initApp() {
   if (mdPreviewBtn) mdPreviewBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('preview'); });
 
   window.addEventListener('hashchange', handleRoute);
+
+  // 心跳上报，每 2 分钟更新在线状态
+  setInterval(() => { fetch(`${API_BASE}/heartbeat`, { method: 'POST' }).catch(() => {}); }, 120000);
+
   checkSecurity();
 }
 

@@ -884,13 +884,13 @@ select.form-control { cursor: pointer; }
   transition: opacity 0.2s;
 }
 
-.admin-stat-card.clickable { cursor: pointer; }
-.admin-stat-card.clickable:hover {
+.admin-stat-card:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
 }
-.admin-stat-card.clickable:hover::before { opacity: 1; }
+.admin-stat-card:hover::before { opacity: 1; }
+.admin-stat-card.clickable { cursor: pointer; }
 
 .admin-stat-card .stat-icon {
   width: 44px; height: 44px;

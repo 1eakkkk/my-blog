@@ -23,7 +23,7 @@ export async function onRequestGet(context) {
     const tsSetting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
     const turnstileEnabled = tsSetting ? tsSetting.value === 'true' : true;
 
-    const onlineList = await db.prepare('SELECT username, nickname, last_seen FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 20').bind(fiveMinAgo).all();
+    const onlineList = await db.prepare('SELECT id, username, nickname, last_seen FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 20').bind(fiveMinAgo).all();
 
     return new Response(JSON.stringify({
       stats: {
@@ -36,7 +36,7 @@ export async function onRequestGet(context) {
 
   // 详情查询
   if (action === 'user_list') {
-    const users = await db.prepare('SELECT username, nickname, created_at, last_seen FROM users ORDER BY created_at DESC LIMIT 20').all();
+    const users = await db.prepare('SELECT id, username, nickname, created_at, last_seen FROM users ORDER BY created_at DESC LIMIT 20').all();
     return new Response(JSON.stringify({ users: users.results }), { headers: { 'Content-Type': 'application/json' } });
   }
   if (action === 'post_list') {
@@ -44,7 +44,7 @@ export async function onRequestGet(context) {
     return new Response(JSON.stringify({ posts: posts.results }), { headers: { 'Content-Type': 'application/json' } });
   }
   if (action === 'online_list') {
-    const online = await db.prepare('SELECT username, nickname, last_seen FROM users WHERE last_seen > ? ORDER BY last_seen DESC').bind(Date.now() - 5 * 60 * 1000).all();
+    const online = await db.prepare('SELECT id, username, nickname, last_seen FROM users WHERE last_seen > ? ORDER BY last_seen DESC').bind(Date.now() - 5 * 60 * 1000).all();
     return new Response(JSON.stringify({ users: online.results }), { headers: { 'Content-Type': 'application/json' } });
   }
 
