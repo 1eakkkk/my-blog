@@ -240,7 +240,7 @@ async function handleRoute() {
     document.getElementById('navWrite').classList.add('active');
   } else if (hash.startsWith('#profile?u=')) {
     views.profile.style.display = 'block';
-    loadUserProfile(hash.split('=')[1]);
+    loadUserProfile(decodeURIComponent(hash.split('=')[1]).trim());
   } else if (hash === '#profile') {
     if (currentUser) {
       views.profile.style.display = 'block';

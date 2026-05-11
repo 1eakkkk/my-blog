@@ -1,8 +1,8 @@
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
-  const targetId = url.searchParams.get('id');
-  const targetUsername = url.searchParams.get('username');
+  const targetId = (url.searchParams.get('id') || '').trim() || null;
+  const targetUsername = (url.searchParams.get('username') || '').trim() || null;
 
   if (!targetId && !targetUsername) {
     return new Response(JSON.stringify({ error: '用户不存在' }), { status: 404 });

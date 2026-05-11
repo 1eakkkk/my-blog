@@ -35,7 +35,7 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         发帖
       </a>
-      <a href="#profile" class="nav-link" id="navMyProfile" onclick="if(currentUser) this.href='#profile?u='+currentUser.username">
+      <a href="#profile" class="nav-link" id="navMyProfile" onclick="if(currentUser) this.href='#profile?u='+encodeURIComponent(currentUser.username.trim())">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         我的
       </a>
@@ -316,7 +316,9 @@
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>\`\`\`代码块\`\`\`</code></td><td style="padding:6px 8px;color:var(--text-secondary);">多行代码块</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>&gt; 引用</code></td><td style="padding:6px 8px;color:var(--text-secondary);">引用文字</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>- 列表项</code></td><td style="padding:6px 8px;color:var(--text-secondary);">无序列表（数字+点=有序）</td></tr>
-        <tr><td style="padding:6px 8px;"><code>| A | B |<br>| --- | --- |<br>| 1 | 2 |</code></td><td style="padding:6px 8px;color:var(--text-secondary);">GFM 表格（需含表头分隔行）</td></tr>
+        <tr><td style="padding:6px 8px;"><pre style="margin:0;font-family:var(--font-mono);font-size:0.78rem;background:var(--bg);padding:6px 8px;border-radius:4px;white-space:pre;line-height:1.5;"><code>| A  | B  |
+| --- | --- |
+| 1  | 2  |</code></pre></td><td style="padding:6px 8px;color:var(--text-secondary);">GFM 表格（需含表头分隔行）</td></tr>
       </table>
     </div>
 

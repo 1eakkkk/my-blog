@@ -64,7 +64,8 @@ export async function onRequestPost(context) {
 
   if (action === 'toggle_turnstile') {
     const current = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
-    const newValue = current && current.value === 'true' ? 'false' : 'true';
+    const currentValue = current ? current.value : 'true';
+    const newValue = currentValue === 'true' ? 'false' : 'true';
     await db.prepare("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('turnstile_enabled', ?)").bind(newValue).run();
     return new Response(JSON.stringify({ success: true, turnstileEnabled: newValue === 'true' }));
   }
