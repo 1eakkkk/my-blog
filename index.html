@@ -147,6 +147,18 @@
           </select>
         </div>
         <div class="form-group">
+          <label>心情</label>
+          <div id="moodSelector" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+            <button type="button" class="mood-btn active" data-mood="">🌐 无</button>
+            <button type="button" class="mood-btn" data-mood="😊 开心">😊 开心</button>
+            <button type="button" class="mood-btn" data-mood="😤 吐槽">😤 吐槽</button>
+            <button type="button" class="mood-btn" data-mood="🤔 思考">🤔 思考</button>
+            <button type="button" class="mood-btn" data-mood="😴 摸鱼">😴 摸鱼</button>
+            <button type="button" class="mood-btn" data-mood="🔥 热血">🔥 热血</button>
+            <button type="button" class="mood-btn" data-mood="😢 难过">😢 难过</button>
+          </div>
+        </div>
+        <div class="form-group">
           <label>标题</label>
           <input type="text" id="postTitle" class="form-control" placeholder="标题">
         </div>
@@ -309,7 +321,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.3.7</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.4.1</strong> · 2026-05-11</p>
     </div>
 
     <div class="about-section">
@@ -320,8 +332,8 @@
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>*斜体*</code></td><td style="padding:6px 8px;color:var(--text-secondary);">斜体文字</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>[文字](链接)</code></td><td style="padding:6px 8px;color:var(--text-secondary);">插入链接</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>![替代](图片URL)</code></td><td style="padding:6px 8px;color:var(--text-secondary);">插入图片（上传后自动生成）</td></tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>\`代码\`</code></td><td style="padding:6px 8px;color:var(--text-secondary);">行内代码</td></tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>\`\`\`代码块\`\`\`</code></td><td style="padding:6px 8px;color:var(--text-secondary);">多行代码块</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>`代码`</code></td><td style="padding:6px 8px;color:var(--text-secondary);">行内代码</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>```代码块```</code></td><td style="padding:6px 8px;color:var(--text-secondary);">多行代码块</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>&gt; 引用</code></td><td style="padding:6px 8px;color:var(--text-secondary);">引用文字</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>- 列表项</code></td><td style="padding:6px 8px;color:var(--text-secondary);">无序列表（数字+点=有序）</td></tr>
         <tr><td style="padding:6px 8px;"><pre style="margin:0;font-family:var(--font-mono);font-size:0.78rem;background:var(--bg);padding:6px 8px;border-radius:4px;white-space:pre;line-height:1.5;"><code>| A  | B  |
@@ -335,7 +347,15 @@
       <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
 
         <details open>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.3.x (2026-05-11)</summary>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.4.x (2026-05-11)</summary>
+          <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p><strong>v2.4.1</strong> — 阅读时间估算、代码块一键复制、帖子心情标签</p>
+            <p><strong>v2.4</strong> — 创意功能</p>
+          </div>
+        </details>
+
+        <details>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.3.x (2026-05-11)</summary>
           <div style="padding-left:16px;border-left:2px solid var(--border);">
             <p><strong>v2.3.7</strong> — 帖子内容长度限制(50000字)、发帖草稿自动保存、评论区加载更多按钮</p>
             <p><strong>v2.3.6</strong> — 限流机制从D1改为KV(性能提升)、session过期自动清理</p>

@@ -84,7 +84,7 @@ export async function onRequestPost(context) {
   if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
   if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号封禁' }), { status: 403 });
 
-  let { title, content, category } = await context.request.json();
+  let { title, content, category, mood } = await context.request.json();
 
   if (content && content.length > 50000) return new Response(JSON.stringify({ success: false, error: '内容过长，最多50000字' }), { status: 400 });
   if ((!title || !title.trim()) && (!content || !content.trim())) {
@@ -97,8 +97,8 @@ export async function onRequestPost(context) {
   let finalCategory = category || '灌水';
   if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
-  await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(user.id, user.nickname || user.username, title, content, finalCategory, Date.now()).run();
+  await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, mood, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(user.id, user.nickname || user.username, title, content, finalCategory, mood || null, Date.now()).run();
 
   return new Response(JSON.stringify({ success: true, message: '发布成功！' }));
 }
@@ -111,7 +111,7 @@ export async function onRequestPut(context) {
   const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
   if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
 
-  let { id, action, title, content, category } = await context.request.json();
+  let { id, action, title, content, category, mood } = await context.request.json();
 
   if (action === 'edit') {
     const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(id).first();
@@ -126,8 +126,8 @@ export async function onRequestPut(context) {
     if (!title || !title.trim()) title = "无题 / Untitled";
     if (!content || !content.trim()) content = "（如题）";
 
-    await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, updated_at = ? WHERE id = ?')
-      .bind(title, content, category, Date.now(), id).run();
+    await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, mood = ?, updated_at = ? WHERE id = ?')
+      .bind(title, content, category, mood || null, Date.now(), id).run();
     return new Response(JSON.stringify({ success: true, message: '文章已更新' }));
   }
 

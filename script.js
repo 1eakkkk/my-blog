@@ -88,6 +88,30 @@ function parseMarkdown(text) {
   return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 }
 
+function addCopyButtons(container) {
+  container.querySelectorAll('pre').forEach(pre => {
+    if (pre.querySelector('.copy-btn')) return;
+    pre.style.position = 'relative';
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '复制';
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const code = pre.querySelector('code')?.innerText || pre.innerText;
+      try {
+        await navigator.clipboard.writeText(code);
+        btn.textContent = '已复制 ✓';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+      } catch {
+        btn.textContent = '失败';
+        setTimeout(() => { btn.textContent = '复制'; }, 2000);
+      }
+    };
+    pre.appendChild(btn);
+  });
+}
+
 function timeAgo(ts) {
   const diff = Date.now() - ts;
   if (diff < 60000) return '刚刚';
@@ -316,7 +340,7 @@ async function loadPosts(reset = false) {
             <span class="category-badge${cat === '公告' ? ' announcement' : ''}">${cat}</span>
             ${post.is_pinned ? '<span style="font-size:0.75rem;color:var(--text-muted);">📌 置顶</span>' : ''}
           </div>
-          <div class="card-title">${post.title}</div>
+          <div class="card-title">${post.title}${post.mood ? `<span class="mood-tag">${post.mood}</span>` : ''}</div>
           ${snippet ? `<div class="card-snippet">${snippet}</div>` : ''}
           <div class="card-meta">
             <span>👤 ${author}</span>
@@ -376,7 +400,7 @@ async function loadSinglePost(id, targetCommentId = null) {
     container.innerHTML = `
       <div class="article-header">
         <span class="category-badge${cat === '公告' ? ' announcement' : ''}" style="margin-bottom:10px;display:inline-block;">${cat}</span>
-        <h1 class="article-title">${post.title}</h1>
+        <h1 class="article-title">${post.title}${post.mood ? `<span class="mood-tag">${post.mood}</span>` : ''}</h1>
         <div class="article-meta">
           <span>👤 ${author}</span>
           <span>${timeHtml}</span>
@@ -391,6 +415,7 @@ async function loadSinglePost(id, targetCommentId = null) {
     `;
 
     bindImageClicks(container);
+    addCopyButtons(container);
     loadComments(id, true, targetCommentId);
   } catch (e) { container.innerHTML = '<p>加载失败</p>'; }
 }
@@ -438,12 +463,14 @@ async function loadComments(postId, reset = false, highlightId = null) {
       const rootEl = createCommentElement(root, false, currentPostAuthorId, floorNum);
       container.appendChild(rootEl);
       bindImageClicks(rootEl);
+      addCopyButtons(rootEl);
 
       const children = childrenMap[root.id] || [];
       children.forEach(child => {
         const childEl = createCommentElement(child, false, currentPostAuthorId, -1);
         container.appendChild(childEl);
         bindImageClicks(childEl);
+        addCopyButtons(childEl);
       });
     });
     currentCommentPage++;
@@ -618,6 +645,8 @@ window.cancelEditPost = function () {
   document.getElementById('postTitle').value = '';
   document.getElementById('postContent').value = '';
   document.getElementById('postCategory').value = '灌水';
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
   document.querySelector('#postForm button[type="submit"]').textContent = '发布';
   clearDraft();
   window.location.hash = '#home';
@@ -664,6 +693,7 @@ window.submitPost = async function (e) {
   const title = document.getElementById('postTitle').value.trim();
   const content = document.getElementById('postContent').value.trim();
   const category = document.getElementById('postCategory').value;
+  const mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
   if (!title && !content) return showToast('标题和内容不能同时为空', 'error');
 
   try {
@@ -671,12 +701,12 @@ window.submitPost = async function (e) {
     if (isEditingPost && editingPostId) {
       res = await fetch(`${API_BASE}/posts`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingPostId, action: 'edit', title, content, category })
+        body: JSON.stringify({ id: editingPostId, action: 'edit', title, content, category, mood })
       });
     } else {
       res = await fetch(`${API_BASE}/posts`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, content, category })
+        body: JSON.stringify({ title, content, category, mood })
       });
     }
     const data = await res.json();
@@ -1118,6 +1148,13 @@ function initApp() {
   const layoutGridBtn = document.getElementById('layoutGrid');
   if (layoutListBtn) layoutListBtn.addEventListener('click', function () { setLayout('list'); });
   if (layoutGridBtn) layoutGridBtn.addEventListener('click', function () { setLayout('grid'); });
+
+  document.getElementById('moodSelector')?.addEventListener('click', e => {
+    const btn = e.target.closest('.mood-btn');
+    if (!btn) return;
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
 
   window.addEventListener('hashchange', handleRoute);
 
