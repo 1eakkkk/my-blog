@@ -750,18 +750,24 @@ window.switchMdTab = function (tab) {
   const preview = document.getElementById('mdPreview');
   const btnEdit = document.getElementById('mdTabEdit');
   const btnPreview = document.getElementById('mdTabPreview');
+  if (!textarea || !preview) return;
 
   if (tab === 'preview') {
-    preview.innerHTML = parseMarkdown(textarea.value);
+    try {
+      const html = parseMarkdown(textarea.value || '');
+      preview.innerHTML = html || '<p style="color:var(--text-muted);">（空内容）</p>';
+    } catch (e) {
+      preview.innerHTML = '<p style="color:var(--danger);">预览失败，请检查 Markdown 语法</p>';
+    }
     textarea.style.display = 'none';
     preview.style.display = 'block';
-    btnEdit.style.background = 'transparent'; btnEdit.style.color = 'var(--text-muted)';
-    btnPreview.style.background = 'var(--accent)'; btnPreview.style.color = '#fff';
+    if (btnEdit) { btnEdit.style.background = 'transparent'; btnEdit.style.color = 'var(--text-muted)'; }
+    if (btnPreview) { btnPreview.style.background = 'var(--accent)'; btnPreview.style.color = '#fff'; }
   } else {
     textarea.style.display = 'block';
     preview.style.display = 'none';
-    btnEdit.style.background = 'var(--accent)'; btnEdit.style.color = '#fff';
-    btnPreview.style.background = 'transparent'; btnPreview.style.color = 'var(--text-muted)';
+    if (btnEdit) { btnEdit.style.background = 'var(--accent)'; btnEdit.style.color = '#fff'; }
+    if (btnPreview) { btnPreview.style.background = 'transparent'; btnPreview.style.color = 'var(--text-muted)'; }
   }
 };
 
@@ -964,6 +970,12 @@ function initApp() {
       nav.classList.remove('open');
     }
   });
+
+  // MD 预览按钮事件绑定（确保可靠触发）
+  const mdEditBtn = document.getElementById('mdTabEdit');
+  const mdPreviewBtn = document.getElementById('mdTabPreview');
+  if (mdEditBtn) mdEditBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('edit'); });
+  if (mdPreviewBtn) mdPreviewBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('preview'); });
 
   window.addEventListener('hashchange', handleRoute);
   checkSecurity();

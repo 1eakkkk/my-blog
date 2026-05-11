@@ -236,27 +236,32 @@
       <div class="admin-stat-card clickable" onclick="showAdminDetail('online')">
         <div class="stat-icon">🟢</div>
         <div class="stat-num" id="adminOnline">-</div>
-        <div class="stat-label">5分钟在线</div>
+        <div class="stat-label">在线用户</div>
+        <div class="stat-sub">最近 5 分钟</div>
       </div>
       <div class="admin-stat-card">
         <div class="stat-icon">📅</div>
         <div class="stat-num" id="adminToday">-</div>
         <div class="stat-label">今日活跃</div>
+        <div class="stat-sub">24 小时内</div>
       </div>
       <div class="admin-stat-card clickable" onclick="showAdminDetail('users')">
         <div class="stat-icon">👥</div>
         <div class="stat-num" id="adminUsers">-</div>
-        <div class="stat-label">总用户</div>
+        <div class="stat-label">注册用户</div>
+        <div class="stat-sub">点击查看列表</div>
       </div>
       <div class="admin-stat-card clickable" onclick="showAdminDetail('posts')">
         <div class="stat-icon">📝</div>
         <div class="stat-num" id="adminPosts">-</div>
-        <div class="stat-label">总帖子</div>
+        <div class="stat-label">总帖子数</div>
+        <div class="stat-sub">点击查看列表</div>
       </div>
       <div class="admin-stat-card">
         <div class="stat-icon">💬</div>
         <div class="stat-num" id="adminComments">-</div>
-        <div class="stat-label">总评论</div>
+        <div class="stat-label">总评论数</div>
+        <div class="stat-sub">全站累计</div>
       </div>
     </div>
 
@@ -296,7 +301,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.1</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.2.1</strong> · 2026-05-11</p>
     </div>
 
     <div class="about-section">
@@ -318,7 +323,9 @@
     <div class="about-section">
       <h3>更新日志</h3>
       <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
-        <p><strong>v2.1</strong> (2026-05-11) — 第二轮优化：行间距修复、双时间戳、去邀请码、通用文件上传、图片灯箱、管理面板、移动端适配</p>
+        <p><strong>v2.2.1</strong> (2026-05-11) — 修复MD预览按钮、管理面板卡片美化、版本号同步更新</p>
+      <p><strong>v2.2</strong> (2026-05-11) — MD实时预览、图片灯箱缩放拖拽、分类筛选、管理详情弹窗</p>
+      <p><strong>v2.1</strong> (2026-05-11) — 行间距修复、双时间戳、去邀请码、通用文件上传、图片灯箱、管理面板、移动端适配</p>
         <p><strong>v2.0</strong> (2026-05-09) — 全面精简重构：去赛博朋克风、去冗余功能、顶部导航、主题切换、PBKDF2密码哈希</p>
         <p><strong>v1.x</strong> (2024-2025) — 初始版本，含商城/背包/游戏等完整功能</p>
       </div>

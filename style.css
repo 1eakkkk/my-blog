@@ -858,26 +858,71 @@ select.form-control { cursor: pointer; }
 /* === 管理统计卡片 === */
 .admin-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .admin-stat-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 20px 16px;
   text-align: center;
-  transition: all 0.15s;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #8b5cf6);
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .admin-stat-card.clickable { cursor: pointer; }
-.admin-stat-card.clickable:hover { border-color: var(--accent); background: var(--card-hover); transform: translateY(-1px); }
+.admin-stat-card.clickable:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.admin-stat-card.clickable:hover::before { opacity: 1; }
 
-.admin-stat-card .stat-icon { font-size: 1.5rem; margin-bottom: 4px; }
-.admin-stat-card .stat-num { font-size: 1.6rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
-.admin-stat-card .stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.admin-stat-card .stat-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  background: var(--accent-dim);
+}
+
+.admin-stat-card .stat-num {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  letter-spacing: -1px;
+}
+
+.admin-stat-card .stat-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.admin-stat-card .stat-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
 
 /* === 图片灯箱 === */
 #lightbox {
