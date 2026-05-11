@@ -55,6 +55,7 @@ export async function onRequestPost(context) {
 
   const { post_id, content, parent_id } = await context.request.json();
   if (!content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
+  if (content.length > 500) return new Response(JSON.stringify({ success: false, error: '评论最多500字' }), { status: 400 });
 
   const postOwner = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(post_id).first();
   if (!postOwner) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }), { status: 404 });

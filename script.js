@@ -286,7 +286,10 @@ async function loadPosts(reset = false) {
     if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
 
     if (posts.length === 0 && currentPage === 1) {
-      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><p>暂无帖子，来写第一篇吧</p></div>';
+      const isSearching = searchVal || catFilter;
+      container.innerHTML = isSearching
+        ? '<div class="empty-state"><div class="empty-icon">🔍</div><p>没有找到相关内容</p></div>'
+        : '<div class="empty-state"><div class="empty-icon">📝</div><p>暂无帖子，来写第一篇吧</p></div>';
     } else {
       posts.forEach(post => {
         const author = post.author_nickname || post.author_username || 'Unknown';
@@ -504,10 +507,21 @@ window.cancelReply = function () {
   if (cancelBtn) cancelBtn.style.display = 'none';
 };
 
+const commentInput = document.getElementById('commentInput');
+const charCount = document.getElementById('commentCharCount');
+if (commentInput && charCount) {
+  commentInput.addEventListener('input', () => {
+    const len = commentInput.value.length;
+    charCount.textContent = `${len} / 500`;
+    charCount.style.color = len > 450 ? (len >= 500 ? 'var(--danger)' : 'var(--accent)') : 'var(--text-muted)';
+  });
+}
+
 window.submitComment = async function () {
   const input = document.getElementById('commentInput');
   const content = input.value.trim();
   if (!content) return showToast('内容不能为空', 'error');
+  if (content.length > 500) return showToast('评论最多500字', 'error');
   const parentId = input.dataset.parentId || null;
 
   try {
