@@ -227,6 +227,7 @@ async function handleRoute() {
   const hash = window.location.hash || '#home';
   const navLinks = document.querySelectorAll('.nav-link');
 
+  destroyTOC();
   Object.values(views).forEach(el => { if (el) el.style.display = 'none'; });
   navLinks.forEach(el => el.classList.remove('active'));
 
@@ -425,6 +426,7 @@ async function loadSinglePost(id, targetCommentId = null) {
     bindImageClicks(container);
     addCopyButtons(container);
     loadComments(id, true, targetCommentId);
+    generateTOC(container.querySelector('.article-content'));
   } catch (e) { container.innerHTML = '<p>加载失败</p>'; }
 }
 
@@ -1170,6 +1172,178 @@ function initApp() {
   setInterval(() => { fetch(`${API_BASE}/heartbeat`, { method: 'POST' }).catch(() => {}); }, 120000);
 
   checkSecurity();
+}
+
+// === TOC 目录 ===
+
+let tocObserver = null;
+
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w一-龥\s-]/g, '')
+    .replace(/\s+/g, '-');
+}
+
+function generateTOC(contentEl) {
+  if (!contentEl) return;
+  const headings = contentEl.querySelectorAll('h2, h3, h4');
+  const filtered = [];
+  for (const h of headings) {
+    if (h.closest('pre, code')) continue;
+    const text = h.textContent.trim();
+    if (!text) continue;
+    filtered.push(h);
+  }
+  const h2Count = filtered.filter(h => h.tagName === 'H2').length;
+  if (h2Count < 1 || filtered.length < 2) return;
+
+  const used = {};
+  const items = [];
+  for (const h of filtered) {
+    let id = slugify(h.textContent.trim());
+    if (used[id]) {
+      let n = 2;
+      while (used[id + '-' + n]) n++;
+      id = id + '-' + n;
+    }
+    used[id] = true;
+    h.id = id;
+    items.push({ id, text: h.textContent.trim(), level: parseInt(h.tagName[1]) });
+  }
+
+  ensureTOCLayout(contentEl);
+  renderTOCSidebar(items);
+  renderTOCMobile(items, contentEl);
+
+  const headingEls = items.map(item => document.getElementById(item.id));
+  initTOCObserver(headingEls);
+}
+
+function ensureTOCLayout(contentEl) {
+  if (contentEl.parentNode && contentEl.parentNode.classList.contains('post-layout')) return;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'post-layout';
+  contentEl.parentNode.insertBefore(wrapper, contentEl);
+  wrapper.appendChild(contentEl);
+  const sidebar = document.getElementById('toc-sidebar');
+  if (sidebar) {
+    wrapper.appendChild(sidebar);
+    sidebar.hidden = false;
+  }
+}
+
+function renderTOCSidebar(items) {
+  const sidebar = document.getElementById('toc-sidebar');
+  if (!sidebar) return;
+  sidebar.innerHTML = '<h3>目录</h3><ul>' + items.map(item =>
+    `<li><a href="#${item.id}" class="toc-link toc-h${item.level}">${item.text}</a></li>`
+  ).join('') + '</ul>';
+
+  sidebar.querySelectorAll('.toc-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const id = this.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (!el) return;
+      const offset = (document.querySelector('.topnav')?.offsetHeight ?? 90) + 12;
+      try {
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' });
+      } catch (_) {
+        location.hash = '#' + id;
+      }
+    });
+  });
+}
+
+function renderTOCMobile(items, contentEl) {
+  const existing = document.getElementById('toc-mobile');
+  if (existing) existing.remove();
+
+  const tocMobile = document.createElement('div');
+  tocMobile.id = 'toc-mobile';
+  if (localStorage.getItem('tocExpanded') === 'true') {
+    tocMobile.classList.add('expanded');
+  }
+  tocMobile.innerHTML =
+    `<button id="toc-mobile-toggle">目录 <i class="toc-arrow">▼</i></button>
+    <div id="toc-mobile-body">
+      <ul>${items.map(item =>
+        `<li><a href="#${item.id}" class="toc-link toc-h${item.level}">${item.text}</a></li>`
+      ).join('')}</ul>
+    </div>`;
+
+  contentEl.parentNode.insertBefore(tocMobile, contentEl);
+
+  tocMobile.querySelector('#toc-mobile-toggle').addEventListener('click', function() {
+    tocMobile.classList.toggle('expanded');
+    localStorage.setItem('tocExpanded', tocMobile.classList.contains('expanded'));
+  });
+
+  tocMobile.querySelectorAll('.toc-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const id = this.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (!el) return;
+      const offset = (document.querySelector('.topnav')?.offsetHeight ?? 90) + 12;
+      try {
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset, behavior: 'smooth' });
+      } catch (_) {
+        location.hash = '#' + id;
+      }
+    });
+  });
+}
+
+function initTOCObserver(headings) {
+  if (tocObserver) tocObserver.disconnect();
+
+  const visibleSet = new Set();
+
+  tocObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        visibleSet.add(entry.target.id);
+      } else {
+        visibleSet.delete(entry.target.id);
+      }
+    }
+    const activeId = headings.find(h => visibleSet.has(h.id))?.id;
+    document.querySelectorAll('.toc-link').forEach(link => link.classList.remove('active'));
+    if (activeId) {
+      const activeLink = document.querySelector(`.toc-link[href="#${activeId}"]`);
+      if (activeLink) {
+        activeLink.classList.add('active');
+        activeLink.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, { rootMargin: '-20% 0px -60% 0px', threshold: 0 });
+
+  headings.forEach(h => tocObserver.observe(h));
+}
+
+function destroyTOC() {
+  if (tocObserver) {
+    tocObserver.disconnect();
+    tocObserver = null;
+  }
+  const sidebar = document.getElementById('toc-sidebar');
+  if (sidebar) {
+    sidebar.innerHTML = '';
+    sidebar.hidden = true;
+  }
+  const tocMobile = document.getElementById('toc-mobile');
+  if (tocMobile) tocMobile.remove();
+  const postLayout = document.querySelector('.post-layout');
+  if (postLayout) {
+    const contentEl = postLayout.querySelector('.article-content');
+    if (contentEl) {
+      postLayout.parentNode.insertBefore(contentEl, postLayout);
+      postLayout.remove();
+    }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);

@@ -1,97 +1,172 @@
-好的，基于您最近对 **股市系统 (Stock Market v3.0)** 进行的深度重构（包括宏观纪元、供需模型、风控体系、情报局、做市商机器人及 UI 视觉升级），我为您重新整理了最新的项目摘要。
-
-这份文档反映了 **v10.0 (Stock 3.0 Era)** 版本的完整状态。
-
----
-
-# Project Summary: 1eak.cool (Cyberpunk Social Platform)
+# Project Summary: 1eak.cool
 
 ## 1) 项目总览
-这是一个基于 Cloudflare 全家桶（Pages, D1, R2）构建的赛博朋克风格社交社区平台。项目采用原生 HTML/JS/CSS 开发（无前端框架），是一个单页应用（SPA）。
-**核心特色**：在社交（发帖/私信）与养成（家园/打工）的基础上，构建了一个**深度拟真的金融模拟市场**。股市不再是简单的随机数，而是拥有宏观纪元、供需深度、做市商博弈及破产重组机制的复杂经济体。
+
+基于 Cloudflare 全家桶（Pages + D1 + R2 + KV）构建的轻量级私人论坛。原生 HTML/JS/CSS 开发，无前端框架，SPA 架构。私人小站，供自己和好友使用。
+
+**当前版本**：v2.4.2（2026-05-11）
 
 ## 2) 技术栈
-*   **前端 Core**: 原生 JavaScript (ES6+), HTML5, CSS3 (Canvas K-Line 绘图, CSS Variables, Animations).
-*   **前端资源**: SVG 图标, 外部 R2 图片资源.
-*   **后端 (Serverless)**: Cloudflare Pages Functions (Node.js edge runtime).
-*   **数据库**: Cloudflare D1 (SQLite).
-*   **缓存**: Cloudflare KV (用于股市每分钟 K 线数据的缓存与分发).
-*   **对象存储**: Cloudflare R2.
-*   **鉴权方式**: 自研 Cookie Session 机制 + SHA-256.
 
-## 3) 项目目录结构 (更新)
+- **前端**：原生 JavaScript (ES6+)、HTML5、CSS3
+- **前端库**：Marked.js（Markdown）、DOMPurify（XSS 防护）、Cloudflare Turnstile（人机验证）
+- **后端**：Cloudflare Pages Functions（Edge 运行时）
+- **数据库**：Cloudflare D1（SQLite）
+- **对象存储**：Cloudflare R2（图片/视频，域名 img.1eak.cool）
+- **KV**：限流计数（绑定变量名 `KV`，namespace `RATE_LIMIT`）
+- **鉴权**：Cookie Session + PBKDF2（salt:hash 格式，100000次迭代）
+
+## 3) 目录结构
+
 ```text
 /
-├── login.html              # 登录/注册入口
-├── index.html              # SPA容器 (新增 自动交易面板, 股市倒计时, 深度透视UI)
-├── style.css               # 全局样式 (新增 K线渐变, 呼吸灯特效, 压力条样式)
-├── script.js               # 前端控制器 (新增 renderStockDashboard, 挂机脚本, 平滑K线绘制)
-└── functions/api/          # 后端 API 目录
-    ├── _middleware.js      # 全局中间件
-    ├── admin.js            # 管理员接口 (新增 股市强制重组)
-    ├── broadcast.js        # 全服播报
-    ├── duel.js             # 数据格斗场
-    ├── home.js             # 家园与打工
-    ├── inventory.js        # 背包系统
-    ├── leaderboard.js      # [更新] 排行榜 (新增 实时身价榜 Net Worth)
-    ├── node.js             # N.O.D.E 控制台
-    ├── stock.js            # [重构] 股市核心 (供需模型, 宏观纪元, 做市商, 破产清算)
-    ├── tip.js              # 打赏系统
-    └── user.js             # 用户状态
+├── login.html
+├── index.html
+├── style.css
+├── script.js
+└── functions/api/
+    ├── _middleware.js
+    ├── admin.js
+    ├── comments.js
+    ├── config.js
+    ├── heartbeat.js
+    ├── like.js
+    ├── posts.js
+    ├── profile.js
+    ├── random_avatar.js
+    ├── upload.js
+    ├── user.js
+    ├── user-public.js
+    └── auth/
+        ├── login.js
+        ├── logout.js
+        ├── register.js
+        └── reset.js
 ```
 
-## 4) 功能模块摘要 (重大更新)
-*   **stock.js (v3.0 Core)**: 
-    *   **供需驱动**: 价格由 `(买单深度 - 卖单深度) / 流通股本` 驱动，而非随机游走。
-    *   **宏观纪元**: 每 12 小时切换世界状态（霓虹盛世、企业战争、数据大崩塌），影响板块波动率与多空倾向。
-    *   **做市商机器人**: 智能 Bot 在后台模拟交易，制造趋势与流动性，甚至会“诱空”或“护盘”。
-    *   **破产重组**: 股价跌破发行价 20% 强制退市，返还 30% 残值，次日重组上市。
-    *   **风控体系**: 30s 交易冷却、60s 做空锁仓、持仓上限 20%、单笔限额 1%。
-    *   **情报局**: 付费解锁 K 币可见精准买卖盘数据。
-*   **script.js (Frontend)**: 
-    *   **自动交易挂机**: 纯前端实现的“低买高卖”脚本，支持跨页面监控。
-    *   **视觉升级**: Canvas K线图支持渐变填充、MA15 均线、呼吸光点、智能缩放（手机 60点/PC 120点）。
-    *   **实时同步**: 基于服务端时间对齐的倒计时，无缝刷新数据。
-*   **leaderboard.js**: 
-    *   **实时身价榜**: 取代旧版 ROI，实时计算 `现金 + K币 + 公司资金 + 持仓市值` 进行排名。
+## 4) 功能模块
 
-## 5) 数据库结构 (D1 Schema 更新)
-*   **market_state**: 新增 `total_shares` (总股本), `issuance_price` (发行价), `accumulated_pressure` (买卖压力), `last_dividend_time` (分红时间)。
-*   **company_positions**: 新增 `last_trade_time` (冷却用), `last_trade_type` (同向判断), `accumulated_volume` (批次额度)。
-*   **user_companies**: 新增 `strategy` (JSON 存储公司等级与 buff)。
-*   **users**: 新增 `insider_exp` (情报订阅过期时间), `role` (权限)。
+**帖子（posts.js）**
+- CRUD，分类（灌水/技术/生活/提问/公告）
+- 心情标签：mood 字段（TEXT，DEFAULT NULL），7种可选，存储格式如 "😊 开心"
+- 阅读时间：前端 estimateReadTime(content) 计算，300字/分钟，显示在 card-meta 和 article-meta
+- 排序：latest / hot / comments
+- 搜索：标题 + 内容 + 分类 + 评论内容全文搜索
+- 管理员置顶，定时置顶到期自动解除
 
-## 6) 全局经济逻辑流
-1.  **资本原始积累**: 通过家园/打工/发帖赚取 i 币，或通过 N.O.D.E/格斗场 博弈。
-2.  **公司运营 (Stock Market)**: 
-    *   注册公司 -> 注入资金 -> 交易股票。
-    *   **成长**: 消耗 K 币升级公司架构（Lv.0 皮包公司 -> Lv.10 荒坂顶层），降低手续费与保证金率。
-    *   **博弈**: 分析宏观纪元，利用情报局数据，与做市商或其他玩家博弈。
-    *   **风险**: 面临破产清算风险，但有“破产保险”机制返还部分 K 币投入。
-3.  **价值锚点**: K 币作为高级货币，用于升级公司、订阅情报、购买稀有道具。
+**评论（comments.js）**
+- 楼中楼（parent_id 二级，不支持三级嵌套）
+- 前端分组渲染：子评论紧跟父评论，不按时间混排
+- 根评论显示楼层号 #N，子评论显示缩进 + 回复标签
+- 字数限制：500字（前后端双重校验）
+- 删除：普通用户删自己的评论时级联删除子评论
+- 管理员可置顶评论（每帖只能有一条置顶）
 
-## 7) 编码与 UI 规范
-*   **视觉风格**: 
-    *   **动态 K 线**: 使用 `createLinearGradient` 绘制渐变面积图，MA 线使用虚线。
-    *   **状态反馈**: 涨跌幅使用红绿配色，破产线触发时会有红色呼吸闪烁。
-    *   **信息分级**: 普通玩家看到模糊压力条，情报员看到带有 `INSIDER` 标签的精准数据。
-*   **交互规范**:
-    *   **防误触**: 交易前弹出详细确认框（含滑点预估、手续费计算）。
-    *   **便捷性**: 提供 `1/2`、`ALL` 按钮及滑动条，支持按“资金”或“持仓”反推最大可交易数量。
-    *   **反馈**: 所有异步操作必须有 `showToast`，自动交易触发时有强提示。
+**用户（auth/、user.js、profile.js）**
+- 注册：用户名 2-20 字符，白名单 `[\u4e00-\u9fa5a-zA-Z0-9_-]`
+- 密码：PBKDF2-SHA256，旧 SHA-256 格式登录时自动升级
+- 登录失败锁定：5次失败后锁定 15 分钟
+- 恢复短语：四字汉字短语（30个词库，格式：蓝天-白云-青山-绿水）
+- Session：7天有效期，user.js 请求时异步清理过期记录
+- 个人资料：昵称（限12字）、签名（限50字）、头像（R2）
 
-## 8) 核心机制细节 (Game Design)
-1.  **懒加载补价 (Catch-up)**: 当无人访问时服务器静止；首个用户访问时，系统瞬间补算过去空窗期的 K 线，且**强制开启机器人**参与补算，保证历史走势真实波动。
-2.  **动态滑点**: 交易量越大，滑点越高 `(qty/shares * 5)`，大资金进出成本极高，防止秒杀盘口。
-3.  **同向加仓优化**: 30s 冷却仅针对反向操作（T+0 防刷），同向加仓在额度池（10,000股）内不设冷却，提升操作手感。
+**上传（upload.js）**
+- 最大 50MB
+- MIME 白名单：jpeg/png/gif/webp/svg/mp4/webm/pdf
+- 扩展名白名单：双重校验防伪造
+- 返回 Markdown 格式插入文本（图片/视频/文件自动区分）
 
-## 9) 版本快照 (v10.0)
-*   **当前状态**: 拥有“超拟真金融系统”的赛博社区。
-*   **最新特性**:
-    *   **宏观纪元**: 霓虹盛世/企业战争/数据崩塌，三天一轮回。
-    *   **智能做市商**: 具备估值回归、趋势跟随和猎杀诱空能力的 AI 对手。
-    *   **挂机终端**: 允许玩家设置目标价自动买卖，解放双手。
-    *   **实时倒计时**: 60s 周期严格对齐，SYNC 状态自动加速轮询。
+**限流（_middleware.js）**
+- 仅限制 POST/PUT/DELETE
+- KV 实现：key = `rate:{ip}`，60s TTL 自动过期，上限 180次/分钟
+- KV 异常时放行，不影响正常请求
 
----
-*End of Summary*
+**管理（admin.js）**
+- 统计：在线用户（5分钟内）、今日活跃（24小时）、总用户/帖子/评论数
+- 列表：用户列表、帖子列表、在线列表
+- 操作：发布公告、动态开关 Turnstile
+- 权限校验：所有接口均验证 `role === 'admin'`
+
+## 5) 数据库结构（D1）
+
+**users**
+```sql
+id, username, password(salt:hash), nickname, bio, avatar_url, avatar_variant,
+role, status, ban_expires_at, ban_reason,
+recovery_key, login_fails, login_locked_until,
+xp, level, is_vip, badge_preference, equipped_post_style,
+name_color, custom_title, custom_title_color,
+created_at, last_seen
+```
+
+**sessions**
+```sql
+session_id, user_id, created_at
+```
+
+**posts**
+```sql
+id, user_id, author_name, title, content, category, mood,
+like_count, is_pinned, pinned_until, updated_at, created_at
+```
+
+**comments**
+```sql
+id, post_id, user_id, content, parent_id, reply_to_uid,
+like_count, is_pinned, created_at
+```
+
+**likes**
+```sql
+id, user_id, target_id, target_type(post|comment), created_at
+```
+
+**system_settings**
+```sql
+key, value
+-- 当前已知 key: turnstile_enabled
+```
+
+## 6) 前端架构（script.js）
+
+**路由**：基于 `window.location.hash` 的客户端路由，`handleRoute()` 统一处理视图切换。
+
+**视图列表**：
+- `#home` — 帖子列表（含搜索、分类、排序、滚动位置恢复）
+- `#post?id=N` — 帖子详情 + 评论区
+- `#write` — 发帖（Markdown 实时预览、草稿状态）
+- `#profile?u=username` — 个人主页
+- `#settings` — 个人设置
+- `#about` — 关于 + Markdown 指南 + 更新日志
+- `#admin` — 管理面板（仅 admin 角色可见）
+
+**关键函数**：
+- `loadPosts(reset)` — 帖子列表加载，支持翻页、搜索、筛选
+- `loadSinglePost(id)` — 帖子详情加载
+- `loadComments(postId, reset)` — 评论加载，前端分组渲染
+- `createCommentElement(c, isReply, postAuthorId, floorNumber)` — 评论渲染
+- `prepareReply(commentId, authorName)` — 激活回复模式（显示提示条）
+- `cancelReply()` — 退出回复模式
+- `submitComment()` — 提交评论（含前端字数校验）
+- `estimateReadTime(content)` — 阅读时间估算
+- `addCopyButtons(container)` — 为容器内所有 pre 块添加复制按钮
+
+**滚动位置恢复**：`sessionStorage.homeScrollY`，进入帖子详情时保存，返回首页时恢复。
+
+## 7) 编码规范
+
+- SQL 全部参数化，禁止模板字符串拼接
+- 多步写操作用 `db.batch()` 或顺序 await（D1 的 batch 不是原子事务）
+- 后台任务用 `context.waitUntil()` 异步执行
+- API 统一返回 `{ success: true/false, error?: "..." }`
+- Cookie：`Secure; HttpOnly; SameSite=None; Max-Age=604800`，设置和清除属性必须对称
+- 前端所有异步操作必须有 `showToast` 反馈
+
+## 8) 环境变量 / 绑定
+
+| 类型 | 绑定名 | 说明 |
+|---|---|---|
+| D1 | `DB` | 主数据库 |
+| R2 | `MY_BUCKET` | 文件存储 |
+| KV | `KV` | 限流计数（RATE_LIMIT namespace） |
+| Secret | `TURNSTILE_SECRET` | Cloudflare Turnstile 验证密钥 |

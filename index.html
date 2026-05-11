@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.6">
+  <link rel="stylesheet" href="style.css?v=8.7">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -106,6 +106,7 @@
   <div id="view-post" class="view-section" style="display:none;">
     <button onclick="window.location.hash='#home'" class="back-btn">← 返回</button>
     <article id="single-post-content" class="full-article"></article>
+    <aside id="toc-sidebar" hidden></aside>
     <div class="comments-section">
       <h3>评论</h3>
       <div class="comment-input-box">
@@ -321,7 +322,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.4.1</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.4.2</strong> · 2026-05-11</p>
     </div>
 
     <div class="about-section">
@@ -349,6 +350,7 @@
         <details open>
           <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.4.x (2026-05-11)</summary>
           <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p><strong>v2.4.2</strong> — 帖子详情页TOC目录（桌面侧边栏+移动折叠面板）、滚动高亮联动</p>
             <p><strong>v2.4.1</strong> — 阅读时间估算、代码块一键复制、帖子心情标签</p>
             <p><strong>v2.4</strong> — 创意功能</p>
           </div>
@@ -417,6 +419,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.6"></script>
+<script src="script.js?v=8.7"></script>
 </body>
 </html>
