@@ -1272,7 +1272,8 @@ function renderTOCMobile(items, contentEl) {
       ).join('')}</ul>
     </div>`;
 
-  contentEl.parentNode.insertBefore(tocMobile, contentEl);
+  const wrapper = contentEl.parentNode; // .post-layout
+  wrapper.parentNode.insertBefore(tocMobile, wrapper);
 
   tocMobile.querySelector('#toc-mobile-toggle').addEventListener('click', function() {
     tocMobile.classList.toggle('expanded');

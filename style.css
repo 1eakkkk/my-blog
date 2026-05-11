@@ -1188,6 +1188,7 @@ select.form-control { cursor: pointer; }
   grid-template-columns: minmax(0, 1fr) 240px;
   gap: 32px;
   align-items: start;
+  width: 100%;
 }
 
 .post-layout > .article-content {
@@ -1255,6 +1256,7 @@ select.form-control { cursor: pointer; }
 
 /* 移动端 TOC 折叠面板 */
 #toc-mobile {
+  display: none;
   margin-bottom: 20px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1304,5 +1306,8 @@ select.form-control { cursor: pointer; }
   }
   #toc-sidebar {
     display: none;
+  }
+  #toc-mobile {
+    display: block;
   }
 }
