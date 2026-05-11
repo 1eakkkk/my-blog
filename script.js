@@ -299,6 +299,13 @@ async function handleRoute() {
   }
 }
 
+function estimateReadTime(content) {
+  if (!content) return '';
+  const text = content.replace(/<[^>]*>/g, '').replace(/\s+/g, '');
+  const minutes = Math.ceil(text.length / 300);
+  return minutes < 1 ? '不足1分钟' : `约 ${minutes} 分钟`;
+}
+
 // === 帖子加载 ===
 async function loadPosts(reset = false) {
   const container = document.getElementById('posts-list');
@@ -347,6 +354,7 @@ async function loadPosts(reset = false) {
             <span>${timeStr}</span>
             <span>💬 ${commentCount}</span>
             <span>❤ ${post.like_count || 0}</span>
+            <span>⏱ ${estimateReadTime(post.content)}</span>
           </div>
         `;
         card.onclick = () => { sessionStorage.setItem('homeScrollY', window.scrollY); window.location.hash = `#post?id=${post.id}`; };
