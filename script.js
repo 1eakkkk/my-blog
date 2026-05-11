@@ -13,6 +13,21 @@ let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
 
+// 随机标语
+const TAGLINES = [
+  '1eak.cool · 简单的论坛',
+  '记录生活，分享想法',
+  '小而美的交流空间',
+  'Keep it simple, stupid',
+  '每一次发帖都是一次思考',
+  '好记性不如烂笔头',
+  '安静的角落',
+  'Think different',
+  'Less is more',
+  '欢迎回来 👋'
+];
+document.title = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+
 // === 主题管理 ===
 function getSavedTheme() {
   return localStorage.getItem('theme') || 'dark';
@@ -134,8 +149,9 @@ async function checkSecurity() {
     document.getElementById('navUsername').textContent = displayName;
     document.getElementById('navAvatar').innerHTML = renderUserAvatar(data);
 
-    // 管理员：显示公告分类
+    // 管理员：显示公告分类和后台入口
     if (userRole === 'admin') {
+      document.getElementById('navAdmin').style.display = 'flex';
       const cat = document.getElementById('postCategory');
       if (cat && !cat.querySelector('option[value="公告"]')) {
         const opt = document.createElement('option');
@@ -164,7 +180,8 @@ const views = {
   write: document.getElementById('view-write'),
   profile: document.getElementById('view-profile'),
   settings: document.getElementById('view-settings'),
-  about: document.getElementById('view-about')
+  about: document.getElementById('view-about'),
+  admin: document.getElementById('view-admin')
 };
 
 async function handleRoute() {
@@ -189,8 +206,17 @@ async function handleRoute() {
     views.home.style.display = 'block';
     document.getElementById('navHome').classList.add('active');
     const list = document.getElementById('posts-list');
-    if (!list || list.children.length === 0) loadPosts(true);
+    const savedScroll = sessionStorage.getItem('homeScrollY');
+    if (!list || list.children.length === 0) {
+      loadPosts(true);
+    } else if (savedScroll) {
+      requestAnimationFrame(() => { window.scrollTo({ top: parseInt(savedScroll), behavior: 'auto' }); });
+    }
   } else if (hash.startsWith('#post?id=')) {
+    // 保存首页滚动位置
+    if (views.home && views.home.style.display === 'block') {
+      sessionStorage.setItem('homeScrollY', window.scrollY);
+    }
     views.post.style.display = 'block';
     currentPostId = hash.split('id=')[1].split('&')[0];
     const commentId = hash.includes('commentId=') ? hash.split('commentId=')[1] : null;
@@ -217,6 +243,11 @@ async function handleRoute() {
   } else if (hash === '#about') {
     views.about.style.display = 'block';
     document.getElementById('navAbout').classList.add('active');
+  } else if (hash === '#admin') {
+    if (userRole !== 'admin') { window.location.hash = '#home'; return; }
+    views.admin.style.display = 'block';
+    document.getElementById('navAdmin').classList.add('active');
+    loadAdminPanel();
   }
 }
 
@@ -266,7 +297,7 @@ async function loadPosts(reset = false) {
             <span>❤ ${post.like_count || 0}</span>
           </div>
         `;
-        card.onclick = () => { window.location.hash = `#post?id=${post.id}`; };
+        card.onclick = () => { sessionStorage.setItem('homeScrollY', window.scrollY); window.location.hash = `#post?id=${post.id}`; };
         container.appendChild(card);
       });
       currentPage++;
@@ -297,8 +328,11 @@ async function loadSinglePost(id, targetCommentId = null) {
     currentPostAuthorId = post.user_id;
 
     const author = post.author_nickname || post.author_username || 'Unknown';
-    const timeStr = new Date(post.created_at).toLocaleString();
-    const editedTag = post.updated_at ? ' <span style="color:var(--text-muted);font-size:0.8rem;">(已编辑)</span>' : '';
+    const createdStr = new Date(post.created_at).toLocaleString();
+    const updatedStr = post.updated_at ? new Date(post.updated_at).toLocaleString() : '';
+    const timeHtml = post.updated_at
+      ? `发布于 ${createdStr} · <span style="color:var(--text-muted);">编辑于 ${updatedStr}</span>`
+      : createdStr;
     const cat = post.category || '灌水';
     const parsedContent = parseMarkdown(post.content || '');
 
@@ -317,7 +351,7 @@ async function loadSinglePost(id, targetCommentId = null) {
         <h1 class="article-title">${post.title}</h1>
         <div class="article-meta">
           <span>👤 ${author}</span>
-          <span>${timeStr}${editedTag}</span>
+          <span>${timeHtml}</span>
           <span>💬 ${post.comment_count || 0} 评论</span>
         </div>
       </div>
@@ -328,6 +362,7 @@ async function loadSinglePost(id, targetCommentId = null) {
       </div>
     `;
 
+    bindImageClicks(container);
     loadComments(id, true, targetCommentId);
   } catch (e) { container.innerHTML = '<p>加载失败</p>'; }
 }
@@ -355,6 +390,7 @@ async function loadComments(postId, reset = false, highlightId = null) {
     comments.forEach((c, i) => {
       const el = createCommentElement(c, false, currentPostAuthorId, (currentCommentPage - 1) * 20 + i);
       container.appendChild(el);
+      bindImageClicks(el);
     });
     currentCommentPage++;
 
@@ -554,10 +590,8 @@ window.uploadImage = async function () {
     formData.append('file', file);
     const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
     const data = await res.json();
-    if (data.url) {
-      const isVideo = file.type.startsWith('video/');
-      const insert = isVideo ? `\n<video controls src="${data.url}"></video>\n` : `\n![](${data.url})\n`;
-      document.getElementById('postContent').value += insert;
+    if (data.success) {
+      document.getElementById('postContent').value += '\n' + data.mdInsert + '\n';
       status.textContent = '✓';
     } else {
       status.textContent = '失败';
@@ -576,10 +610,8 @@ window.uploadCommentImage = async function () {
     formData.append('file', file);
     const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
     const data = await res.json();
-    if (data.url) {
-      const isVideo = file.type.startsWith('video/');
-      const insert = isVideo ? `\n<video controls src="${data.url}"></video>\n` : `\n![](${data.url})\n`;
-      document.getElementById('commentInput').value += insert;
+    if (data.success) {
+      document.getElementById('commentInput').value += '\n' + data.mdInsert + '\n';
       status.textContent = '✓';
     } else { status.textContent = '失败'; }
   } catch (e) { status.textContent = '失败'; }
@@ -596,8 +628,6 @@ async function loadUserProfile(username) {
     document.getElementById('profileName').textContent = data.nickname || data.username;
     document.getElementById('profileBio').textContent = data.bio || '暂无签名';
     document.getElementById('statPosts').textContent = data.post_count || 0;
-    document.getElementById('statFollowers').textContent = data.followers_count || 0;
-    document.getElementById('statFollowing').textContent = data.following_count || 0;
 
     const avatarEl = document.getElementById('profileAvatar');
     avatarEl.innerHTML = renderUserAvatar(data);
@@ -685,6 +715,116 @@ window.updateBio = async function () {
     if (data.success) showToast('签名已更新', 'success');
     else showToast(data.error, 'error');
   } catch (e) { showToast('网络错误', 'error'); }
+};
+
+// === 头像上传 ===
+window.uploadUserAvatar = async function () {
+  const file = document.getElementById('avatarUploadInput').files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) return showToast('头像不能超过 5MB', 'error');
+  showToast('上传中...', 'success');
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      await fetch(`${API_BASE}/profile`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_url: data.url })
+      });
+      showToast('头像已更新', 'success');
+      currentUser.avatar_url = data.url;
+      // 刷新各处头像显示
+      document.getElementById('settingsAvatarPreview').innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;">`;
+      document.getElementById('navAvatar').innerHTML = renderUserAvatar(currentUser);
+    } else {
+      showToast(data.error || '上传失败', 'error');
+    }
+  } catch (e) { showToast('网络错误', 'error'); }
+};
+
+// === 图片灯箱 ===
+window.openLightbox = function (src) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lightboxImg').src = src;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+};
+
+window.closeLightbox = function () {
+  document.getElementById('lightbox').style.display = 'none';
+  document.body.style.overflow = '';
+};
+
+// 给帖子/评论中的图片绑定点击
+function bindImageClicks(container) {
+  container.querySelectorAll('img').forEach(img => {
+    if (!img.dataset.lightboxBound) {
+      img.dataset.lightboxBound = '1';
+      img.style.cursor = 'pointer';
+      img.addEventListener('click', e => { e.stopPropagation(); openLightbox(img.src); });
+    }
+  });
+}
+
+// === 管理员 ===
+async function loadAdminPanel() {
+  try {
+    const res = await fetch(`${API_BASE}/admin?action=stats`);
+    const data = await res.json();
+    if (!data.stats) return showToast('加载失败', 'error');
+
+    document.getElementById('adminOnline').textContent = data.stats.online5min;
+    document.getElementById('adminToday').textContent = data.stats.todayActive;
+    document.getElementById('adminUsers').textContent = data.stats.totalUsers;
+    document.getElementById('adminPosts').textContent = data.stats.totalPosts;
+    document.getElementById('adminComments').textContent = data.stats.totalComments;
+
+    const statusEl = document.getElementById('adminTurnstileStatus');
+    if (data.stats.turnstileEnabled) {
+      statusEl.textContent = '已开启'; statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = '已关闭'; statusEl.style.color = 'var(--danger)';
+    }
+
+    const listEl = document.getElementById('adminOnlineList');
+    if (data.onlineUsers && data.onlineUsers.length > 0) {
+      listEl.innerHTML = data.onlineUsers.map(u =>
+        `<span style="display:inline-block;margin:4px 8px;padding:2px 10px;background:var(--accent-dim);border-radius:12px;font-size:0.83rem;">${u.nickname || u.username}</span>`
+      ).join('');
+    } else {
+      listEl.innerHTML = '暂无在线用户';
+    }
+  } catch (e) { console.error(e); }
+}
+
+window.toggleTurnstile = async function () {
+  const res = await fetch(`${API_BASE}/admin`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'toggle_turnstile' })
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast(`人机验证已${data.turnstileEnabled ? '开启' : '关闭'}`, 'success');
+    loadAdminPanel();
+  }
+};
+
+window.postAnnounce = async function () {
+  const title = document.getElementById('adminAnnounceTitle').value.trim();
+  const content = document.getElementById('adminAnnounceContent').value.trim();
+  if (!title) return showToast('请输入标题', 'error');
+  const res = await fetch(`${API_BASE}/admin`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'post_announce', title, content })
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('公告已发布', 'success');
+    document.getElementById('adminAnnounceTitle').value = '';
+    document.getElementById('adminAnnounceContent').value = '';
+  } else showToast(data.error, 'error');
 };
 
 // === 初始化 ===

@@ -252,7 +252,6 @@
   <form id="authForm">
     <input type="text" id="username" class="form-control" placeholder="用户名" required>
     <input type="password" id="password" class="form-control" placeholder="密码" required>
-    <input type="text" id="inviteCode" class="form-control" placeholder="邀请码" style="display:none;">
     <input type="text" id="recoveryKeyInput" class="form-control" placeholder="恢复短语（如 蓝天-白云-青山-绿水）" style="display:none;">
     <div id="msgBox" class="msg-box"></div>
     <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXdJPWAee7ZdB" data-theme="dark"></div>
@@ -269,7 +268,6 @@
   const passInput = document.getElementById('password');
   const keyInput = document.getElementById('recoveryKeyInput');
   const recoveryBox = document.getElementById('newRecoveryKey');
-  const inviteInput = document.getElementById('inviteCode');
 
   // 主题
   function getSavedTheme() { return localStorage.getItem('theme') || 'dark'; }
@@ -314,12 +312,10 @@
       submitBtn.textContent = '注册';
       passInput.placeholder = '设置密码';
       keyInput.style.display = 'none'; keyInput.removeAttribute('required');
-      inviteInput.style.display = 'block'; inviteInput.required = true;
     } else if (mode === 'reset') {
       submitBtn.textContent = '重置密码';
       passInput.placeholder = '新密码';
       keyInput.style.display = 'block'; keyInput.required = true;
-      inviteInput.style.display = 'none';
     }
   }
 
@@ -328,7 +324,6 @@
     const u = document.getElementById('username').value;
     const p = document.getElementById('password').value;
     const k = keyInput.value;
-    const invite = inviteInput.value;
     const formData = new FormData(e.target);
     const token = formData.get('cf-turnstile-response');
 
@@ -339,7 +334,7 @@
     let endpoint = '/api/auth/login';
     let body = { username: u, password: p, turnstileToken: token };
 
-    if (currentMode === 'register') { endpoint = '/api/auth/register'; body.inviteCode = invite; }
+    if (currentMode === 'register') { endpoint = '/api/auth/register'; }
     else if (currentMode === 'reset') { endpoint = '/api/auth/reset'; body = { username: u, newPassword: p, recoveryKey: k }; }
 
     try {

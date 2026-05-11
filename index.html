@@ -47,6 +47,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         关于
       </a>
+      <a href="#admin" class="nav-link" id="navAdmin" style="display:none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        管理
+      </a>
     </nav>
   </div>
 
@@ -157,8 +161,6 @@
       <div class="profile-bio" id="profileBio"></div>
       <div class="profile-stats">
         <div class="stat-item"><div class="stat-num" id="statPosts">0</div><div class="stat-label">帖子</div></div>
-        <div class="stat-item"><div class="stat-num" id="statFollowers">0</div><div class="stat-label">粉丝</div></div>
-        <div class="stat-item"><div class="stat-num" id="statFollowing">0</div><div class="stat-label">关注</div></div>
       </div>
     </div>
     <div id="profilePosts"></div>
@@ -167,6 +169,20 @@
   <!-- 设置 -->
   <div id="view-settings" class="view-section" style="display:none;">
     <h2 style="margin-bottom:20px;">个人设置</h2>
+    <div class="settings-section">
+      <h3>头像</h3>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div id="settingsAvatarPreview" style="width:56px;height:56px;border-radius:50%;overflow:hidden;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;">
+          <span style="color:var(--text-muted);font-size:1.5rem;">?</span>
+        </div>
+        <div>
+          <input type="file" id="avatarUploadInput" accept="image/*" style="display:none;" onchange="uploadUserAvatar()">
+          <button class="btn btn-sm" onclick="document.getElementById('avatarUploadInput').click()">上传头像</button>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">支持 JPG/PNG，自动压缩</div>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-section">
       <h3>修改昵称</h3>
       <div style="display:flex;gap:10px;">
@@ -197,13 +213,79 @@
     </div>
   </div>
 
+  <!-- 管理员 -->
+  <div id="view-admin" class="view-section" style="display:none;">
+    <h2 style="margin-bottom:20px;">管理面板</h2>
+
+    <div class="settings-section">
+      <h3>站点统计</h3>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;" id="adminStats">
+        <div class="stat-item"><div class="stat-num" id="adminOnline">-</div><div class="stat-label">5分钟在线</div></div>
+        <div class="stat-item"><div class="stat-num" id="adminToday">-</div><div class="stat-label">今日活跃</div></div>
+        <div class="stat-item"><div class="stat-num" id="adminUsers">-</div><div class="stat-label">总用户</div></div>
+        <div class="stat-item"><div class="stat-num" id="adminPosts">-</div><div class="stat-label">总帖子</div></div>
+        <div class="stat-item"><div class="stat-num" id="adminComments">-</div><div class="stat-label">总评论</div></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>在线用户</h3>
+      <div id="adminOnlineList" style="font-size:0.88rem;color:var(--text-secondary);">加载中...</div>
+    </div>
+
+    <div class="settings-section">
+      <h3>人机验证</h3>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:0.9rem;">当前状态：</span>
+        <strong id="adminTurnstileStatus" style="color:var(--green);">已开启</strong>
+        <button class="btn btn-sm" onclick="toggleTurnstile()">切换开关</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>发布公告</h3>
+      <div class="form-group">
+        <input type="text" id="adminAnnounceTitle" class="form-control" placeholder="公告标题" style="margin-bottom:10px;">
+        <textarea id="adminAnnounceContent" class="form-control" placeholder="公告内容 (Markdown)" style="min-height:100px;"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="postAnnounce()">发布公告</button>
+    </div>
+  </div>
+
   <!-- 关于 -->
   <div id="view-about" class="view-section" style="display:none;">
     <h2 style="margin-bottom:20px;">关于本站</h2>
     <div class="about-section">
       <h3>技术</h3>
-      <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端，Markdown 发帖，图片视频上传。</p>
+      <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
+      <p style="margin-top:8px;">版本：<strong>v2.1</strong> · 2026-05-11</p>
     </div>
+
+    <div class="about-section">
+      <h3>Markdown 语法指南</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:0.88rem;margin-top:8px;">
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code># 标题</code></td><td style="padding:6px 8px;color:var(--text-secondary);">一级标题（## 二级，### 三级）</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>**加粗**</code></td><td style="padding:6px 8px;color:var(--text-secondary);">加粗文字</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>*斜体*</code></td><td style="padding:6px 8px;color:var(--text-secondary);">斜体文字</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>[文字](链接)</code></td><td style="padding:6px 8px;color:var(--text-secondary);">插入链接</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>![替代](图片URL)</code></td><td style="padding:6px 8px;color:var(--text-secondary);">插入图片（上传后自动生成）</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>\`代码\`</code></td><td style="padding:6px 8px;color:var(--text-secondary);">行内代码</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>\`\`\`代码块\`\`\`</code></td><td style="padding:6px 8px;color:var(--text-secondary);">多行代码块</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>&gt; 引用</code></td><td style="padding:6px 8px;color:var(--text-secondary);">引用文字</td></tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>- 列表项</code></td><td style="padding:6px 8px;color:var(--text-secondary);">无序列表（数字+点=有序）</td></tr>
+        <tr><td style="padding:6px 8px;"><code>| 表格 | 表格 |</code></td><td style="padding:6px 8px;color:var(--text-secondary);">Markdown 表格</td></tr>
+      </table>
+    </div>
+
+    <div class="about-section">
+      <h3>更新日志</h3>
+      <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
+        <p><strong>v2.1</strong> (2026-05-11) — 第二轮优化：行间距修复、双时间戳、去邀请码、通用文件上传、图片灯箱、管理面板、移动端适配</p>
+        <p><strong>v2.0</strong> (2026-05-09) — 全面精简重构：去赛博朋克风、去冗余功能、顶部导航、主题切换、PBKDF2密码哈希</p>
+        <p><strong>v1.x</strong> (2024-2025) — 初始版本，含商城/背包/游戏等完整功能</p>
+      </div>
+    </div>
+
     <div class="about-section">
       <h3>联系</h3>
       <p>这是一个私人小站，仅供自己和好友使用。</p>
@@ -211,6 +293,11 @@
   </div>
 </main>
 
-<script src="script.js?v=8.0"></script>
+<!-- 图片灯箱 -->
+<div id="lightbox" class="modal-overlay" style="display:none;cursor:pointer;z-index:2000;" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+</div>
+
+<script src="script.js?v=8.1"></script>
 </body>
 </html>

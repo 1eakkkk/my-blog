@@ -86,7 +86,7 @@ export async function onRequestPost(context) {
     .bind(sessionId, user.id, now).run();
 
   const headers = new Headers();
-  headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; Secure; HttpOnly; SameSite=None; Max-Age=86400`);
+  headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; Secure; HttpOnly; SameSite=None; Max-Age=604800`);
   headers.append('Content-Type', 'application/json');
 
   return new Response(JSON.stringify({ success: true, username: user.username }), { headers });
