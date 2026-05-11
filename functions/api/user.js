@@ -23,6 +23,12 @@ export async function onRequestGet(context) {
 
   delete user.password;
 
+  // 异步清理7天前的过期 session，不阻塞响应
+  const expireTime = now - 7 * 24 * 60 * 60 * 1000;
+  context.waitUntil(
+    db.prepare('DELETE FROM sessions WHERE created_at < ?').bind(expireTime).run()
+  );
+
   return new Response(JSON.stringify({
     loggedIn: true,
     ...user
