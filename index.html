@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.5">
+  <link rel="stylesheet" href="style.css?v=8.6">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -301,7 +301,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.2.5</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.2.6</strong> · 2026-05-11</p>
     </div>
 
     <div class="about-section">
@@ -323,15 +323,41 @@
     <div class="about-section">
       <h3>更新日志</h3>
       <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
-        <p><strong>v2.2.5</strong> (2026-05-11) — 修复行内代码/表格未渲染、marked GFM显式启用、表格CSS样式、指南更新</p>
-        <p><strong>v2.2.4</strong> (2026-05-11) — 修复移动端网格布局、图片懒加载、静态资源缓存头、布局按钮事件绑定</p>
-        <p><strong>v2.2.3</strong> (2026-05-11) — 管理面板用户ID跳转、摘要Markdown全面strip、在线心跳上报、统计卡片样式统一</p>
-        <p><strong>v2.2.2</strong> (2026-05-11) — 修复MD预览按钮报错、帖子列表图片Markdown显示、管理面板响应式优化</p>
-        <p><strong>v2.2.1</strong> (2026-05-11) — 修复MD预览按钮、管理面板卡片美化、版本号同步更新</p>
-      <p><strong>v2.2</strong> (2026-05-11) — MD实时预览、图片灯箱缩放拖拽、分类筛选、管理详情弹窗</p>
-      <p><strong>v2.1</strong> (2026-05-11) — 行间距修复、双时间戳、去邀请码、通用文件上传、图片灯箱、管理面板、移动端适配</p>
-        <p><strong>v2.0</strong> (2026-05-09) — 全面精简重构：去赛博朋克风、去冗余功能、顶部导航、主题切换、PBKDF2密码哈希</p>
-        <p><strong>v1.x</strong> (2024-2025) — 初始版本，含商城/背包/游戏等完整功能</p>
+
+        <details open>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.2.x (2026-05-11)</summary>
+          <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p><strong>v2.2.6</strong> — 修复profile接口下划线路由404、移除头像lazy-load、更新日志折叠、marked全局初始化</p>
+            <p><strong>v2.2.5</strong> — 修复行内代码/表格未渲染、marked GFM显式启用、表格CSS样式、指南更新</p>
+            <p><strong>v2.2.4</strong> — 修复移动端网格布局、图片懒加载、静态资源缓存头、布局按钮事件绑定</p>
+            <p><strong>v2.2.3</strong> — 管理面板用户ID跳转、摘要Markdown全面strip、在线心跳上报、统计卡片样式统一</p>
+            <p><strong>v2.2.2</strong> — 修复MD预览按钮报错、帖子列表图片Markdown显示、管理面板响应式优化</p>
+            <p><strong>v2.2.1</strong> — 修复MD预览按钮、管理面板卡片美化、版本号同步更新</p>
+            <p><strong>v2.2</strong> — MD实时预览、图片灯箱缩放拖拽、分类筛选、管理详情弹窗</p>
+          </div>
+        </details>
+
+        <details>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.1 (2026-05-11)</summary>
+          <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p>行间距修复、双时间戳、去邀请码、通用文件上传、图片灯箱、管理面板、移动端适配</p>
+          </div>
+        </details>
+
+        <details>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.0 (2026-05-09)</summary>
+          <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p>全面精简重构：去赛博朋克风、去冗余功能、顶部导航、主题切换、PBKDF2密码哈希</p>
+          </div>
+        </details>
+
+        <details>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v1.x (2024-2025)</summary>
+          <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p>初始版本，含商城/背包/游戏等完整功能</p>
+          </div>
+        </details>
+
       </div>
     </div>
 
@@ -347,6 +373,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.5"></script>
+<script src="script.js?v=8.6"></script>
 </body>
 </html>

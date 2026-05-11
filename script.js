@@ -98,7 +98,7 @@ function timeAgo(ts) {
 
 function renderUserAvatar(userObj) {
   if (userObj.avatar_url) {
-    return `<img src="${userObj.avatar_url}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
+    return `<img src="${userObj.avatar_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
   }
   return generatePixelAvatar(userObj.username, userObj.avatar_variant || 0);
 }
@@ -637,7 +637,7 @@ async function loadUserProfile(param) {
   document.getElementById('profileName').textContent = '加载中...';
   try {
     const isId = /^\d+$/.test(param);
-    const res = await fetch(`${API_BASE}/profile_public?${isId ? 'id' : 'username'}=${encodeURIComponent(param)}`);
+    const res = await fetch(`${API_BASE}/user-public?${isId ? 'id' : 'username'}=${encodeURIComponent(param)}`);
     const data = await res.json();
     if (data.error) { document.getElementById('profileName').textContent = data.error; return; }
 
@@ -979,6 +979,11 @@ window.postAnnounce = async function () {
 // === 初始化 ===
 function initApp() {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+  // 确保 marked GFM 扩展启用
+  if (typeof marked !== 'undefined' && marked.setOptions) {
+    marked.setOptions({ gfm: true, breaks: true });
+  }
 
   document.addEventListener('click', function (e) {
     const nav = document.getElementById('navLinks');
