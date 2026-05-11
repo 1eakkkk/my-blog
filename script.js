@@ -1336,14 +1336,6 @@ function destroyTOC() {
   }
   const tocMobile = document.getElementById('toc-mobile');
   if (tocMobile) tocMobile.remove();
-  const postLayout = document.querySelector('.post-layout');
-  if (postLayout) {
-    const contentEl = postLayout.querySelector('.article-content');
-    if (contentEl) {
-      postLayout.parentNode.insertBefore(contentEl, postLayout);
-      postLayout.remove();
-    }
-  }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);

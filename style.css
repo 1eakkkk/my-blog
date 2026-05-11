@@ -1190,7 +1190,7 @@ select.form-control { cursor: pointer; }
   align-items: start;
 }
 
-.post-layout > .full-article {
+.post-layout > .article-content {
   min-width: 0;
 }
 
@@ -1236,7 +1236,7 @@ select.form-control { cursor: pointer; }
 }
 
 .toc-link:hover {
-  color: var(--text-primary);
+  color: var(--text);
   background: var(--border);
 }
 
@@ -1268,7 +1268,7 @@ select.form-control { cursor: pointer; }
   border: none;
   cursor: pointer;
   font-size: 0.875rem;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 #toc-mobile-toggle .toc-arrow {
