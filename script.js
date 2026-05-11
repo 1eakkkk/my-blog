@@ -402,8 +402,11 @@ async function loadComments(postId, reset = false, highlightId = null) {
       return;
     }
 
-    comments.forEach((c, i) => {
-      const el = createCommentElement(c, false, currentPostAuthorId, (currentCommentPage - 1) * 20 + i);
+    let floorOffset = (currentCommentPage - 1) * 20;
+    let rootCount = 0;
+    comments.forEach((c) => {
+      const floorNum = !c.parent_id ? floorOffset + rootCount++ : -1;
+      const el = createCommentElement(c, false, currentPostAuthorId, floorNum);
       container.appendChild(el);
       bindImageClicks(el);
     });
@@ -420,7 +423,8 @@ async function loadComments(postId, reset = false, highlightId = null) {
 
 function createCommentElement(c, isReply, postAuthorId, floorNumber) {
   const div = document.createElement('div');
-  div.className = `comment-card${c.is_pinned ? ' pinned' : ''}`;
+  const isChild = !!c.parent_id;
+  div.className = `comment-card${c.is_pinned ? ' pinned' : ''}${isChild ? ' is-reply' : ''}`;
   div.id = `comment-${c.id}`;
 
   const author = c.nickname || c.username || 'Unknown';
@@ -428,7 +432,10 @@ function createCommentElement(c, isReply, postAuthorId, floorNumber) {
   const parsedContent = parseMarkdown(c.content || '');
   const pinnedBadge = c.is_pinned ? ' 📌' : '';
   const authorTag = postAuthorId && c.user_id === postAuthorId ? ' <span style="font-size:0.7rem;color:var(--accent);">作者</span>' : '';
-  const replyTo = c.reply_to_nickname ? ` → @${c.reply_to_nickname}` : '';
+  const floorBadge = !isChild ? `<span class="comment-floor">#${floorNumber + 1}</span>` : '';
+  const replyTag = c.reply_to_nickname
+    ? `<span class="reply-tag">↩ @${c.reply_to_nickname || c.reply_to_username}</span>`
+    : '';
 
   let adminActions = '';
   if (currentUser && (currentUser.id === c.user_id || userRole === 'admin')) {
@@ -440,9 +447,10 @@ function createCommentElement(c, isReply, postAuthorId, floorNumber) {
 
   div.innerHTML = `
     <div class="comment-header">
+      ${floorBadge}
       <span class="comment-author">${author}${authorTag}</span>
       <span class="comment-time">${timeStr}${pinnedBadge}</span>
-      ${replyTo ? `<span class="comment-reply-to">${replyTo}</span>` : ''}
+      ${replyTag}
     </div>
     <div class="comment-body">${parsedContent}</div>
     <div class="comment-footer">
