@@ -97,7 +97,7 @@ function timeAgo(ts) {
 
 function renderUserAvatar(userObj) {
   if (userObj.avatar_url) {
-    return `<img src="${userObj.avatar_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
+    return `<img src="${userObj.avatar_url}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
   }
   return generatePixelAvatar(userObj.username, userObj.avatar_variant || 0);
 }
@@ -890,6 +890,7 @@ function bindImageClicks(container) {
   container.querySelectorAll('img').forEach(img => {
     if (!img.dataset.lightboxBound) {
       img.dataset.lightboxBound = '1';
+      img.loading = 'lazy';
       img.style.cursor = 'zoom-in';
       img.addEventListener('click', e => { e.stopPropagation(); openLightbox(img.src); });
     }
@@ -991,6 +992,12 @@ function initApp() {
   const mdPreviewBtn = document.getElementById('mdTabPreview');
   if (mdEditBtn) mdEditBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('edit'); });
   if (mdPreviewBtn) mdPreviewBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('preview'); });
+
+  // 布局切换按钮事件绑定
+  const layoutListBtn = document.getElementById('layoutList');
+  const layoutGridBtn = document.getElementById('layoutGrid');
+  if (layoutListBtn) layoutListBtn.addEventListener('click', function () { setLayout('list'); });
+  if (layoutGridBtn) layoutGridBtn.addEventListener('click', function () { setLayout('grid'); });
 
   window.addEventListener('hashchange', handleRoute);
 

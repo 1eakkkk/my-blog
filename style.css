@@ -1001,7 +1001,7 @@ select.form-control { cursor: pointer; }
   .main-content { padding: 14px 10px 48px; }
   .page-header { flex-direction: column; gap: 10px; align-items: flex-start; }
   .page-header h1 { font-size: 1.25rem; }
-  .posts-grid { grid-template-columns: 1fr; }
+  .posts-grid { grid-template-columns: repeat(2, 1fr); }
   .toolbar { flex-direction: column; }
   .toolbar input, .toolbar select { width: 100%; flex: auto; }
 
