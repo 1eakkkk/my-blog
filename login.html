@@ -5,10 +5,7 @@
   <link rel="preconnect" href="https://challenges.cloudflare.com">
   <link rel="dns-prefetch" href="https://challenges.cloudflare.com">
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>登录 | 1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
   <style>
@@ -227,6 +224,7 @@
     }
 
     .cf-turnstile { margin-bottom: 12px; display: flex; justify-content: center; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   </style>
 </head>
 <body>
@@ -244,14 +242,17 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('login')">登录</div>
-    <div class="tab" onclick="switchTab('register')">注册</div>
-    <div class="tab" onclick="switchTab('reset')">忘记密码</div>
+    <div class="tab active" onclick="switchTab('login', this)">登录</div>
+    <div class="tab" onclick="switchTab('register', this)">注册</div>
+    <div class="tab" onclick="switchTab('reset', this)">忘记密码</div>
   </div>
 
   <form id="authForm">
+    <label for="username" class="sr-only">用户名</label>
     <input type="text" id="username" class="form-control" placeholder="用户名" required>
+    <label for="password" class="sr-only">密码</label>
     <input type="password" id="password" class="form-control" placeholder="密码" required>
+    <label for="recoveryKeyInput" class="sr-only">恢复短语</label>
     <input type="text" id="recoveryKeyInput" class="form-control" placeholder="恢复短语（如 蓝天-白云-青山-绿水）" style="display:none;">
     <div id="msgBox" class="msg-box"></div>
     <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXdJPWAee7ZdB" data-theme="dark"></div>
@@ -295,10 +296,10 @@
     })
     .catch(() => { });
 
-  function switchTab(mode) {
+  function switchTab(mode, el) {
     currentMode = mode;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    event.target.classList.add('active');
+    el.classList.add('active');
     msgBox.textContent = '';
     msgBox.className = 'msg-box';
     recoveryBox.style.display = 'none';

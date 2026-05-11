@@ -2,13 +2,11 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="1eak.cool - 轻量级私人论坛，基于 Cloudflare Pages 构建">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.11">
+  <link rel="stylesheet" href="style.css?v=8.12">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -16,17 +14,19 @@
 
 <div id="toast-container"></div>
 
-<div id="loading-mask" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0f172a;z-index:99999;display:flex;justify-content:center;align-items:center;flex-direction:column;">
+<a href="#main-content" class="skip-link">跳至内容</a>
+
+<div id="loading-mask" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:var(--bg);z-index:99999;display:flex;justify-content:center;align-items:center;flex-direction:column;">
   <div class="loading-spinner"></div>
-  <div style="color:#94a3b8;margin-top:14px;font-size:0.9rem;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">加载中...</div>
+  <div style="color:var(--text-muted);margin-top:14px;font-size:0.9rem;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">加载中...</div>
 </div>
 
 <!-- 顶部导航 -->
 <header class="topnav" id="topnav">
   <div class="topnav-left">
-    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileNav()">☰</button>
+    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileNav()" aria-label="主菜单" aria-expanded="false">☰</button>
     <span class="logo">1EAK<span class="dot">.</span>COOL</span>
-    <nav class="nav-links" id="navLinks">
+    <nav class="nav-links" id="navLinks" aria-label="主导航">
       <a href="#home" class="nav-link active" id="navHome">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         首页
@@ -71,7 +71,7 @@
 </header>
 
 <!-- 主内容区 -->
-<main class="main-content">
+<main class="main-content" id="main-content">
   <!-- 首页 -->
   <div id="view-home" class="view-section">
     <div class="page-header">
@@ -82,6 +82,7 @@
       </div>
     </div>
     <div class="toolbar">
+      <label for="searchInput" class="sr-only">搜索帖子</label>
       <input type="text" id="searchInput" placeholder="搜索..." onkeydown="if(event.key==='Enter')searchPosts()">
       <select id="categoryFilter" onchange="searchPosts()">
         <option value="">全部分类</option>
@@ -113,6 +114,7 @@
           <span id="replyingToText"></span>
           <button onclick="cancelReply()" class="replying-cancel-btn">✕ 取消</button>
         </div>
+        <label for="commentInput" class="sr-only">写评论</label>
         <textarea id="commentInput" placeholder="写评论... (Markdown 和图片)"></textarea>
         <div id="commentCharCount" style="text-align:right;font-size:0.75rem;color:var(--text-muted);padding:2px 4px 4px;">0 / 500</div>
         <div class="comment-input-row">
@@ -138,7 +140,7 @@
       <h2>写帖子</h2>
       <form id="postForm" onsubmit="submitPost(event)">
         <div class="form-group">
-          <label>分类</label>
+          <label for="postCategory">分类</label>
           <select id="postCategory" class="form-control" style="max-width:180px;">
             <option value="灌水">🌊 灌水</option>
             <option value="技术">💻 技术</option>
@@ -159,12 +161,12 @@
           </div>
         </div>
         <div class="form-group">
-          <label>标题</label>
+          <label for="postTitle">标题</label>
           <input type="text" id="postTitle" class="form-control" placeholder="标题">
         </div>
         <div class="form-group">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <label style="margin-bottom:0;">内容 <span style="font-weight:400;color:var(--text-muted);">(Markdown)</span></label>
+            <label for="postContent" style="margin-bottom:0;">内容 <span style="font-weight:400;color:var(--text-muted);">(Markdown)</span></label>
             <div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px;">
               <button type="button" id="mdTabEdit" class="btn btn-sm" style="border:none;border-radius:4px;background:var(--accent);color:#fff;">编辑</button>
               <button type="button" id="mdTabPreview" class="btn btn-sm" style="border:none;border-radius:4px;background:transparent;color:var(--text-muted);">预览</button>
@@ -221,6 +223,7 @@
     <div class="settings-section">
       <h3>修改昵称</h3>
       <div style="display:flex;gap:10px;">
+        <label for="settingsNickname" class="sr-only">新昵称</label>
         <input type="text" id="settingsNickname" class="form-control" placeholder="新昵称 (限12字)" maxlength="12" style="max-width:280px;">
         <button class="btn btn-primary" onclick="updateNickname()">保存</button>
       </div>
@@ -228,6 +231,7 @@
     <div class="settings-section">
       <h3>个性签名</h3>
       <div style="display:flex;gap:10px;">
+        <label for="settingsBio" class="sr-only">个性签名</label>
         <input type="text" id="settingsBio" class="form-control" placeholder="个性签名 (限50字)" maxlength="50" style="max-width:360px;">
         <button class="btn btn-primary" onclick="updateBio()">保存</button>
       </div>
@@ -297,7 +301,9 @@
     <div class="settings-section">
       <h3>发布公告</h3>
       <div class="form-group">
+        <label for="adminAnnounceTitle" class="sr-only">公告标题</label>
         <input type="text" id="adminAnnounceTitle" class="form-control" placeholder="公告标题" style="margin-bottom:10px;">
+        <label for="adminAnnounceContent" class="sr-only">公告内容</label>
         <textarea id="adminAnnounceContent" class="form-control" placeholder="公告内容 (Markdown)" style="min-height:100px;"></textarea>
       </div>
       <button class="btn btn-primary" onclick="postAnnounce()">发布公告</button>
@@ -418,6 +424,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.11"></script>
+<script src="script.js?v=8.12"></script>
 </body>
 </html>
