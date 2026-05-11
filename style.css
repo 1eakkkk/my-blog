@@ -682,6 +682,31 @@ a:hover { text-decoration: underline; }
   font-weight: 500;
 }
 
+.replying-to-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  color: var(--accent);
+  margin-bottom: -1px;
+}
+
+.replying-cancel-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0 4px;
+  opacity: 0.8;
+}
+
+.replying-cancel-btn:hover { opacity: 1; }
+
 @media (max-width: 768px) {
   .comment-card.is-reply {
     margin-left: 12px;

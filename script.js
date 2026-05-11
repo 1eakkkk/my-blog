@@ -404,11 +404,28 @@ async function loadComments(postId, reset = false, highlightId = null) {
 
     let floorOffset = (currentCommentPage - 1) * 20;
     let rootCount = 0;
-    comments.forEach((c) => {
-      const floorNum = !c.parent_id ? floorOffset + rootCount++ : -1;
-      const el = createCommentElement(c, false, currentPostAuthorId, floorNum);
-      container.appendChild(el);
-      bindImageClicks(el);
+
+    // 分组：根评论列表 + 子评论 Map
+    const roots = comments.filter(c => !c.parent_id);
+    const childrenMap = {};
+    comments.filter(c => !!c.parent_id).forEach(c => {
+      if (!childrenMap[c.parent_id]) childrenMap[c.parent_id] = [];
+      childrenMap[c.parent_id].push(c);
+    });
+
+    // 按根评论顺序渲染，子评论紧跟其父
+    roots.forEach(root => {
+      const floorNum = floorOffset + rootCount++;
+      const rootEl = createCommentElement(root, false, currentPostAuthorId, floorNum);
+      container.appendChild(rootEl);
+      bindImageClicks(rootEl);
+
+      const children = childrenMap[root.id] || [];
+      children.forEach(child => {
+        const childEl = createCommentElement(child, false, currentPostAuthorId, -1);
+        container.appendChild(childEl);
+        bindImageClicks(childEl);
+      });
     });
     currentCommentPage++;
 
@@ -465,17 +482,26 @@ function createCommentElement(c, isReply, postAuthorId, floorNumber) {
 window.prepareReply = function (commentId, authorName) {
   const input = document.getElementById('commentInput');
   input.dataset.parentId = commentId;
-  input.placeholder = `回复 @${authorName}...`;
+  input.placeholder = '写评论... (Markdown 和图片)';
   input.focus();
+  const bar = document.getElementById('replyingToBar');
+  const text = document.getElementById('replyingToText');
+  if (bar && text) {
+    text.textContent = `↩ 正在回复 @${authorName}`;
+    bar.style.display = 'flex';
+  }
   const cancelBtn = document.getElementById('cancelReplyBtn');
-  if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+  if (cancelBtn) cancelBtn.style.display = 'none';
 };
 
 window.cancelReply = function () {
   const input = document.getElementById('commentInput');
   input.dataset.parentId = '';
   input.placeholder = '写评论... (Markdown 和图片)';
-  document.getElementById('cancelReplyBtn').style.display = 'none';
+  const bar = document.getElementById('replyingToBar');
+  if (bar) bar.style.display = 'none';
+  const cancelBtn = document.getElementById('cancelReplyBtn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
 };
 
 window.submitComment = async function () {
