@@ -4,19 +4,28 @@ export async function onRequestGet(context) {
   const targetId = url.searchParams.get('id');
   const targetUsername = url.searchParams.get('username');
 
+  if (!targetId && !targetUsername) {
+    return new Response(JSON.stringify({ error: '用户不存在' }), { status: 404 });
+  }
+
   let user;
   if (targetId) {
     user = await db.prepare(`
       SELECT id, username, nickname, avatar_variant, avatar_url, bio, role, xp, created_at
       FROM users WHERE id = ?
     `).bind(parseInt(targetId)).first();
-  } else if (targetUsername) {
+  }
+  if (!user && targetId) {
+    user = await db.prepare(`
+      SELECT id, username, nickname, avatar_variant, avatar_url, bio, role, xp, created_at
+      FROM users WHERE username = ? OR nickname = ?
+    `).bind(targetId, targetId).first();
+  }
+  if (!user && targetUsername) {
     user = await db.prepare(`
       SELECT id, username, nickname, avatar_variant, avatar_url, bio, role, xp, created_at
       FROM users WHERE username = ? OR nickname = ?
     `).bind(targetUsername, targetUsername).first();
-  } else {
-    return new Response(JSON.stringify({ error: '用户不存在' }), { status: 404 });
   }
   if (!user) return new Response(JSON.stringify({ error: '用户不存在' }), { status: 404 });
 
