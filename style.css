@@ -515,6 +515,25 @@ a:hover { text-decoration: underline; }
   color: var(--text-secondary);
   margin: 12px 0;
 }
+.full-article .article-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 0.9rem;
+}
+.full-article .article-content th,
+.full-article .article-content td {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.full-article .article-content th {
+  background: var(--bg);
+  font-weight: 650;
+}
+.full-article .article-content tr:nth-child(even) td {
+  background: var(--bg);
+}
 
 .full-article .article-actions {
   display: flex;
@@ -609,6 +628,22 @@ a:hover { text-decoration: underline; }
   max-width: 100%;
   border-radius: var(--radius-sm);
   margin: 6px 0;
+}
+.comment-card .comment-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 0.85rem;
+}
+.comment-card .comment-body th,
+.comment-card .comment-body td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.comment-card .comment-body th {
+  background: var(--bg);
+  font-weight: 650;
 }
 
 .comment-card .comment-footer {
@@ -1015,7 +1050,8 @@ select.form-control { cursor: pointer; }
   .full-article .article-content img,
   .full-article .article-content video { width: 100%; height: auto; }
   .full-article .article-content pre { font-size: 0.78rem; overflow-x: auto; }
-  .full-article .article-content table { display: block; overflow-x: auto; font-size: 0.8rem; }
+  .full-article .article-content table,
+  .comment-card .comment-body table { display: block; overflow-x: auto; font-size: 0.78rem; }
 
   .comment-input-box { padding: 12px; }
   .comment-input-row { flex-direction: column; gap: 8px; align-items: flex-start; }

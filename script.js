@@ -81,9 +81,10 @@ function parseMarkdown(text) {
   if (!text) return '';
   try {
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-      return DOMPurify.sanitize(marked.parse(text));
+      const html = marked.parse(text, { gfm: true, breaks: true });
+      return DOMPurify.sanitize(html);
     }
-  } catch (e) { }
+  } catch (e) { console.error('Markdown parse error:', e); }
   return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 }
 

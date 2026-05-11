@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.4">
+  <link rel="stylesheet" href="style.css?v=8.5">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -301,7 +301,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.2.4</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.2.5</strong> · 2026-05-11</p>
     </div>
 
     <div class="about-section">
@@ -316,13 +316,14 @@
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>\`\`\`代码块\`\`\`</code></td><td style="padding:6px 8px;color:var(--text-secondary);">多行代码块</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>&gt; 引用</code></td><td style="padding:6px 8px;color:var(--text-secondary);">引用文字</td></tr>
         <tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;"><code>- 列表项</code></td><td style="padding:6px 8px;color:var(--text-secondary);">无序列表（数字+点=有序）</td></tr>
-        <tr><td style="padding:6px 8px;"><code>| 表格 | 表格 |</code></td><td style="padding:6px 8px;color:var(--text-secondary);">Markdown 表格</td></tr>
+        <tr><td style="padding:6px 8px;"><code>| A | B |<br>| --- | --- |<br>| 1 | 2 |</code></td><td style="padding:6px 8px;color:var(--text-secondary);">GFM 表格（需含表头分隔行）</td></tr>
       </table>
     </div>
 
     <div class="about-section">
       <h3>更新日志</h3>
       <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
+        <p><strong>v2.2.5</strong> (2026-05-11) — 修复行内代码/表格未渲染、marked GFM显式启用、表格CSS样式、指南更新</p>
         <p><strong>v2.2.4</strong> (2026-05-11) — 修复移动端网格布局、图片懒加载、静态资源缓存头、布局按钮事件绑定</p>
         <p><strong>v2.2.3</strong> (2026-05-11) — 管理面板用户ID跳转、摘要Markdown全面strip、在线心跳上报、统计卡片样式统一</p>
         <p><strong>v2.2.2</strong> (2026-05-11) — 修复MD预览按钮报错、帖子列表图片Markdown显示、管理面板响应式优化</p>
@@ -346,6 +347,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.4"></script>
+<script src="script.js?v=8.5"></script>
 </body>
 </html>
