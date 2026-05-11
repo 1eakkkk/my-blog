@@ -855,11 +855,82 @@ select.form-control { cursor: pointer; }
 
 .modal-box h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; }
 
-/* === 图片灯箱 === */
-#lightbox img {
-  transition: transform 0.2s;
-  object-fit: contain;
+/* === 管理统计卡片 === */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
 }
+
+.admin-stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.admin-stat-card.clickable { cursor: pointer; }
+.admin-stat-card.clickable:hover { border-color: var(--accent); background: var(--card-hover); transform: translateY(-1px); }
+
+.admin-stat-card .stat-icon { font-size: 1.5rem; margin-bottom: 4px; }
+.admin-stat-card .stat-num { font-size: 1.6rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
+.admin-stat-card .stat-label { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+/* === 图片灯箱 === */
+#lightbox {
+  cursor: default;
+  user-select: none;
+}
+
+#lightbox img {
+  transition: transform 0.25s ease;
+  object-fit: contain;
+  cursor: grab;
+}
+
+#lightbox img:active { cursor: grabbing; }
+
+.lightbox-close {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 2001;
+  background: rgba(0,0,0,0.6);
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.lightbox-close:hover { background: rgba(0,0,0,0.8); }
+
+.lightbox-zoom-hint {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2001;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 6px 14px;
+  border-radius: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.lightbox-zoom-hint.show { opacity: 1; }
 
 /* === 响应式 === */
 @media (max-width: 768px) {

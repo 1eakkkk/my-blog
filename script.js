@@ -199,7 +199,6 @@ async function handleRoute() {
     if (btn) btn.textContent = '发布';
     document.getElementById('postTitle').value = '';
     document.getElementById('postContent').value = '';
-    document.getElementById('cancelEditPostBtn').style.display = 'none';
   }
 
   if (hash === '#home') {
@@ -256,6 +255,7 @@ async function loadPosts(reset = false) {
   const container = document.getElementById('posts-list');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   const searchVal = document.getElementById('searchInput')?.value || '';
+  const catFilter = document.getElementById('categoryFilter')?.value || '';
   const sortVal = document.getElementById('sortSelect')?.value || 'latest';
 
   if (reset) { currentPage = 1; hasMorePosts = true; container.innerHTML = ''; if (loadMoreBtn) loadMoreBtn.style.display = 'none'; }
@@ -265,7 +265,7 @@ async function loadPosts(reset = false) {
   else if (loadMoreBtn) loadMoreBtn.textContent = '加载中...';
 
   try {
-    const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&sort=${sortVal}`);
+    const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&category=${encodeURIComponent(catFilter)}&sort=${sortVal}`);
     const posts = await res.json();
     if (reset) container.innerHTML = '';
     if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
@@ -517,7 +517,7 @@ window.editPostMode = async function (id) {
     document.getElementById('postContent').value = post.content || '';
     document.getElementById('postCategory').value = post.category || '灌水';
     document.querySelector('#postForm button[type="submit"]').textContent = '保存修改';
-    document.getElementById('cancelEditPostBtn').style.display = 'inline-flex';
+    document.getElementById('cancelEditPostBtn').textContent = '取消编辑';
     window.location.hash = '#write';
   } catch (e) { showToast('加载失败', 'error'); }
 };
@@ -526,8 +526,8 @@ window.cancelEditPost = function () {
   isEditingPost = false; editingPostId = null;
   document.getElementById('postTitle').value = '';
   document.getElementById('postContent').value = '';
+  document.getElementById('postCategory').value = '灌水';
   document.querySelector('#postForm button[type="submit"]').textContent = '发布';
-  document.getElementById('cancelEditPostBtn').style.display = 'none';
   window.location.hash = '#home';
 };
 
@@ -744,25 +744,132 @@ window.uploadUserAvatar = async function () {
   } catch (e) { showToast('网络错误', 'error'); }
 };
 
-// === 图片灯箱 ===
+// === MD 预览切换 ===
+window.switchMdTab = function (tab) {
+  const textarea = document.getElementById('postContent');
+  const preview = document.getElementById('mdPreview');
+  const btnEdit = document.getElementById('mdTabEdit');
+  const btnPreview = document.getElementById('mdTabPreview');
+
+  if (tab === 'preview') {
+    preview.innerHTML = parseMarkdown(textarea.value);
+    textarea.style.display = 'none';
+    preview.style.display = 'block';
+    btnEdit.style.background = 'transparent'; btnEdit.style.color = 'var(--text-muted)';
+    btnPreview.style.background = 'var(--accent)'; btnPreview.style.color = '#fff';
+  } else {
+    textarea.style.display = 'block';
+    preview.style.display = 'none';
+    btnEdit.style.background = 'var(--accent)'; btnEdit.style.color = '#fff';
+    btnPreview.style.background = 'transparent'; btnPreview.style.color = 'var(--text-muted)';
+  }
+};
+
+// === 图片灯箱（缩放+拖拽） ===
+let lightboxScale = 1;
+let lightboxX = 0, lightboxY = 0;
+let isDragging = false;
+let dragStartX = 0, dragStartY = 0;
+let startX = 0, startY = 0;
+
 window.openLightbox = function (src) {
   const lb = document.getElementById('lightbox');
-  document.getElementById('lightboxImg').src = src;
+  const img = document.getElementById('lightboxImg');
+  img.src = src;
+  lightboxScale = 1; lightboxX = 0; lightboxY = 0;
+  img.style.transform = 'scale(1) translate(0, 0)';
+  img.style.cursor = 'grab';
   lb.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+
+  const closeBtn = document.getElementById('lightboxCloseBtn');
+  if (!closeBtn) {
+    const btn = document.createElement('button');
+    btn.id = 'lightboxCloseBtn';
+    btn.className = 'lightbox-close';
+    btn.textContent = '✕';
+    btn.onclick = closeLightbox;
+    document.body.appendChild(btn);
+  }
 };
 
 window.closeLightbox = function () {
   document.getElementById('lightbox').style.display = 'none';
   document.body.style.overflow = '';
+  const btn = document.getElementById('lightboxCloseBtn');
+  if (btn) btn.remove();
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+  const lbImg = document.getElementById('lightboxImg');
+  if (!lbImg) return;
+
+  lbImg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.2 : 0.2;
+    lightboxScale = Math.max(0.5, Math.min(3, lightboxScale + delta));
+    updateLightboxTransform();
+  });
+
+  let touchDist0 = 0;
+  lbImg.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      touchDist0 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    } else if (e.touches.length === 1 && lightboxScale > 1) {
+      isDragging = true;
+      dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY;
+      startX = lightboxX; startY = lightboxY;
+    }
+  });
+
+  lbImg.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      if (touchDist0 > 0) {
+        lightboxScale = Math.max(0.5, Math.min(3, lightboxScale * (dist / touchDist0)));
+        touchDist0 = dist;
+        updateLightboxTransform();
+      }
+    } else if (isDragging && e.touches.length === 1) {
+      lightboxX = startX + (e.touches[0].clientX - dragStartX);
+      lightboxY = startY + (e.touches[0].clientY - dragStartY);
+      updateLightboxTransform();
+    }
+  });
+
+  lbImg.addEventListener('touchend', () => { isDragging = false; });
+
+  lbImg.addEventListener('mousedown', (e) => {
+    if (lightboxScale > 1) {
+      isDragging = true;
+      dragStartX = e.clientX; dragStartY = e.clientY;
+      startX = lightboxX; startY = lightboxY;
+      lbImg.style.cursor = 'grabbing';
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      lightboxX = startX + (e.clientX - dragStartX);
+      lightboxY = startY + (e.clientY - dragStartY);
+      updateLightboxTransform();
+    }
+  });
+
+  window.addEventListener('mouseup', () => { isDragging = false; lbImg.style.cursor = lightboxScale > 1 ? 'grab' : 'default'; });
+});
+
+function updateLightboxTransform() {
+  const img = document.getElementById('lightboxImg');
+  img.style.transform = `scale(${lightboxScale}) translate(${lightboxX / lightboxScale}px, ${lightboxY / lightboxScale}px)`;
+}
 
 // 给帖子/评论中的图片绑定点击
 function bindImageClicks(container) {
   container.querySelectorAll('img').forEach(img => {
     if (!img.dataset.lightboxBound) {
       img.dataset.lightboxBound = '1';
-      img.style.cursor = 'pointer';
+      img.style.cursor = 'zoom-in';
       img.addEventListener('click', e => { e.stopPropagation(); openLightbox(img.src); });
     }
   });
@@ -787,19 +894,38 @@ async function loadAdminPanel() {
     } else {
       statusEl.textContent = '已关闭'; statusEl.style.color = 'var(--danger)';
     }
-
-    const listEl = document.getElementById('adminOnlineList');
-    if (data.onlineUsers && data.onlineUsers.length > 0) {
-      listEl.innerHTML = data.onlineUsers.map(u =>
-        `<span style="display:inline-block;margin:4px 8px;padding:2px 10px;background:var(--accent-dim);border-radius:12px;font-size:0.83rem;">${u.nickname || u.username}</span>`
-      ).join('');
-    } else {
-      listEl.innerHTML = '暂无在线用户';
-    }
   } catch (e) { console.error(e); }
 }
 
+window.showAdminDetail = async function (type) {
+  const modal = document.getElementById('adminDetailModal');
+  const title = document.getElementById('adminDetailTitle');
+  const content = document.getElementById('adminDetailContent');
+
+  const labels = { online: '在线用户', users: '最近注册用户', posts: '最近帖子' };
+  title.textContent = labels[type] || '详情';
+  content.innerHTML = '<div class="loading-spinner"></div>';
+  modal.style.display = 'flex';
+
+  try {
+    const actions = { online: 'online_list', users: 'user_list', posts: 'post_list' };
+    const res = await fetch(`${API_BASE}/admin?action=${actions[type]}`);
+    const data = await res.json();
+
+    if (type === 'online') {
+      const list = data.users || [];
+      content.innerHTML = list.length === 0 ? '<p style="color:var(--text-muted);">暂无在线用户</p>' :
+        list.map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.username}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.8rem;">${new Date(u.last_seen).toLocaleTimeString()}</span></div>`).join('');
+    } else if (type === 'users') {
+      content.innerHTML = (data.users || []).map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.username}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.78rem;">${new Date(u.created_at).toLocaleDateString()}</span></div>`).join('');
+    } else if (type === 'posts') {
+      content.innerHTML = (data.posts || []).map(p => `<div style="padding:8px 0;border-bottom:1px solid var(--border);"><a href="#post?id=${p.id}" onclick="document.getElementById('adminDetailModal').style.display='none'" style="font-weight:500;">${p.title}</a><div style="font-size:0.78rem;color:var(--text-muted);">${p.author_name} · ${new Date(p.created_at).toLocaleDateString()} · ${p.category}</div></div>`).join('');
+    }
+  } catch (e) { content.innerHTML = '<p style="color:var(--danger);">加载失败</p>'; }
+};
+
 window.toggleTurnstile = async function () {
+  if (!confirm('确定要切换人机验证开关吗？')) return;
   const res = await fetch(`${API_BASE}/admin`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'toggle_turnstile' })

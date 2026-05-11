@@ -8,6 +8,7 @@ export async function onRequestGet(context) {
 
   const sort = url.searchParams.get('sort') || 'latest';
   const search = url.searchParams.get('search') || '';
+  const category = url.searchParams.get('category') || '';
   const page = parseInt(url.searchParams.get('page')) || 1;
   const limit = parseInt(url.searchParams.get('limit')) || 10;
   const offset = (page - 1) * limit;
@@ -38,16 +39,19 @@ export async function onRequestGet(context) {
     } else {
       let sql = `SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id`;
       const params = [];
+      const conditions = [];
 
       if (search) {
         const term = `%${search}%`;
-        sql += ` WHERE (
-          posts.title LIKE ? OR
-          posts.content LIKE ? OR
-          posts.category LIKE ? OR
-          EXISTS (SELECT 1 FROM comments WHERE comments.post_id = posts.id AND comments.content LIKE ?)
-        )`;
+        conditions.push(`(posts.title LIKE ? OR posts.content LIKE ? OR posts.category LIKE ? OR EXISTS (SELECT 1 FROM comments WHERE comments.post_id = posts.id AND comments.content LIKE ?))`);
         params.push(term, term, term, term);
+      }
+      if (category) {
+        conditions.push('posts.category = ?');
+        params.push(category);
+      }
+      if (conditions.length > 0) {
+        sql += ' WHERE ' + conditions.join(' AND ');
       }
 
       sql += ` ORDER BY (posts.category = '公告') DESC, posts.is_pinned DESC`;

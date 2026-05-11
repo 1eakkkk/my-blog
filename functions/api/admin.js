@@ -20,24 +20,32 @@ export async function onRequestGet(context) {
     const totalPosts = await db.prepare('SELECT COUNT(*) as c FROM posts').first();
     const totalComments = await db.prepare('SELECT COUNT(*) as c FROM comments').first();
 
-    // Turnstile 状态
     const tsSetting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
     const turnstileEnabled = tsSetting ? tsSetting.value === 'true' : true;
 
-    // 在线用户列表
     const onlineList = await db.prepare('SELECT username, nickname, last_seen FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 20').bind(fiveMinAgo).all();
 
     return new Response(JSON.stringify({
       stats: {
-        totalUsers: totalUsers.c,
-        online5min: onlineUsers.c,
-        todayActive: todayActive.c,
-        totalPosts: totalPosts.c,
-        totalComments: totalComments.c,
-        turnstileEnabled
+        totalUsers: totalUsers.c, online5min: onlineUsers.c, todayActive: todayActive.c,
+        totalPosts: totalPosts.c, totalComments: totalComments.c, turnstileEnabled
       },
       onlineUsers: onlineList.results
     }), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // 详情查询
+  if (action === 'user_list') {
+    const users = await db.prepare('SELECT username, nickname, created_at, last_seen FROM users ORDER BY created_at DESC LIMIT 20').all();
+    return new Response(JSON.stringify({ users: users.results }), { headers: { 'Content-Type': 'application/json' } });
+  }
+  if (action === 'post_list') {
+    const posts = await db.prepare('SELECT id, title, category, created_at, author_name FROM posts ORDER BY created_at DESC LIMIT 20').all();
+    return new Response(JSON.stringify({ posts: posts.results }), { headers: { 'Content-Type': 'application/json' } });
+  }
+  if (action === 'online_list') {
+    const online = await db.prepare('SELECT username, nickname, last_seen FROM users WHERE last_seen > ? ORDER BY last_seen DESC').bind(Date.now() - 5 * 60 * 1000).all();
+    return new Response(JSON.stringify({ users: online.results }), { headers: { 'Content-Type': 'application/json' } });
   }
 
   return new Response(JSON.stringify({ error: '未知操作' }), { status: 400 });
