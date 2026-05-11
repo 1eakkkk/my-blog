@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.0">
+  <link rel="stylesheet" href="style.css?v=8.2">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -146,8 +146,8 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
             <label style="margin-bottom:0;">内容 <span style="font-weight:400;color:var(--text-muted);">(Markdown)</span></label>
             <div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px;">
-              <button type="button" id="mdTabEdit" class="btn btn-sm" style="border:none;border-radius:4px;background:var(--accent);color:#fff;" onclick="switchMdTab('edit')">编辑</button>
-              <button type="button" id="mdTabPreview" class="btn btn-sm" style="border:none;border-radius:4px;background:transparent;color:var(--text-muted);" onclick="switchMdTab('preview')">预览</button>
+              <button type="button" id="mdTabEdit" class="btn btn-sm" style="border:none;border-radius:4px;background:var(--accent);color:#fff;">编辑</button>
+              <button type="button" id="mdTabPreview" class="btn btn-sm" style="border:none;border-radius:4px;background:transparent;color:var(--text-muted);">预览</button>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -301,7 +301,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.2.1</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.2.2</strong> · 2026-05-11</p>
     </div>
 
     <div class="about-section">
@@ -323,6 +323,7 @@
     <div class="about-section">
       <h3>更新日志</h3>
       <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
+        <p><strong>v2.2.2</strong> (2026-05-11) — 修复MD预览按钮报错、帖子列表图片Markdown显示、管理面板响应式优化</p>
         <p><strong>v2.2.1</strong> (2026-05-11) — 修复MD预览按钮、管理面板卡片美化、版本号同步更新</p>
       <p><strong>v2.2</strong> (2026-05-11) — MD实时预览、图片灯箱缩放拖拽、分类筛选、管理详情弹窗</p>
       <p><strong>v2.1</strong> (2026-05-11) — 行间距修复、双时间戳、去邀请码、通用文件上传、图片灯箱、管理面板、移动端适配</p>
@@ -343,6 +344,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.1"></script>
+<script src="script.js?v=8.2"></script>
 </body>
 </html>

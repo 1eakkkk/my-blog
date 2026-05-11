@@ -279,7 +279,7 @@ async function loadPosts(reset = false) {
         const cat = post.category || '灌水';
         const commentCount = post.comment_count || 0;
 
-        let snippet = post.content ? post.content.replace(/<[^>]*>/g, '').replace(/!\[.*?\]\(.*?\)/g, '[图片]').substring(0, 120) : '';
+        let snippet = post.content ? post.content.replace(/<[^>]*>/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '[图片]').replace(/\[图片\]\s*\[图片\]/g, '[图片]').substring(0, 120) : '';
 
         const card = document.createElement('div');
         card.className = 'post-card';
@@ -745,7 +745,7 @@ window.uploadUserAvatar = async function () {
 };
 
 // === MD 预览切换 ===
-window.switchMdTab = function (tab) {
+function switchMdTab(tab) {
   const textarea = document.getElementById('postContent');
   const preview = document.getElementById('mdPreview');
   const btnEdit = document.getElementById('mdTabEdit');
@@ -769,7 +769,7 @@ window.switchMdTab = function (tab) {
     if (btnEdit) { btnEdit.style.background = 'var(--accent)'; btnEdit.style.color = '#fff'; }
     if (btnPreview) { btnPreview.style.background = 'transparent'; btnPreview.style.color = 'var(--text-muted)'; }
   }
-};
+}
 
 // === 图片灯箱（缩放+拖拽） ===
 let lightboxScale = 1;
