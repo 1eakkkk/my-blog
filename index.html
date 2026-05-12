@@ -166,7 +166,10 @@
         </div>
         <div class="form-group">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <label for="postContent" style="margin-bottom:0;">内容 <span style="font-weight:400;color:var(--text-muted);">(Markdown)</span></label>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
+              <label for="postContent" style="margin-bottom:0;">内容 <span style="font-weight:400;color:var(--text-muted);">(Markdown)</span></label>
+              <button type="button" class="btn btn-sm btn-ghost" id="draftBoxBtn" onclick="openDraftBox()">草稿箱 <span id="draftCount">0</span></button>
+            </div>
             <div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px;">
               <button type="button" id="mdTabEdit" class="btn btn-sm" style="border:none;border-radius:4px;background:var(--accent);color:#fff;">编辑</button>
               <button type="button" id="mdTabPreview" class="btn btn-sm" style="border:none;border-radius:4px;background:transparent;color:var(--text-muted);">预览</button>
@@ -439,6 +442,16 @@
       <p>这是一个私人小站，仅供自己和好友使用。</p>
     </div>
   </div>
+<!-- 草稿箱浮层 -->
+<div id="draftBoxOverlay" style="display:none;" onclick="if(event.target===this)closeDraftBox()">
+  <div id="draftBoxPanel">
+    <div id="draftBoxHeader">
+      <span>草稿箱</span>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="closeDraftBox()">✕</button>
+    </div>
+    <div id="draftBoxList"></div>
+  </div>
+</div>
 </main>
 
 <!-- 图片灯箱 -->
