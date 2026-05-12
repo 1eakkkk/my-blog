@@ -730,41 +730,152 @@ window.cancelEditPost = function () {
   window.location.hash = '#home';
 };
 
-const DRAFT_KEY = 'postDraft';
+const DRAFT_LIST_KEY = 'draftList';
+const DRAFT_MAX = 10;
+
+function getDraftList() {
+  try {
+    const raw = localStorage.getItem(DRAFT_LIST_KEY);
+    if (raw) return JSON.parse(raw);
+    // 兼容旧单篇格式，自动迁移
+    const old = localStorage.getItem('postDraft');
+    if (old) {
+      const oldDraft = JSON.parse(old);
+      if (oldDraft.title || oldDraft.content) {
+        const migrated = [{ id: Date.now(), savedAt: Date.now(), ...oldDraft }];
+        localStorage.setItem(DRAFT_LIST_KEY, JSON.stringify(migrated));
+        localStorage.removeItem('postDraft');
+        return migrated;
+      }
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveDraftList(list) {
+  localStorage.setItem(DRAFT_LIST_KEY, JSON.stringify(list));
+  updateDraftCount();
+}
+
+function updateDraftCount() {
+  const list = getDraftList();
+  const el = document.getElementById('draftCount');
+  if (el) el.textContent = list.length;
+}
 
 function saveDraft() {
   if (isEditingPost) return;
   const title = document.getElementById('postTitle').value;
   const content = document.getElementById('postContent').value;
   const category = document.getElementById('postCategory').value;
+  const mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
   if (!title && !content) return;
-  localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content, category }));
+
+  let list = getDraftList();
+  // 若当前编辑器有 _currentDraftId，更新该条；否则新建
+  const currentId = document.getElementById('postContent').dataset.draftId;
+  if (currentId) {
+    const idx = list.findIndex(d => String(d.id) === String(currentId));
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], title, content, category, mood, savedAt: Date.now() };
+    } else {
+      list.unshift({ id: parseInt(currentId), title, content, category, mood, savedAt: Date.now() });
+    }
+  } else {
+    const newId = Date.now();
+    document.getElementById('postContent').dataset.draftId = newId;
+    list.unshift({ id: newId, title, content, category, mood, savedAt: Date.now() });
+  }
+  // 超出上限删最旧
+  if (list.length > DRAFT_MAX) list = list.slice(0, DRAFT_MAX);
+  saveDraftList(list);
+
   const status = document.getElementById('draftStatus');
-  if (status) status.textContent = '草稿已保存';
-  setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+  if (status) {
+    status.textContent = '草稿已保存';
+    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+  }
 }
 
 function restoreDraft() {
   if (isEditingPost) return;
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return;
-    const draft = JSON.parse(raw);
-    if (!draft.title && !draft.content) return;
-    document.getElementById('postTitle').value = draft.title || '';
-    document.getElementById('postContent').value = draft.content || '';
-    if (draft.category) document.getElementById('postCategory').value = draft.category;
-    const status = document.getElementById('draftStatus');
-    if (status) status.textContent = '已恢复草稿';
-    setTimeout(() => { if (status) status.textContent = ''; }, 3000);
-  } catch (e) {}
+  // 清除当前 draftId，让下次保存视为新草稿
+  const ta = document.getElementById('postContent');
+  if (ta) ta.dataset.draftId = '';
+  updateDraftCount();
 }
 
 function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
+  // 发帖成功后删除当前草稿
+  const ta = document.getElementById('postContent');
+  const currentId = ta?.dataset.draftId;
+  if (currentId) {
+    let list = getDraftList();
+    list = list.filter(d => String(d.id) !== String(currentId));
+    saveDraftList(list);
+    if (ta) ta.dataset.draftId = '';
+  }
   const status = document.getElementById('draftStatus');
   if (status) status.textContent = '';
 }
+
+window.openDraftBox = function() {
+  const list = getDraftList();
+  const listEl = document.getElementById('draftBoxList');
+  if (!listEl) return;
+  if (list.length === 0) {
+    listEl.innerHTML = '<div class="draft-empty">暂无草稿</div>';
+  } else {
+    listEl.innerHTML = list.map(d => {
+      const displayTitle = d.title?.trim() || d.content?.trim().slice(0, 20) || '无标题';
+      const timeStr = new Date(d.savedAt).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      return `<div class="draft-item">
+        <div class="draft-item-info">
+          <div class="draft-item-title">${displayTitle}</div>
+          <div class="draft-item-meta">${d.category || ''} · ${timeStr}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-sm btn-primary" onclick="loadDraftItem(${d.id})">加载</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteDraftItem(${d.id})">删除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('draftBoxOverlay').style.display = 'flex';
+};
+
+window.closeDraftBox = function() {
+  document.getElementById('draftBoxOverlay').style.display = 'none';
+};
+
+window.loadDraftItem = function(id) {
+  const list = getDraftList();
+  const draft = list.find(d => d.id === id);
+  if (!draft) return;
+  document.getElementById('postTitle').value = draft.title || '';
+  const ta = document.getElementById('postContent');
+  ta.value = draft.content || '';
+  ta.dataset.draftId = draft.id;
+  if (draft.category) document.getElementById('postCategory').value = draft.category;
+  if (draft.mood) {
+    document.querySelectorAll('.mood-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mood === draft.mood);
+    });
+  }
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+  closeDraftBox();
+  showToast('草稿已加载', 'success');
+};
+
+window.deleteDraftItem = function(id) {
+  let list = getDraftList();
+  list = list.filter(d => d.id !== id);
+  saveDraftList(list);
+  // 若删的是当前正在编辑的草稿，清除 draftId
+  const ta = document.getElementById('postContent');
+  if (ta && String(ta.dataset.draftId) === String(id)) ta.dataset.draftId = '';
+  openDraftBox(); // 刷新列表
+};
 
 window.submitPost = async function (e) {
   e.preventDefault();
