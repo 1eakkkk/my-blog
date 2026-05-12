@@ -422,14 +422,22 @@ a:hover { text-decoration: underline; }
   overflow: hidden;
 }
 
-.post-card .card-thumb {
+.post-card .card-thumbs {
+  display: flex;
+  gap: 6px;
   margin-bottom: 12px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  height: 120px;
 }
 
-.post-card .card-thumb img {
+.post-card .card-thumb-item {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+}
+
+.post-card .card-thumb-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;

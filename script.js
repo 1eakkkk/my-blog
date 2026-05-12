@@ -77,10 +77,15 @@ function stripMarkdown(text) {
     .replace(/~{2}(.*?)~{2}/g, '$1');
 }
 
-function extractFirstImage(content) {
-  if (!content) return null;
-  const match = content.match(/!\[.*?\]\((https?:\/\/[^)]+)\)/);
-  return match ? match[1] : null;
+function extractImages(content, max = 3) {
+  if (!content) return [];
+  const re = /!\[.*?\]\((https?:\/\/[^)]+)\)/g;
+  const urls = [];
+  let m;
+  while ((m = re.exec(content)) !== null && urls.length < max) {
+    urls.push(m[1]);
+  }
+  return urls;
 }
 
 function parseMarkdown(text) {
@@ -414,7 +419,7 @@ async function loadPosts(reset = false) {
         const commentCount = post.comment_count || 0;
 
         let snippet = post.content ? stripMarkdown(post.content.replace(/<[^>]*>/g, '')).replace(/\[图片\](\s*\[图片\])+/g, '[图片]').substring(0, 120) : '';
-        const thumbUrl = extractFirstImage(post.content);
+        const thumbUrls = extractImages(post.content);
 
         const card = document.createElement('div');
         card.className = 'post-card';
@@ -425,7 +430,7 @@ async function loadPosts(reset = false) {
           </div>
           <div class="card-title">${post.title}${post.mood ? `<span class="mood-tag">${post.mood}</span>` : ''}</div>
           ${snippet ? `<div class="card-snippet">${snippet}</div>` : ''}
-          ${thumbUrl ? `<div class="card-thumb"><img src="${thumbUrl}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>` : ''}
+          ${thumbUrls.length > 0 ? `<div class="card-thumbs">${thumbUrls.map(url => `<div class="card-thumb-item"><img src="${url}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>`).join('')}</div>` : ''}
           <div class="card-meta">
             <span>👤 ${author}</span>
             <span>${timeStr}</span>
