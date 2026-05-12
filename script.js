@@ -719,6 +719,26 @@ window.editPostMode = async function (id) {
     else document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
     document.querySelector('#postForm button[type="submit"]').textContent = '保存修改';
     document.getElementById('cancelEditPostBtn').textContent = '取消编辑';
+    // 检查是否有该帖的编辑备份
+    try {
+      const backup = JSON.parse(localStorage.getItem('editingBackup') || 'null');
+      if (backup && String(backup.postId) === String(id)) {
+        const diff = Date.now() - backup.savedAt;
+        if (diff < 86400000 && confirm(`检测到上次未完成的编辑（${new Date(backup.savedAt).toLocaleTimeString('zh-CN')}），是否恢复？`)) {
+          post.title = backup.title;
+          post.content = backup.content;
+          post.category = backup.category;
+          post.mood = backup.mood;
+          document.getElementById('postTitle').value = post.title || '';
+          document.getElementById('postContent').value = post.content || '';
+          document.getElementById('postCategory').value = post.category || '灌水';
+          document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+          const moodBtn2 = document.querySelector(`.mood-btn[data-mood="${post.mood || ''}"]`);
+          if (moodBtn2) moodBtn2.classList.add('active');
+          else document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
+        }
+      }
+    } catch (e) {}
     window.location.hash = '#write';
   } catch (e) { showToast('加载失败', 'error'); }
 };
@@ -732,6 +752,7 @@ window.cancelEditPost = function () {
   document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
   document.querySelector('#postForm button[type="submit"]').textContent = '发布';
   clearDraft();
+  localStorage.removeItem('editingBackup');
   window.location.hash = '#home';
 };
 
@@ -769,7 +790,19 @@ function updateDraftCount() {
 }
 
 function saveDraft() {
-  if (isEditingPost) return;
+  if (isEditingPost) {
+    // 编辑模式：单独备份，不写入草稿箱
+    const title = document.getElementById('postTitle').value;
+    const content = document.getElementById('postContent').value;
+    const category = document.getElementById('postCategory').value;
+    const mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
+    if (title || content) {
+      localStorage.setItem('editingBackup', JSON.stringify({ postId: editingPostId, title, content, category, mood, savedAt: Date.now() }));
+      const status = document.getElementById('draftStatus');
+      if (status) { status.textContent = '草稿已保存'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
+    }
+    return;
+  }
   const title = document.getElementById('postTitle').value;
   const content = document.getElementById('postContent').value;
   const category = document.getElementById('postCategory').value;
@@ -910,6 +943,7 @@ window.submitPost = async function (e) {
     if (data.success) {
       showToast(data.message || '成功', 'success');
       clearDraft();
+      localStorage.removeItem('editingBackup');
       cancelEditPost();
       loadPosts(true);
     } else { showToast(data.error || '失败', 'error'); }
