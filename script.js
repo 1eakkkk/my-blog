@@ -769,11 +769,14 @@ function saveDraft() {
   const content = document.getElementById('postContent').value;
   const category = document.getElementById('postCategory').value;
   const mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
-  if (!title && !content) return;
+  const currentId = document.getElementById('postContent').dataset.draftId;
+  if (!title && !content) {
+    // 有草稿ID说明之前有内容，不用空内容覆盖，直接跳过
+    return;
+  }
 
   let list = getDraftList();
   // 若当前编辑器有 _currentDraftId，更新该条；否则新建
-  const currentId = document.getElementById('postContent').dataset.draftId;
   if (currentId) {
     const idx = list.findIndex(d => String(d.id) === String(currentId));
     if (idx !== -1) {
