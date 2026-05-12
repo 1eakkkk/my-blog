@@ -1427,3 +1427,82 @@ select.form-control { cursor: pointer; }
 .md-italic {
   font-style: italic;
 }
+
+/* === 草稿箱浮层 === */
+#draftBoxOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#draftBoxPanel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: min(480px, 92vw);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+#draftBoxHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+#draftBoxList {
+  overflow-y: auto;
+  padding: 8px;
+  flex: 1;
+}
+
+.draft-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+  background: var(--bg);
+}
+
+.draft-item:last-child { margin-bottom: 0; }
+
+.draft-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.draft-item-title {
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.draft-item-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.draft-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
