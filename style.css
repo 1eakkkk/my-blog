@@ -429,8 +429,8 @@ a:hover { text-decoration: underline; }
 }
 
 .post-card .card-thumb-item {
-  width: 80px;
-  height: 80px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   flex-shrink: 0;
