@@ -40,8 +40,12 @@ export async function onRequestGet(context) {
     return new Response(JSON.stringify({ users: users.results }), { headers: { 'Content-Type': 'application/json' } });
   }
   if (action === 'post_list') {
-    const posts = await db.prepare('SELECT id, title, category, created_at, author_name FROM posts ORDER BY created_at DESC LIMIT 20').all();
-    return new Response(JSON.stringify({ posts: posts.results }), { headers: { 'Content-Type': 'application/json' } });
+    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const limit = 20;
+    const posts = await db.prepare('SELECT id, title, category, created_at, author_name FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?').bind(limit + 1, offset).all();
+    const results = posts.results;
+    const hasMore = results.length > limit;
+    return new Response(JSON.stringify({ posts: hasMore ? results.slice(0, limit) : results, hasMore }), { headers: { 'Content-Type': 'application/json' } });
   }
   if (action === 'online_list') {
     const online = await db.prepare('SELECT id, username, nickname, last_seen FROM users WHERE last_seen > ? ORDER BY last_seen DESC').bind(Date.now() - 5 * 60 * 1000).all();
