@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.13">
+  <link rel="stylesheet" href="style.css?v=8.15">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -327,7 +327,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.4.2</strong> · 2026-05-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.4.5</strong> · 2026-05-12</p>
     </div>
 
     <div class="about-section">
@@ -353,11 +353,18 @@
       <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
 
         <details open>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.4.2 (2026-05-11)</summary>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.4.5 (2026-05-12)</summary>
+          <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p><strong>v2.4.5</strong> — 修复destroyTOC DOM清理逻辑、TOC元素完全移除与正文还原</p>
+          </div>
+        </details>
+
+        <details>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.4.4 (2026-05-11)</summary>
           <div style="padding-left:16px;border-left:2px solid var(--border);">
             <p><strong>v2.4.2</strong> — TOC目录（桌面侧边栏+移动折叠面板+滚动高亮联动+grid/mobile显示/注入位置修复）</p>
-            <p><strong>v2.4.2</strong> — 无障碍优化：移除user-scalable=no、添加aria-label与label关联、skip-to-content跳转链接、loading-mask适配浅色主题、移除全局no-cache</p>
-            <p><strong>v2.4.2</strong> — 视觉打磨：暗色模式卡片深度/微光、全文:active按压态、正文字号行高优化、::selection/focus环/滚动条/减速动画</p>
+            <p><strong>v2.4.3</strong> — 无障碍优化：移除user-scalable=no、添加aria-label与label关联、skip-to-content跳转链接、loading-mask适配浅色主题、移除全局no-cache</p>
+            <p><strong>v2.4.4</strong> — 视觉打磨：暗色模式卡片深度/微光、全文:active按压态、正文字号行高优化、::selection/focus环/滚动条/减速动画</p>
             <p><strong>v2.4.1</strong> — 阅读时间估算、代码块一键复制、帖子心情标签</p>
             <p><strong>v2.4</strong> — 创意功能</p>
           </div>
@@ -426,6 +433,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.13"></script>
+<script src="script.js?v=8.14"></script>
 </body>
 </html>

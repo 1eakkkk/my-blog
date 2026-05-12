@@ -1328,13 +1328,15 @@ function destroyTOC() {
     tocObserver.disconnect();
     tocObserver = null;
   }
-  const sidebar = document.getElementById('toc-sidebar');
-  if (sidebar) {
-    sidebar.innerHTML = '';
-    sidebar.hidden = true;
+  document.getElementById('toc-sidebar')?.remove();
+  document.getElementById('toc-mobile')?.remove();
+  const postLayout = document.querySelector('.post-layout');
+  if (postLayout) {
+    // 把正文移回原位再删 wrapper，防止时序问题
+    const contentEl = postLayout.querySelector('.article-content');
+    if (contentEl) postLayout.parentNode.insertBefore(contentEl, postLayout);
+    postLayout.remove();
   }
-  const tocMobile = document.getElementById('toc-mobile');
-  if (tocMobile) tocMobile.remove();
 }
 
 document.addEventListener('DOMContentLoaded', initApp);

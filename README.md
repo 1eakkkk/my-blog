@@ -1,125 +1,112 @@
-# **1eak.cool个人赛博朋克风格博客网站兼微社区**
+# 1eak.cool · 个人论坛小站
 
->- ### [网站地址点击这里](https://app.1eak.cool "1eak的秘密基地")
+> [网站地址点击这里](https://app.1eak.cool "1eak的秘密基地")
 
 ## 1) 项目总览
-这是一个基于 Cloudflare 全家桶（Pages, D1, R2）构建的赛博朋克风格社交社区平台。
-项目采用原生 HTML/JS/CSS 开发（无前端框架），是一个单页应用（SPA），具备发帖、评论、实时私信、好友系统、积分商城、任务系统、VIP 会员、**随机探索（节点系统）**、**PVP博弈（数据格斗）**、**全服广播**及完整的后台管理功能。
+
+基于 Cloudflare 全家桶（Pages + D1 + R2）构建的轻量级私人论坛。采用原生 HTML/JS/CSS 开发，无前端框架，单页应用（SPA）架构。
+
+定位是私人小站，供自己和好友使用，功能以实用为主：发帖、评论、个人主页、媒体上传，后台有完整的管理面板。
 
 ## 2) 技术栈
-*   **前端 Core**: 原生 JavaScript (ES6+), HTML5, CSS3 (CSS Variables, Flexbox/Grid, Animations).
-*   **前端库**: *Marked.js* (Markdown渲染),*DOMPurify* (XSS防护), *Cloudflare Turnstile* (人机验证).
-*   **后端 (Serverless)**: Cloudflare Pages Functions (运行在 Edge 上的 Node.js 环境).
-*   **数据库**: Cloudflare D1 (SQLite).
-*   **对象存储**: Cloudflare R2 (存储图片/视频).
-*   **鉴权方式**: 自研 Cookie Session 机制 + SHA-256 密码哈希.
 
-*   ## 3) 项目目录结构
+- **前端**：原生 JavaScript (ES6+)、HTML5、CSS3（CSS Variables、Flexbox/Grid、动画）
+- **前端库**：Marked.js（Markdown 渲染）、DOMPurify（XSS 防护）、Cloudflare Turnstile（人机验证）
+- **后端**：Cloudflare Pages Functions（Edge 运行时）
+- **数据库**：Cloudflare D1（SQLite）
+- **对象存储**：Cloudflare R2（图片/视频）
+- **缓存/限流**：Cloudflare KV
+- **鉴权**：自研 Cookie Session + PBKDF2 密码哈希
+
+## 3) 目录结构
+
 ```text
 /
-├── login.html              # 登录/注册/重置密码入口页面 (含 Turnstile 动态开关)
-├── readme.md               # 一份有关于我个人网站的说明
-├── index.html              # 主应用入口 (SPA容器, 包含侧边栏、HUD遮罩、所有视图模板)
-├── style.css               # 全局样式, 含赛博朋克主题、流光动画、移动端适配媒体查询
-├── script.js               # 核心前端逻辑 (路由、API封装、DOM操作、游戏逻辑、动画控制)
-└── functions/api/          # 后端 API 目录 (Cloudflare Functions)
-    ├── _middleware.js      # 全局中间件 (IP限流 Rate Limiting)
-    ├── admin.js            # 管理员接口 (统计, 封禁, 公告, 邀请码, 播报审核, 开关配置)
-    ├── block.js            # 黑名单管理
-    ├── broadcast.js        # 全服播报系统 (申请、获取生效列表)
-    ├── checkin.js          # 每日签到逻辑
-    ├── comments.js         # 评论 CRUD (支持置顶、回复)
-    ├── config.js           # 公开系统配置 (如 Turnstile 开关)
-    ├── draw.js             # 幸运抽奖
-    ├── duel.js             # 数据格斗场 (PVP创建、加入、结算、回放)
-    ├── feedback.js         # 用户反馈系统
-    ├── follow.js           # 关注/取关逻辑
-    ├── force_fix.js        # 管理员紧急修复工具
-    ├── friends.js          # 好友申请与管理
-    ├── inventory.js        # 背包系统 (获取、装备、使用消耗品)
-    ├── leaderboard.js      # 排行榜数据
-    ├── like.js             # 点赞逻辑
-    ├── messages.js         # 私信系统
-    ├── node.js             # N.O.D.E 控制台 (随机事件探索、全服日志)
-    ├── notifications.js    # 通知系统
-    ├── posts.js            # 帖子 CRUD
-    ├── profile.js          # 个人资料修改
-    ├── profile_public.js   # 公开用户信息查询
+├── login.html              # 登录 / 注册 / 重置密码入口（含 Turnstile 动态开关）
+├── index.html              # SPA 主容器（导航、所有视图模板）
+├── style.css               # 全局样式（主题变量、评论楼中楼、响应式适配）
+├── script.js               # 前端核心逻辑（路由、API 封装、渲染、交互）
+└── functions/api/          # 后端 API（Cloudflare Pages Functions）
+    ├── _middleware.js      # 全局限流（KV，180次/分钟）
+    ├── admin.js            # 管理员接口（统计、公告、开关配置）
+    ├── comments.js         # 评论 CRUD（楼中楼、置顶、级联删除）
+    ├── config.js           # 公开系统配置（Turnstile 开关）
+    ├── heartbeat.js        # 在线心跳上报
+    ├── like.js             # 点赞 / 取消点赞
+    ├── posts.js            # 帖子 CRUD（分类、搜索、排序、置顶）
+    ├── profile.js          # 个人资料修改（昵称、签名、头像、恢复短语）
     ├── random_avatar.js    # 随机像素头像生成
-    ├── shop.js             # 商城购买逻辑 (VIP, 道具, 播报卡)
-    ├── tasks.js            # 任务系统
-    ├── tip.js              # 打赏转账逻辑
-    ├── upload.js           # R2 文件上传接口
-    ├── user.js             # 当前用户 Session 校验
-    ├── vip.js              # VIP 购买接口
+    ├── upload.js           # R2 文件上传（白名单校验，最大 50MB）
+    ├── user.js             # Session 校验 + 过期 Session 自动清理
+    ├── user-public.js      # 公开用户信息查询
     └── auth/
-        ├── login.js        # 登录验证
-        ├── logout.js       # 登出
-        ├── register.js     # 注册
-        └── reset.js        # 密码重置
+        ├── login.js        # 登录（PBKDF2 校验、失败锁定、旧密码自动升级）
+        ├── logout.js       # 登出（清除 Session）
+        ├── register.js     # 注册（字符白名单、PBKDF2 哈希、恢复短语生成）
+        └── reset.js        # 密码重置（恢复短语验证）
 ```
 
-## 4) 功能模块摘要
-*   **script.js**: 巨型控制器。新增了*exploreNode* (节点探索)、*loadDuels/watchReplay* (格斗与回放动画)、*checkBroadcasts* (全服HUD广播) 等游戏化逻辑。
-*   **node.js**: 处理“N.O.D.E 控制台”的随机事件（80+种事件，含稀有度分级）、概率计算及全服稀有掉落日志。
-*   **duel.js**: 处理“数据格斗场”的下注、石头剪刀布胜负判定、每日限制及历史回放数据查询。
-*   **broadcast.js**: 处理全服播报卡的购买消耗、内容提交及有效期管理。
-*   **config.js**: 提供前端可见的系统开关配置（如是否开启人机验证）。
-*   **style.css**: 对“数据格斗场”添加了“虚空全息”风格界面、粒子对撞动画、全屏 HUD 广播特效及移动端深度适配。
+## 4) 功能模块
 
-## 5) 数据库结构
-数据库目前拥有
-```text
-SELECT
-posts.*,
-posts.total_coins,
-users.username as author_username,
-users.nickname as author_nickname,
-users.is_vip as author_vip,
-users.level as author_level,
-users.xp as author_xp,
-users.avatar_variant as author_avatar_variant,
-users.avatar_url as author_avatar_url,
-users.role as author_role,
-users.custom_title as author_title,
-users.custom_title_color as author_title_color,
-users.badge_preference as author_badge_preference,
-users.equipped_post_style as author_equipped_post_style,
-users.name_color as author_name_color,
-(SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = 3) as is_liked,
-(SELECT COUNT(*) FROM comments WHERE post_id = posts.id) as comment_count
-FROM posts JOIN users ON posts.user_id = users.id ORDER BY (posts.category = '公告') DESC, posts.is_pinned DESC, posts.created_at DESC LIMIT ? OFFSET ?
-```
-等一系列数据，由于篇幅关系，暂时不列太多。
+**帖子系统**
+- 发帖支持 Markdown（含实时预览）、图片/视频上传
+- 分类：灌水 / 技术 / 生活 / 提问 / 公告
+- 心情标签：发帖时可选择心情（😊开心 / 😤吐槽 / 🤔思考 / 😴摸鱼 / 🔥热血 / 😢难过），显示在列表卡片和详情页标题旁
+- 阅读时间估算：根据内容字数自动计算，显示在卡片和详情页（中文按300字/分钟）
+- 列表视图：最新 / 热度 / 热议三种排序，支持分类筛选和全文搜索
+- 列表 / 网格双布局切换，返回列表自动恢复滚动位置
 
-## 6) 全局逻辑流
-1.  **节点探索**: 用户点击探索 -> 后端计算概率（含保底/故障/传说掉落） -> 返回结果与稀有度 -> 前端播放震屏/光效并实时更新余额。
-2.  **PVP格斗**: 用户 A 发起悬赏（扣除 i 币） -> 用户 B 接受挑战（扣除 i 币） -> 后端计算胜负 -> 前端通过 *id="duel-overlay"* 播放全屏对撞动画 -> 资金划转。
-3.  **全服广播**: 用户使用道具提交内容 -> 管理员后台审核通过 -> 所有在线用户通过轮询 (*checkBroadcasts*) 获取生效列表 -> 屏幕出现全息 HUD 弹窗。
-4.  **安全配置**: 登录页加载时请求 */api/config*，根据后端返回决定是否显示和校验 Cloudflare Turnstile。
+**评论系统**
+- 楼中楼：子评论缩进显示，紧跟父评论排列
+- 楼层号：根评论显示 #1 #2 #3 编号
+- 回复提示条：点击回复后顶部常驻显示"正在回复 @xxx"
+- 字数限制：前后端双重校验，最多 500 字
+- 代码块一键复制：hover 代码块时右上角出现复制按钮，复制成功后变绿显示"已复制 ✓"
+- 点赞、置顶、编辑、删除（删除父评论级联清除子评论）
 
-## 7) 编码风格
-*   **命名规范**: JS 变量 *camelCase*，数据库字段 *snake_case*。
-*   **前端交互**: 
-    *   复杂动画（如格斗回放、HUD）使用全屏 `div` 遮罩 + CSS 动画类切换（*.add('scanning')*）。
-    *   移动端适配优先使用 Flex 布局调整方向（*flex-direction: column*）而非简单的缩放。
-    *   数据加载完成后，通过 DOM 操作直接更新 UI（如金币跳动），减少页面刷新。
-*   **后端逻辑**: 
-    *   关键交易逻辑（如 PVP 结算、道具消耗）必须使用 *db.batch()* 事务。
-    *   必须校验 *creator_id* 与 *session.user_id* 确保操作权限。
-    *   API 返回结构统一为 *{ success: true, data... }* 或 *{ success: false, error: "..." }*。
- 
-## 8) 修改规则 (开发规范)
-1.  **HTML 结构**: 严禁在 *index.html* 中保留重复的 ID 元素（如 *duel-overlay*），这会导致 JS 选择器失效。
-2.  **Z-Index 管理**: 全屏遮罩层（如回放、广播 HUD）的 `z-index` 必须设置为极大值（如 *2147483647*），并使用 *!important* 防止被背景特效覆盖。
-3.  **移动端适配**: 新增复杂界面时，必须在 *style.css* 底部添加 *@media (max-width: 768px)* 块，调整布局（如将横排按钮改为竖排）。
-4.  **防刷逻辑**: 涉及 i 币交易的功能，必须在后端校验余额、每日次数限制，并防止自己与自己交互。
+**用户系统**
+- 注册：用户名字符白名单（中文/英文/数字/下划线/连字符）
+- 登录：失败5次锁定15分钟，旧 SHA-256 密码自动升级为 PBKDF2
+- 密码重置：四字恢复短语验证
+- 个人主页：头像、昵称、签名、帖子列表
 
-## 9) 版本快照 (v8.10)
-*   **当前状态**: 拥有丰富娱乐功能的赛博朋克社区。
-*   **新增特性**:
-    *   **N.O.D.E 控制台**: 80+ 随机事件，含 VIP 掉落和全服跑马灯。
-    *   **数据格斗场**: 石头剪刀布博弈，全屏粒子对撞动画，支持历史回放。
-    *   **全服播报**: 高级/低级广播卡，全息 HUD 视觉通知，含管理员审核流。
-    *   **系统开关**: 支持动态关闭人机验证。
-*   **UI/UX 改进**: “虚空全息”视觉风格，移动端操作体验优化。
+**管理面板**（仅管理员）
+- 实时统计：在线用户、今日活跃、注册总数、帖子/评论数
+- 用户列表、帖子列表、在线列表
+- 发布公告、动态开关 Cloudflare Turnstile
+
+**安全**
+- 全局限流：KV 实现，180次/分钟/IP，TTL 自动过期
+- XSS 防护：DOMPurify 过滤所有 Markdown 输出
+- 文件上传：MIME 类型 + 扩展名双重白名单
+- Session 清理：每次用户请求时异步清理 7 天前的过期记录
+
+## 5) 数据库表（D1）
+
+| 表名 | 用途 |
+|---|---|
+| users | 用户信息、状态、封禁记录 |
+| sessions | 登录会话（7天过期自动清理） |
+| posts | 帖子内容、分类、置顶状态 |
+| comments | 评论、楼中楼关系（parent_id） |
+| likes | 点赞记录（帖子/评论） |
+| system_settings | 系统开关（如 Turnstile） |
+
+## 6) 开发规范
+
+- **命名**：JS 变量 camelCase，数据库字段 snake_case
+- **SQL**：全部使用参数化查询（`.bind()`），禁止字符串拼接
+- **事务**：涉及多表写操作使用 `db.batch()` 或顺序 await
+- **异步**：不阻塞响应的后台任务使用 `context.waitUntil()`
+- **API 返回**：统一格式 `{ success: true, ... }` 或 `{ success: false, error: "..." }`
+- **前端交互**：所有异步操作必须有 `showToast` 反馈
+- **移动端**：新增复杂界面必须在 style.css 底部添加 `@media (max-width: 768px)` 块
+
+## 7) 版本历史
+
+- **v2.4.x**（2026-05-11~12）创意功能：阅读时间估算、代码块一键复制、帖子心情标签、TOC目录、无障碍优化、视觉打磨
+- **v2.3.x**（2026-05-11）安全加固 + 交互体验优化 + 基础设施改进
+- **v2.2.x**（2026-05-11）Markdown 渲染、图片灯箱、管理面板完善
+- **v2.1**（2026-05-11）文件上传、灯箱、移动端适配
+- **v2.0**（2026-05-09）全面精简重构，去除赛博朋克风格，PBKDF2 密码哈希
+- **v1.x**（2024-2025）初始版本，含商城/背包/游戏等完整功能
