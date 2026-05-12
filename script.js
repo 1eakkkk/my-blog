@@ -1317,9 +1317,37 @@ window.showAdminDetail = async function (type) {
     } else if (type === 'users') {
       content.innerHTML = (data.users || []).map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.id}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.78rem;">${new Date(u.created_at).toLocaleDateString()}</span></div>`).join('');
     } else if (type === 'posts') {
-      content.innerHTML = (data.posts || []).map(p => `<div style="padding:8px 0;border-bottom:1px solid var(--border);"><a href="#post?id=${p.id}" onclick="document.getElementById('adminDetailModal').style.display='none'" style="font-weight:500;">${p.title}</a><div style="font-size:0.78rem;color:var(--text-muted);">${p.author_name} · ${new Date(p.created_at).toLocaleDateString()} · ${p.category}</div></div>`).join('');
+      window._adminPostOffset = 0;
+      const renderPosts = (posts, hasMore, reset) => {
+        const html = posts.map(p => `<div style="padding:8px 0;border-bottom:1px solid var(--border);"><a href="#post?id=${p.id}" onclick="document.getElementById('adminDetailModal').style.display='none'" style="font-weight:500;">${p.title}</a><div style="font-size:0.78rem;color:var(--text-muted);">${p.author_name} · ${new Date(p.created_at).toLocaleDateString()} · ${p.category}</div></div>`).join('');
+        if (reset) {
+          content.innerHTML = html;
+        } else {
+          const btn = document.getElementById('adminPostLoadMore');
+          if (btn) btn.remove();
+          content.insertAdjacentHTML('beforeend', html);
+        }
+        if (hasMore) {
+          content.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:10px 0;"><button id="adminPostLoadMore" class="btn btn-sm btn-ghost" onclick="loadMoreAdminPosts()">加载更多</button></div>`);
+        }
+      };
+      renderPosts(data.posts || [], data.hasMore, true);
+      window._renderAdminPosts = renderPosts;
     }
   } catch (e) { content.innerHTML = '<p style="color:var(--danger);">加载失败</p>'; }
+};
+
+window.loadMoreAdminPosts = async function() {
+  const btn = document.getElementById('adminPostLoadMore');
+  if (btn) btn.textContent = '加载中...';
+  window._adminPostOffset = (window._adminPostOffset || 0) + 20;
+  try {
+    const res = await fetch(`${API_BASE}/admin?action=post_list&offset=${window._adminPostOffset}`);
+    const data = await res.json();
+    if (window._renderAdminPosts) window._renderAdminPosts(data.posts || [], data.hasMore, false);
+  } catch (e) {
+    if (btn) btn.textContent = '加载失败，点击重试';
+  }
 };
 
 window.toggleTurnstile = async function () {
