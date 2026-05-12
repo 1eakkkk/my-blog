@@ -712,6 +712,11 @@ window.editPostMode = async function (id) {
     document.getElementById('postTitle').value = post.title || '';
     document.getElementById('postContent').value = post.content || '';
     document.getElementById('postCategory').value = post.category || '灌水';
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+    const moodVal = post.mood || '';
+    const moodBtn = document.querySelector(`.mood-btn[data-mood="${moodVal}"]`);
+    if (moodBtn) moodBtn.classList.add('active');
+    else document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
     document.querySelector('#postForm button[type="submit"]').textContent = '保存修改';
     document.getElementById('cancelEditPostBtn').textContent = '取消编辑';
     window.location.hash = '#write';
