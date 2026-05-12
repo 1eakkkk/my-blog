@@ -1388,3 +1388,42 @@ select.form-control { cursor: pointer; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* === Markdown 快捷工具栏 === */
+.md-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 4px;
+  padding: 6px 4px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  scrollbar-width: none;
+}
+.md-toolbar::-webkit-scrollbar { display: none; }
+
+.md-btn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.md-btn:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.md-italic {
+  font-style: italic;
+}

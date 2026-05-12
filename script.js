@@ -112,6 +112,74 @@ function addCopyButtons(container) {
   });
 }
 
+window.insertMarkdown = function(type) {
+  const ta = document.getElementById('postContent');
+  if (!ta) return;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const selected = ta.value.slice(start, end);
+  const before = ta.value.slice(0, start);
+  const after = ta.value.slice(end);
+  let insert = '';
+  let cursorOffset = 0;
+
+  switch (type) {
+    case 'bold':
+      insert = `**${selected || '粗体文字'}**`;
+      cursorOffset = selected ? insert.length : 2;
+      break;
+    case 'italic':
+      insert = `*${selected || '斜体文字'}*`;
+      cursorOffset = selected ? insert.length : 1;
+      break;
+    case 'inline-code':
+      insert = `\`${selected || '代码'}\``;
+      cursorOffset = selected ? insert.length : 1;
+      break;
+    case 'code-block':
+      insert = `\`\`\`\n${selected || '代码内容'}\n\`\`\``;
+      cursorOffset = selected ? insert.length : 4;
+      break;
+    case 'quote':
+      insert = selected
+        ? selected.split('\n').map(l => `> ${l}`).join('\n')
+        : '> 引用内容';
+      cursorOffset = insert.length;
+      break;
+    case 'link':
+      insert = `[${selected || '链接文字'}](url)`;
+      cursorOffset = insert.length - 1;
+      break;
+    case 'image':
+      insert = `![${selected || '图片描述'}](url)`;
+      cursorOffset = insert.length - 1;
+      break;
+    case 'ul':
+      insert = selected
+        ? selected.split('\n').map(l => `- ${l}`).join('\n')
+        : '- 列表项';
+      cursorOffset = insert.length;
+      break;
+    case 'ol':
+      insert = selected
+        ? selected.split('\n').map((l, i) => `${i + 1}. ${l}`).join('\n')
+        : '1. 列表项';
+      cursorOffset = insert.length;
+      break;
+    case 'hr':
+      insert = '\n---\n';
+      cursorOffset = insert.length;
+      break;
+  }
+
+  ta.value = before + insert + after;
+  const newCursor = start + cursorOffset;
+  ta.setSelectionRange(newCursor, newCursor);
+  ta.focus();
+
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+};
+
 function timeAgo(ts) {
   const diff = Date.now() - ts;
   if (diff < 60000) return '刚刚';

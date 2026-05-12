@@ -177,6 +177,18 @@
             <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('imageUploadInput').click()">📷 插入图片/文件</button>
             <span id="uploadStatus" style="font-size:0.78rem;color:var(--text-muted);"></span>
           </div>
+          <div class="md-toolbar">
+  <button type="button" class="md-btn" onclick="insertMarkdown('bold')" title="加粗">B</button>
+  <button type="button" class="md-btn md-italic" onclick="insertMarkdown('italic')" title="斜体">I</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('inline-code')" title="行内代码">`code`</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('code-block')" title="代码块">```</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('quote')" title="引用">❝</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('link')" title="链接">🔗</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('image')" title="图片">🖼</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('ul')" title="无序列表">• 列表</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('ol')" title="有序列表">1. 列表</button>
+  <button type="button" class="md-btn" onclick="insertMarkdown('hr')" title="分割线">—</button>
+</div>
           <textarea id="postContent" class="form-control" placeholder="内容..." style="min-height:220px;"></textarea>
           <div id="mdPreview" class="article-content" style="display:none;min-height:220px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;"></div>
         </div>
