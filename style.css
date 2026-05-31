@@ -706,6 +706,39 @@ pre:hover .copy-btn { opacity: 1; }
 
 .comment-card.pinned {
   border-left: 3px solid var(--accent);
+  background: linear-gradient(90deg, var(--accent-dim), var(--card) 38%);
+}
+
+.comment-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 8px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.comment-group-label::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+}
+
+.comment-group-label.pinned {
+  color: var(--accent);
+}
+
+.pinned-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 650;
 }
 
 .comment-card .comment-header {
@@ -895,6 +928,12 @@ pre:hover .copy-btn { opacity: 1; }
 
 .form-control::placeholder { color: var(--text-muted); }
 textarea.form-control { resize: vertical; min-height: 160px; }
+textarea.form-control.drop-active {
+  border-color: var(--accent);
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+  background: var(--accent-dim);
+}
 select.form-control { cursor: pointer; }
 
 /* === 发帖页 === */
@@ -1416,19 +1455,22 @@ select.form-control { cursor: pointer; }
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
-  gap: 4px;
-  padding: 6px 4px;
+  gap: 6px;
+  padding: 7px 5px;
   margin-bottom: 6px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 .md-toolbar::-webkit-scrollbar { display: none; }
 
 .md-btn {
   flex-shrink: 0;
-  padding: 4px 10px;
+  min-height: 32px;
+  padding: 5px 11px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);

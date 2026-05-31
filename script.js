@@ -589,7 +589,17 @@ async function loadComments(postId, reset = false, highlightId = null) {
     });
 
     // 按根评论顺序渲染，子评论紧跟其父
+    const hasPinnedRoots = currentCommentPage === 1 && roots.some(c => c.is_pinned);
+    let regularGroupAdded = false;
+    if (hasPinnedRoots) {
+      container.appendChild(createCommentGroupLabel('置顶评论', 'pinned'));
+    }
+
     roots.forEach(root => {
+      if (hasPinnedRoots && !root.is_pinned && !regularGroupAdded) {
+        container.appendChild(createCommentGroupLabel('全部评论', 'regular'));
+        regularGroupAdded = true;
+      }
       const floorNum = floorOffset + rootCount++;
       const rootEl = createCommentElement(root, false, currentPostAuthorId, floorNum);
       container.appendChild(rootEl);
@@ -627,6 +637,13 @@ async function loadComments(postId, reset = false, highlightId = null) {
   }
 }
 
+function createCommentGroupLabel(text, type) {
+  const div = document.createElement('div');
+  div.className = `comment-group-label ${type}`;
+  div.textContent = text;
+  return div;
+}
+
 function createCommentElement(c, isReply, postAuthorId, floorNumber) {
   const div = document.createElement('div');
   const isChild = !!c.parent_id;
@@ -636,7 +653,7 @@ function createCommentElement(c, isReply, postAuthorId, floorNumber) {
   const author = c.nickname || c.username || 'Unknown';
   const timeStr = timeAgo(c.created_at);
   const parsedContent = parseMarkdown(c.content || '');
-  const pinnedBadge = c.is_pinned ? ' 📌' : '';
+  const pinnedBadge = c.is_pinned ? '<span class="pinned-label">置顶</span>' : '';
   const authorTag = postAuthorId && c.user_id === postAuthorId ? ' <span style="font-size:0.7rem;color:var(--accent);">作者</span>' : '';
   const floorBadge = !isChild ? `<span class="comment-floor">#${floorNumber + 1}</span>` : '';
   const replyTag = c.reply_to_nickname
@@ -655,7 +672,8 @@ function createCommentElement(c, isReply, postAuthorId, floorNumber) {
     <div class="comment-header">
       ${floorBadge}
       <span class="comment-author">${author}${authorTag}</span>
-      <span class="comment-time">${timeStr}${pinnedBadge}</span>
+      <span class="comment-time">${timeStr}</span>
+      ${pinnedBadge}
       ${replyTag}
     </div>
     <div class="comment-body">${parsedContent}</div>
@@ -1049,15 +1067,33 @@ function getUploadFileName(file, prefix = 'upload', index = 0) {
 }
 
 async function uploadMarkdownFile(file, options = {}) {
-  const formData = new FormData();
-  formData.append('file', file, getUploadFileName(file, options.prefix || 'upload', options.index || 0));
-  const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
-  let data = {};
-  try {
-    data = await res.json();
-  } catch (_) {}
-  if (!res.ok || !data.success) throw new Error(data.error || '上传失败');
-  return data;
+  const maxAttempts = options.maxAttempts || 2;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file, getUploadFileName(file, options.prefix || 'upload', options.index || 0));
+      const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_) {}
+      if (res.ok && data.success) return data;
+
+      const error = new Error(data.error || '上传失败');
+      error.retryable = res.status >= 500;
+      throw error;
+    } catch (err) {
+      lastError = err;
+      const shouldRetry = err.retryable !== false && attempt < maxAttempts;
+      if (!shouldRetry) break;
+      if (typeof options.onRetry === 'function') options.onRetry(attempt + 1, maxAttempts);
+      await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+    }
+  }
+
+  throw lastError || new Error('上传失败');
 }
 
 function insertTextAtTextareaCursor(ta, text) {
@@ -1094,7 +1130,13 @@ async function uploadPostFiles(files, options = {}) {
     for (let i = 0; i < fileList.length; i++) {
       if (status) status.textContent = `上传中 ${i + 1}/${fileList.length}`;
       try {
-        const data = await uploadMarkdownFile(fileList[i], { prefix: options.prefix || 'upload', index: i });
+        const data = await uploadMarkdownFile(fileList[i], {
+          prefix: options.prefix || 'upload',
+          index: i,
+          onRetry: (attempt, maxAttempts) => {
+            if (status) status.textContent = `重试 ${i + 1}/${fileList.length}（${attempt}/${maxAttempts}）`;
+          }
+        });
         inserted.push(data.mdInsert);
       } catch (err) {
         failures.push(err);
@@ -1166,6 +1208,44 @@ function bindPostImagePasteUpload() {
     if (files.length === 0) return;
     e.preventDefault();
     await uploadPostFiles(files, { prefix: 'pasted' });
+  });
+}
+
+function getDroppedUploadFiles(e) {
+  return Array.from(e.dataTransfer?.files || []).filter(file =>
+    file.type.startsWith('image/') ||
+    file.type.startsWith('video/') ||
+    file.type === 'application/pdf'
+  );
+}
+
+function bindPostDragDropUpload() {
+  const ta = document.getElementById('postContent');
+  if (!ta || ta.dataset.dropUploadBound) return;
+  ta.dataset.dropUploadBound = '1';
+
+  const setActive = active => ta.classList.toggle('drop-active', active);
+  ['dragenter', 'dragover'].forEach(type => {
+    ta.addEventListener(type, e => {
+      if (getDroppedUploadFiles(e).length === 0) return;
+      e.preventDefault();
+      setActive(true);
+      const status = document.getElementById('uploadStatus');
+      if (status) status.textContent = '松开即可上传';
+    });
+  });
+  ['dragleave', 'dragend'].forEach(type => {
+    ta.addEventListener(type, e => {
+      if (type === 'dragleave' && ta.contains(e.relatedTarget)) return;
+      setActive(false);
+    });
+  });
+  ta.addEventListener('drop', async e => {
+    const files = getDroppedUploadFiles(e);
+    if (files.length === 0) return;
+    e.preventDefault();
+    setActive(false);
+    await uploadPostFiles(files, { prefix: 'dropped' });
   });
 }
 
@@ -1564,6 +1644,7 @@ function initApp() {
   if (mdEditBtn) mdEditBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('edit'); });
   if (mdPreviewBtn) mdPreviewBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('preview'); });
   bindPostImagePasteUpload();
+  bindPostDragDropUpload();
 
   // 布局切换按钮事件绑定
   const layoutListBtn = document.getElementById('layoutList');
