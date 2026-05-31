@@ -132,61 +132,101 @@ window.insertMarkdown = function(type) {
   const before = ta.value.slice(0, start);
   const after = ta.value.slice(end);
   let insert = '';
+  let selectionStartOffset = 0;
+  let selectionEndOffset = 0;
   let cursorOffset = 0;
+
+  const wrapSelection = (prefix, text, suffix = '') => {
+    insert = `${prefix}${text}${suffix}`;
+    selectionStartOffset = prefix.length;
+    selectionEndOffset = prefix.length + text.length;
+  };
+
+  const selectWholeInsert = () => {
+    selectionStartOffset = 0;
+    selectionEndOffset = insert.length;
+  };
+
+  const placeCursorAtEnd = () => {
+    cursorOffset = insert.length;
+    selectionStartOffset = cursorOffset;
+    selectionEndOffset = cursorOffset;
+  };
 
   switch (type) {
     case 'bold':
-      insert = `**${selected || '粗体文字'}**`;
-      cursorOffset = selected ? insert.length : 2;
+      wrapSelection('**', selected || '粗体文字', '**');
       break;
     case 'italic':
-      insert = `*${selected || '斜体文字'}*`;
-      cursorOffset = selected ? insert.length : 1;
+      wrapSelection('*', selected || '斜体文字', '*');
       break;
     case 'inline-code':
-      insert = `\`${selected || '代码'}\``;
-      cursorOffset = selected ? insert.length : 1;
+      wrapSelection('`', selected || '代码', '`');
       break;
     case 'code-block':
-      insert = `\`\`\`\n${selected || '代码内容'}\n\`\`\``;
-      cursorOffset = selected ? insert.length : 4;
+      wrapSelection('```\n', selected || '代码内容', '\n```');
       break;
     case 'quote':
       insert = selected
         ? selected.split('\n').map(l => `> ${l}`).join('\n')
         : '> 引用内容';
-      cursorOffset = insert.length;
+      if (selected) selectWholeInsert();
+      else {
+        selectionStartOffset = 2;
+        selectionEndOffset = insert.length;
+      }
       break;
     case 'link':
       insert = `[${selected || '链接文字'}](url)`;
-      cursorOffset = insert.length - 1;
+      if (selected) {
+        selectionStartOffset = selected.length + 3;
+        selectionEndOffset = insert.length - 1;
+      } else {
+        selectionStartOffset = 1;
+        selectionEndOffset = 1 + '链接文字'.length;
+      }
       break;
     case 'image':
       insert = `![${selected || '图片描述'}](url)`;
-      cursorOffset = insert.length - 1;
+      if (selected) {
+        selectionStartOffset = selected.length + 4;
+        selectionEndOffset = insert.length - 1;
+      } else {
+        selectionStartOffset = 2;
+        selectionEndOffset = 2 + '图片描述'.length;
+      }
       break;
     case 'ul':
       insert = selected
         ? selected.split('\n').map(l => `- ${l}`).join('\n')
         : '- 列表项';
-      cursorOffset = insert.length;
+      if (selected) selectWholeInsert();
+      else {
+        selectionStartOffset = 2;
+        selectionEndOffset = insert.length;
+      }
       break;
     case 'ol':
       insert = selected
         ? selected.split('\n').map((l, i) => `${i + 1}. ${l}`).join('\n')
         : '1. 列表项';
-      cursorOffset = insert.length;
+      if (selected) selectWholeInsert();
+      else {
+        selectionStartOffset = 3;
+        selectionEndOffset = insert.length;
+      }
       break;
     case 'hr':
       insert = '\n---\n';
-      cursorOffset = insert.length;
+      placeCursorAtEnd();
       break;
   }
 
   ta.value = before + insert + after;
-  const newCursor = start + cursorOffset;
-  ta.setSelectionRange(newCursor, newCursor);
-  ta.focus();
+  const selectionStart = start + selectionStartOffset;
+  const selectionEnd = start + selectionEndOffset;
+  try { ta.focus({ preventScroll: true }); } catch (_) { ta.focus(); }
+  ta.setSelectionRange(selectionStart, selectionEnd);
 
   ta.dispatchEvent(new Event('input', { bubbles: true }));
 };
@@ -983,42 +1023,151 @@ window.pinPost = async function (id) {
 };
 
 // === 图片上传 ===
-window.uploadImage = async function () {
-  const file = document.getElementById('imageUploadInput').files[0];
-  if (!file) return;
-  const status = document.getElementById('uploadStatus');
-  status.textContent = '上传中...';
+function getUploadExtensionFromType(type) {
+  const map = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'application/pdf': 'pdf'
+  };
+  return map[type] || (type && type.includes('/') ? type.split('/').pop().replace(/\W+/g, '') : 'bin');
+}
+
+function getUploadFileName(file, prefix = 'upload', index = 0) {
+  const rawName = file?.name || '';
+  if (/\.[a-z0-9]{1,8}$/i.test(rawName)) return rawName;
+
+  const ext = getUploadExtensionFromType(file?.type || 'image/png');
+  const fallbackBase = `${prefix}-${Date.now()}-${index + 1}`;
+  const rawBase = rawName ? rawName.replace(/\.[^.]*$/, '') : fallbackBase;
+  const safeBase = rawBase.replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || fallbackBase;
+  return `${safeBase}.${ext}`;
+}
+
+async function uploadMarkdownFile(file, options = {}) {
+  const formData = new FormData();
+  formData.append('file', file, getUploadFileName(file, options.prefix || 'upload', options.index || 0));
+  const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+  let data = {};
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('postContent').value += '\n' + data.mdInsert + '\n';
-      status.textContent = '✓';
-    } else {
-      status.textContent = '失败';
-      showToast(data.error || '上传失败', 'error');
+    data = await res.json();
+  } catch (_) {}
+  if (!res.ok || !data.success) throw new Error(data.error || '上传失败');
+  return data;
+}
+
+function insertTextAtTextareaCursor(ta, text) {
+  const start = typeof ta.selectionStart === 'number' ? ta.selectionStart : ta.value.length;
+  const end = typeof ta.selectionEnd === 'number' ? ta.selectionEnd : start;
+  ta.value = ta.value.slice(0, start) + text + ta.value.slice(end);
+  const cursor = start + text.length;
+  try { ta.focus({ preventScroll: true }); } catch (_) { ta.focus(); }
+  ta.setSelectionRange(cursor, cursor);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function insertMarkdownItemsAtCursor(ta, markdownItems) {
+  const start = typeof ta.selectionStart === 'number' ? ta.selectionStart : ta.value.length;
+  const end = typeof ta.selectionEnd === 'number' ? ta.selectionEnd : start;
+  const before = ta.value.slice(0, start);
+  const after = ta.value.slice(end);
+  const prefix = before && !before.endsWith('\n') ? '\n' : '';
+  const suffix = after.startsWith('\n') ? '' : '\n';
+  insertTextAtTextareaCursor(ta, `${prefix}${markdownItems.join('\n')}${suffix}`);
+}
+
+async function uploadPostFiles(files, options = {}) {
+  const fileList = Array.from(files || []).filter(Boolean);
+  if (fileList.length === 0) return;
+
+  const status = document.getElementById('uploadStatus');
+  const ta = document.getElementById('postContent');
+  if (!ta) return;
+
+  const inserted = [];
+  const failures = [];
+  try {
+    for (let i = 0; i < fileList.length; i++) {
+      if (status) status.textContent = `上传中 ${i + 1}/${fileList.length}`;
+      try {
+        const data = await uploadMarkdownFile(fileList[i], { prefix: options.prefix || 'upload', index: i });
+        inserted.push(data.mdInsert);
+      } catch (err) {
+        failures.push(err);
+      }
     }
-  } catch (e) { status.textContent = '失败'; }
+
+    if (inserted.length > 0) {
+      insertMarkdownItemsAtCursor(ta, inserted);
+      if (status) status.textContent = failures.length ? `完成 ${inserted.length}/${fileList.length}` : '✓';
+    } else if (status) {
+      status.textContent = '失败';
+    }
+
+    if (failures.length > 0) {
+      const msg = inserted.length > 0
+        ? `已插入 ${inserted.length} 个，${failures.length} 个失败`
+        : (failures[0]?.message || '上传失败');
+      showToast(msg, 'error');
+    } else if (inserted.length > 1) {
+      showToast(`已插入 ${inserted.length} 个文件`, 'success');
+    }
+  } finally {
+    if (options.input) options.input.value = '';
+  }
+}
+
+window.uploadImage = async function () {
+  const input = document.getElementById('imageUploadInput');
+  await uploadPostFiles(input?.files || [], { input, prefix: 'upload' });
 };
 
 window.uploadCommentImage = async function () {
-  const file = document.getElementById('commentImgUpload').files[0];
+  const input = document.getElementById('commentImgUpload');
+  const file = input?.files?.[0];
   if (!file) return;
   const status = document.getElementById('commentUploadStatus');
   status.textContent = '上传中...';
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('commentInput').value += '\n' + data.mdInsert + '\n';
-      status.textContent = '✓';
-    } else { status.textContent = '失败'; }
-  } catch (e) { status.textContent = '失败'; }
+    const data = await uploadMarkdownFile(file, { prefix: 'comment' });
+    insertTextAtTextareaCursor(document.getElementById('commentInput'), '\n' + data.mdInsert + '\n');
+    status.textContent = '✓';
+  } catch (e) {
+    status.textContent = '失败';
+    showToast(e.message || '上传失败', 'error');
+  } finally {
+    if (input) input.value = '';
+  }
 };
+
+function getPastedImageFiles(e) {
+  const clipboardData = e.clipboardData;
+  if (!clipboardData) return [];
+
+  const itemFiles = Array.from(clipboardData.items || [])
+    .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+    .map(item => item.getAsFile())
+    .filter(Boolean);
+  if (itemFiles.length > 0) return itemFiles;
+
+  return Array.from(clipboardData.files || []).filter(file => file.type.startsWith('image/'));
+}
+
+function bindPostImagePasteUpload() {
+  const ta = document.getElementById('postContent');
+  if (!ta || ta.dataset.pasteUploadBound) return;
+  ta.dataset.pasteUploadBound = '1';
+  ta.addEventListener('paste', async (e) => {
+    const files = getPastedImageFiles(e);
+    if (files.length === 0) return;
+    e.preventDefault();
+    await uploadPostFiles(files, { prefix: 'pasted' });
+  });
+}
 
 // === 个人主页 ===
 async function loadUserProfile(param) {
@@ -1414,6 +1563,7 @@ function initApp() {
   const mdPreviewBtn = document.getElementById('mdTabPreview');
   if (mdEditBtn) mdEditBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('edit'); });
   if (mdPreviewBtn) mdPreviewBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('preview'); });
+  bindPostImagePasteUpload();
 
   // 布局切换按钮事件绑定
   const layoutListBtn = document.getElementById('layoutList');

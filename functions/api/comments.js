@@ -103,7 +103,6 @@ export async function onRequestPut(context) {
     if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
 
     const newState = comment.is_pinned ? 0 : 1;
-    if (newState === 1) await db.prepare('UPDATE comments SET is_pinned = 0 WHERE post_id = ?').bind(comment.post_id).run();
     await db.prepare('UPDATE comments SET is_pinned = ? WHERE id = ?').bind(newState, id).run();
     return new Response(JSON.stringify({ success: true, message: newState ? '评论已置顶' : '已取消置顶' }));
   }
