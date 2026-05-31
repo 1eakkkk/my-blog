@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.19">
+  <link rel="stylesheet" href="style.css?v=8.20">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -342,7 +342,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.5.4</strong> · 2026-05-31</p>
+      <p style="margin-top:8px;">版本：<strong>v2.5.5</strong> · 2026-05-31</p>
     </div>
 
     <div class="about-section">
@@ -363,91 +363,100 @@
       </table>
     </div>
 
-    <div class="about-section">
-      <h3>更新日志</h3>
-      <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
+    <div class="about-section release-section">
+      <div class="release-header">
+        <div>
+          <h3>更新日志</h3>
+          <p>只保留真正影响体验和维护的变更，近期更新展开，历史记录收起。</p>
+        </div>
+        <span class="release-current-badge">当前 v2.5.5</span>
+      </div>
 
-        <details open>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.5.4 (2026-05-31)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p><strong>v2.5.4</strong> — 移动端体验优化：首页筛选栏更紧凑，发帖页编辑/上传/发布区重排，评论输入与移动菜单交互优化，登录页小屏适配增强</p>
-            <p><strong>v2.5.3</strong> — 继续打磨发帖体验：支持拖拽上传、上传失败自动重试、置顶评论分组展示，并新增发布元数据检查脚本</p>
-            <p><strong>v2.5.2</strong> — 编辑器体验优化：Markdown 快捷按钮自动选中占位文字，发帖支持多图批量插入与粘贴图片上传，评论支持多条置顶</p>
-            <p><strong>v2.5.1</strong> — 卡片缩略图升级：支持提取最多3张图片，80px 横向排列</p>
-            <p><strong>v2.5.0</strong> — 帖子列表卡片首图缩略图：自动提取首张图片 120px 裁剪展示</p>
-            <p><strong>v2.4.9</strong> — 管理面板帖子列表分页加载：admin.js offset分页 + 前端加载更多</p>
-            <p><strong>v2.4.8</strong> — 编辑备份与恢复 + 心情按钮恢复 + saveDraft空内容保护</p>
+      <div class="release-board">
+        <details open class="release-group release-current">
+          <summary>v2.5.5 (2026-05-31)</summary>
+          <div class="release-card">
+            <div class="release-tags">
+              <span>界面</span>
+              <span>关于页</span>
+            </div>
+            <p><strong>v2.5.5</strong> — 更新日志重做为版本时间线：当前版本突出展示，近期版本卡片化，历史版本折叠收纳，移动端阅读更清晰。</p>
+            <ul>
+              <li>替换原先的长段落堆叠样式。</li>
+              <li>新增版本标签、时间线圆点和紧凑历史列表。</li>
+              <li>同步更新版本号与发布检查元数据。</li>
+            </ul>
           </div>
         </details>
 
-        <details>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.4.7 (2026-05-12)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p><strong>v2.4.7</strong> — 草稿箱多草稿系统：列表存储、心情保存、旧格式迁移、加载/删除、10条上限</p>
-            <p><strong>v2.4.6</strong> — Markdown快捷工具栏：10键插入粗体/斜体/代码/引用/链接/图片/列表/分割线</p>
-            <p><strong>v2.4.5</strong> — 修复destroyTOC DOM清理逻辑、TOC元素完全移除与正文还原</p>
+        <div class="release-timeline">
+          <article class="release-item">
+            <div class="release-dot"></div>
+            <div class="release-card">
+              <div class="release-item-head">
+                <strong>v2.5.4</strong>
+                <time>2026-05-31</time>
+              </div>
+              <div class="release-tags">
+                <span>移动端</span>
+                <span>编辑体验</span>
+              </div>
+              <p>移动端体验优化：首页筛选栏更紧凑，发帖页编辑/上传/发布区重排，评论输入与移动菜单交互优化，登录页小屏适配增强。</p>
+            </div>
+          </article>
+
+          <article class="release-item">
+            <div class="release-dot"></div>
+            <div class="release-card">
+              <div class="release-item-head">
+                <strong>v2.5.3</strong>
+                <time>2026-05-31</time>
+              </div>
+              <div class="release-tags">
+                <span>上传</span>
+                <span>发布检查</span>
+              </div>
+              <p>继续打磨发帖体验：支持拖拽上传、上传失败自动重试、置顶评论分组展示，并新增发布元数据检查脚本。</p>
+            </div>
+          </article>
+
+          <article class="release-item">
+            <div class="release-dot"></div>
+            <div class="release-card">
+              <div class="release-item-head">
+                <strong>v2.5.2</strong>
+                <time>2026-05-31</time>
+              </div>
+              <div class="release-tags">
+                <span>Markdown</span>
+                <span>图片</span>
+              </div>
+              <p>编辑器体验优化：Markdown 快捷按钮自动选中占位文字，发帖支持多图批量插入与粘贴图片上传，评论支持多条置顶。</p>
+            </div>
+          </article>
+        </div>
+
+        <details class="release-history">
+          <summary>历史版本</summary>
+          <div class="release-compact-list">
+            <p><strong>v2.5.1</strong> — 卡片缩略图升级：支持提取最多3张图片，80px 横向排列。</p>
+            <p><strong>v2.5.0</strong> — 帖子列表卡片首图缩略图：自动提取首张图片 120px 裁剪展示。</p>
+            <p><strong>v2.4.9</strong> — 管理面板帖子列表分页加载：admin.js offset 分页 + 前端加载更多。</p>
+            <p><strong>v2.4.8</strong> — 编辑备份与恢复 + 心情按钮恢复 + saveDraft 空内容保护。</p>
+            <p><strong>v2.4.7</strong> — 草稿箱多草稿系统：列表存储、心情保存、旧格式迁移、加载/删除、10条上限。</p>
+            <p><strong>v2.4.6</strong> — Markdown 快捷工具栏：插入粗体、斜体、代码、引用、链接、图片、列表、分割线。</p>
+            <p><strong>v2.4.5</strong> — 修复 destroyTOC DOM 清理逻辑、TOC 元素完全移除与正文还原。</p>
+            <p><strong>v2.4.4</strong> — 视觉打磨：暗色卡片深度、按压态、正文字号行高、focus 环、滚动条与减速动画。</p>
+            <p><strong>v2.4.3</strong> — 无障碍优化：移除 user-scalable=no、添加 aria-label 与 label 关联、skip-to-content。</p>
+            <p><strong>v2.4.2</strong> — TOC 目录：桌面侧栏、移动折叠面板、滚动高亮联动。</p>
+            <p><strong>v2.4.1</strong> — 阅读时间估算、代码块一键复制、帖子心情标签。</p>
+            <p><strong>v2.3.x</strong> — 安全加固、评论楼中楼、限流迁移、搜索空状态、字数限制与接口修复。</p>
+            <p><strong>v2.2.x</strong> — Markdown 渲染、图片灯箱、分类筛选、管理详情弹窗与移动端适配。</p>
+            <p><strong>v2.1</strong> — 通用文件上传、图片灯箱、管理面板、移动端适配。</p>
+            <p><strong>v2.0</strong> — 全面精简重构：去冗余功能、顶部导航、主题切换、PBKDF2 密码哈希。</p>
+            <p><strong>v1.0</strong> — 初始版本，含商城/背包/游戏等完整功能。</p>
           </div>
         </details>
-
-        <details>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.4.4 (2026-05-11)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p><strong>v2.4.4</strong> — 视觉打磨：暗色模式卡片深度/微光、全文:active按压态、正文字号行高优化、::selection/focus环/滚动条/减速动画</p>
-            <p><strong>v2.4.3</strong> — 无障碍优化：移除user-scalable=no、添加aria-label与label关联、skip-to-content跳转链接、loading-mask适配浅色主题、移除全局no-cache</p>
-            <p><strong>v2.4.2</strong> — TOC目录（桌面侧边栏+移动折叠面板+滚动高亮联动+grid/mobile显示/注入位置修复）</p>
-            <p><strong>v2.4.1</strong> — 阅读时间估算、代码块一键复制、帖子心情标签</p>
-            <p><strong>v2.4</strong> — 创意功能</p>
-          </div>
-        </details>
-
-        <details>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.3.7 (2026-05-11)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p><strong>v2.3.7</strong> — 帖子内容长度限制(50000字)、发帖草稿自动保存、评论区加载更多按钮</p>
-            <p><strong>v2.3.6</strong> — 限流机制从D1改为KV(性能提升)、session过期自动清理</p>
-            <p><strong>v2.3.5</strong> — 评论字数限制(前后端500字校验)、搜索空状态文案优化、回复提示条持久显示</p>
-            <p><strong>v2.3.4</strong> — 评论楼中楼缩进、楼层号、回复标签、子评论分组渲染、回复提示条</p>
-            <p><strong>v2.3.3</strong> — register用户名字符校验、移除冗余profile_public接口</p>
-            <p><strong>v2.3.2</strong> — upload文件类型白名单、comments删除级联修复、posts SQL参数化</p>
-            <p><strong>v2.3.1</strong> — 修复login.html inviteInput未定义崩溃、logout Cookie属性不对称</p>
-            <p><strong>v2.3</strong> — 安全加固与交互优化</p>
-          </div>
-        </details>
-
-        <details>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.2.6 (2026-05-11)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p><strong>v2.2.6</strong> — 修复profile接口下划线路由404、移除头像lazy-load、更新日志折叠、marked全局初始化</p>
-            <p><strong>v2.2.5</strong> — 修复行内代码/表格未渲染、marked GFM显式启用、表格CSS样式、指南更新</p>
-            <p><strong>v2.2.4</strong> — 修复移动端网格布局、图片懒加载、静态资源缓存头、布局按钮事件绑定</p>
-            <p><strong>v2.2.3</strong> — 管理面板用户ID跳转、摘要Markdown全面strip、在线心跳上报、统计卡片样式统一</p>
-            <p><strong>v2.2.2</strong> — 修复MD预览按钮报错、帖子列表图片Markdown显示、管理面板响应式优化</p>
-            <p><strong>v2.2.1</strong> — 修复MD预览按钮、管理面板卡片美化、版本号同步更新</p>
-            <p><strong>v2.2</strong> — MD实时预览、图片灯箱缩放拖拽、分类筛选、管理详情弹窗</p>
-          </div>
-        </details>
-
-        <details>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.1 (2026-05-11)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p>行间距修复、双时间戳、去邀请码、通用文件上传、图片灯箱、管理面板、移动端适配</p>
-          </div>
-        </details>
-
-        <details>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v2.0 (2026-05-09)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p>全面精简重构：去赛博朋克风、去冗余功能、顶部导航、主题切换、PBKDF2密码哈希</p>
-          </div>
-        </details>
-
-        <details>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-top:8px;margin-bottom:4px;">v1.0 (2024-2025)</summary>
-          <div style="padding-left:16px;border-left:2px solid var(--border);">
-            <p>初始版本，含商城/背包/游戏等完整功能</p>
-          </div>
-        </details>
-
       </div>
     </div>
 

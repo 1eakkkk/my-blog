@@ -1021,6 +1021,190 @@ select.form-control { cursor: pointer; }
   font-size: 0.92rem;
 }
 
+.release-section {
+  background: transparent;
+  border: none;
+  padding: 4px 0 0;
+}
+
+.release-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.release-header h3 {
+  margin-bottom: 4px;
+}
+
+.release-current-badge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 650;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+}
+
+.release-board {
+  display: grid;
+  gap: 12px;
+}
+
+.release-group,
+.release-history {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.release-group > summary,
+.release-history > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 13px 16px;
+  color: var(--text);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.release-group > summary::-webkit-details-marker,
+.release-history > summary::-webkit-details-marker {
+  display: none;
+}
+
+.release-group > summary::after,
+.release-history > summary::after {
+  content: '展开';
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.release-group[open] > summary::after,
+.release-history[open] > summary::after {
+  content: '收起';
+}
+
+.release-current {
+  border-color: rgba(59, 130, 246, 0.42);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.06);
+}
+
+.release-card {
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.release-card p {
+  margin: 0;
+}
+
+.release-card ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.75;
+}
+
+.release-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.release-tags span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.release-timeline {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.release-timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border);
+}
+
+.release-item {
+  position: relative;
+}
+
+.release-dot {
+  position: absolute;
+  left: -17px;
+  top: 18px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--bg);
+}
+
+.release-item .release-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.release-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.release-item-head strong {
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.release-item-head time {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.release-compact-list {
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.release-compact-list p {
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.65;
+}
+
+.release-compact-list p:last-child {
+  border-bottom: 0;
+}
+
 /* === Toast === */
 #toast-container {
   position: fixed;
@@ -1652,6 +1836,42 @@ body {
     min-width: 0;
     height: 40px;
     padding: 8px 12px;
+  }
+
+  .release-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .release-current-badge {
+    align-self: flex-start;
+  }
+
+  .release-group > summary,
+  .release-history > summary {
+    padding: 12px 14px;
+  }
+
+  .release-card {
+    padding: 13px 14px 15px;
+  }
+
+  .release-timeline {
+    padding-left: 14px;
+  }
+
+  .release-timeline::before {
+    left: 4px;
+  }
+
+  .release-dot {
+    left: -14px;
+  }
+
+  .release-item-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
   }
 
   .posts-grid { grid-template-columns: 1fr; }
