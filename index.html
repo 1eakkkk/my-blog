@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.20">
+  <link rel="stylesheet" href="style.css?v=8.21">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -269,7 +269,13 @@
 
   <!-- 管理员 -->
   <div id="view-admin" class="view-section" style="display:none;">
-    <h2 style="margin-bottom:20px;">管理面板</h2>
+    <div class="admin-console-header">
+      <div>
+        <h2>站点控制台</h2>
+        <p>私人站点的运行状态、反爬开关和内容维护入口。</p>
+      </div>
+      <button class="btn btn-sm btn-ghost" onclick="loadAdminPanel()">刷新</button>
+    </div>
 
     <div class="admin-stats-grid" id="adminStatsGrid">
       <div class="admin-stat-card clickable" onclick="showAdminDetail('online')">
@@ -288,29 +294,69 @@
         <div class="stat-icon">👥</div>
         <div class="stat-num" id="adminUsers">-</div>
         <div class="stat-label">注册用户</div>
-        <div class="stat-sub">点击查看列表</div>
+        <div class="stat-sub">查看最近注册</div>
       </div>
       <div class="admin-stat-card clickable" onclick="showAdminDetail('posts')">
         <div class="stat-icon">📝</div>
         <div class="stat-num" id="adminPosts">-</div>
-        <div class="stat-label">总帖子数</div>
-        <div class="stat-sub">点击查看列表</div>
+        <div class="stat-label">帖子</div>
+        <div class="stat-sub">查看最近帖子</div>
       </div>
-      <div class="admin-stat-card">
+      <div class="admin-stat-card clickable" onclick="showAdminDetail('comments')">
         <div class="stat-icon">💬</div>
         <div class="stat-num" id="adminComments">-</div>
-        <div class="stat-label">总评论数</div>
-        <div class="stat-sub">全站累计</div>
+        <div class="stat-label">评论</div>
+        <div class="stat-sub">查看最近评论</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="stat-icon">🔐</div>
+        <div class="stat-num" id="adminSessions">-</div>
+        <div class="stat-label">有效会话</div>
+        <div class="stat-sub">7 天窗口</div>
+      </div>
+      <div class="admin-stat-card clickable" onclick="showAdminDetail('security')">
+        <div class="stat-icon">🚧</div>
+        <div class="stat-num" id="adminLocked">-</div>
+        <div class="stat-label">锁定账号</div>
+        <div class="stat-sub">登录失败触发</div>
+      </div>
+      <div class="admin-stat-card clickable" onclick="showAdminDetail('security')">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-num" id="adminLoginFails">-</div>
+        <div class="stat-label">失败计数</div>
+        <div class="stat-sub">未清零尝试</div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <h3>人机验证</h3>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:0.9rem;">状态：</span>
-        <strong id="adminTurnstileStatus" style="color:var(--green);">已开启</strong>
-        <button class="btn btn-sm" onclick="toggleTurnstile()">切换</button>
-      </div>
+    <div class="admin-console-grid">
+      <section class="admin-console-panel admin-security-panel">
+        <div class="admin-panel-header">
+          <div>
+            <h3>反爬与访问控制</h3>
+            <p>登录/注册是本站的访问门槛，Turnstile 用来抬高自动化成本。</p>
+          </div>
+          <strong id="adminTurnstileStatus" class="admin-status-pill">读取中</strong>
+        </div>
+        <p id="adminTurnstileHint" class="admin-panel-note">正在读取人机验证状态...</p>
+        <div class="admin-action-row">
+          <button class="btn btn-sm" onclick="toggleTurnstile()">切换 Turnstile</button>
+          <button class="btn btn-sm btn-ghost" onclick="showAdminDetail('security')">查看登录异常</button>
+          <button class="btn btn-sm btn-ghost" onclick="cleanupSessions()">清理过期会话</button>
+        </div>
+      </section>
+
+      <section class="admin-console-panel">
+        <div class="admin-panel-header">
+          <div>
+            <h3>最近评论</h3>
+            <p>快速发现新回复和可能需要处理的内容。</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="showAdminDetail('comments')">全部</button>
+        </div>
+        <div id="adminRecentComments" class="admin-mini-list">
+          <p class="admin-empty">加载中...</p>
+        </div>
+      </section>
     </div>
 
     <div class="settings-section">
@@ -342,7 +388,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.5.5</strong> · 2026-05-31</p>
+      <p style="margin-top:8px;">版本：<strong>v2.5.6</strong> · 2026-05-31</p>
     </div>
 
     <div class="about-section">
@@ -369,27 +415,42 @@
           <h3>更新日志</h3>
           <p>只保留真正影响体验和维护的变更，近期更新展开，历史记录收起。</p>
         </div>
-        <span class="release-current-badge">当前 v2.5.5</span>
+        <span class="release-current-badge">当前 v2.5.6</span>
       </div>
 
       <div class="release-board">
         <details open class="release-group release-current">
-          <summary>v2.5.5 (2026-05-31)</summary>
+          <summary>v2.5.6 (2026-05-31)</summary>
           <div class="release-card">
             <div class="release-tags">
-              <span>界面</span>
-              <span>关于页</span>
+              <span>管理</span>
+              <span>反爬</span>
             </div>
-            <p><strong>v2.5.5</strong> — 更新日志重做为版本时间线：当前版本突出展示，近期版本卡片化，历史版本折叠收纳，移动端阅读更清晰。</p>
+            <p><strong>v2.5.6</strong> — 管理面板升级为轻量站点控制台：聚焦私人站点的运行状态、反爬开关、登录异常、会话维护和最近内容入口。</p>
             <ul>
-              <li>替换原先的长段落堆叠样式。</li>
-              <li>新增版本标签、时间线圆点和紧凑历史列表。</li>
-              <li>同步更新版本号与发布检查元数据。</li>
+              <li>新增有效会话、锁定账号、登录失败计数等反爬相关统计。</li>
+              <li>Turnstile 状态增加影响说明，并保留一键切换。</li>
+              <li>新增最近评论、登录异常列表和清理过期会话操作。</li>
             </ul>
           </div>
         </details>
 
         <div class="release-timeline">
+          <article class="release-item">
+            <div class="release-dot"></div>
+            <div class="release-card">
+              <div class="release-item-head">
+                <strong>v2.5.5</strong>
+                <time>2026-05-31</time>
+              </div>
+              <div class="release-tags">
+                <span>界面</span>
+                <span>关于页</span>
+              </div>
+              <p>更新日志重做为版本时间线：当前版本突出展示，近期版本卡片化，历史版本折叠收纳，移动端阅读更清晰。</p>
+            </div>
+          </article>
+
           <article class="release-item">
             <div class="release-dot"></div>
             <div class="release-card">
@@ -482,6 +543,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.20"></script>
+<script src="script.js?v=8.21"></script>
 </body>
 </html>

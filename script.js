@@ -99,6 +99,15 @@ function parseMarkdown(text) {
   return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 }
 
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function addCopyButtons(container) {
   container.querySelectorAll('pre').forEach(pre => {
     if (pre.querySelector('.copy-btn')) return;
@@ -1530,20 +1539,49 @@ async function loadAdminPanel() {
     const res = await fetch(`${API_BASE}/admin?action=stats`);
     const data = await res.json();
     if (!data.stats) return showToast('加载失败', 'error');
+    const stats = data.stats;
 
-    document.getElementById('adminOnline').textContent = data.stats.online5min;
-    document.getElementById('adminToday').textContent = data.stats.todayActive;
-    document.getElementById('adminUsers').textContent = data.stats.totalUsers;
-    document.getElementById('adminPosts').textContent = data.stats.totalPosts;
-    document.getElementById('adminComments').textContent = data.stats.totalComments;
+    document.getElementById('adminOnline').textContent = stats.online5min;
+    document.getElementById('adminToday').textContent = stats.todayActive;
+    document.getElementById('adminUsers').textContent = stats.totalUsers;
+    document.getElementById('adminPosts').textContent = stats.totalPosts;
+    document.getElementById('adminComments').textContent = stats.totalComments;
+    document.getElementById('adminSessions').textContent = stats.activeSessions ?? stats.totalSessions ?? '-';
+    document.getElementById('adminLocked').textContent = stats.lockedUsers ?? 0;
+    document.getElementById('adminLoginFails').textContent = stats.loginFailSum ?? 0;
 
     const statusEl = document.getElementById('adminTurnstileStatus');
-    if (data.stats.turnstileEnabled) {
-      statusEl.textContent = '已开启'; statusEl.style.color = 'var(--green)';
+    const hintEl = document.getElementById('adminTurnstileHint');
+    statusEl.classList.toggle('is-on', !!stats.turnstileEnabled);
+    statusEl.classList.toggle('is-off', !stats.turnstileEnabled);
+    if (stats.turnstileEnabled) {
+      statusEl.textContent = '已开启';
+      if (hintEl) hintEl.textContent = '登录和注册会要求通过 Cloudflare Turnstile。适合需要抬高自动化访问成本的时候开启。';
     } else {
-      statusEl.textContent = '已关闭'; statusEl.style.color = 'var(--danger)';
+      statusEl.textContent = '已关闭';
+      if (hintEl) hintEl.textContent = '登录和注册会跳过 Turnstile。适合私人使用时降低打扰，但反爬门槛会变低。';
     }
+
+    renderAdminRecentComments(data.latestComments || []);
   } catch (e) { console.error(e); }
+}
+
+function renderAdminRecentComments(comments) {
+  const box = document.getElementById('adminRecentComments');
+  if (!box) return;
+  if (!comments.length) {
+    box.innerHTML = '<p class="admin-empty">暂无评论</p>';
+    return;
+  }
+  box.innerHTML = comments.map(c => {
+    const author = escapeHtml(c.nickname || c.username || '未知用户');
+    const title = escapeHtml(c.post_title || `帖子 #${c.post_id}`);
+    const content = escapeHtml(stripMarkdown(c.content || '').slice(0, 68));
+    return `<div class="admin-mini-item">
+      <div class="admin-mini-title">${content || '空评论'}</div>
+      <div class="admin-mini-meta">${author} · ${timeAgo(c.created_at)} · <a href="#post?id=${c.post_id}&commentId=${c.id}">查看 ${title}</a></div>
+    </div>`;
+  }).join('');
 }
 
 window.showAdminDetail = async function (type) {
@@ -1551,32 +1589,34 @@ window.showAdminDetail = async function (type) {
   const title = document.getElementById('adminDetailTitle');
   const content = document.getElementById('adminDetailContent');
 
-  const labels = { online: '在线用户', users: '最近注册用户', posts: '最近帖子' };
+  const labels = { online: '在线用户', users: '最近注册用户', posts: '最近帖子', comments: '最近评论', security: '登录异常' };
   title.textContent = labels[type] || '详情';
   content.innerHTML = '<div class="loading-spinner"></div>';
   modal.style.display = 'flex';
 
   try {
-    const actions = { online: 'online_list', users: 'user_list', posts: 'post_list' };
+    const actions = { online: 'online_list', users: 'user_list', posts: 'post_list', comments: 'comment_list', security: 'security_list' };
     const res = await fetch(`${API_BASE}/admin?action=${actions[type]}`);
     const data = await res.json();
 
     if (type === 'online') {
       const list = data.users || [];
       content.innerHTML = list.length === 0 ? '<p style="color:var(--text-muted);">暂无在线用户</p>' :
-        list.map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.id}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.8rem;">${new Date(u.last_seen).toLocaleTimeString()}</span></div>`).join('');
+        `<div class="admin-detail-list">${list.map(u => `<div class="admin-detail-item"><div class="admin-detail-title"><a href="#profile?u=${u.id}" onclick="document.getElementById('adminDetailModal').style.display='none'">${escapeHtml(u.nickname || u.username)}</a></div><div class="admin-detail-meta">${new Date(u.last_seen).toLocaleTimeString()}</div></div>`).join('')}</div>`;
     } else if (type === 'users') {
-      content.innerHTML = (data.users || []).map(u => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);"><span style="cursor:pointer;color:var(--accent);" onclick="window.location.hash='#profile?u=${u.id}'">${u.nickname || u.username}</span><span style="color:var(--text-muted);font-size:0.78rem;">${new Date(u.created_at).toLocaleDateString()}</span></div>`).join('');
+      const list = data.users || [];
+      content.innerHTML = list.length === 0 ? '<p style="color:var(--text-muted);">暂无用户</p>' :
+        `<div class="admin-detail-list">${list.map(u => `<div class="admin-detail-item"><div class="admin-detail-title"><a href="#profile?u=${u.id}" onclick="document.getElementById('adminDetailModal').style.display='none'">${escapeHtml(u.nickname || u.username)}</a></div><div class="admin-detail-meta">注册于 ${new Date(u.created_at).toLocaleDateString()} · 最近活动 ${u.last_seen ? timeAgo(u.last_seen) : '未知'}</div></div>`).join('')}</div>`;
     } else if (type === 'posts') {
       window._adminPostOffset = 0;
       const renderPosts = (posts, hasMore, reset) => {
-        const html = posts.map(p => `<div style="padding:8px 0;border-bottom:1px solid var(--border);"><a href="#post?id=${p.id}" onclick="document.getElementById('adminDetailModal').style.display='none'" style="font-weight:500;">${p.title}</a><div style="font-size:0.78rem;color:var(--text-muted);">${p.author_name} · ${new Date(p.created_at).toLocaleDateString()} · ${p.category}</div></div>`).join('');
+        const html = posts.map(p => `<div class="admin-detail-item"><div class="admin-detail-title"><a href="#post?id=${p.id}" onclick="document.getElementById('adminDetailModal').style.display='none'">${escapeHtml(p.title)}</a></div><div class="admin-detail-meta">${escapeHtml(p.author_name || '未知作者')} · ${new Date(p.created_at).toLocaleDateString()} · ${escapeHtml(p.category || '未分类')}</div></div>`).join('');
         if (reset) {
-          content.innerHTML = html;
+          content.innerHTML = `<div class="admin-detail-list">${html || '<p style="color:var(--text-muted);">暂无帖子</p>'}</div>`;
         } else {
           const btn = document.getElementById('adminPostLoadMore');
           if (btn) btn.remove();
-          content.insertAdjacentHTML('beforeend', html);
+          content.querySelector('.admin-detail-list')?.insertAdjacentHTML('beforeend', html);
         }
         if (hasMore) {
           content.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:10px 0;"><button id="adminPostLoadMore" class="btn btn-sm btn-ghost" onclick="loadMoreAdminPosts()">加载更多</button></div>`);
@@ -1584,6 +1624,18 @@ window.showAdminDetail = async function (type) {
       };
       renderPosts(data.posts || [], data.hasMore, true);
       window._renderAdminPosts = renderPosts;
+    } else if (type === 'comments') {
+      const list = data.comments || [];
+      content.innerHTML = list.length === 0 ? '<p style="color:var(--text-muted);">暂无评论</p>' :
+        `<div class="admin-detail-list">${list.map(c => `<div class="admin-detail-item"><div class="admin-detail-title">${escapeHtml(stripMarkdown(c.content || '').slice(0, 120)) || '空评论'}</div><div class="admin-detail-meta">${escapeHtml(c.nickname || c.username || '未知用户')} · ${timeAgo(c.created_at)} · <a href="#post?id=${c.post_id}&commentId=${c.id}" onclick="document.getElementById('adminDetailModal').style.display='none'">查看帖子</a></div></div>`).join('')}</div>`;
+    } else if (type === 'security') {
+      const list = data.users || [];
+      content.innerHTML = list.length === 0 ? '<p style="color:var(--text-muted);">暂无登录异常</p>' :
+        `<div class="admin-detail-list">${list.map(u => {
+          const locked = u.login_locked_until && u.login_locked_until > (data.now || Date.now());
+          const lockText = locked ? `锁定至 ${new Date(u.login_locked_until).toLocaleTimeString()}` : '未锁定';
+          return `<div class="admin-detail-item"><div class="admin-detail-title"><a href="#profile?u=${u.id}" onclick="document.getElementById('adminDetailModal').style.display='none'">${escapeHtml(u.nickname || u.username)}</a></div><div class="admin-detail-meta">失败计数 ${u.login_fails || 0} · ${lockText} · 最近活动 ${u.last_seen ? timeAgo(u.last_seen) : '未知'}</div></div>`;
+        }).join('')}</div>`;
     }
   } catch (e) { content.innerHTML = '<p style="color:var(--danger);">加载失败</p>'; }
 };
@@ -1598,6 +1650,26 @@ window.loadMoreAdminPosts = async function() {
     if (window._renderAdminPosts) window._renderAdminPosts(data.posts || [], data.hasMore, false);
   } catch (e) {
     if (btn) btn.textContent = '加载失败，点击重试';
+  }
+};
+
+window.cleanupSessions = async function () {
+  if (!confirm('清理 7 天前的过期会话？当前登录不会受影响。')) return;
+  try {
+    const res = await fetch(`${API_BASE}/admin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'cleanup_sessions' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`已清理 ${data.deleted || 0} 个过期会话`, 'success');
+      loadAdminPanel();
+    } else {
+      showToast(data.error || '清理失败', 'error');
+    }
+  } catch (e) {
+    showToast('网络错误', 'error');
   }
 };
 

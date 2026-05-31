@@ -1285,9 +1285,28 @@ select.form-control { cursor: pointer; }
 /* === 管理统计卡片 === */
 .admin-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.admin-console-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.admin-console-header h2 {
+  margin: 0 0 4px;
+  font-size: 1.45rem;
+}
+
+.admin-console-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .admin-stat-card {
@@ -1348,6 +1367,129 @@ select.form-control { cursor: pointer; }
 .admin-stat-card .stat-sub {
   font-size: 0.7rem;
   color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.admin-console-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.admin-console-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.admin-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.admin-panel-header h3 {
+  margin: 0 0 4px;
+  font-size: 0.98rem;
+}
+
+.admin-panel-header p,
+.admin-panel-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+
+.admin-status-pill {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  font-size: 0.78rem;
+}
+
+.admin-status-pill.is-on {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--green);
+  border-color: rgba(34, 197, 94, 0.32);
+}
+
+.admin-status-pill.is-off {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.admin-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.admin-mini-list {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-mini-item {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-mini-item:last-child {
+  border-bottom: 0;
+}
+
+.admin-mini-title {
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 3px;
+  word-break: break-word;
+}
+
+.admin-mini-meta {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.admin-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.admin-detail-list {
+  display: grid;
+}
+
+.admin-detail-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-detail-item:last-child {
+  border-bottom: 0;
+}
+
+.admin-detail-title {
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.admin-detail-meta {
+  color: var(--text-muted);
+  font-size: 0.78rem;
   margin-top: 2px;
 }
 
@@ -1458,7 +1600,26 @@ select.form-control { cursor: pointer; }
   .about-section table { display: block; overflow-x: auto; font-size: 0.78rem; }
   .about-section code { font-size: 0.75rem; word-break: break-all; }
 
-  .admin-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .admin-stat-card {
+    min-width: 0;
+    padding: 16px 10px;
+  }
+  .admin-stat-card .stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .admin-stat-card .stat-num {
+    font-size: 1.55rem;
+  }
+  .admin-console-header { flex-direction: column; gap: 8px; }
+  .admin-console-grid { grid-template-columns: 1fr; }
+  .admin-console-panel { padding: 15px 14px; }
+  .admin-panel-header { flex-direction: column; gap: 8px; }
+  .admin-action-row .btn { flex: 1 1 120px; justify-content: center; }
 
   .modal-box { width: 95%; padding: 18px 16px; }
 }
@@ -2068,6 +2229,7 @@ body {
 
   .page-header h1 { font-size: 1.2rem; }
   .layout-toggle button { padding-inline: 9px; }
+  .admin-stats-grid { grid-template-columns: 1fr; }
   .comment-card { border-radius: 8px; }
   .full-article { margin-left: -2px; margin-right: -2px; }
 }
