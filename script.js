@@ -265,15 +265,24 @@ window.setLayout = function (type) {
 };
 
 // === 移动端导航 ===
+function setMobileNavOpen(isOpen) {
+  const nav = document.getElementById('navLinks');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav) return;
+  nav.classList.toggle('open', isOpen);
+  if (btn) btn.setAttribute('aria-expanded', String(isOpen));
+}
+
 window.toggleMobileNav = function () {
-  document.getElementById('navLinks').classList.toggle('open');
+  const nav = document.getElementById('navLinks');
+  setMobileNavOpen(!nav?.classList.contains('open'));
 };
 
 // 点击导航链接后关闭移动菜单
 document.addEventListener('click', function (e) {
   const nav = document.getElementById('navLinks');
   if (nav && nav.classList.contains('open') && e.target.closest('.nav-link')) {
-    nav.classList.remove('open');
+    setMobileNavOpen(false);
   }
 });
 
@@ -1634,7 +1643,7 @@ function initApp() {
     const nav = document.getElementById('navLinks');
     const btn = document.getElementById('mobileMenuBtn');
     if (nav && nav.classList.contains('open') && !nav.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-      nav.classList.remove('open');
+      setMobileNavOpen(false);
     }
   });
 

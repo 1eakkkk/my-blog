@@ -225,6 +225,46 @@
 
     .cf-turnstile { margin-bottom: 12px; display: flex; justify-content: center; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    @media (max-width: 480px) {
+      body {
+        align-items: flex-start;
+        min-height: 100dvh;
+        padding: max(18px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom));
+      }
+
+      .login-card {
+        max-width: none;
+        padding: 28px 18px;
+        border-radius: 8px;
+      }
+
+      .logo { font-size: 1.28rem; }
+      .logo-sub { margin-bottom: 22px; }
+
+      .tab {
+        padding: 10px 4px;
+        font-size: 0.84rem;
+        white-space: nowrap;
+      }
+
+      .form-control {
+        min-height: 42px;
+        font-size: 16px;
+      }
+
+      .btn { min-height: 44px; }
+
+      .cf-turnstile {
+        min-height: 60px;
+        overflow: hidden;
+      }
+
+      .cf-turnstile > iframe {
+        transform: scale(0.92);
+        transform-origin: center;
+      }
+    }
   </style>
 </head>
 <body>

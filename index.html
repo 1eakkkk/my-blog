@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.18">
+  <link rel="stylesheet" href="style.css?v=8.19">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -81,7 +81,7 @@
         <button id="layoutGrid" onclick="setLayout('grid')">▦ 网格</button>
       </div>
     </div>
-    <div class="toolbar">
+    <div class="toolbar home-toolbar">
       <label for="searchInput" class="sr-only">搜索帖子</label>
       <input type="text" id="searchInput" placeholder="搜索..." onkeydown="if(event.key==='Enter')searchPosts()">
       <select id="categoryFilter" onchange="searchPosts()">
@@ -118,7 +118,7 @@
         <textarea id="commentInput" placeholder="写评论... (Markdown 和图片)"></textarea>
         <div id="commentCharCount" style="text-align:right;font-size:0.75rem;color:var(--text-muted);padding:2px 4px 4px;">0 / 500</div>
         <div class="comment-input-row">
-          <div style="display:flex;align-items:center;gap:8px;">
+          <div class="comment-action-group" style="display:flex;align-items:center;gap:8px;">
             <input type="file" id="commentImgUpload" accept="image/*,video/*" style="display:none;" onchange="uploadCommentImage()">
             <button class="btn btn-sm btn-ghost" onclick="document.getElementById('commentImgUpload').click()">📷 图片</button>
             <button class="btn btn-sm btn-ghost" id="cancelReplyBtn" style="display:none;" onclick="cancelReply()">取消回复</button>
@@ -165,17 +165,17 @@
           <input type="text" id="postTitle" class="form-control" placeholder="标题">
         </div>
         <div class="form-group">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
+          <div class="write-editor-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div class="write-editor-title-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
               <label for="postContent" style="margin-bottom:0;">内容 <span style="font-weight:400;color:var(--text-muted);">(Markdown)</span></label>
               <button type="button" class="btn btn-sm btn-ghost" id="draftBoxBtn" onclick="openDraftBox()">草稿箱 <span id="draftCount">0</span></button>
             </div>
-            <div style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px;">
+            <div class="md-tab-switch" style="display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:2px;">
               <button type="button" id="mdTabEdit" class="btn btn-sm" style="border:none;border-radius:4px;background:var(--accent);color:#fff;">编辑</button>
               <button type="button" id="mdTabPreview" class="btn btn-sm" style="border:none;border-radius:4px;background:transparent;color:var(--text-muted);">预览</button>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="upload-row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
             <input type="file" id="imageUploadInput" accept="image/*,video/*" multiple style="display:none;" onchange="uploadImage()">
             <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('imageUploadInput').click()">📷 插入图片/文件</button>
             <span id="uploadStatus" style="font-size:0.78rem;color:var(--text-muted);"></span>
@@ -195,7 +195,7 @@
           <textarea id="postContent" class="form-control" placeholder="内容..." style="min-height:220px;"></textarea>
           <div id="mdPreview" class="article-content" style="display:none;min-height:220px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px 18px;"></div>
         </div>
-        <div style="display:flex;gap:10px;align-items:center;">
+        <div class="form-actions" style="display:flex;gap:10px;align-items:center;">
           <button type="submit" class="btn btn-primary">发布</button>
           <button type="button" id="cancelEditPostBtn" class="btn btn-ghost" onclick="cancelEditPost()">← 返回首页</button>
           <span id="draftStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
@@ -342,7 +342,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.5.3</strong> · 2026-05-31</p>
+      <p style="margin-top:8px;">版本：<strong>v2.5.4</strong> · 2026-05-31</p>
     </div>
 
     <div class="about-section">
@@ -368,8 +368,9 @@
       <div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.8;">
 
         <details open>
-          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.5.3 (2026-05-31)</summary>
+          <summary style="cursor:pointer;font-weight:650;color:var(--text);margin-bottom:4px;">v2.5.4 (2026-05-31)</summary>
           <div style="padding-left:16px;border-left:2px solid var(--border);">
+            <p><strong>v2.5.4</strong> — 移动端体验优化：首页筛选栏更紧凑，发帖页编辑/上传/发布区重排，评论输入与移动菜单交互优化，登录页小屏适配增强</p>
             <p><strong>v2.5.3</strong> — 继续打磨发帖体验：支持拖拽上传、上传失败自动重试、置顶评论分组展示，并新增发布元数据检查脚本</p>
             <p><strong>v2.5.2</strong> — 编辑器体验优化：Markdown 快捷按钮自动选中占位文字，发帖支持多图批量插入与粘贴图片上传，评论支持多条置顶</p>
             <p><strong>v2.5.1</strong> — 卡片缩略图升级：支持提取最多3张图片，80px 横向排列</p>
@@ -472,6 +473,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.19"></script>
+<script src="script.js?v=8.20"></script>
 </body>
 </html>
