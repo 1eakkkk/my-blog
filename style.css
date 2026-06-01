@@ -331,6 +331,43 @@ a:hover { text-decoration: underline; }
 .toolbar input { flex: 2; }
 .toolbar select { flex: 1; min-width: 100px; }
 
+.update-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  margin: -6px 0 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.update-notice strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.update-notice p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.update-notice a {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.update-notice a:hover { text-decoration: underline; }
+
 /* === 帖子卡片 === */
 .posts-list {
   display: flex;
@@ -1998,6 +2035,18 @@ body {
     height: 40px;
     padding: 8px 12px;
     font-size: 16px;
+  }
+
+  .update-notice {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: -2px;
+    padding: 12px 13px;
+  }
+
+  .update-notice a {
+    width: 100%;
   }
 
   .toolbar input,
