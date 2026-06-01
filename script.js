@@ -108,6 +108,14 @@ function escapeHtml(text) {
     .replace(/'/g, '&#39;');
 }
 
+function jsStringLiteral(text) {
+  return JSON.stringify(String(text ?? ''))
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/'/g, '\\u0027');
+}
+
 function addCopyButtons(container) {
   container.querySelectorAll('pre').forEach(pre => {
     if (pre.querySelector('.copy-btn')) return;
@@ -250,7 +258,8 @@ function timeAgo(ts) {
 
 function renderUserAvatar(userObj) {
   if (userObj.avatar_url) {
-    return `<img src="${userObj.avatar_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
+    const avatarUrl = escapeHtml(userObj.avatar_url);
+    return `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
   }
   return generatePixelAvatar(userObj.username, userObj.avatar_variant || 0);
 }
@@ -310,7 +319,8 @@ async function checkSecurity() {
 
     if (data.status === 'banned') {
       if (mask) {
-        mask.innerHTML = `<div style="border:2px solid #ef4444;padding:30px;background:var(--surface);max-width:90%;text-align:center;border-radius:12px;"><h1 style="color:#ef4444;margin:0 0 12px;">账号已封禁</h1><p style="color:var(--text-secondary);margin:6px 0;">解封: ${new Date(data.ban_expires_at).toLocaleString()}</p><p style="color:var(--text-secondary);margin:6px 0;">理由: ${data.ban_reason || '违反规定'}</p><button onclick="doLogout()" class="btn" style="margin-top:16px;">退出登录</button></div>`;
+        const banReason = escapeHtml(data.ban_reason || '违反规定');
+        mask.innerHTML = `<div style="border:2px solid #ef4444;padding:30px;background:var(--surface);max-width:90%;text-align:center;border-radius:12px;"><h1 style="color:#ef4444;margin:0 0 12px;">账号已封禁</h1><p style="color:var(--text-secondary);margin:6px 0;">解封: ${new Date(data.ban_expires_at).toLocaleString()}</p><p style="color:var(--text-secondary);margin:6px 0;">理由: ${banReason}</p><button onclick="doLogout()" class="btn" style="margin-top:16px;">退出登录</button></div>`;
         mask.style.opacity = '1';
         return;
       }
@@ -472,25 +482,30 @@ async function loadPosts(reset = false) {
     } else {
       posts.forEach(post => {
         const author = post.author_nickname || post.author_username || 'Unknown';
+        const safeAuthor = escapeHtml(author);
         const timeStr = timeAgo(post.created_at);
         const cat = post.category || '灌水';
+        const safeCat = escapeHtml(cat);
+        const safeTitle = escapeHtml(post.title || '无题 / Untitled');
+        const safeMood = post.mood ? escapeHtml(post.mood) : '';
         const commentCount = post.comment_count || 0;
 
         let snippet = post.content ? stripMarkdown(post.content.replace(/<[^>]*>/g, '')).replace(/\[图片\](\s*\[图片\])+/g, '[图片]').substring(0, 120) : '';
+        snippet = escapeHtml(snippet);
         const thumbUrls = extractImages(post.content);
 
         const card = document.createElement('div');
         card.className = 'post-card';
         card.innerHTML = `
           <div class="card-header">
-            <span class="category-badge${cat === '公告' ? ' announcement' : ''}">${cat}</span>
+            <span class="category-badge${cat === '公告' ? ' announcement' : ''}">${safeCat}</span>
             ${post.is_pinned ? '<span style="font-size:0.75rem;color:var(--text-muted);">📌 置顶</span>' : ''}
           </div>
-          <div class="card-title">${post.title}${post.mood ? `<span class="mood-tag">${post.mood}</span>` : ''}</div>
+          <div class="card-title">${safeTitle}${safeMood ? `<span class="mood-tag">${safeMood}</span>` : ''}</div>
           ${snippet ? `<div class="card-snippet">${snippet}</div>` : ''}
-          ${thumbUrls.length > 0 ? `<div class="card-thumbs">${thumbUrls.map(url => `<div class="card-thumb-item"><img src="${url}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>`).join('')}</div>` : ''}
+          ${thumbUrls.length > 0 ? `<div class="card-thumbs">${thumbUrls.map(url => `<div class="card-thumb-item"><img src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>`).join('')}</div>` : ''}
           <div class="card-meta">
-            <span>👤 ${author}</span>
+            <span>👤 ${safeAuthor}</span>
             <span>${timeStr}</span>
             <span>💬 ${commentCount}</span>
             <span>❤ ${post.like_count || 0}</span>
@@ -528,36 +543,41 @@ async function loadSinglePost(id, targetCommentId = null) {
     currentPostAuthorId = post.user_id;
 
     const author = post.author_nickname || post.author_username || 'Unknown';
+    const safeAuthor = escapeHtml(author);
     const createdStr = new Date(post.created_at).toLocaleString();
     const updatedStr = post.updated_at ? new Date(post.updated_at).toLocaleString() : '';
     const timeHtml = post.updated_at
       ? `发布于 ${createdStr} · <span style="color:var(--text-muted);">编辑于 ${updatedStr}</span>`
       : createdStr;
     const cat = post.category || '灌水';
+    const safeCat = escapeHtml(cat);
+    const safeTitle = escapeHtml(post.title || '无题 / Untitled');
+    const safeMood = post.mood ? escapeHtml(post.mood) : '';
     const parsedContent = parseMarkdown(post.content || '');
+    const postId = Number(post.id);
 
     let actionsHtml = '';
     if (currentUser && (currentUser.id === post.user_id || userRole === 'admin')) {
-      actionsHtml = `<button class="btn btn-sm" onclick="editPostMode(${post.id})">编辑</button>
-        <button class="btn btn-sm btn-danger" onclick="deletePost(${post.id})">删除</button>`;
+      actionsHtml = `<button class="btn btn-sm" onclick="editPostMode(${postId})">编辑</button>
+        <button class="btn btn-sm btn-danger" onclick="deletePost(${postId})">删除</button>`;
     }
     if (userRole === 'admin') {
-      actionsHtml += `<button class="btn btn-sm" onclick="pinPost(${post.id})">${post.is_pinned ? '取消置顶' : '置顶'}</button>`;
+      actionsHtml += `<button class="btn btn-sm" onclick="pinPost(${postId})">${post.is_pinned ? '取消置顶' : '置顶'}</button>`;
     }
 
     container.innerHTML = `
       <div class="article-header">
-        <span class="category-badge${cat === '公告' ? ' announcement' : ''}" style="margin-bottom:10px;display:inline-block;">${cat}</span>
-        <h1 class="article-title">${post.title}${post.mood ? `<span class="mood-tag">${post.mood}</span>` : ''}</h1>
+        <span class="category-badge${cat === '公告' ? ' announcement' : ''}" style="margin-bottom:10px;display:inline-block;">${safeCat}</span>
+        <h1 class="article-title">${safeTitle}${safeMood ? `<span class="mood-tag">${safeMood}</span>` : ''}</h1>
         <div class="article-meta">
-          <span>👤 ${author}</span>
+          <span>👤 ${safeAuthor}</span>
           <span>${timeHtml}</span>
           <span>💬 ${post.comment_count || 0} 评论</span>
         </div>
       </div>
       <div class="article-content">${parsedContent}</div>
       <div class="article-actions">
-        <button class="btn btn-sm like-btn ${post.is_liked ? 'liked' : ''}" onclick="toggleLike(${post.id}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>
+        <button class="btn btn-sm like-btn ${post.is_liked ? 'liked' : ''}" onclick="toggleLike(${postId}, 'post', this)">❤ <span class="count">${post.like_count || 0}</span></button>
         ${actionsHtml}
       </div>
     `;
@@ -665,25 +685,28 @@ function createCommentGroupLabel(text, type) {
 function createCommentElement(c, isReply, postAuthorId, floorNumber) {
   const div = document.createElement('div');
   const isChild = !!c.parent_id;
+  const commentId = Number(c.id);
   div.className = `comment-card${c.is_pinned ? ' pinned' : ''}${isChild ? ' is-reply' : ''}`;
-  div.id = `comment-${c.id}`;
+  div.id = `comment-${commentId}`;
 
-  const author = c.nickname || c.username || 'Unknown';
+  const authorRaw = c.nickname || c.username || 'Unknown';
+  const author = escapeHtml(authorRaw);
   const timeStr = timeAgo(c.created_at);
   const parsedContent = parseMarkdown(c.content || '');
   const pinnedBadge = c.is_pinned ? '<span class="pinned-label">置顶</span>' : '';
   const authorTag = postAuthorId && c.user_id === postAuthorId ? ' <span style="font-size:0.7rem;color:var(--accent);">作者</span>' : '';
   const floorBadge = !isChild ? `<span class="comment-floor">#${floorNumber + 1}</span>` : '';
-  const replyTag = c.reply_to_nickname
-    ? `<span class="reply-tag">↩ @${c.reply_to_nickname || c.reply_to_username}</span>`
+  const replyTarget = c.reply_to_nickname || c.reply_to_username;
+  const replyTag = replyTarget
+    ? `<span class="reply-tag">↩ @${escapeHtml(replyTarget)}</span>`
     : '';
 
   let adminActions = '';
   if (currentUser && (currentUser.id === c.user_id || userRole === 'admin')) {
-    adminActions += `<span onclick="deleteComment(${c.id})" style="cursor:pointer;color:var(--danger);">删除</span>`;
+    adminActions += `<span onclick="deleteComment(${commentId})" style="cursor:pointer;color:var(--danger);">删除</span>`;
   }
   if (postAuthorId && currentUser && currentUser.id === postAuthorId) {
-    adminActions += `<span onclick="pinComment(${c.id})" style="cursor:pointer;color:var(--text-muted);margin-left:8px;">${c.is_pinned ? '取消置顶' : '置顶'}</span>`;
+    adminActions += `<span onclick="pinComment(${commentId})" style="cursor:pointer;color:var(--text-muted);margin-left:8px;">${c.is_pinned ? '取消置顶' : '置顶'}</span>`;
   }
 
   div.innerHTML = `
@@ -696,8 +719,8 @@ function createCommentElement(c, isReply, postAuthorId, floorNumber) {
     </div>
     <div class="comment-body">${parsedContent}</div>
     <div class="comment-footer">
-      <button class="btn btn-sm like-btn ${c.is_liked ? 'liked' : ''}" onclick="toggleLike(${c.id}, 'comment', this)">❤ <span class="count">${c.like_count || 0}</span></button>
-      <button class="btn btn-sm btn-ghost" onclick="prepareReply(${c.id}, '${author}')">回复</button>
+      <button class="btn btn-sm like-btn ${c.is_liked ? 'liked' : ''}" onclick="toggleLike(${commentId}, 'comment', this)">❤ <span class="count">${c.like_count || 0}</span></button>
+      <button class="btn btn-sm btn-ghost" onclick='prepareReply(${commentId}, ${jsStringLiteral(authorRaw)})'>回复</button>
       ${adminActions}
     </div>
   `;
@@ -957,16 +980,18 @@ window.openDraftBox = function() {
     listEl.innerHTML = '<div class="draft-empty">暂无草稿</div>';
   } else {
     listEl.innerHTML = list.map(d => {
-      const displayTitle = d.title?.trim() || d.content?.trim().slice(0, 20) || '无标题';
+      const displayTitle = escapeHtml(d.title?.trim() || d.content?.trim().slice(0, 20) || '无标题');
+      const category = escapeHtml(d.category || '');
+      const draftId = Number(d.id);
       const timeStr = new Date(d.savedAt).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
       return `<div class="draft-item">
         <div class="draft-item-info">
           <div class="draft-item-title">${displayTitle}</div>
-          <div class="draft-item-meta">${d.category || ''} · ${timeStr}</div>
+          <div class="draft-item-meta">${category} · ${timeStr}</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button class="btn btn-sm btn-primary" onclick="loadDraftItem(${d.id})">加载</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteDraftItem(${d.id})">删除</button>
+          <button class="btn btn-sm btn-primary" onclick="loadDraftItem(${draftId})">加载</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteDraftItem(${draftId})">删除</button>
         </div>
       </div>`;
     }).join('');
@@ -1186,22 +1211,57 @@ window.uploadImage = async function () {
   await uploadPostFiles(input?.files || [], { input, prefix: 'upload' });
 };
 
+async function uploadCommentFiles(files, options = {}) {
+  const fileList = Array.from(files || []).filter(Boolean);
+  if (fileList.length === 0) return;
+
+  const status = document.getElementById('commentUploadStatus');
+  const ta = document.getElementById('commentInput');
+  if (!ta) return;
+
+  const inserted = [];
+  const failures = [];
+  try {
+    for (let i = 0; i < fileList.length; i++) {
+      if (status) status.textContent = `上传中 ${i + 1}/${fileList.length}`;
+      try {
+        const data = await uploadMarkdownFile(fileList[i], {
+          prefix: options.prefix || 'comment',
+          index: i,
+          onRetry: (attempt, maxAttempts) => {
+            if (status) status.textContent = `重试 ${i + 1}/${fileList.length}（${attempt}/${maxAttempts}）`;
+          }
+        });
+        inserted.push(data.mdInsert);
+      } catch (err) {
+        failures.push(err);
+      }
+    }
+
+    if (inserted.length > 0) {
+      insertMarkdownItemsAtCursor(ta, inserted);
+      if (status) status.textContent = failures.length ? `完成 ${inserted.length}/${fileList.length}` : '✓';
+      if (ta.value.length > 500) showToast('图片已插入，注意评论最多 500 字', 'error');
+    } else if (status) {
+      status.textContent = '失败';
+    }
+
+    if (failures.length > 0) {
+      const msg = inserted.length > 0
+        ? `已插入 ${inserted.length} 个，${failures.length} 个失败`
+        : (failures[0]?.message || '上传失败');
+      showToast(msg, 'error');
+    } else if (inserted.length > 1) {
+      showToast(`已插入 ${inserted.length} 个文件`, 'success');
+    }
+  } finally {
+    if (options.input) options.input.value = '';
+  }
+}
+
 window.uploadCommentImage = async function () {
   const input = document.getElementById('commentImgUpload');
-  const file = input?.files?.[0];
-  if (!file) return;
-  const status = document.getElementById('commentUploadStatus');
-  status.textContent = '上传中...';
-  try {
-    const data = await uploadMarkdownFile(file, { prefix: 'comment' });
-    insertTextAtTextareaCursor(document.getElementById('commentInput'), '\n' + data.mdInsert + '\n');
-    status.textContent = '✓';
-  } catch (e) {
-    status.textContent = '失败';
-    showToast(e.message || '上传失败', 'error');
-  } finally {
-    if (input) input.value = '';
-  }
+  await uploadCommentFiles(input?.files || [], { input, prefix: 'comment' });
 };
 
 function getPastedImageFiles(e) {
@@ -1226,6 +1286,18 @@ function bindPostImagePasteUpload() {
     if (files.length === 0) return;
     e.preventDefault();
     await uploadPostFiles(files, { prefix: 'pasted' });
+  });
+}
+
+function bindCommentImagePasteUpload() {
+  const ta = document.getElementById('commentInput');
+  if (!ta || ta.dataset.pasteUploadBound) return;
+  ta.dataset.pasteUploadBound = '1';
+  ta.addEventListener('paste', async (e) => {
+    const files = getPastedImageFiles(e);
+    if (files.length === 0) return;
+    e.preventDefault();
+    await uploadCommentFiles(files, { prefix: 'comment-pasted' });
   });
 }
 
@@ -1292,9 +1364,9 @@ async function loadUserProfile(param) {
     } else {
       profilePosts.innerHTML = `<h3 style="margin-bottom:14px;font-weight:650;">TA 的帖子</h3>` +
         userPosts.map(p => `
-          <div class="post-card" onclick="window.location.hash='#post?id=${p.id}'" style="margin-bottom:8px;">
-            <div class="card-header"><span class="category-badge">${p.category || '灌水'}</span></div>
-            <div class="card-title">${p.title}</div>
+          <div class="post-card" onclick="window.location.hash='#post?id=${Number(p.id)}'" style="margin-bottom:8px;">
+            <div class="card-header"><span class="category-badge">${escapeHtml(p.category || '灌水')}</span></div>
+            <div class="card-title">${escapeHtml(p.title || '无题 / Untitled')}</div>
             <div class="card-meta" style="margin-top:6px;">${timeAgo(p.created_at)} · 💬 ${p.comment_count || 0} · ❤ ${p.like_count || 0}</div>
           </div>
         `).join('');
@@ -1387,7 +1459,7 @@ window.uploadUserAvatar = async function () {
       showToast('头像已更新', 'success');
       currentUser.avatar_url = data.url;
       // 刷新各处头像显示
-      document.getElementById('settingsAvatarPreview').innerHTML = `<img src="${data.url}" style="width:100%;height:100%;object-fit:cover;">`;
+      document.getElementById('settingsAvatarPreview').innerHTML = `<img src="${escapeHtml(data.url)}" style="width:100%;height:100%;object-fit:cover;">`;
       document.getElementById('navAvatar').innerHTML = renderUserAvatar(currentUser);
     } else {
       showToast(data.error || '上传失败', 'error');
@@ -1725,6 +1797,7 @@ function initApp() {
   if (mdEditBtn) mdEditBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('edit'); });
   if (mdPreviewBtn) mdPreviewBtn.addEventListener('click', function (e) { e.preventDefault(); switchMdTab('preview'); });
   bindPostImagePasteUpload();
+  bindCommentImagePasteUpload();
   bindPostDragDropUpload();
 
   // 布局切换按钮事件绑定
@@ -1810,7 +1883,7 @@ function renderTOCSidebar(items) {
   const sidebar = document.getElementById('toc-sidebar');
   if (!sidebar) return;
   sidebar.innerHTML = '<h3>目录</h3><ul>' + items.map(item =>
-    `<li><a href="#${item.id}" class="toc-link toc-h${item.level}">${item.text}</a></li>`
+    `<li><a href="#${escapeHtml(item.id)}" class="toc-link toc-h${item.level}">${escapeHtml(item.text)}</a></li>`
   ).join('') + '</ul>';
 
   sidebar.querySelectorAll('.toc-link').forEach(link => {
@@ -1842,7 +1915,7 @@ function renderTOCMobile(items, contentEl) {
     `<button id="toc-mobile-toggle">目录 <i class="toc-arrow">▼</i></button>
     <div id="toc-mobile-body">
       <ul>${items.map(item =>
-        `<li><a href="#${item.id}" class="toc-link toc-h${item.level}">${item.text}</a></li>`
+        `<li><a href="#${escapeHtml(item.id)}" class="toc-link toc-h${item.level}">${escapeHtml(item.text)}</a></li>`
       ).join('')}</ul>
     </div>`;
 

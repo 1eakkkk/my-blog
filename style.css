@@ -1997,6 +1997,15 @@ body {
     min-width: 0;
     height: 40px;
     padding: 8px 12px;
+    font-size: 16px;
+  }
+
+  .toolbar input,
+  .toolbar select,
+  #searchInput,
+  #commentInput,
+  .form-control {
+    font-size: 16px;
   }
 
   .release-header {
@@ -2035,11 +2044,29 @@ body {
     gap: 2px;
   }
 
-  .posts-grid { grid-template-columns: 1fr; }
+  .posts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
 
   .post-card {
     padding: 14px 16px;
     border-radius: 8px;
+  }
+
+  .posts-grid .post-card {
+    min-width: 0;
+    padding: 11px 10px;
+  }
+
+  .posts-grid .post-card .card-header {
+    gap: 4px;
+    margin-bottom: 7px;
+  }
+
+  .posts-grid .category-badge {
+    padding-inline: 7px;
+    font-size: 0.68rem;
   }
 
   .post-card .card-title,
@@ -2047,8 +2074,20 @@ body {
     overflow-wrap: anywhere;
   }
 
+  .posts-grid .post-card .card-title {
+    font-size: 0.86rem;
+    margin-bottom: 5px;
+  }
+
   .post-card .card-snippet {
     margin-bottom: 10px;
+  }
+
+  .posts-grid .post-card .card-snippet {
+    font-size: 0.76rem;
+    line-height: 1.45;
+    -webkit-line-clamp: 2;
+    margin-bottom: 7px;
   }
 
   .post-card .card-meta {
@@ -2057,9 +2096,29 @@ body {
     line-height: 1.5;
   }
 
+  .posts-grid .post-card .card-meta {
+    gap: 3px 7px;
+    font-size: 0.69rem;
+  }
+
+  .posts-grid .post-card .card-meta span:first-child,
+  .posts-grid .post-card .card-meta span:nth-child(5) {
+    display: none;
+  }
+
   .post-card .card-thumb-item {
     width: 54px;
     height: 54px;
+  }
+
+  .posts-grid .post-card .card-thumbs {
+    gap: 4px;
+    margin-bottom: 7px;
+  }
+
+  .posts-grid .post-card .card-thumb-item {
+    width: 42px;
+    height: 42px;
   }
 
   .write-view h2 { margin-bottom: 16px; }
