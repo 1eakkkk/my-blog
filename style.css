@@ -344,6 +344,8 @@ a:hover { text-decoration: underline; }
   background: var(--card);
 }
 
+.update-notice[hidden] { display: none; }
+
 .update-notice strong {
   display: block;
   margin-bottom: 3px;

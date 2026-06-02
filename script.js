@@ -12,6 +12,8 @@ let editingPostId = null;
 let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
+const HOME_UPDATE_NOTICE_VERSION = 'v2.5.9';
+const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSION}`;
 
 // 随机标语
 const TAGLINES = [
@@ -359,6 +361,23 @@ async function doLogout() {
   window.location.href = '/login.html';
 }
 
+function syncHomeUpdateNotice() {
+  const notice = document.getElementById('homeUpdateNotice');
+  if (!notice) return;
+
+  const version = notice.dataset.noticeVersion || HOME_UPDATE_NOTICE_VERSION;
+  const key = `homeUpdateNoticeSeen:${version}`;
+  let alreadySeen = false;
+  try {
+    alreadySeen = localStorage.getItem(key) === '1';
+  } catch (_) {}
+
+  notice.hidden = alreadySeen;
+  if (!alreadySeen) {
+    try { localStorage.setItem(key, '1'); } catch (_) {}
+  }
+}
+
 // === 路由 ===
 const views = {
   home: document.getElementById('view-home'),
@@ -396,6 +415,7 @@ async function handleRoute() {
   if (hash === '#home') {
     views.home.style.display = 'block';
     document.getElementById('navHome').classList.add('active');
+    syncHomeUpdateNotice();
     const list = document.getElementById('posts-list');
     const savedScroll = sessionStorage.getItem('homeScrollY');
     if (!list || list.children.length === 0) {
