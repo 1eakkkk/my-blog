@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.24">
+  <link rel="stylesheet" href="style.css?v=8.25">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -81,10 +81,10 @@
         <button id="layoutGrid" onclick="setLayout('grid')">▦ 网格</button>
       </div>
     </div>
-    <div class="update-notice" id="homeUpdateNotice" data-notice-version="v2.5.9" role="note" aria-label="最新更新公告" hidden>
+    <div class="update-notice" id="homeUpdateNotice" data-notice-version="v2.6.0" role="note" aria-label="最新更新公告" hidden>
       <div>
-        <strong>v2.5.9 更新公告</strong>
-        <p>首页更新提醒现在只展示一次；后续版本记录请到关于页查看。</p>
+        <strong>v2.6.0 更新公告</strong>
+        <p>旧账号找回入口已彻底移除；完整记录可到关于页查看。</p>
       </div>
       <a href="#about">查看更新日志</a>
     </div>
@@ -259,16 +259,6 @@
       </div>
     </div>
     <div class="settings-section">
-      <h3>恢复短语</h3>
-      <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:10px;">忘记密码时用此短语重置。请妥善保存。</p>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <code id="settingsRecoveryPhrase" style="background:var(--bg);padding:8px 14px;border-radius:6px;font-size:1rem;font-family:var(--font-mono);letter-spacing:2px;border:1px solid var(--border);">加载中...</code>
-        <button class="btn btn-sm btn-ghost" onclick="copyRecoveryPhrase()">复制</button>
-      </div>
-      <button class="btn btn-sm btn-danger" onclick="regenerateRecoveryPhrase()">重新生成</button>
-    </div>
-
-    <div class="settings-section">
       <h3>退出登录</h3>
       <button class="btn btn-danger" onclick="doLogout()">退出登录</button>
     </div>
@@ -395,7 +385,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.5.9</strong> · 2026-06-02</p>
+      <p style="margin-top:8px;">版本：<strong>v2.6.0</strong> · 2026-06-02</p>
     </div>
 
     <div class="about-section">
@@ -422,27 +412,42 @@
           <h3>更新日志</h3>
           <p>只保留真正影响体验和维护的变更，近期更新展开，历史记录收起。</p>
         </div>
-        <span class="release-current-badge">当前 v2.5.9</span>
+        <span class="release-current-badge">当前 v2.6.0</span>
       </div>
 
       <div class="release-board">
         <details open class="release-group release-current">
-          <summary>v2.5.9 (2026-06-02)</summary>
+          <summary>v2.6.0 (2026-06-02)</summary>
           <div class="release-card">
             <div class="release-tags">
-              <span>首页</span>
-              <span>更新日志</span>
+              <span>账号</span>
+              <span>清理</span>
             </div>
-            <p><strong>v2.5.9</strong> — 首页更新公告改为每个用户只展示一次，避免长期占用首页空间。</p>
+            <p><strong>v2.6.0</strong> — 旧账号找回入口已从前端页面、接口代码和文档中移除。</p>
             <ul>
-              <li>首次进入首页时展示最新更新提醒，并记录为已读。</li>
-              <li>之后刷新或返回首页不再重复显示。</li>
-              <li>完整更新记录仍保留在关于页。</li>
+              <li>登录页只保留登录和注册。</li>
+              <li>设置页移除旧找回凭据展示、复制和重新生成操作。</li>
+              <li>后端删除旧找回凭据生成、读取、重置接口和注册返回字段。</li>
             </ul>
           </div>
         </details>
 
         <div class="release-timeline">
+          <article class="release-item">
+            <div class="release-dot"></div>
+            <div class="release-card">
+              <div class="release-item-head">
+                <strong>v2.5.9</strong>
+                <time>2026-06-02</time>
+              </div>
+              <div class="release-tags">
+                <span>首页</span>
+                <span>更新日志</span>
+              </div>
+              <p>首页更新公告改为每个用户只展示一次，避免长期占用首页空间。</p>
+            </div>
+          </article>
+
           <article class="release-item">
             <div class="release-dot"></div>
             <div class="release-card">
@@ -596,6 +601,6 @@
   <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.24"></script>
+<script src="script.js?v=8.25"></script>
 </body>
 </html>

@@ -1,10 +1,3 @@
-const WORDS = ['蓝天','白云','青山','绿水','红日','明月','星辰','大海','春风','夏雨','秋霜','冬雪','金鱼','银河','彩虹','流星','晨曦','晚霞','飞鸟','游鱼','苍松','翠竹','梅花','兰花','清泉','灵石','龙腾','凤舞','虎啸','鹤鸣'];
-
-function generateRecoveryPhrase() {
-  const pick = () => WORDS[Math.floor(Math.random() * WORDS.length)];
-  return `${pick()}-${pick()}-${pick()}-${pick()}`;
-}
-
 async function hashPassword(password, salt) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 100000, hash: 'SHA-256' }, key, 256);
@@ -40,16 +33,14 @@ export async function onRequestPost(context) {
   const salt = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
   const hash = await hashPassword(password, salt);
   const passwordStore = `${salt}:${hash}`;
-  const recoveryPhrase = generateRecoveryPhrase();
 
   try {
-    await db.prepare('INSERT INTO users (username, password, recovery_key, created_at, last_seen) VALUES (?, ?, ?, ?, ?)')
-      .bind(username, passwordStore, recoveryPhrase, Date.now(), Date.now()).run();
+    await db.prepare('INSERT INTO users (username, password, created_at, last_seen) VALUES (?, ?, ?, ?)')
+      .bind(username, passwordStore, Date.now(), Date.now()).run();
 
     return new Response(JSON.stringify({
       success: true,
-      recoveryPhrase: recoveryPhrase,
-      message: '注册成功！请保存恢复短语，忘记密码时需要使用。'
+      message: '注册成功！'
     }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ success: false, error: '用户名已存在' }), { status: 409 });

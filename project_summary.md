@@ -4,7 +4,7 @@
 
 基于 Cloudflare 全家桶（Pages + D1 + R2 + KV）构建的轻量级私人论坛。原生 HTML/JS/CSS 开发，无前端框架，SPA 架构。私人小站，供自己和好友使用。
 
-**当前版本**：v2.5.9（2026-06-02）
+**当前版本**：v2.6.0（2026-06-02）
 
 ## 2) 技术栈
 
@@ -40,8 +40,7 @@
     └── auth/
         ├── login.js
         ├── logout.js
-        ├── register.js
-        └── reset.js
+        └── register.js
 ```
 
 ## 4) 功能模块
@@ -66,7 +65,6 @@
 - 注册：用户名 2-20 字符，白名单 `[\u4e00-\u9fa5a-zA-Z0-9_-]`
 - 密码：PBKDF2-SHA256，旧 SHA-256 格式登录时自动升级
 - 登录失败锁定：5次失败后锁定 15 分钟
-- 恢复短语：四字汉字短语（30个词库，格式：蓝天-白云-青山-绿水）
 - Session：7天有效期，user.js 请求时异步清理过期记录
 - 个人资料：昵称（限12字）、签名（限50字）、头像（R2）
 
@@ -94,7 +92,7 @@
 ```sql
 id, username, password(salt:hash), nickname, bio, avatar_url, avatar_variant,
 role, status, ban_expires_at, ban_reason,
-recovery_key, login_fails, login_locked_until,
+login_fails, login_locked_until,
 xp, level, is_vip, badge_preference, equipped_post_style,
 name_color, custom_title, custom_title_color,
 created_at, last_seen

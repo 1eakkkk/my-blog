@@ -12,7 +12,7 @@ let editingPostId = null;
 let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
-const HOME_UPDATE_NOTICE_VERSION = 'v2.5.9';
+const HOME_UPDATE_NOTICE_VERSION = 'v2.6.0';
 const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSION}`;
 
 // 随机标语
@@ -455,7 +455,6 @@ async function handleRoute() {
       document.getElementById('settingsNickname').value = currentUser.nickname || '';
       document.getElementById('settingsBio').value = currentUser.bio || '';
     }
-    loadRecoveryPhrase();
   } else if (hash === '#about') {
     views.about.style.display = 'block';
     document.getElementById('navAbout').classList.add('active');
@@ -1393,41 +1392,6 @@ async function loadUserProfile(param) {
     }
   } catch (e) { console.error(e); }
 }
-
-// === 恢复短语 ===
-async function loadRecoveryPhrase() {
-  try {
-    const res = await fetch(`${API_BASE}/profile`);
-    const data = await res.json();
-    const el = document.getElementById('settingsRecoveryPhrase');
-    if (el && data.recoveryPhrase) el.textContent = data.recoveryPhrase;
-  } catch (e) { }
-}
-
-window.copyRecoveryPhrase = function () {
-  const el = document.getElementById('settingsRecoveryPhrase');
-  if (el && el.textContent) {
-    navigator.clipboard.writeText(el.textContent).then(() => showToast('已复制', 'success'));
-  }
-};
-
-window.regenerateRecoveryPhrase = async function () {
-  if (!confirm('重新生成后旧恢复短语将失效，确定继续？')) return;
-  try {
-    const res = await fetch(`${API_BASE}/profile`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ regenerate_recovery: true })
-    });
-    const data = await res.json();
-    if (data.success) {
-      document.getElementById('settingsRecoveryPhrase').textContent = data.recoveryPhrase;
-      showToast('恢复短语已更新，请保存！', 'success');
-    } else {
-      showToast(data.error, 'error');
-    }
-  } catch (e) { showToast('网络错误', 'error'); }
-};
 
 // === 设置 ===
 window.updateNickname = async function () {

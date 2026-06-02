@@ -211,18 +211,6 @@
 
     .msg-box.success { color: var(--green); }
 
-    .recovery-box {
-      display: none;
-      margin-top: 16px;
-      padding: 12px;
-      border: 1px solid var(--green);
-      border-radius: var(--radius-sm);
-      background: rgba(34, 197, 94, 0.08);
-      font-size: 0.83rem;
-      line-height: 1.6;
-      word-break: break-all;
-    }
-
     .cf-turnstile { margin-bottom: 12px; display: flex; justify-content: center; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
@@ -284,7 +272,6 @@
   <div class="tabs">
     <div class="tab active" onclick="switchTab('login', this)">登录</div>
     <div class="tab" onclick="switchTab('register', this)">注册</div>
-    <div class="tab" onclick="switchTab('reset', this)">忘记密码</div>
   </div>
 
   <form id="authForm">
@@ -292,14 +279,10 @@
     <input type="text" id="username" class="form-control" placeholder="用户名" required>
     <label for="password" class="sr-only">密码</label>
     <input type="password" id="password" class="form-control" placeholder="密码" required>
-    <label for="recoveryKeyInput" class="sr-only">恢复短语</label>
-    <input type="text" id="recoveryKeyInput" class="form-control" placeholder="恢复短语（如 蓝天-白云-青山-绿水）" style="display:none;">
     <div id="msgBox" class="msg-box"></div>
     <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXdJPWAee7ZdB" data-theme="dark"></div>
     <button type="submit" class="btn" id="submitBtn">登录</button>
   </form>
-
-  <div id="newRecoveryKey" class="recovery-box"></div>
 </div>
 
 <script>
@@ -307,8 +290,6 @@
   const msgBox = document.getElementById('msgBox');
   const submitBtn = document.getElementById('submitBtn');
   const passInput = document.getElementById('password');
-  const keyInput = document.getElementById('recoveryKeyInput');
-  const recoveryBox = document.getElementById('newRecoveryKey');
 
   // 主题
   function getSavedTheme() { return localStorage.getItem('theme') || 'dark'; }
@@ -338,24 +319,19 @@
 
   function switchTab(mode, el) {
     currentMode = mode;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    tabs.forEach(t => t.classList.remove('active'));
+    const activeTab = el || tabs.find(t => t.textContent.trim() === (mode === 'login' ? '登录' : '注册'));
+    if (activeTab) activeTab.classList.add('active');
     msgBox.textContent = '';
     msgBox.className = 'msg-box';
-    recoveryBox.style.display = 'none';
 
     if (mode === 'login') {
       submitBtn.textContent = '登录';
       passInput.placeholder = '密码';
-      keyInput.style.display = 'none'; keyInput.removeAttribute('required');
     } else if (mode === 'register') {
       submitBtn.textContent = '注册';
       passInput.placeholder = '设置密码';
-      keyInput.style.display = 'none'; keyInput.removeAttribute('required');
-    } else if (mode === 'reset') {
-      submitBtn.textContent = '重置密码';
-      passInput.placeholder = '新密码';
-      keyInput.style.display = 'block'; keyInput.required = true;
     }
   }
 
@@ -363,7 +339,6 @@
     e.preventDefault();
     const u = document.getElementById('username').value;
     const p = document.getElementById('password').value;
-    const k = keyInput.value;
     const formData = new FormData(e.target);
     const token = formData.get('cf-turnstile-response');
 
@@ -375,7 +350,6 @@
     let body = { username: u, password: p, turnstileToken: token };
 
     if (currentMode === 'register') { endpoint = '/api/auth/register'; }
-    else if (currentMode === 'reset') { endpoint = '/api/auth/reset'; body = { username: u, newPassword: p, recoveryKey: k }; }
 
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -383,13 +357,14 @@
       if (data.success) {
         if (currentMode === 'login') { window.location.href = '/index.html'; }
         else if (currentMode === 'register') {
-          msgBox.textContent = '注册成功！请务必保存下方的恢复短语！';
+          msgBox.textContent = '注册成功，请登录。';
           msgBox.className = 'msg-box success';
-          recoveryBox.style.display = 'block';
-          recoveryBox.innerHTML = `<strong>恢复短语：</strong><br>${data.recoveryPhrase}<br><br>⚠️ 请截图或复制保存，忘记密码时用它来重置！`;
-          submitBtn.textContent = '前往登录';
-          document.getElementById('authForm').onsubmit = () => { switchTab('login'); return false; };
-        } else if (currentMode === 'reset') { alert('密码已重置，请登录'); switchTab('login'); }
+          currentMode = 'login';
+          document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === '登录'));
+          passInput.placeholder = '密码';
+          passInput.value = '';
+          submitBtn.textContent = '登录';
+        }
       } else {
         msgBox.textContent = data.error || '操作失败';
         msgBox.className = 'msg-box';
