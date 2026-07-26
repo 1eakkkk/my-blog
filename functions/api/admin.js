@@ -121,6 +121,8 @@ export async function onRequestPost(context) {
   if (action === 'post_announce') {
     const { title, content } = body;
     if (!title || !content) return json({ success: false, error: '信息不完整' }, { status: 400 });
+    if (title.length > 100) return json({ success: false, error: '标题最多100字' }, { status: 400 });
+    if (content.length > 50000) return json({ success: false, error: '内容过长，最多50000字' }, { status: 400 });
     await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, created_at) VALUES (?, ?, ?, ?, ?, ?)')
       .bind(user.id, user.nickname || user.username, title, content, '公告', Date.now()).run();
     return json({ success: true, message: '公告已发布' });

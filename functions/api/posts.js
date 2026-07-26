@@ -1,5 +1,7 @@
 import { json, getUser } from './_lib.js';
 
+const CATEGORIES = ['灌水', '技术', '生活', '提问', '公告'];
+
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
@@ -93,6 +95,7 @@ export async function onRequestPost(context) {
 
   let { title, content, category, mood } = await context.request.json();
 
+  if (title && title.length > 100) return json({ success: false, error: '标题最多100字' }, { status: 400 });
   if (content && content.length > 50000) return new Response(JSON.stringify({ success: false, error: '内容过长，最多50000字' }), { status: 400 });
   if ((!title || !title.trim()) && (!content || !content.trim())) {
     return new Response(JSON.stringify({ success: false, error: '标题和内容不能同时为空' }), { status: 400 });
@@ -101,7 +104,7 @@ export async function onRequestPost(context) {
   if (!title || !title.trim()) title = "无题 / Untitled";
   if (!content || !content.trim()) content = "（如题）";
 
-  let finalCategory = category || '灌水';
+  let finalCategory = CATEGORIES.includes(category) ? category : '灌水';
   if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
   await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, mood, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -122,6 +125,8 @@ export async function onRequestPut(context) {
     if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
     if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
     if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
+    if (title && title.length > 100) return json({ success: false, error: '标题最多100字' }, { status: 400 });
+    category = CATEGORIES.includes(category) ? category : '灌水';
 
     if (content && content.length > 50000) return new Response(JSON.stringify({ success: false, error: '内容过长，最多50000字' }), { status: 400 });
     if ((!title || !title.trim()) && (!content || !content.trim())) {

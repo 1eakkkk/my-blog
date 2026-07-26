@@ -7,7 +7,8 @@ async function hashPassword(password, salt) {
 export async function onRequestPost(context) {
   const { request, env } = context;
   const db = env.DB;
-  const { username, password, turnstileToken } = await request.json();
+  let { username, password, turnstileToken } = await request.json();
+  username = (username || '').trim();
 
   if (!username || !password) return new Response(JSON.stringify({ success: false, error: '信息不完整' }), { status: 400 });
   if (username.length < 2 || username.length > 20) return new Response(JSON.stringify({ success: false, error: '用户名2-20个字符' }), { status: 400 });
