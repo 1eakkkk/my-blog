@@ -9,10 +9,6 @@ export async function onRequestPost(context) {
   const db = env.DB;
   const { username, password, turnstileToken } = await request.json();
 
-  // 确保 login_fails / login_locked_until 列存在
-  try { await db.exec('ALTER TABLE users ADD COLUMN login_fails INTEGER DEFAULT 0'); } catch (e) { }
-  try { await db.exec('ALTER TABLE users ADD COLUMN login_locked_until INTEGER DEFAULT 0'); } catch (e) { }
-
   // Turnstile
   const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
   if (!setting || setting.value === 'true') {
@@ -86,7 +82,7 @@ export async function onRequestPost(context) {
     .bind(sessionId, user.id, now).run();
 
   const headers = new Headers();
-  headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; Secure; HttpOnly; SameSite=None; Max-Age=604800`);
+  headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=604800`);
   headers.append('Content-Type', 'application/json');
 
   return new Response(JSON.stringify({ success: true, username: user.username }), { headers });

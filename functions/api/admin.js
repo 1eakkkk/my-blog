@@ -1,27 +1,9 @@
-function json(data, init = {}) {
-  return new Response(JSON.stringify(data), {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers || {})
-    }
-  });
-}
-
-async function ensureSecurityColumns(db) {
-  try { await db.exec('ALTER TABLE users ADD COLUMN login_fails INTEGER DEFAULT 0'); } catch (e) { }
-  try { await db.exec('ALTER TABLE users ADD COLUMN login_locked_until INTEGER DEFAULT 0'); } catch (e) { }
-}
+import { json, getUser } from './_lib.js';
 
 export async function onRequestGet(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie) return json({ error: '未登录' }, { status: 401 });
-  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const user = await db.prepare('SELECT users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+  const user = await getUser(context);
   if (!user || user.role !== 'admin') return json({ error: '无权限' }, { status: 403 });
-
-  await ensureSecurityColumns(db);
 
   const url = new URL(context.request.url);
   const action = url.searchParams.get('action') || 'stats';
@@ -116,13 +98,8 @@ export async function onRequestGet(context) {
 
 export async function onRequestPost(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie) return json({ error: '未登录' }, { status: 401 });
-  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const user = await db.prepare('SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?').bind(sessionId).first();
+  const user = await getUser(context);
   if (!user || user.role !== 'admin') return json({ error: '无权限' }, { status: 403 });
-
-  await ensureSecurityColumns(db);
 
   const body = await context.request.json();
   const { action } = body;

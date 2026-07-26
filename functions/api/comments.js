@@ -1,3 +1,5 @@
+import { json, getUser } from './_lib.js';
+
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
@@ -7,13 +9,8 @@ export async function onRequestGet(context) {
   const limit = parseInt(url.searchParams.get('limit')) || 20;
   const offset = (page - 1) * limit;
 
-  const cookie = context.request.headers.get('Cookie');
-  let currentUserId = 0;
-  if (cookie && cookie.includes('session_id')) {
-    const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-    const u = await db.prepare('SELECT user_id FROM sessions WHERE session_id = ?').bind(sessionId).first();
-    if (u) currentUserId = u.user_id;
-  }
+  const viewer = await getUser(context);
+  const currentUserId = viewer ? viewer.id : 0;
 
   if (!postId) return new Response(JSON.stringify({ results: [] }), { headers: { 'Content-Type': 'application/json' } });
 
@@ -46,12 +43,9 @@ export async function onRequestGet(context) {
 
 export async function onRequestPost(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
-  const sessionId = cookie.split('session_id=')[1].split(';')[0];
-  const user = await db.prepare(`SELECT * FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
-  if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号封禁中' }), { status: 403 });
+  const user = await getUser(context);
+  if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
+  if (user.status === 'banned') return json({ success: false, error: '账号封禁中' }, { status: 403 });
 
   const { post_id, content, parent_id } = await context.request.json();
   if (!content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
@@ -79,11 +73,8 @@ export async function onRequestPost(context) {
 
 export async function onRequestPut(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
-  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+  const user = await getUser(context);
+  if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
 
   const { id, action, content } = await context.request.json();
 
@@ -91,6 +82,8 @@ export async function onRequestPut(context) {
     const comment = await db.prepare('SELECT user_id FROM comments WHERE id = ?').bind(id).first();
     if (!comment) return new Response(JSON.stringify({ success: false, error: '评论不存在' }));
     if (comment.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
+    if (!content || !content.trim()) return json({ success: false, error: '内容为空' }, { status: 400 });
+    if (content.length > 500) return json({ success: false, error: '评论最多500字' }, { status: 400 });
     await db.prepare('UPDATE comments SET content = ? WHERE id = ?').bind(content, id).run();
     return new Response(JSON.stringify({ success: true, message: '评论已更新' }));
   }
@@ -112,11 +105,8 @@ export async function onRequestPut(context) {
 
 export async function onRequestDelete(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
-  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const user = await db.prepare(`SELECT users.id, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+  const user = await getUser(context);
+  if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
 
   const url = new URL(context.request.url);
   const commentId = url.searchParams.get('id');

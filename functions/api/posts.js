@@ -1,3 +1,5 @@
+import { json, getUser } from './_lib.js';
+
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
@@ -13,13 +15,8 @@ export async function onRequestGet(context) {
   const limit = parseInt(url.searchParams.get('limit')) || 10;
   const offset = (page - 1) * limit;
 
-  const cookie = context.request.headers.get('Cookie');
-  let currentUserId = null;
-  if (cookie && cookie.includes('session_id')) {
-    const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-    const u = await db.prepare('SELECT user_id FROM sessions WHERE session_id = ?').bind(sessionId).first();
-    if (u) currentUserId = u.user_id;
-  }
+  const viewer = await getUser(context);
+  const currentUserId = viewer ? viewer.id : null;
 
   const fields = `
     posts.*,
@@ -77,12 +74,9 @@ export async function onRequestGet(context) {
 
 export async function onRequestPost(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
-  const sessionId = cookie.split('session_id=')[1].split(';')[0];
-  const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
-  if (user.status === 'banned') return new Response(JSON.stringify({ success: false, error: '账号封禁' }), { status: 403 });
+  const user = await getUser(context);
+  if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
+  if (user.status === 'banned') return json({ success: false, error: '账号封禁' }, { status: 403 });
 
   let { title, content, category, mood } = await context.request.json();
 
@@ -105,11 +99,8 @@ export async function onRequestPost(context) {
 
 export async function onRequestPut(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
-  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const user = await db.prepare(`SELECT users.* FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+  const user = await getUser(context);
+  if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
 
   let { id, action, title, content, category, mood } = await context.request.json();
 
@@ -145,11 +136,8 @@ export async function onRequestPut(context) {
 
 export async function onRequestDelete(context) {
   const db = context.env.DB;
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie) return new Response(JSON.stringify({ success: false }), { status: 401 });
-  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const user = await db.prepare(`SELECT users.id, users.role FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+  const user = await getUser(context);
+  if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
   let result;

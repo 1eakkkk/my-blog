@@ -1,13 +1,14 @@
+import { json, getUser } from './_lib.js';
+
 export async function onRequestPost(context) {
   const db = context.env.DB;
-
-  const cookie = context.request.headers.get('Cookie');
-  if (!cookie || !cookie.includes('session_id')) return new Response(JSON.stringify({ success: false, error: '请先登录' }), { status: 401 });
-  const sessionId = cookie.match(/session_id=([^;]+)/)?.[1];
-  const user = await db.prepare(`SELECT id, username, nickname FROM sessions JOIN users ON sessions.user_id = users.id WHERE sessions.session_id = ?`).bind(sessionId).first();
-  if (!user) return new Response(JSON.stringify({ success: false, error: '无效会话' }), { status: 401 });
+  const user = await getUser(context);
+  if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
 
   const { target_id, target_type } = await context.request.json();
+  if (!target_id || !['post', 'comment'].includes(target_type)) {
+    return json({ success: false, error: '参数无效' }, { status: 400 });
+  }
 
   const existing = await db.prepare('SELECT id FROM likes WHERE user_id = ? AND target_id = ? AND target_type = ?')
     .bind(user.id, target_id, target_type).first();
@@ -29,5 +30,5 @@ export async function onRequestPost(context) {
 
   const count = await db.prepare(`SELECT like_count FROM ${table} WHERE id = ?`).bind(target_id).first();
 
-  return new Response(JSON.stringify({ success: true, action, like_count: count.like_count }));
+  return json({ success: true, action, like_count: count.like_count });
 }
