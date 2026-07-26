@@ -466,10 +466,13 @@ async function handleRoute() {
   }
 }
 
-function estimateReadTime(content) {
-  if (!content) return '';
-  const text = content.replace(/<[^>]*>/g, '').replace(/\s+/g, '');
-  const minutes = Math.ceil(text.length / 300);
+function estimateReadTime(content, knownLength) {
+  // 列表接口只返回正文摘要，字数统计由服务端提供（content_length）；详情页仍现场计算
+  const len = (typeof knownLength === 'number')
+    ? knownLength
+    : (content ? content.replace(/<[^>]*>/g, '').replace(/\s+/g, '').length : 0);
+  if (!len) return '';
+  const minutes = Math.ceil(len / 300);
   return minutes < 1 ? '不足1分钟' : `约 ${minutes} 分钟`;
 }
 
@@ -511,7 +514,7 @@ async function loadPosts(reset = false) {
 
         let snippet = post.content ? stripMarkdown(post.content.replace(/<[^>]*>/g, '')).replace(/\[图片\](\s*\[图片\])+/g, '[图片]').substring(0, 120) : '';
         snippet = escapeHtml(snippet);
-        const thumbUrls = extractImages(post.content);
+        const thumbUrls = post.thumb_urls || extractImages(post.content);
 
         const card = document.createElement('div');
         card.className = 'post-card';
@@ -528,7 +531,7 @@ async function loadPosts(reset = false) {
             <span>${timeStr}</span>
             <span>💬 ${commentCount}</span>
             <span>❤ ${post.like_count || 0}</span>
-            <span>⏱ ${estimateReadTime(post.content)}</span>
+            <span>⏱ ${estimateReadTime(post.content, post.content_length)}</span>
           </div>
         `;
         card.onclick = () => { sessionStorage.setItem('homeScrollY', window.scrollY); window.location.hash = `#post?id=${post.id}`; };

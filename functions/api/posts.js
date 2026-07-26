@@ -6,8 +6,6 @@ export async function onRequestGet(context) {
   const id = url.searchParams.get('id');
 
   const now = Date.now();
-  await db.prepare('UPDATE posts SET is_pinned = 0, pinned_until = 0 WHERE is_pinned = 1 AND pinned_until > 0 AND pinned_until < ?').bind(now).run();
-
   const sort = url.searchParams.get('sort') || 'latest';
   const search = url.searchParams.get('search') || '';
   const category = url.searchParams.get('category') || '';
@@ -20,6 +18,7 @@ export async function onRequestGet(context) {
 
   const fields = `
     posts.*,
+    (posts.is_pinned = 1 AND (posts.pinned_until IS NULL OR posts.pinned_until <= 0 OR posts.pinned_until > ?)) as is_pinned,
     users.username as author_username,
     users.nickname as author_nickname,
     users.avatar_variant as author_avatar_variant,
@@ -31,11 +30,11 @@ export async function onRequestGet(context) {
 
   try {
     if (id) {
-      const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(currentUserId || 0, id).first();
+      const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(now, currentUserId || 0, id).first();
       return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
     } else {
       let sql = `SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id`;
-      const params = [currentUserId || 0];
+      const params = [now, currentUserId || 0];
       const conditions = [];
 
       if (search) {
@@ -65,6 +64,20 @@ export async function onRequestGet(context) {
       params.push(limit, offset);
 
       const posts = await db.prepare(sql).bind(...params).all();
+
+      // 列表模式不传全文：缩略图、纯文本字数在服务端算好，正文只保留摘要所需的前 600 字符
+      const IMG_RE = /!\[.*?\]\((https?:\/\/[^)]+)\)/g;
+      for (const p of posts.results) {
+        const full = p.content || '';
+        const thumbs = [];
+        let m;
+        IMG_RE.lastIndex = 0;
+        while ((m = IMG_RE.exec(full)) !== null && thumbs.length < 3) thumbs.push(m[1]);
+        p.thumb_urls = thumbs;
+        p.content_length = full.replace(/<[^>]*>/g, '').replace(/\s+/g, '').length; // 与前端阅读时间估算口径一致
+        p.content = full.slice(0, 600);
+      }
+
       return new Response(JSON.stringify(posts.results), { headers: { 'Content-Type': 'application/json' } });
     }
   } catch (e) {
