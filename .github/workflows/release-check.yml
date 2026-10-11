@@ -13,8 +13,8 @@ jobs:
         with:
           node-version: 24
       - run: node --check script.js
-      - run: node --check functions/api/comments.js
-      - run: node --check functions/api/posts.js
+      - name: Check all backend JavaScript
+        run: find functions -name '*.js' -print0 | xargs -0 -n1 node --check
       - run: node --check blog-utils.js
       - run: node --test tools/*.test.mjs
       - run: node tools/check-release.mjs

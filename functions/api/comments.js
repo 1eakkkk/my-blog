@@ -1,12 +1,14 @@
-import { json, getUser } from './_lib.js';
+import { json, getUser, readJson, positiveId, isBanned } from './_lib.js';
 
 export async function onRequestGet(context) {
   const db = context.env.DB;
   const url = new URL(context.request.url);
-  const postId = url.searchParams.get('post_id');
+  const rawPostId = url.searchParams.get('post_id');
+  const postId = positiveId(rawPostId);
 
-  const page = parseInt(url.searchParams.get('page')) || 1;
-  const limit = parseInt(url.searchParams.get('limit')) || 20;
+  const page = url.searchParams.has('page') ? positiveId(url.searchParams.get('page')) : 1;
+  const limit = url.searchParams.has('limit') ? positiveId(url.searchParams.get('limit')) : 20;
+  if ((rawPostId && !postId) || !page || page > 100000 || !limit || limit > 100) return json({ success: false, error: '参数无效' }, { status: 400 });
   const offset = (page - 1) * limit;
 
   const viewer = await getUser(context);
@@ -45,10 +47,11 @@ export async function onRequestPost(context) {
   const db = context.env.DB;
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
-  if (user.status === 'banned') return json({ success: false, error: '账号封禁中' }, { status: 403 });
+  if (isBanned(user)) return json({ success: false, error: '账号封禁中' }, { status: 403 });
 
-  const { post_id, content, parent_id } = await context.request.json();
-  if (!content) return new Response(JSON.stringify({ success: false, error: '内容为空' }), { status: 400 });
+  const { post_id, content, parent_id } = await readJson(context.request);
+  if (!positiveId(post_id) || (parent_id != null && !positiveId(parent_id))) return json({ success: false, error: '参数无效' }, { status: 400 });
+  if (typeof content !== 'string' || !content.trim()) return json({ success: false, error: '内容为空' }, { status: 400 });
   if (content.length > 500) return new Response(JSON.stringify({ success: false, error: '评论最多500字' }), { status: 400 });
 
   const postOwner = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(post_id).first();
@@ -58,10 +61,14 @@ export async function onRequestPost(context) {
   let replyToUid = null;
 
   if (parent_id) {
-    const targetComment = await db.prepare('SELECT id, parent_id, user_id FROM comments WHERE id = ?').bind(parent_id).first();
+    const targetComment = await db.prepare('SELECT id, parent_id, user_id FROM comments WHERE id = ? AND post_id = ?').bind(parent_id, post_id).first();
     if (!targetComment) return new Response(JSON.stringify({ success: false, error: '回复的评论不存在' }), { status: 404 });
     replyToUid = targetComment.user_id;
-    if (targetComment.parent_id) finalParentId = targetComment.parent_id;
+    if (targetComment.parent_id) {
+      const root = await db.prepare('SELECT id FROM comments WHERE id = ? AND post_id = ? AND parent_id IS NULL').bind(targetComment.parent_id, post_id).first();
+      if (!root) return json({ success: false, error: '回复的评论不存在' }, { status: 404 });
+      finalParentId = root.id;
+    }
     else finalParentId = targetComment.id;
   }
 
@@ -75,14 +82,16 @@ export async function onRequestPut(context) {
   const db = context.env.DB;
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
+  if (isBanned(user)) return json({ success: false, error: '账号封禁中' }, { status: 403 });
 
-  const { id, action, content } = await context.request.json();
+  const { id, action, content } = await readJson(context.request);
+  if (!positiveId(id)) return json({ success: false, error: '参数无效' }, { status: 400 });
 
   if (action === 'edit') {
     const comment = await db.prepare('SELECT user_id FROM comments WHERE id = ?').bind(id).first();
     if (!comment) return new Response(JSON.stringify({ success: false, error: '评论不存在' }));
     if (comment.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
-    if (!content || !content.trim()) return json({ success: false, error: '内容为空' }, { status: 400 });
+    if (typeof content !== 'string' || !content.trim()) return json({ success: false, error: '内容为空' }, { status: 400 });
     if (content.length > 500) return json({ success: false, error: '评论最多500字' }, { status: 400 });
     await db.prepare('UPDATE comments SET content = ? WHERE id = ?').bind(content, id).run();
     return new Response(JSON.stringify({ success: true, message: '评论已更新' }));
@@ -107,9 +116,11 @@ export async function onRequestDelete(context) {
   const db = context.env.DB;
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
+  if (isBanned(user)) return json({ success: false, error: '账号封禁中' }, { status: 403 });
 
   const url = new URL(context.request.url);
   const commentId = url.searchParams.get('id');
+  if (!positiveId(commentId)) return json({ success: false, error: '参数无效' }, { status: 400 });
 
   let result;
   if (user.role === 'admin') {

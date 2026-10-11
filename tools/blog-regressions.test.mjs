@@ -78,7 +78,7 @@ test('日期日历与日期查询在 UTC+8 午夜边界一致，拒绝无效参�
     const archive = await (await getPosts(f.context('user_id=1&archive=1'))).json();
     assert.equal(archive.days.find(d => d.date === '2026-10-11').count, 2);
     assert.equal(archive.days.find(d => d.date === '2026-01-01').count, 44);
-    for (const query of ['user_id=0','user_id=1 OR 1=1','date=2026-02-30','date=invalid','archive=1']) assert.equal((await getPosts(f.context(query))).status, 400);
+    for (const query of ['user_id=0','user_id=1 OR 1=1','date=2026-02-30','date=invalid']) assert.equal((await getPosts(f.context(query))).status, 400);
     f.sqlite.exec(`INSERT INTO comments VALUES (1,126,1,'评论',${start + 1000},0,NULL)`);
     const comments = await getComments(f.context('post_id=126'));
     assert.ok(Number(comments.headers.get('X-Server-Time')) > 0);

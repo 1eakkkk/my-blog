@@ -1,3 +1,5 @@
+import { json, readJson, verifyTurnstile, isBanned } from '../_lib.js';
+
 async function hashPassword(password, salt) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 100000, hash: 'SHA-256' }, key, 256);
@@ -7,21 +9,12 @@ async function hashPassword(password, salt) {
 export async function onRequestPost(context) {
   const { request, env } = context;
   const db = env.DB;
-  const { username, password, turnstileToken } = await request.json();
+  const { username, password, turnstileToken } = await readJson(request);
+  if (typeof username !== 'string' || username.length < 2 || username.length > 20 || typeof password !== 'string' || !password) return json({ success: false, error: '账号或密码格式无效' }, { status: 400 });
 
   // Turnstile
-  const setting = await db.prepare("SELECT value FROM system_settings WHERE key = 'turnstile_enabled'").first();
-  if (!setting || setting.value === 'true') {
-    if (!turnstileToken) return new Response(JSON.stringify({ success: false, error: '请完成人机验证' }), { status: 403 });
-    const ip = request.headers.get('CF-Connecting-IP');
-    const formData = new FormData();
-    formData.append('secret', env.TURNSTILE_SECRET);
-    formData.append('response', turnstileToken);
-    formData.append('remoteip', ip);
-    const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { body: formData, method: 'POST' });
-    const outcome = await verifyRes.json();
-    if (!outcome.success) return new Response(JSON.stringify({ success: false, error: '人机验证失败' }), { status: 403 });
-  }
+  const verificationError = await verifyTurnstile(context, turnstileToken);
+  if (verificationError) return verificationError;
 
   // 查用户（含锁定状态）
   const user = await db.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
@@ -58,22 +51,26 @@ export async function onRequestPost(context) {
   }
 
   if (!passwordMatch) {
-    // 登录失败计数
-    const fails = (user.login_fails || 0) + 1;
-    if (fails >= 5) {
-      await db.prepare('UPDATE users SET login_fails = ?, login_locked_until = ? WHERE id = ?')
-        .bind(fails, now + 15 * 60 * 1000, user.id).run();
+    // 单条 UPDATE 原子计数与设锁，避免并发请求都基于同一个旧计数覆盖。
+    const state = await db.prepare(`UPDATE users SET
+      login_fails = CASE WHEN login_locked_until > 0 AND login_locked_until <= ? THEN 1 ELSE COALESCE(login_fails, 0) + 1 END,
+      login_locked_until = CASE
+        WHEN login_locked_until > ? THEN login_locked_until
+        WHEN (CASE WHEN login_locked_until > 0 AND login_locked_until <= ? THEN 1 ELSE COALESCE(login_fails, 0) + 1 END) >= 5 THEN ?
+        ELSE 0 END
+      WHERE id = ? RETURNING login_fails, login_locked_until`)
+      .bind(now, now, now, now + 15 * 60 * 1000, user.id).first();
+    if (state.login_locked_until > now) {
       return new Response(JSON.stringify({ success: false, error: '登录失败次数过多，请 15 分钟后再试' }), { status: 429 });
     }
-    await db.prepare('UPDATE users SET login_fails = ? WHERE id = ?').bind(fails, user.id).run();
-    return new Response(JSON.stringify({ success: false, error: `账号或密码错误（还剩 ${5 - fails} 次尝试）` }), { status: 401 });
+    return new Response(JSON.stringify({ success: false, error: `账号或密码错误（还剩 ${5 - state.login_fails} 次尝试）` }), { status: 401 });
   }
 
   // 登录成功，重置计数
   await db.prepare('UPDATE users SET login_fails = 0, login_locked_until = 0 WHERE id = ?').bind(user.id).run();
 
   // 检查封禁
-  if (user.status === 'banned' && user.ban_expires_at > now) {
+  if (isBanned(user, now)) {
     return new Response(JSON.stringify({ success: false, error: '账号已被封禁' }), { status: 403 });
   }
 
@@ -84,6 +81,7 @@ export async function onRequestPost(context) {
   const headers = new Headers();
   headers.append('Set-Cookie', `session_id=${sessionId}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=604800`);
   headers.append('Content-Type', 'application/json');
+  headers.append('Cache-Control', 'no-store');
 
   return new Response(JSON.stringify({ success: true, username: user.username }), { headers });
 }
