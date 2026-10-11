@@ -42,7 +42,29 @@
     const suffix = selected && value.slice(end, stop).trim() ? '\n' : '';
     return { start, end, text: text + suffix, selectStart: selected ? prefix.length : prefix.length + indent.length + String(number).length + 2, selectEnd: text.length };
   }
-  const utils = { timestamp, formatTime, relativeTime, orderedListEdit };
+  function isCalendarDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const ms = Date.parse(`${value}T00:00:00+08:00`);
+    return Number.isFinite(ms) && new Date(ms + 8 * 3600000).toISOString().slice(0, 10) === value;
+  }
+  function archiveData(rows) {
+    const days = new Map();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const count = Number(row.count);
+      if (isCalendarDate(row.date) && Number.isSafeInteger(count) && count > 0) days.set(row.date, count);
+    }
+    const months = [...new Set([...days.keys()].map(d => d.slice(0, 7)))].sort();
+    return { days, months };
+  }
+  function safeUrl(value, base, allowContact = false) {
+    if (typeof value !== 'string' || !value.trim() || /[\u0000-\u001f\u007f]/.test(value)) return '';
+    try {
+      const url = new URL(value, base);
+      if (url.username || url.password) return '';
+      return ['https:', 'http:', ...(allowContact ? ['mailto:', 'tel:'] : [])].includes(url.protocol) ? url.href : '';
+    } catch (_) { return ''; }
+  }
+  const utils = { timestamp, formatTime, relativeTime, orderedListEdit, isCalendarDate, archiveData, safeUrl };
   root.BlogUtils = utils;
   if (typeof module !== 'undefined') module.exports = utils;
 })(typeof window !== 'undefined' ? window : globalThis);

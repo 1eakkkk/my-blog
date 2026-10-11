@@ -1,8 +1,9 @@
-import { json, getUser } from './_lib.js';
+import { json, getUser, isBanned } from './_lib.js';
 
 export async function onRequestPost(context) {
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
+  if (isBanned(user)) return json({ success: false, error: '账号封禁中' }, { status: 403 });
 
   const newVariant = Math.floor(Math.random() * 999999);
   await context.env.DB.prepare('UPDATE users SET avatar_variant = ? WHERE id = ?')

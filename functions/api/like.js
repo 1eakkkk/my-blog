@@ -1,16 +1,19 @@
-import { json, getUser } from './_lib.js';
+import { json, getUser, readJson, positiveId, isBanned } from './_lib.js';
 
 export async function onRequestPost(context) {
   const db = context.env.DB;
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
+  if (isBanned(user)) return json({ success: false, error: '账号封禁中' }, { status: 403 });
 
-  const { target_id, target_type } = await context.request.json();
-  if (!target_id || !['post', 'comment'].includes(target_type)) {
+  const { target_id, target_type } = await readJson(context.request);
+  if (!positiveId(target_id) || !['post', 'comment'].includes(target_type)) {
     return json({ success: false, error: '参数无效' }, { status: 400 });
   }
 
   const table = target_type === 'post' ? 'posts' : 'comments';
+  const target = await db.prepare(`SELECT id FROM ${table} WHERE id = ?`).bind(target_id).first();
+  if (!target) return json({ success: false, error: '内容不存在' }, { status: 404 });
   const existing = await db.prepare('SELECT id FROM likes WHERE user_id = ? AND target_id = ? AND target_type = ?')
     .bind(user.id, target_id, target_type).first();
 

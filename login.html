@@ -7,283 +7,43 @@
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>登录 | 1eak.cool</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <style>
-    :root {
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --accent-dim: rgba(59, 130, 246, 0.1);
-      --danger: #ef4444;
-      --green: #22c55e;
-      --radius: 10px;
-      --radius-sm: 6px;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    }
-
-    [data-theme="light"] {
-      --bg: #f8fafc;
-      --bg-secondary: #ffffff;
-      --surface: #ffffff;
-      --border: #e2e8f0;
-      --text: #1e293b;
-      --text-secondary: #64748b;
-      --text-muted: #94a3b8;
-    }
-
-    [data-theme="dark"] {
-      --bg: #0f172a;
-      --bg-secondary: #1e293b;
-      --surface: #1e293b;
-      --border: #334155;
-      --text: #e2e8f0;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-    }
-
-    @media (prefers-color-scheme: light) {
-      :root:not([data-theme]) {
-        --bg: #f8fafc;
-        --bg-secondary: #ffffff;
-        --surface: #ffffff;
-        --border: #e2e8f0;
-        --text: #1e293b;
-        --text-secondary: #64748b;
-        --text-muted: #94a3b8;
-      }
-    }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme]) {
-        --bg: #0f172a;
-        --bg-secondary: #1e293b;
-        --surface: #1e293b;
-        --border: #334155;
-        --text: #e2e8f0;
-        --text-secondary: #94a3b8;
-        --text-muted: #64748b;
-      }
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-      transition: background 0.3s;
-    }
-
-    .login-card {
-      width: 100%;
-      max-width: 400px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 32px 28px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-    }
-
-    .logo {
-      font-size: 1.4rem;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 6px;
-      color: var(--text);
-    }
-
-    .logo .dot { color: var(--accent); }
-
-    .logo-sub {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      text-align: center;
-      margin-bottom: 26px;
-    }
-
-    /* 主题切换 */
-    .theme-row {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 18px;
-    }
-
-    .theme-toggle {
-      display: flex;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2px;
-    }
-
-    .theme-toggle button {
-      width: 34px;
-      height: 28px;
-      border: none;
-      background: transparent;
-      border-radius: 18px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-      color: var(--text-muted);
-    }
-
-    .theme-toggle button.active {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    .tabs {
-      display: flex;
-      margin-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .tab {
-      flex: 1;
-      padding: 10px 8px;
-      text-align: center;
-      cursor: pointer;
-      color: var(--text-secondary);
-      font-size: 0.88rem;
-      font-weight: 500;
-      transition: all 0.15s;
-      border-bottom: 2px solid transparent;
-    }
-
-    .tab:hover { color: var(--text); }
-    .tab.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-    }
-
-    .form-control {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 10px 14px;
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 0.9rem;
-      outline: none;
-      transition: all 0.15s;
-      margin-bottom: 12px;
-    }
-
-    .form-control:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
-    }
-
-    .form-control::placeholder { color: var(--text-muted); }
-
-    .btn {
-      width: 100%;
-      background: var(--accent);
-      border: none;
-      border-radius: var(--radius-sm);
-      padding: 12px;
-      color: #fff;
-      font-family: var(--font);
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-
-    .btn:hover { background: var(--accent-hover); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .msg-box {
-      min-height: 20px;
-      color: var(--danger);
-      font-size: 0.83rem;
-      margin-bottom: 12px;
-      line-height: 1.5;
-    }
-
-    .msg-box.success { color: var(--green); }
-
-    .cf-turnstile { margin-bottom: 12px; display: flex; justify-content: center; }
-    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-
-    @media (max-width: 480px) {
-      body {
-        align-items: flex-start;
-        min-height: 100dvh;
-        padding: max(18px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom));
-      }
-
-      .login-card {
-        max-width: none;
-        padding: 28px 18px;
-        border-radius: 8px;
-      }
-
-      .logo { font-size: 1.28rem; }
-      .logo-sub { margin-bottom: 22px; }
-
-      .tab {
-        padding: 10px 4px;
-        font-size: 0.84rem;
-        white-space: nowrap;
-      }
-
-      .form-control {
-        min-height: 42px;
-        font-size: 16px;
-      }
-
-      .btn { min-height: 44px; }
-
-      .cf-turnstile {
-        min-height: 60px;
-        overflow: hidden;
-      }
-
-      .cf-turnstile > iframe {
-        transform: scale(0.92);
-        transform-origin: center;
-      }
-    }
-  </style>
+  <link rel="icon" type="image/svg+xml" href="assets/mark.svg">
+  <link rel="stylesheet" href="style.css?v=2.7.0">
 </head>
-<body>
+<body class="auth-page">
 
+<header class="auth-header"><a class="brand" href="/index.html" aria-label="1eak.cool 首页"><svg class="brand-mark" width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 3v26M3 16h26M7 7l18 18M7 25 25 7" stroke="currentColor" stroke-width="2.1"/><circle cx="16" cy="16" r="4" fill="currentColor"/></svg><span class="logo">1eak<span class="dot">.</span>cool</span></a><span class="auth-header-note">一个记录生活的小站</span></header>
+<main class="auth-shell">
+  <aside class="login-intro"><p class="eyebrow"><span class="eyebrow-line"></span> A SPACE OF YOUR OWN / 私人手记</p><h1>欢迎回来，<br>继续你的<span>故事。</span></h1><p class="login-intro-note">把灵感写下来，把日常留在这里。<br>这是属于你和朋友们的安静角落。</p><div class="login-intro-signature"><span aria-hidden="true">✳</span><p>日子慢慢过，<br>故事慢慢写。</p></div></aside>
 <div class="login-card">
-  <div class="logo">1EAK<span class="dot">.</span>COOL</div>
-  <div class="logo-sub">简单的论坛空间</div>
+  <h2 class="auth-heading">进入小站</h2>
+  <p class="logo-sub">登录账号，接着记录与分享。</p>
 
   <div class="theme-row">
-    <div class="theme-toggle" id="themeToggle">
-      <button onclick="setTheme('light')" id="themeLight" title="日间">☀️</button>
-      <button onclick="setTheme('dark')" id="themeDark" class="active" title="夜间">🌙</button>
-      <button onclick="setTheme('auto')" id="themeAuto" title="跟随系统">🖥</button>
+    <div class="theme-toggle" id="themeToggle" role="group" aria-label="显示主题">
+      <button onclick="setTheme('light')" id="themeLight" title="日间" aria-label="日间主题"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg></button>
+      <button onclick="setTheme('dark')" id="themeDark" class="active" title="夜间" aria-label="夜间主题"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7Z"/></svg></button>
+      <button onclick="setTheme('auto')" id="themeAuto" title="跟随系统" aria-label="跟随系统主题"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button>
     </div>
   </div>
 
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('login', this)">登录</div>
-    <div class="tab" onclick="switchTab('register', this)">注册</div>
+    <button type="button" class="tab active" onclick="switchTab('login', this)">登录</button>
+    <button type="button" class="tab" onclick="switchTab('register', this)">注册</button>
   </div>
 
   <form id="authForm">
-    <label for="username" class="sr-only">用户名</label>
-    <input type="text" id="username" class="form-control" placeholder="用户名" required>
-    <label for="password" class="sr-only">密码</label>
-    <input type="password" id="password" class="form-control" placeholder="密码" required>
-    <div id="msgBox" class="msg-box"></div>
-    <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXdJPWAee7ZdB" data-theme="dark"></div>
-    <button type="submit" class="btn" id="submitBtn">登录</button>
+    <label for="username" class="auth-label">用户名</label>
+    <input type="text" id="username" class="form-control" placeholder="你的用户名" autocomplete="username" required>
+    <label for="password" class="auth-label">密码</label>
+    <input type="password" id="password" class="form-control" placeholder="输入密码" autocomplete="current-password" required>
+    <div id="msgBox" class="msg-box" role="status" aria-live="polite"></div>
+    <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXdJPWAee7ZdB" data-theme="auto"></div>
+    <button type="submit" class="btn btn-primary" id="submitBtn">登录</button>
   </form>
+  <p class="auth-footnote">私人小站 · 仅供自己和好友使用</p>
 </div>
+</main>
 
 <script>
   let currentMode = 'login';
@@ -328,10 +88,10 @@
 
     if (mode === 'login') {
       submitBtn.textContent = '登录';
-      passInput.placeholder = '密码';
+      passInput.placeholder = '输入密码'; passInput.autocomplete = 'current-password';
     } else if (mode === 'register') {
       submitBtn.textContent = '注册';
-      passInput.placeholder = '设置密码';
+      passInput.placeholder = '设置密码'; passInput.autocomplete = 'new-password';
     }
   }
 
@@ -361,9 +121,10 @@
           msgBox.className = 'msg-box success';
           currentMode = 'login';
           document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === '登录'));
-          passInput.placeholder = '密码';
+          passInput.placeholder = '输入密码'; passInput.autocomplete = 'current-password';
           passInput.value = '';
           submitBtn.textContent = '登录';
+          if (window.turnstile) turnstile.reset();
         }
       } else {
         msgBox.textContent = data.error || '操作失败';
@@ -373,7 +134,10 @@
     } catch (err) {
       msgBox.textContent = '连接中断，请重试';
       if (window.turnstile) turnstile.reset();
-    } finally { submitBtn.disabled = false; }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = currentMode === 'register' ? '注册' : '登录';
+    }
   };
 </script>
 </body>

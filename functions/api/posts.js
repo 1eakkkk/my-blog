@@ -1,6 +1,21 @@
-import { json, getUser } from './_lib.js';
+import { json, getUser, readJson, isBanned } from './_lib.js';
 
 const CATEGORIES = ['灌水', '技术', '生活', '提问', '公告'];
+const validId = value => ['string', 'number'].includes(typeof value) && /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value));
+function pagination(value, fallback, max) {
+  if (value === null) return fallback;
+  return validId(value) && Number(value) <= max ? Number(value) : null;
+}
+function postInputError({ title, content, mood }) {
+  if ((title !== undefined && title !== null && typeof title !== 'string') ||
+      (content !== undefined && content !== null && typeof content !== 'string') ||
+      (mood !== undefined && mood !== null && typeof mood !== 'string')) return '标题、内容和心情必须是文字';
+  if (title && title.length > 100) return '标题最多100字';
+  if (content && content.length > 50000) return '内容过长，最多50000字';
+  if (mood && mood.length > 24) return '心情最多24字';
+  if ((!title || !title.trim()) && (!content || !content.trim())) return '标题和内容不能同时为空';
+  return '';
+}
 
 export async function onRequestGet(context) {
   const db = context.env.DB;
@@ -11,12 +26,14 @@ export async function onRequestGet(context) {
   const sort = url.searchParams.get('sort') || 'latest';
   const search = url.searchParams.get('search') || '';
   const category = url.searchParams.get('category') || '';
-  const page = Math.max(1, parseInt(url.searchParams.get('page')) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit')) || 10));
+  const page = pagination(url.searchParams.get('page'), 1, 100000);
+  const limit = pagination(url.searchParams.get('limit'), 10, 100);
   const offset = (page - 1) * limit;
   const userId = url.searchParams.get('user_id');
   const date = url.searchParams.get('date');
-  if (userId !== null && !/^[1-9]\d*$/.test(userId)) return json({ error: '用户参数无效' }, { status: 400 });
+  if ((id !== null && !validId(id)) || (userId !== null && !validId(userId))) return json({ error: '编号参数无效' }, { status: 400 });
+  if (page === null || limit === null || search.length > 200 || (category && !CATEGORIES.includes(category)) ||
+      !['latest', 'hot', 'comments'].includes(sort)) return json({ error: '筛选参数无效' }, { status: 400 });
   let dayStart;
   if (date !== null) {
     dayStart = Date.parse(`${date}T00:00:00+08:00`);
@@ -42,10 +59,20 @@ export async function onRequestGet(context) {
   `;
 
   try {
+    // 日期统计和帖子列表共用搜索/分类/作者条件，当前日期只限制列表。
+    const conditions = [];
+    const filterParams = [];
+    if (userId) { conditions.push('posts.user_id = ?'); filterParams.push(userId); }
+    if (search) {
+      const term = `%${search}%`;
+      conditions.push('(posts.title LIKE ? OR posts.content LIKE ? OR posts.category LIKE ? OR EXISTS (SELECT 1 FROM comments WHERE comments.post_id = posts.id AND comments.content LIKE ?))');
+      filterParams.push(term, term, term, term);
+    }
+    if (category) { conditions.push('posts.category = ?'); filterParams.push(category); }
     if (url.searchParams.get('archive') === '1') {
-      if (!userId) return json({ error: '请选择用户' }, { status: 400 });
-      const days = await db.prepare(`SELECT strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', '+8 hours') AS date,
-        COUNT(*) AS count FROM posts WHERE user_id = ? GROUP BY date ORDER BY date DESC`).bind(userId).all();
+      const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+      const days = await db.prepare(`SELECT strftime('%Y-%m-%d', posts.created_at / 1000, 'unixepoch', '+8 hours') AS date,
+        COUNT(*) AS count FROM posts${where} GROUP BY date ORDER BY date DESC`).bind(...filterParams).all();
       return json({ days: days.results, time_zone: 'UTC+8' });
     }
     if (id) {
@@ -53,25 +80,10 @@ export async function onRequestGet(context) {
       return json(post);
     } else {
       let sql = `SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id`;
-      const params = [now, currentUserId || 0];
-      const conditions = [];
-      if (userId) {
-        conditions.push('posts.user_id = ?');
-        params.push(userId);
-      }
+      const params = [now, currentUserId || 0, ...filterParams];
       if (date !== null) {
         conditions.push('posts.created_at >= ? AND posts.created_at < ?');
         params.push(dayStart, dayStart + 86400000);
-      }
-
-      if (search) {
-        const term = `%${search}%`;
-        conditions.push(`(posts.title LIKE ? OR posts.content LIKE ? OR posts.category LIKE ? OR EXISTS (SELECT 1 FROM comments WHERE comments.post_id = posts.id AND comments.content LIKE ?))`);
-        params.push(term, term, term, term);
-      }
-      if (category) {
-        conditions.push('posts.category = ?');
-        params.push(category);
       }
       if (conditions.length > 0) {
         sql += ' WHERE ' + conditions.join(' AND ');
@@ -108,7 +120,8 @@ export async function onRequestGet(context) {
       return json(posts.results);
     }
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    console.error('Posts query failed:', e);
+    return json({ error: '帖子加载失败，请稍后重试' }, { status: 500 });
   }
 }
 
@@ -116,15 +129,12 @@ export async function onRequestPost(context) {
   const db = context.env.DB;
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
-  if (user.status === 'banned') return json({ success: false, error: '账号封禁' }, { status: 403 });
+  if (isBanned(user)) return json({ success: false, error: '账号封禁' }, { status: 403 });
 
-  let { title, content, category, mood } = await context.request.json();
-
-  if (title && title.length > 100) return json({ success: false, error: '标题最多100字' }, { status: 400 });
-  if (content && content.length > 50000) return new Response(JSON.stringify({ success: false, error: '内容过长，最多50000字' }), { status: 400 });
-  if ((!title || !title.trim()) && (!content || !content.trim())) {
-    return new Response(JSON.stringify({ success: false, error: '标题和内容不能同时为空' }), { status: 400 });
-  }
+  const payload = await readJson(context.request);
+  let { title, content, category, mood } = payload;
+  const inputError = postInputError(payload);
+  if (inputError) return json({ success: false, error: inputError }, { status: 400 });
 
   if (!title || !title.trim()) title = "无题 / Untitled";
   if (!content || !content.trim()) content = "（如题）";
@@ -142,21 +152,19 @@ export async function onRequestPut(context) {
   const db = context.env.DB;
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
-
-  let { id, action, title, content, category, mood } = await context.request.json();
+  if (isBanned(user)) return json({ success: false, error: '账号封禁' }, { status: 403 });
+  const payload = await readJson(context.request);
+  let { id, action, title, content, category, mood } = payload;
+  if (!validId(id)) return json({ success: false, error: '帖子编号无效' }, { status: 400 });
 
   if (action === 'edit') {
+    const inputError = postInputError(payload);
+    if (inputError) return json({ success: false, error: inputError }, { status: 400 });
     const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(id).first();
     if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
     if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
     if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
-    if (title && title.length > 100) return json({ success: false, error: '标题最多100字' }, { status: 400 });
     category = CATEGORIES.includes(category) ? category : '灌水';
-
-    if (content && content.length > 50000) return new Response(JSON.stringify({ success: false, error: '内容过长，最多50000字' }), { status: 400 });
-    if ((!title || !title.trim()) && (!content || !content.trim())) {
-      return new Response(JSON.stringify({ success: false, error: '不能全为空' }), { status: 400 });
-    }
     if (!title || !title.trim()) title = "无题 / Untitled";
     if (!content || !content.trim()) content = "（如题）";
 
@@ -181,8 +189,10 @@ export async function onRequestDelete(context) {
   const db = context.env.DB;
   const user = await getUser(context);
   if (!user) return json({ success: false, error: '请先登录' }, { status: 401 });
+  if (isBanned(user)) return json({ success: false, error: '账号封禁' }, { status: 403 });
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
+  if (!validId(id)) return json({ success: false, error: '帖子编号无效' }, { status: 400 });
   let result;
   if (user.role === 'admin') result = await db.prepare('DELETE FROM posts WHERE id = ?').bind(id).run();
   else result = await db.prepare('DELETE FROM posts WHERE id = ? AND user_id = ?').bind(id, user.id).run();

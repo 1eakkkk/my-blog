@@ -7,12 +7,6 @@ export async function onRequestGet(context) {
 
   const now = Date.now();
 
-  // 封禁到期自动解封
-  if (user.status === 'banned' && user.ban_expires_at < now) {
-    await db.prepare("UPDATE users SET status = 'active', ban_expires_at = 0, ban_reason = NULL WHERE id = ?").bind(user.id).run();
-    user.status = 'active';
-  }
-
   // 最多每 60 秒更新一次 last_seen
   if (!user.last_seen || (now - user.last_seen > 60000)) {
     try { await db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(now, user.id).run(); } catch (e) { }

@@ -4,7 +4,7 @@
 
 基于 Cloudflare 全家桶（Pages + D1 + R2 + KV）构建的轻量级私人论坛。原生 HTML/JS/CSS 开发，无前端框架，SPA 架构。私人小站，供自己和好友使用。
 
-**当前版本**：v2.6.2（2026-10-11）
+**当前版本**：v2.7.0（2026-10-11）
 
 ## 2) 技术栈
 
@@ -158,7 +158,7 @@ key, value
 - 多步写操作用 `db.batch()` 或顺序 await（D1 的 batch 不是原子事务）
 - 后台任务用 `context.waitUntil()` 异步执行
 - API 统一返回 `{ success: true/false, error?: "..." }`
-- Cookie：`Secure; HttpOnly; SameSite=None; Max-Age=604800`，设置和清除属性必须对称
+- Cookie：`Secure; HttpOnly; SameSite=Lax; Max-Age=604800`，host-only，设置和清除属性必须对称
 - 前端所有异步操作必须有 `showToast` 反馈
 
 ## 8) 环境变量 / 绑定
@@ -169,3 +169,7 @@ key, value
 | R2 | `MY_BUCKET` | 文件存储 |
 | KV | `KV` | 限流计数（RATE_LIMIT namespace） |
 | Secret | `TURNSTILE_SECRET` | Cloudflare Turnstile 验证密钥 |
+
+## v2.7.0 更新
+
+首页新增与搜索/分类组合的 UTC+8 日期归档；列表请求使用取消与代次隔离防止旧响应覆盖。暖纸色/暖石墨双主题统一全站排版、组件及响应式布局。Markdown 依赖在 assets/vendor 本地固定（DOMPurify 3.4.16、Marked 11.1.1），渲染实施标签/属性白名单。API middleware 校验写入来源和内容格式，私有内容读取要求登录，统一封禁边界与安全响应头；上传增加真实文件签名匹配；评论回复必须同帖。登录失败计数原子累计，解封竞争不覆盖管理员新封禁，兼容旧长密码。

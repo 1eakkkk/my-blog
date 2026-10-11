@@ -1,0 +1,2 @@
+# Preserve pinned vendor bytes and their documented SHA-256 on every platform.
+assets/vendor/*.js -text

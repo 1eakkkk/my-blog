@@ -17,12 +17,15 @@ let currentPage = 1;
 const POSTS_PER_PAGE = 10;
 let isLoadingPosts = false;
 let hasMorePosts = true;
+let homePostsGeneration = 0;
+let homePostsController = null;
+const homeArchiveState = { date: '', days: new Map(), months: [], month: '', generation: 0, loading: false, filters: '' };
 let isEditingPost = false;
 let editingPostId = null;
 let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
-const HOME_UPDATE_NOTICE_VERSION = 'v2.6.2';
+const HOME_UPDATE_NOTICE_VERSION = 'v2.7.0';
 const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSION}`;
 
 // 随机标语
@@ -105,10 +108,43 @@ function parseMarkdown(text) {
   try {
     if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
       const html = marked.parse(text, { gfm: true, breaks: true });
-      return DOMPurify.sanitize(html);
+      const clean = DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ['p', 'br', 'em', 'strong', 'del', 's', 'a', 'img', 'blockquote', 'pre', 'code',
+          'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+          'video', 'source', 'details', 'summary', 'sup', 'sub', 'input'],
+        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'width', 'height', 'start', 'align', 'colspan', 'rowspan',
+          'controls', 'playsinline', 'preload', 'type', 'checked', 'disabled'],
+        FORBID_ATTR: ['style', 'id', 'name'],
+        ALLOW_DATA_ATTR: false,
+        ALLOW_ARIA_ATTR: false,
+        SANITIZE_NAMED_PROPS: true
+      });
+      const fragment = document.createElement('template');
+      fragment.innerHTML = clean;
+      fragment.content.querySelectorAll('a').forEach(link => {
+        const href = BlogUtils.safeUrl(link.getAttribute('href'), location.href, true);
+        if (!href) link.removeAttribute('href');
+        else {
+          link.setAttribute('href', href);
+          link.setAttribute('rel', 'noopener noreferrer');
+          if (new URL(href).origin !== location.origin && /^https?:/.test(href)) link.setAttribute('target', '_blank');
+        }
+      });
+      fragment.content.querySelectorAll('img, video, source').forEach(media => {
+        const src = BlogUtils.safeUrl(media.getAttribute('src'), location.href);
+        if (!src) media.removeAttribute('src');
+        else media.setAttribute('src', src);
+        if (media.tagName === 'VIDEO') { media.setAttribute('controls', ''); media.setAttribute('preload', 'metadata'); }
+        if (media.tagName === 'IMG') { media.setAttribute('loading', 'lazy'); media.setAttribute('decoding', 'async'); }
+      });
+      fragment.content.querySelectorAll('input').forEach(input => {
+        if (input.getAttribute('type')?.toLowerCase() !== 'checkbox') input.remove();
+        else { input.disabled = true; input.setAttribute('tabindex', '-1'); }
+      });
+      return fragment.innerHTML;
     }
   } catch (e) { console.error('Markdown parse error:', e); }
-  return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  return escapeHtml(text).replace(/\n/g, '<br>');
 }
 
 function escapeHtml(text) {
@@ -263,8 +299,9 @@ function timeAgo(ts) {
 }
 
 function renderUserAvatar(userObj) {
-  if (userObj.avatar_url) {
-    const avatarUrl = escapeHtml(userObj.avatar_url);
+  const src = BlogUtils.safeUrl(userObj.avatar_url, location.href);
+  if (src) {
+    const avatarUrl = escapeHtml(src);
     return `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex';" alt=""><div style="display:none;width:100%;height:100%;">${generatePixelAvatar(userObj.username, userObj.avatar_variant || 0)}</div>`;
   }
   return generatePixelAvatar(userObj.username, userObj.avatar_variant || 0);
@@ -304,9 +341,28 @@ window.toggleMobileNav = function () {
 
 // 点击导航链接后关闭移动菜单
 document.addEventListener('click', function (e) {
+  const skip = e.target.closest?.('.skip-link[href="#main-content"]');
+  if (skip) {
+    e.preventDefault();
+    const main = document.getElementById('main-content');
+    if (main) {
+      main.setAttribute('tabindex', '-1');
+      main.focus({ preventScroll: true });
+      const offset = document.getElementById('topnav')?.getBoundingClientRect().height || 0;
+      window.scrollTo({ top: Math.max(0, main.getBoundingClientRect().top + window.scrollY - offset), behavior: 'instant' });
+    }
+    return;
+  }
   const nav = document.getElementById('navLinks');
   if (nav && nav.classList.contains('open') && e.target.closest('.nav-link')) {
     setMobileNavOpen(false);
+  }
+});
+document.addEventListener('keydown', function (e) {
+  const nav = document.getElementById('navLinks');
+  if (e.key === 'Escape' && nav?.classList.contains('open')) {
+    setMobileNavOpen(false);
+    document.getElementById('mobileMenuBtn')?.focus();
   }
 });
 
@@ -326,7 +382,8 @@ async function checkSecurity() {
     if (data.status === 'banned') {
       if (mask) {
         const banReason = escapeHtml(data.ban_reason || '违反规定');
-        mask.innerHTML = `<div style="border:2px solid #ef4444;padding:30px;background:var(--surface);max-width:90%;text-align:center;border-radius:12px;"><h1 style="color:#ef4444;margin:0 0 12px;">账号已封禁</h1><p style="color:var(--text-secondary);margin:6px 0;">解封: ${new Date(data.ban_expires_at).toLocaleString()}</p><p style="color:var(--text-secondary);margin:6px 0;">理由: ${banReason}</p><button onclick="doLogout()" class="btn" style="margin-top:16px;">退出登录</button></div>`;
+        const banExpiry = Number(data.ban_expires_at) > 0 ? `解封：${BlogUtils.formatTime(data.ban_expires_at)}` : '永久封禁';
+        mask.innerHTML = `<div style="border:2px solid #ef4444;padding:30px;background:var(--surface);max-width:90%;text-align:center;border-radius:12px;"><h1 style="color:#ef4444;margin:0 0 12px;">账号已封禁</h1><p style="color:var(--text-secondary);margin:6px 0;">${banExpiry}</p><p style="color:var(--text-secondary);margin:6px 0;">理由: ${banReason}</p><button onclick="doLogout()" class="btn" style="margin-top:16px;">退出登录</button></div>`;
         mask.style.opacity = '1';
         return;
       }
@@ -392,14 +449,21 @@ const views = {
   about: document.getElementById('view-about'),
   admin: document.getElementById('view-admin')
 };
+let routeGeneration = 0;
 
 async function handleRoute() {
   const hash = window.location.hash || '#home';
+  const generation = ++routeGeneration;
   const navLinks = document.querySelectorAll('.nav-link');
 
+  // 必须在隐藏首页前记录位置，导航按钮和浏览器后退同样适用。
+  if (hash !== '#home' && views.home?.style.display === 'block') {
+    sessionStorage.setItem('homeScrollY', String(window.scrollY));
+  }
   destroyTOC();
   Object.values(views).forEach(el => { if (el) el.style.display = 'none'; });
   navLinks.forEach(el => el.classList.remove('active'));
+  if (hash !== '#home') window.scrollTo({ top: 0, behavior: 'instant' });
 
   if (hash !== '#write' && window._draftTimer) {
     clearInterval(window._draftTimer);
@@ -423,15 +487,14 @@ async function handleRoute() {
     const list = document.getElementById('posts-list');
     const savedScroll = sessionStorage.getItem('homeScrollY');
     if (!list || list.children.length === 0) {
-      loadPosts(true);
-    } else if (savedScroll) {
-      requestAnimationFrame(() => { window.scrollTo({ top: parseInt(savedScroll), behavior: 'auto' }); });
+      await loadPosts(true);
     }
+    const top = Number(savedScroll);
+    requestAnimationFrame(() => {
+      if (generation !== routeGeneration) return;
+      window.scrollTo({ top: Number.isFinite(top) && top >= 0 ? top : 0, behavior: 'instant' });
+    });
   } else if (hash.startsWith('#post?id=')) {
-    // 保存首页滚动位置
-    if (views.home && views.home.style.display === 'block') {
-      sessionStorage.setItem('homeScrollY', window.scrollY);
-    }
     views.post.style.display = 'block';
     currentPostId = hash.split('id=')[1].split('&')[0];
     const commentId = hash.includes('commentId=') ? hash.split('commentId=')[1] : null;
@@ -481,27 +544,44 @@ function estimateReadTime(content, knownLength) {
 }
 
 // === 帖子加载 ===
-async function loadPosts(reset = false) {
+async function loadPosts(reset = false, refreshArchive = true) {
   const container = document.getElementById('posts-list');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
   const searchVal = document.getElementById('searchInput')?.value || '';
   const catFilter = document.getElementById('categoryFilter')?.value || '';
   const sortVal = document.getElementById('sortSelect')?.value || 'latest';
 
-  if (reset) { currentPage = 1; hasMorePosts = true; container.innerHTML = ''; if (loadMoreBtn) loadMoreBtn.style.display = 'none'; }
+  if (reset) {
+    homePostsGeneration++;
+    homePostsController?.abort();
+    isLoadingPosts = false;
+    currentPage = 1;
+    hasMorePosts = true;
+    container.innerHTML = '';
+    if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+    if (refreshArchive) loadHomeArchive();
+  }
   if (!hasMorePosts || isLoadingPosts) return;
   isLoadingPosts = true;
+  const generation = homePostsGeneration;
+  const page = currentPage;
+  const date = homeArchiveState.date;
+  const controller = homePostsController = new AbortController();
   if (reset) container.innerHTML = '<div class="loading-spinner"></div>';
   else if (loadMoreBtn) loadMoreBtn.textContent = '加载中...';
 
   try {
-    const res = await fetchApi(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&category=${encodeURIComponent(catFilter)}&sort=${sortVal}`);
+    const params = new URLSearchParams({ page, limit: POSTS_PER_PAGE, search: searchVal, category: catFilter, sort: sortVal });
+    if (date) params.set('date', date);
+    const res = await fetchApi(`${API_BASE}/posts?${params}`, { signal: controller.signal });
     const posts = await res.json();
+    if (generation !== homePostsGeneration) return;
+    if (!res.ok || !Array.isArray(posts)) throw new Error('帖子加载失败');
     if (reset) container.innerHTML = '';
     if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
 
-    if (posts.length === 0 && currentPage === 1) {
-      const isSearching = searchVal || catFilter;
+    if (posts.length === 0 && page === 1) {
+      const isSearching = searchVal || catFilter || date;
       container.innerHTML = isSearching
         ? '<div class="empty-state"><div class="empty-icon">🔍</div><p>没有找到相关内容</p></div>'
         : '<div class="empty-state"><div class="empty-icon">📝</div><p>暂无帖子，来写第一篇吧</p></div>';
@@ -514,11 +594,12 @@ async function loadPosts(reset = false) {
         const safeCat = escapeHtml(cat);
         const safeTitle = escapeHtml(post.title || '无题 / Untitled');
         const safeMood = post.mood ? escapeHtml(post.mood) : '';
-        const commentCount = post.comment_count || 0;
+        const commentCount = Number(post.comment_count) || 0;
 
         let snippet = post.content ? stripMarkdown(post.content.replace(/<[^>]*>/g, '')).replace(/\[图片\](\s*\[图片\])+/g, '[图片]').substring(0, 120) : '';
         snippet = escapeHtml(snippet);
-        const thumbUrls = post.thumb_urls || extractImages(post.content);
+        const thumbUrls = (Array.isArray(post.thumb_urls) ? post.thumb_urls : extractImages(post.content))
+          .map(url => BlogUtils.safeUrl(url, location.href)).filter(Boolean).slice(0, 3);
 
         const card = document.createElement('div');
         card.className = 'post-card';
@@ -534,17 +615,27 @@ async function loadPosts(reset = false) {
             <span>👤 ${safeAuthor}</span>
             <span>${timeStr}</span>
             <span>💬 ${commentCount}</span>
-            <span>❤ ${post.like_count || 0}</span>
+            <span>❤ ${Number(post.like_count) || 0}</span>
             <span>⏱ ${estimateReadTime(post.content, post.content_length)}</span>
           </div>
         `;
-        card.onclick = () => { sessionStorage.setItem('homeScrollY', window.scrollY); window.location.hash = `#post?id=${post.id}`; };
+        const openPost = () => { sessionStorage.setItem('homeScrollY', window.scrollY); window.location.hash = `#post?id=${Number(post.id)}`; };
+        card.onclick = openPost;
+        card.tabIndex = 0;
+        card.setAttribute('role', 'link');
+        card.setAttribute('aria-label', `${post.title || '无题 / Untitled'}，${author}`);
+        card.onkeydown = event => { if (event.key === 'Enter') openPost(); };
         container.appendChild(card);
       });
       currentPage++;
     }
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    if (generation !== homePostsGeneration || e.name === 'AbortError') return;
+    if (reset) container.innerHTML = '<div class="empty-state"><p>帖子加载失败，请重试</p><button class="btn btn-sm" onclick="loadPosts(true)">重新加载</button></div>';
+    else showToast('加载失败，请重试', 'error');
+  }
   finally {
+    if (generation !== homePostsGeneration) return;
     isLoadingPosts = false;
     if (loadMoreBtn) {
       loadMoreBtn.style.display = hasMorePosts ? 'block' : 'none';
@@ -554,6 +645,77 @@ async function loadPosts(reset = false) {
 }
 
 window.searchPosts = function () { loadPosts(true); };
+
+function updateHomeDateLabel() {
+  const state = homeArchiveState;
+  const label = document.getElementById('homeDateLabel');
+  if (label) label.textContent = state.date
+    ? `${state.date} · ${state.loading ? '正在筛选…' : `${state.days.get(state.date) || 0} 篇帖子`}`
+    : '全部日期';
+  const clear = document.getElementById('homeDateClear');
+  if (clear) clear.hidden = !state.date;
+}
+
+async function loadHomeArchive() {
+  const state = homeArchiveState;
+  const target = document.getElementById('homeCalendar');
+  if (!target) return;
+  const generation = ++state.generation;
+  const search = document.getElementById('searchInput')?.value || '';
+  const category = document.getElementById('categoryFilter')?.value || '';
+  state.filters = JSON.stringify([search, category]);
+  state.loading = true;
+  updateHomeDateLabel();
+  target.innerHTML = '<p class="archive-empty" role="status">正在整理日期…</p>';
+  try {
+    const params = new URLSearchParams({ archive: '1', search, category });
+    const res = await fetchApi(`${API_BASE}/posts?${params}`);
+    const data = await res.json();
+    if (generation !== state.generation) return;
+    if (!res.ok || !Array.isArray(data.days)) throw new Error('日期加载失败');
+    const { days, months } = BlogUtils.archiveData(data.days);
+    state.days = days;
+    state.months = months;
+    state.month = months.includes(state.month) ? state.month : (months.at(-1) || '');
+    state.loading = false;
+    if (state.date && !days.has(state.date)) {
+      state.date = '';
+      loadPosts(true, false);
+    }
+    renderHomeCalendar();
+  } catch (_) {
+    if (generation !== state.generation) return;
+    state.loading = false;
+    target.innerHTML = '<p class="archive-empty">日期暂时无法加载</p><button class="btn btn-sm btn-ghost" onclick="loadHomeArchive()">重试</button>';
+  }
+}
+
+function renderHomeCalendar() {
+  updateHomeDateLabel();
+  if (homeArchiveState.loading) return;
+  renderArchiveCalendar(homeArchiveState, 'homeCalendar', 'Home');
+}
+window.selectHomeMonth = function(month) {
+  if (!homeArchiveState.months.includes(month)) return;
+  homeArchiveState.month = month;
+  renderHomeCalendar();
+};
+const homeArchiveElement = document.getElementById('homeArchive');
+if (homeArchiveElement) homeArchiveElement.open = window.matchMedia('(min-width: 901px)').matches;
+window.changeHomeMonth = function(delta) {
+  const state = homeArchiveState;
+  selectHomeMonth(state.months[state.months.indexOf(state.month) + delta]);
+};
+window.selectHomeDate = function(date) {
+  const state = homeArchiveState;
+  if (date && (state.loading || !state.days.has(date))) return;
+  if (state.date === date) return;
+  state.date = date;
+  renderHomeCalendar();
+  loadPosts(true, false);
+  const label = document.getElementById('homeDateLabel');
+  label?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+};
 
 // === 单帖加载 ===
 async function loadSinglePost(id, targetCommentId = null) {
@@ -1408,8 +1570,9 @@ async function loadProfileArchive(state) {
     const data = await res.json();
     if (profileState !== state) return;
     if (!res.ok || !Array.isArray(data.days)) throw new Error('日期加载失败');
-    state.days = new Map(data.days.filter(d => d.date).map(d => [d.date, d.count]));
-    state.months = [...new Set([...state.days.keys()].map(d => d.slice(0, 7)))].sort();
+    const archive = BlogUtils.archiveData(data.days);
+    state.days = archive.days;
+    state.months = archive.months;
     state.month = state.months.at(-1) || '';
     renderProfileCalendar();
   } catch (e) {
@@ -1472,22 +1635,32 @@ function renderProfileCalendar() {
   if (!state) return;
   document.getElementById('profileArchive').hidden = !state.months.length;
   document.getElementById('profileDateLabel').textContent = state.date ? `${state.date} 的帖子` : 'TA 的全部帖子';
-  if (!state.month) return;
+  renderArchiveCalendar(state, 'profileCalendar', 'Profile');
+}
+
+// 首页和个人主页共用日历；仅处理已校验的年月日，不把 API 文本写进事件属性。
+function renderArchiveCalendar(state, targetId, scope) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  if (!state.month || !state.months.length) {
+    target.innerHTML = '<p class="archive-empty">当前筛选条件下暂无帖子</p>';
+    return;
+  }
   const [year, month] = state.month.split('-').map(Number);
   const firstDay = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
   const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const index = state.months.indexOf(state.month);
   let html = `<div class="archive-month-nav">
-    <button class="btn btn-sm btn-ghost" onclick="changeProfileMonth(-1)" aria-label="上一个有帖子的月份" ${index === 0 ? 'disabled' : ''}>‹</button>
-    <label><span class="sr-only">选择月份</span><select class="form-control" onchange="selectProfileMonth(this.value)">${state.months.map(m => `<option ${m === state.month ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
-    <button class="btn btn-sm btn-ghost" onclick="changeProfileMonth(1)" aria-label="下一个有帖子的月份" ${index === state.months.length - 1 ? 'disabled' : ''}>›</button></div>
+    <button class="btn btn-sm btn-ghost" onclick="change${scope}Month(-1)" aria-label="上一个有帖子的月份" ${index === 0 ? 'disabled' : ''}>‹</button>
+    <label><span class="sr-only">选择月份</span><select class="form-control" onchange="select${scope}Month(this.value)">${state.months.map(m => `<option ${m === state.month ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
+    <button class="btn btn-sm btn-ghost" onclick="change${scope}Month(1)" aria-label="下一个有帖子的月份" ${index === state.months.length - 1 ? 'disabled' : ''}>›</button></div>
     <div class="archive-days">${['日','一','二','三','四','五','六'].map(d => `<span class="archive-weekday">${d}</span>`).join('')}${'<span></span>'.repeat(firstDay)}`;
   for (let d = 1; d <= count; d++) {
     const date = `${state.month}-${String(d).padStart(2, '0')}`;
     const total = state.days.get(date) || 0;
-    html += `<button class="archive-day ${state.date === date ? 'selected' : ''}" ${total ? '' : 'disabled'} aria-pressed="${state.date === date}" aria-label="${date}，${total} 篇帖子" onclick="selectProfileDate('${date}')">${d}${total ? '<i></i>' : ''}</button>`;
+    html += `<button class="archive-day ${state.date === date ? 'selected' : ''}" ${total ? '' : 'disabled'} aria-pressed="${state.date === date}" aria-label="${date}，${total} 篇帖子" onclick="select${scope}Date('${date}')">${d}${total ? '<i></i>' : ''}</button>`;
   }
-  document.getElementById('profileCalendar').innerHTML = html + '</div>';
+  target.innerHTML = html + '</div>';
 }
 window.selectProfileMonth = function(month) {
   if (!profileState?.months.includes(month)) return;
@@ -1556,7 +1729,8 @@ window.uploadUserAvatar = async function () {
       showToast('头像已更新', 'success');
       currentUser.avatar_url = data.url;
       // 刷新各处头像显示
-      document.getElementById('settingsAvatarPreview').innerHTML = `<img src="${escapeHtml(data.url)}" style="width:100%;height:100%;object-fit:cover;">`;
+      const avatarUrl = BlogUtils.safeUrl(data.url, location.href);
+      document.getElementById('settingsAvatarPreview').innerHTML = avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" style="width:100%;height:100%;object-fit:cover;" alt="当前头像">` : generatePixelAvatar(currentUser.username, currentUser.avatar_variant || 0);
       document.getElementById('navAvatar').innerHTML = renderUserAvatar(currentUser);
     } else {
       showToast(data.error || '上传失败', 'error');
@@ -1582,11 +1756,11 @@ function switchMdTab(tab) {
     textarea.style.display = 'none';
     preview.style.display = 'block';
     if (btnEdit) { btnEdit.style.background = 'transparent'; btnEdit.style.color = 'var(--text-muted)'; }
-    if (btnPreview) { btnPreview.style.background = 'var(--accent)'; btnPreview.style.color = '#fff'; }
+    if (btnPreview) { btnPreview.style.background = 'var(--accent)'; btnPreview.style.color = 'var(--bg)'; }
   } else {
     textarea.style.display = 'block';
     preview.style.display = 'none';
-    if (btnEdit) { btnEdit.style.background = 'var(--accent)'; btnEdit.style.color = '#fff'; }
+    if (btnEdit) { btnEdit.style.background = 'var(--accent)'; btnEdit.style.color = 'var(--bg)'; }
     if (btnPreview) { btnPreview.style.background = 'transparent'; btnPreview.style.color = 'var(--text-muted)'; }
   }
 }
@@ -1602,9 +1776,11 @@ let lightboxTouchDistance = 0;
 let lightboxBodyStyles = null;
 
 window.openLightbox = function (src) {
+  const safeSrc = BlogUtils.safeUrl(src, location.href);
+  if (!safeSrc) return;
   const lb = document.getElementById('lightbox');
   const img = document.getElementById('lightboxImg');
-  img.src = src;
+  img.src = safeSrc;
   lightboxScale = 1; lightboxX = 0; lightboxY = 0;
   isDragging = false;
   lightboxTouchDistance = 0;
