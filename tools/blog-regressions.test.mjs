@@ -19,6 +19,8 @@ test('列表按钮重复点击、手动编号和多行选区接续编号', () =>
   assert.equal(edit.value, '1. 列表项\n2. 列表项\n3. 列表项');
   assert.equal(insert('1. 手动输入\n').value, '1. 手动输入\n2. 列表项');
   assert.equal(insert('9. 手动输入').value, '9. 手动输入\n10. 列表项');
+  assert.equal(insert('1.').value, '1.\n2. 列表项');
+  assert.equal(insert('1. \n').value, '1. \n2. 列表项');
   assert.equal(insert('1. 已有\n甲\n乙', 6, 9).value, '1. 已有\n2. 甲\n3. 乙');
   assert.equal(insert('普通段落').value, '普通段落\n1. 列表项');
 });

@@ -26,13 +26,13 @@
     const lineEnd = value.indexOf('\n', end);
     const stop = lineEnd < 0 ? value.length : lineEnd;
     const line = value.slice(lineStart, stop);
-    const current = line.match(/^(\s*)(\d+)\.\s+/);
+    const current = line.match(/^([ \t]*)(\d+)\.(?:[ \t]+|$)/);
     // 当前行已经是列表项：按钮追加下一项，不把现有项再套一层。
     if (current && !value.slice(start, end).includes('\n')) {
       const prefix = `\n${current[1]}${Number(current[2]) + 1}. `;
       return { start: stop, end: stop, text: prefix + '列表项', selectStart: prefix.length, selectEnd: prefix.length + 3 };
     }
-    const previous = value.slice(0, lineStart).trimEnd().split('\n').pop().match(/^(\s*)(\d+)\.\s+/);
+    const previous = value.slice(0, lineStart).trimEnd().split('\n').pop().match(/^([ \t]*)(\d+)\.(?:[ \t]+|$)/);
     const indent = previous ? previous[1] : '';
     const number = previous ? Number(previous[2]) + 1 : 1;
     const selected = value.slice(start, end);
