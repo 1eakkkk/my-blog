@@ -38,7 +38,7 @@ function fixture() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(`CREATE TABLE users (id INTEGER, username TEXT, nickname TEXT, avatar_variant INTEGER, avatar_url TEXT, role TEXT);
     CREATE TABLE posts (id INTEGER, user_id INTEGER, title TEXT, content TEXT, category TEXT, created_at INTEGER, like_count INTEGER DEFAULT 0, is_pinned INTEGER DEFAULT 0, pinned_until INTEGER);
-    CREATE TABLE comments (id INTEGER, post_id INTEGER, user_id INTEGER, content TEXT, created_at INTEGER, is_pinned INTEGER DEFAULT 0, reply_to_uid INTEGER);
+    CREATE TABLE comments (id INTEGER, post_id INTEGER, user_id INTEGER, content TEXT, created_at INTEGER, is_pinned INTEGER DEFAULT 0, reply_to_uid INTEGER, parent_id INTEGER);
     CREATE TABLE likes (target_id INTEGER, target_type TEXT, user_id INTEGER);
     INSERT INTO users VALUES (1, 'owner', '作者', 0, '', 'user'), (2, 'other', '其他用户', 0, '', 'user');`);
   const statement = sqlite.prepare('INSERT INTO posts (id,user_id,title,content,category,created_at) VALUES (?,?,?,?,?,?)');
@@ -79,7 +79,7 @@ test('日期日历与日期查询在 UTC+8 午夜边界一致，拒绝无效参�
     assert.equal(archive.days.find(d => d.date === '2026-10-11').count, 2);
     assert.equal(archive.days.find(d => d.date === '2026-01-01').count, 44);
     for (const query of ['user_id=0','user_id=1 OR 1=1','date=2026-02-30','date=invalid']) assert.equal((await getPosts(f.context(query))).status, 400);
-    f.sqlite.exec(`INSERT INTO comments VALUES (1,126,1,'评论',${start + 1000},0,NULL)`);
+    f.sqlite.exec(`INSERT INTO comments VALUES (1,126,1,'评论',${start + 1000},0,NULL,NULL)`);
     const comments = await getComments(f.context('post_id=126'));
     assert.ok(Number(comments.headers.get('X-Server-Time')) > 0);
     assert.equal((await comments.json()).results[0].created_at, start + 1000);

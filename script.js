@@ -25,7 +25,7 @@ let editingPostId = null;
 let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
-const HOME_UPDATE_NOTICE_VERSION = 'v2.7.0';
+const HOME_UPDATE_NOTICE_VERSION = 'v2.7.1';
 const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSION}`;
 
 // 随机标语
@@ -727,6 +727,7 @@ async function loadSinglePost(id, targetCommentId = null) {
   try {
     const res = await fetchApi(`${API_BASE}/posts?id=${id}`);
     const post = await res.json();
+    if (String(currentPostId) !== String(id)) return;
     if (!post || post.error) { container.innerHTML = '<p>帖子不存在</p>'; return; }
     currentPostAuthorId = post.user_id;
 
@@ -780,31 +781,48 @@ async function loadSinglePost(id, targetCommentId = null) {
 // === 评论 ===
 let currentCommentPage = 1;
 let hasMoreComments = true;
+let commentGeneration = 0;
+let commentsLoading = false;
+const commentReplyStates = new Map();
 
 async function loadComments(postId, reset = false, highlightId = null) {
   const container = document.getElementById('commentsList');
   if (reset) {
+    commentGeneration++;
+    commentsLoading = false;
+    commentReplyStates.clear();
     currentCommentPage = 1;
     hasMoreComments = true;
     container.innerHTML = '';
     const btn = document.getElementById('loadMoreComments');
     if (btn) btn.style.display = 'none';
   }
-  if (!hasMoreComments) return;
-
+  if (!hasMoreComments || commentsLoading) return;
+  const generation = commentGeneration;
+  const isCurrent = () => generation === commentGeneration && String(currentPostId) === String(postId);
+  commentsLoading = true;
+  const more = document.querySelector('#loadMoreComments button');
+  if (more) { more.disabled = true; more.textContent = '加载中…'; }
   try {
-    const res = await fetchApi(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}`);
+    const query = new URLSearchParams({ post_id: postId, page: currentCommentPage });
+    if (highlightId) query.set('locate_id', highlightId);
+    const res = await fetchApi(`${API_BASE}/comments?${query}`);
     const data = await res.json();
+    if (!isCurrent()) return;
+    if (!res.ok) {
+      if (highlightId && res.status === 404) {
+        showToast(data.error || '评论已不存在', 'error');
+        return loadComments(postId, true);
+      }
+      throw new Error(data.error || '评论加载失败');
+    }
     const comments = data.results || [];
-    if (comments.length < 20) hasMoreComments = false;
+    hasMoreComments = Boolean(data.has_more);
 
     if (comments.length === 0 && currentCommentPage === 1) {
       container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px;">还没有评论</p>';
       return;
     }
-
-    let floorOffset = (currentCommentPage - 1) * 20;
-    let rootCount = 0;
 
     // 分组：根评论列表 + 子评论 Map
     const roots = comments.filter(c => !c.parent_id);
@@ -815,52 +833,120 @@ async function loadComments(postId, reset = false, highlightId = null) {
     });
 
     // 按根评论顺序渲染，子评论紧跟其父
-    const hasPinnedRoots = currentCommentPage === 1 && roots.some(c => c.is_pinned);
+    if (data.focused) {
+      const note = document.createElement('div');
+      note.className = 'comment-focus-note';
+      note.textContent = '正在查看定位到的讨论 ';
+      const all = document.createElement('button');
+      all.className = 'btn btn-sm btn-ghost';
+      all.textContent = '查看全部讨论';
+      all.onclick = () => loadComments(postId, true);
+      note.appendChild(all);
+      container.appendChild(note);
+    }
+    const hasPinnedRoots = currentCommentPage === 1 && roots.some(c => c.thread_pinned);
     let regularGroupAdded = false;
     if (hasPinnedRoots) {
       container.appendChild(createCommentGroupLabel('置顶评论', 'pinned'));
     }
 
     roots.forEach(root => {
-      if (hasPinnedRoots && !root.is_pinned && !regularGroupAdded) {
+      if (document.getElementById(`comment-thread-${root.id}`)) return;
+      if (hasPinnedRoots && !root.thread_pinned && !regularGroupAdded) {
         container.appendChild(createCommentGroupLabel('全部评论', 'regular'));
         regularGroupAdded = true;
       }
-      const floorNum = floorOffset + rootCount++;
-      const rootEl = createCommentElement(root, false, currentPostAuthorId, floorNum);
-      container.appendChild(rootEl);
+      const thread = document.createElement('section');
+      thread.className = 'comment-thread';
+      thread.id = `comment-thread-${root.id}`;
+      const rootEl = createCommentElement(root, false, currentPostAuthorId, root.floor - 1);
+      thread.appendChild(rootEl);
+      container.appendChild(thread);
       bindImageClicks(rootEl);
       addCopyButtons(rootEl);
 
-      const children = childrenMap[root.id] || [];
-      children.forEach(child => {
-        const childEl = createCommentElement(child, false, currentPostAuthorId, -1);
-        container.appendChild(childEl);
-        bindImageClicks(childEl);
-        addCopyButtons(childEl);
-      });
+      const replies = document.createElement('div');
+      replies.id = `comment-replies-${root.id}`;
+      thread.appendChild(replies);
+      const state = { postId, rootId: root.id, page: root.reply_page, hasMore: root.reply_has_more,
+        generation, loading: false, startsLater: root.reply_page > 1, ids: new Set(), thread, replies };
+      commentReplyStates.set(root.id, state);
+      appendCommentReplies(state, childrenMap[root.id] || []);
+      renderReplyControls(state);
     });
     currentCommentPage++;
 
     const loadMoreBtn = document.getElementById('loadMoreComments');
     if (loadMoreBtn) {
       loadMoreBtn.style.display = hasMoreComments ? 'block' : 'none';
-      loadMoreBtn.querySelector('button').textContent = '加载更多评论';
+      loadMoreBtn.querySelector('button').textContent = '加载更多讨论';
     }
 
     if (highlightId) {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (!isCurrent() || !window.location.hash.startsWith('#post?')) return;
         const target = document.getElementById(`comment-${highlightId}`);
-        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
+        if (target) { target.tabIndex = -1; target.focus({ preventScroll: true }); target.scrollIntoView({ behavior: 'instant', block: 'center' }); }
+      });
     }
   } catch (e) {
+    if (!isCurrent()) return;
     console.error(e);
     const loadMoreBtn = document.getElementById('loadMoreComments');
-    if (loadMoreBtn && loadMoreBtn.style.display !== 'none') {
+    if (loadMoreBtn) {
+      loadMoreBtn.style.display = 'block';
       loadMoreBtn.querySelector('button').textContent = '加载失败，点击重试';
     }
+  } finally {
+    if (isCurrent()) { commentsLoading = false; if (more) more.disabled = false; }
   }
+}
+
+function appendCommentReplies(state, replies) {
+  for (const reply of replies) {
+    if (state.ids.has(reply.id)) continue;
+    state.ids.add(reply.id);
+    const element = createCommentElement(reply, true, currentPostAuthorId, -1);
+    state.replies.appendChild(element);
+    bindImageClicks(element); addCopyButtons(element);
+  }
+}
+
+function renderReplyControls(state) {
+  state.thread.querySelector('.comment-reply-controls')?.remove();
+  if (!state.hasMore && !state.startsLater) return;
+  const controls = document.createElement('div');
+  controls.className = 'comment-reply-controls';
+  for (const [visible, label, reset] of [[state.startsLater, '从首条回复查看', true], [state.hasMore, '加载更多回复', false]]) {
+    if (!visible) continue;
+    const button = document.createElement('button');
+    button.className = 'btn btn-sm btn-ghost'; button.textContent = label;
+    button.onclick = () => loadCommentReplies(state.rootId, reset);
+    controls.appendChild(button);
+  }
+  state.thread.appendChild(controls);
+}
+
+async function loadCommentReplies(rootId, reset = false) {
+  const state = commentReplyStates.get(rootId);
+  if (!state || state.loading) return;
+  state.loading = true;
+  const buttons = state.thread.querySelectorAll('.comment-reply-controls button');
+  buttons.forEach(button => { button.disabled = true; });
+  const isCurrent = () => state.generation === commentGeneration && String(currentPostId) === String(state.postId);
+  try {
+    const page = reset ? 1 : state.page + 1;
+    const query = new URLSearchParams({ post_id: state.postId, root_id: rootId, page });
+    const response = await fetchApi(`${API_BASE}/comments?${query}`);
+    const data = await response.json();
+    if (!isCurrent()) return;
+    if (!response.ok) throw new Error(data.error || '回复加载失败');
+    if (reset) { state.replies.innerHTML = ''; state.ids.clear(); state.startsLater = false; }
+    appendCommentReplies(state, data.results);
+    state.page = data.page; state.hasMore = data.has_more;
+    renderReplyControls(state);
+  } catch (error) { if (isCurrent()) showToast(error.message || '回复加载失败，请重试', 'error'); }
+  finally { state.loading = false; buttons.forEach(button => { button.disabled = false; }); }
 }
 
 function createCommentGroupLabel(text, type) {
@@ -968,7 +1054,7 @@ window.submitComment = async function () {
       showToast('评论成功', 'success');
       input.value = '';
       cancelReply();
-      loadComments(currentPostId, true);
+      loadComments(currentPostId, true, data.id || parentId);
     } else {
       showToast(data.error || '评论失败', 'error');
     }

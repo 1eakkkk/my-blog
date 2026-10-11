@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" type="image/svg+xml" href="assets/mark.svg">
-  <link rel="stylesheet" href="style.css?v=2.7.0">
+  <link rel="stylesheet" href="style.css?v=2.7.1">
   <script src="assets/vendor/marked.js"></script>
   <script src="assets/vendor/purify.min.js"></script>
 </head>
@@ -77,10 +77,10 @@
     <div class="page-header home-masthead">
       <div class="masthead-copy"><p class="eyebrow"><span class="eyebrow-line"></span> THE EVERYDAY JOURNAL · 日常手记</p><h1>把日子，<br>写成<span>故事。</span></h1><p class="masthead-note">一些生活的片刻，一些值得留下的想法。<br class="mobile-break">在这里，慢慢记录。</p></div>
     </div>
-    <div class="update-notice" id="homeUpdateNotice" data-notice-version="v2.7.0" role="note" aria-label="最新更新公告" hidden>
+    <div class="update-notice" id="homeUpdateNotice" data-notice-version="v2.7.1" role="note" aria-label="最新更新公告" hidden>
       <div>
-        <strong>v2.7.0 更新公告</strong>
-        <p>首页支持按日期查帖，全站阅读界面与明暗主题焕新，内容访问、评论和上传安全加固。</p>
+        <strong>v2.7.1 更新公告</strong>
+        <p>评论按讨论加载，长回复可继续翻页；修复跨页漏显示，支持直接定位评论与失败重试。</p>
       </div>
       <a href="#about">查看更新日志</a>
     </div>
@@ -142,7 +142,7 @@
       </div>
       <div id="commentsList" class="comments-list"></div>
       <div id="loadMoreComments" style="display:none;text-align:center;margin-top:12px;">
-        <button class="btn btn-ghost" onclick="loadComments(currentPostId)">加载更多评论</button>
+        <button class="btn btn-ghost" onclick="loadComments(currentPostId)">加载更多讨论</button>
       </div>
     </div>
   </div>
@@ -401,7 +401,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.7.0</strong> · 2026-10-11</p>
+      <p style="margin-top:8px;">版本：<strong>v2.7.1</strong> · 2026-10-11</p>
     </div>
 
     <div class="about-section">
@@ -428,11 +428,18 @@
           <h3>更新日志</h3>
           <p>只保留真正影响体验和维护的变更，近期更新展开，历史记录收起。</p>
         </div>
-        <span class="release-current-badge">当前 v2.7.0</span>
+        <span class="release-current-badge">当前 v2.7.1</span>
       </div>
 
       <div class="release-board">
         <details open class="release-group release-current">
+          <summary>v2.7.1 (2026-10-11)</summary>
+          <div class="release-card">
+            <p><strong>v2.7.1</strong> — 评论讨论与回复分页、稳定楼层和定位。</p>
+            <ul><li>主评论按讨论分页，回复归属原讨论，修复跨页回复漏显示。</li><li>长讨论支持加载更多回复，置顶不改变楼层编号。</li><li>评论链接直接定位到对应回复页，发表后可立即看到自己的新评论。</li><li>连续点击不重复加载，失败支持重试，快速切换帖子不会混入旧评论。</li></ul>
+          </div>
+        </details>
+        <details class="release-group">
           <summary>v2.7.0 (2026-10-11)</summary>
           <div class="release-card">
             <p><strong>v2.7.0</strong> — 首页日期归档、阅读界面焕新与安全加固。</p>
@@ -647,7 +654,7 @@
   <img id="lightboxImg" src="" alt="放大查看图片" draggable="false" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="blog-utils.js?v=2.7.0"></script>
-<script src="script.js?v=2.7.0"></script>
+<script src="blog-utils.js?v=2.7.1"></script>
+<script src="script.js?v=2.7.1"></script>
 </body>
 </html>
