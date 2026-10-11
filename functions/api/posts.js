@@ -11,9 +11,20 @@ export async function onRequestGet(context) {
   const sort = url.searchParams.get('sort') || 'latest';
   const search = url.searchParams.get('search') || '';
   const category = url.searchParams.get('category') || '';
-  const page = parseInt(url.searchParams.get('page')) || 1;
-  const limit = parseInt(url.searchParams.get('limit')) || 10;
+  const page = Math.max(1, parseInt(url.searchParams.get('page')) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit')) || 10));
   const offset = (page - 1) * limit;
+  const userId = url.searchParams.get('user_id');
+  const date = url.searchParams.get('date');
+  if (userId !== null && !/^[1-9]\d*$/.test(userId)) return json({ error: '用户参数无效' }, { status: 400 });
+  let dayStart;
+  if (date !== null) {
+    dayStart = Date.parse(`${date}T00:00:00+08:00`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(dayStart) ||
+        new Date(dayStart + 8 * 3600000).toISOString().slice(0, 10) !== date) {
+      return json({ error: '日期参数无效' }, { status: 400 });
+    }
+  }
 
   const viewer = await getUser(context);
   const currentUserId = viewer ? viewer.id : null;
@@ -31,13 +42,27 @@ export async function onRequestGet(context) {
   `;
 
   try {
+    if (url.searchParams.get('archive') === '1') {
+      if (!userId) return json({ error: '请选择用户' }, { status: 400 });
+      const days = await db.prepare(`SELECT strftime('%Y-%m-%d', created_at / 1000, 'unixepoch', '+8 hours') AS date,
+        COUNT(*) AS count FROM posts WHERE user_id = ? GROUP BY date ORDER BY date DESC`).bind(userId).all();
+      return json({ days: days.results, time_zone: 'UTC+8' });
+    }
     if (id) {
       const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(now, currentUserId || 0, id).first();
-      return new Response(JSON.stringify(post), { headers: { 'Content-Type': 'application/json' } });
+      return json(post);
     } else {
       let sql = `SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id`;
       const params = [now, currentUserId || 0];
       const conditions = [];
+      if (userId) {
+        conditions.push('posts.user_id = ?');
+        params.push(userId);
+      }
+      if (date !== null) {
+        conditions.push('posts.created_at >= ? AND posts.created_at < ?');
+        params.push(dayStart, dayStart + 86400000);
+      }
 
       if (search) {
         const term = `%${search}%`;
@@ -52,14 +77,14 @@ export async function onRequestGet(context) {
         sql += ' WHERE ' + conditions.join(' AND ');
       }
 
-      sql += ` ORDER BY (posts.category = '公告') DESC, posts.is_pinned DESC`;
+      sql += userId ? ' ORDER BY' : ` ORDER BY (posts.category = '公告') DESC, posts.is_pinned DESC,`;
 
       if (sort === 'hot') {
-        sql += `, posts.like_count DESC, posts.created_at DESC`;
+        sql += ` posts.like_count DESC, posts.created_at DESC, posts.id DESC`;
       } else if (sort === 'comments') {
-        sql += `, comment_count DESC, posts.created_at DESC`;
+        sql += ` comment_count DESC, posts.created_at DESC, posts.id DESC`;
       } else {
-        sql += `, posts.created_at DESC`;
+        sql += ` posts.created_at DESC, posts.id DESC`;
       }
 
       sql += ` LIMIT ? OFFSET ?`;
@@ -80,7 +105,7 @@ export async function onRequestGet(context) {
         p.content = full.slice(0, 600);
       }
 
-      return new Response(JSON.stringify(posts.results), { headers: { 'Content-Type': 'application/json' } });
+      return json(posts.results);
     }
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });

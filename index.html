@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>1eak.cool</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>">
-  <link rel="stylesheet" href="style.css?v=8.26">
+  <link rel="stylesheet" href="style.css?v=8.27">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.8/purify.min.js"></script>
 </head>
@@ -81,10 +81,10 @@
         <button id="layoutGrid" onclick="setLayout('grid')">▦ 网格</button>
       </div>
     </div>
-    <div class="update-notice" id="homeUpdateNotice" data-notice-version="v2.6.1" role="note" aria-label="最新更新公告" hidden>
+    <div class="update-notice" id="homeUpdateNotice" data-notice-version="v2.6.2" role="note" aria-label="最新更新公告" hidden>
       <div>
-        <strong>v2.6.1 更新公告</strong>
-        <p>安全加固与性能优化：登录会话更可靠，帖子列表加载更快。</p>
+        <strong>v2.6.2 更新公告</strong>
+        <p>移动端图片缩放修复，列表自动续号，评论时间更清晰，个人主页新增分页和日期筛选。</p>
       </div>
       <a href="#about">查看更新日志</a>
     </div>
@@ -222,7 +222,14 @@
         <div class="stat-item"><div class="stat-num" id="statPosts">0</div><div class="stat-label">帖子</div></div>
       </div>
     </div>
-    <div id="profilePosts"></div>
+    <details id="profileArchive" class="profile-archive" hidden>
+      <summary>📅 按日期查找帖子</summary>
+      <p class="archive-help">日期按 UTC+8；深色日期有帖子，灰色日期不可选。</p>
+      <div id="profileCalendar"></div>
+    </details>
+    <div class="profile-post-heading"><h3 id="profileDateLabel">TA 的全部帖子</h3><button class="btn btn-sm btn-ghost" onclick="selectProfileDate('')">显示全部</button></div>
+    <div id="profilePosts" aria-live="polite"></div>
+    <button id="profileLoadMore" class="btn profile-load-more" hidden onclick="loadProfilePosts()">加载更多</button>
   </div>
 
   <!-- 设置 -->
@@ -385,7 +392,7 @@
     <div class="about-section">
       <h3>技术</h3>
       <p>基于 Cloudflare Pages + D1 + R2 构建的无服务器论坛。纯静态前端 + Edge Functions 后端。</p>
-      <p style="margin-top:8px;">版本：<strong>v2.6.1</strong> · 2026-07-26</p>
+      <p style="margin-top:8px;">版本：<strong>v2.6.2</strong> · 2026-10-11</p>
     </div>
 
     <div class="about-section">
@@ -412,11 +419,18 @@
           <h3>更新日志</h3>
           <p>只保留真正影响体验和维护的变更，近期更新展开，历史记录收起。</p>
         </div>
-        <span class="release-current-badge">当前 v2.6.1</span>
+        <span class="release-current-badge">当前 v2.6.2</span>
       </div>
 
       <div class="release-board">
         <details open class="release-group release-current">
+          <summary>v2.6.2 (2026-10-11)</summary>
+          <div class="release-card">
+            <p><strong>v2.6.2</strong> — 图片查看、编辑器与个人主页体验修复。</p>
+            <ul><li>图片灯箱独立缩放，阻止背景页面跟随放大，关闭后恢复滚动位置。</li><li>有序列表按钮接续已有编号，重复点击自动追加下一项。</li><li>帖子与评论显示 UTC+8 准确时间，相对时间参考服务器时钟。</li><li>个人主页按作者分页，新增按日期查帖日历，灰色日期不可选。</li></ul>
+          </div>
+        </details>
+        <details class="release-group">
           <summary>v2.6.1 (2026-07-26)</summary>
           <div class="release-card">
             <div class="release-tags">
@@ -611,10 +625,11 @@
 </main>
 
 <!-- 图片灯箱 -->
-<div id="lightbox" class="modal-overlay" style="display:none;cursor:pointer;z-index:2000;" onclick="closeLightbox()">
-  <img id="lightboxImg" src="" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+<div id="lightbox" class="modal-overlay" role="dialog" aria-modal="true" aria-label="图片查看器" style="display:none;cursor:pointer;z-index:2000;" onclick="if(event.target===this)closeLightbox()">
+  <img id="lightboxImg" src="" alt="放大查看图片" draggable="false" style="max-width:95vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 </div>
 
-<script src="script.js?v=8.26"></script>
+<script src="blog-utils.js?v=2.6.2"></script>
+<script src="script.js?v=8.27"></script>
 </body>
 </html>
