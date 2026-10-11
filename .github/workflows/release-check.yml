@@ -14,5 +14,7 @@ jobs:
           node-version: 24
       - run: node --check script.js
       - run: node --check functions/api/comments.js
-      - run: node --test tools/check-release.test.mjs
+      - run: node --check functions/api/posts.js
+      - run: node --check blog-utils.js
+      - run: node --test tools/*.test.mjs
       - run: node tools/check-release.mjs

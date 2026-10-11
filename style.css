@@ -1536,15 +1536,44 @@ select.form-control { cursor: pointer; }
 #lightbox {
   cursor: default;
   user-select: none;
+  touch-action: none;
+  overscroll-behavior: contain;
+  overflow: hidden;
 }
 
 #lightbox img {
-  transition: transform 0.25s ease;
+  touch-action: none;
   object-fit: contain;
   cursor: grab;
 }
 
 #lightbox img:active { cursor: grabbing; }
+
+/* === 个人主页日期筛选 === */
+.profile-archive { max-width: 380px; padding: 16px; margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.profile-archive summary { cursor: pointer; font-weight: 650; }
+.archive-help { color: var(--text-muted); font-size: 0.8rem; margin: 12px 0; }
+.archive-month-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.archive-month-nav select { width: auto; min-height: 36px; }
+.archive-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
+.archive-weekday { font-size: 0.8rem; color: var(--text-muted); padding: 6px 0; }
+.archive-day { position: relative; min-height: 38px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-weight: 650; cursor: pointer; }
+.archive-day:disabled { color: var(--text-muted); opacity: 0.45; font-weight: 400; cursor: default; }
+.archive-day:not(:disabled):hover { background: var(--bg); }
+.archive-day.selected { background: var(--accent); color: white; }
+.archive-day i { position: absolute; bottom: 3px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.profile-post-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; scroll-margin-top: 90px; }
+.profile-post-heading h3 { margin: 0; font-size: 1rem; }
+.profile-post-card { display: block; margin-bottom: 8px; color: var(--text); text-decoration: none; }
+.profile-post-card:hover { text-decoration: none; }
+.profile-post-card .card-meta { margin-top: 6px; }
+.profile-load-more { display: block; margin: 20px auto; }
+.profile-load-more[hidden], .profile-archive[hidden] { display: none; }
+@media (max-width: 768px) {
+  .profile-archive { max-width: 100%; padding: 12px; }
+  .archive-month-nav select { font-size: 16px; }
+  .comment-time { overflow-wrap: anywhere; }
+}
 
 .lightbox-close {
   position: fixed;

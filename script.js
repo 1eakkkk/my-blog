@@ -1,5 +1,15 @@
 // === 全局状态 ===
 const API_BASE = '/api';
+let serverClockOffset = 0;
+async function fetchApi(url, options) {
+  const started = Date.now();
+  const response = await fetch(url, options);
+  const serverTime = Number(response.headers.get('X-Server-Time'));
+  if (serverTime > 0 && Date.now() - started < 10000) {
+    serverClockOffset = serverTime - (started + Date.now()) / 2;
+  }
+  return response;
+}
 let currentUser = null;
 let userRole = 'user';
 let isAppReady = false;
@@ -12,7 +22,7 @@ let editingPostId = null;
 let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
-const HOME_UPDATE_NOTICE_VERSION = 'v2.6.0';
+const HOME_UPDATE_NOTICE_VERSION = 'v2.6.2';
 const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSION}`;
 
 // 随机标语
@@ -147,6 +157,14 @@ window.insertMarkdown = function(type) {
   if (!ta) return;
   const start = ta.selectionStart;
   const end = ta.selectionEnd;
+  if (type === 'ol') {
+    const edit = BlogUtils.orderedListEdit(ta.value, start, end);
+    ta.value = ta.value.slice(0, edit.start) + edit.text + ta.value.slice(edit.end);
+    try { ta.focus({ preventScroll: true }); } catch (_) { ta.focus(); }
+    ta.setSelectionRange(edit.start + edit.selectStart, edit.start + edit.selectEnd);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
   const selected = ta.value.slice(start, end);
   const before = ta.value.slice(0, start);
   const after = ta.value.slice(end);
@@ -225,16 +243,6 @@ window.insertMarkdown = function(type) {
         selectionEndOffset = insert.length;
       }
       break;
-    case 'ol':
-      insert = selected
-        ? selected.split('\n').map((l, i) => `${i + 1}. ${l}`).join('\n')
-        : '1. 列表项';
-      if (selected) selectWholeInsert();
-      else {
-        selectionStartOffset = 3;
-        selectionEndOffset = insert.length;
-      }
-      break;
     case 'hr':
       insert = '\n---\n';
       placeCursorAtEnd();
@@ -251,11 +259,7 @@ window.insertMarkdown = function(type) {
 };
 
 function timeAgo(ts) {
-  const diff = Date.now() - ts;
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
-  return new Date(ts).toLocaleDateString('zh-CN');
+  return BlogUtils.relativeTime(ts, Date.now() + serverClockOffset);
 }
 
 function renderUserAvatar(userObj) {
@@ -310,7 +314,7 @@ document.addEventListener('click', function (e) {
 async function checkSecurity() {
   const mask = document.getElementById('loading-mask');
   try {
-    const res = await fetch(`${API_BASE}/user`);
+    const res = await fetchApi(`${API_BASE}/user`);
     if (!res.ok) throw new Error("API Error");
     const data = await res.json();
 
@@ -357,7 +361,7 @@ async function checkSecurity() {
 }
 
 async function doLogout() {
-  await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+  await fetchApi(`${API_BASE}/auth/logout`, { method: 'POST' });
   window.location.href = '/login.html';
 }
 
@@ -491,7 +495,7 @@ async function loadPosts(reset = false) {
   else if (loadMoreBtn) loadMoreBtn.textContent = '加载中...';
 
   try {
-    const res = await fetch(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&category=${encodeURIComponent(catFilter)}&sort=${sortVal}`);
+    const res = await fetchApi(`${API_BASE}/posts?page=${currentPage}&limit=${POSTS_PER_PAGE}&search=${encodeURIComponent(searchVal)}&category=${encodeURIComponent(catFilter)}&sort=${sortVal}`);
     const posts = await res.json();
     if (reset) container.innerHTML = '';
     if (posts.length < POSTS_PER_PAGE) hasMorePosts = false;
@@ -559,15 +563,15 @@ async function loadSinglePost(id, targetCommentId = null) {
   document.getElementById('commentsList').innerHTML = '';
 
   try {
-    const res = await fetch(`${API_BASE}/posts?id=${id}`);
+    const res = await fetchApi(`${API_BASE}/posts?id=${id}`);
     const post = await res.json();
     if (!post || post.error) { container.innerHTML = '<p>帖子不存在</p>'; return; }
     currentPostAuthorId = post.user_id;
 
     const author = post.author_nickname || post.author_username || 'Unknown';
     const safeAuthor = escapeHtml(author);
-    const createdStr = new Date(post.created_at).toLocaleString();
-    const updatedStr = post.updated_at ? new Date(post.updated_at).toLocaleString() : '';
+    const createdStr = BlogUtils.formatTime(post.created_at);
+    const updatedStr = post.updated_at ? BlogUtils.formatTime(post.updated_at) : '';
     const timeHtml = post.updated_at
       ? `发布于 ${createdStr} · <span style="color:var(--text-muted);">编辑于 ${updatedStr}</span>`
       : createdStr;
@@ -627,7 +631,7 @@ async function loadComments(postId, reset = false, highlightId = null) {
   if (!hasMoreComments) return;
 
   try {
-    const res = await fetch(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}`);
+    const res = await fetchApi(`${API_BASE}/comments?post_id=${postId}&page=${currentCommentPage}`);
     const data = await res.json();
     const comments = data.results || [];
     if (comments.length < 20) hasMoreComments = false;
@@ -735,7 +739,7 @@ function createCommentElement(c, isReply, postAuthorId, floorNumber) {
     <div class="comment-header">
       ${floorBadge}
       <span class="comment-author">${author}${authorTag}</span>
-      <span class="comment-time">${timeStr}</span>
+      <span class="comment-time" title="${BlogUtils.formatTime(c.created_at)}">${timeStr} · ${BlogUtils.formatTime(c.created_at)}</span>
       ${pinnedBadge}
       ${replyTag}
     </div>
@@ -792,7 +796,7 @@ window.submitComment = async function () {
   const parentId = input.dataset.parentId || null;
 
   try {
-    const res = await fetch(`${API_BASE}/comments`, {
+    const res = await fetchApi(`${API_BASE}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ post_id: parseInt(currentPostId), content, parent_id: parentId ? parseInt(parentId) : null })
@@ -811,19 +815,19 @@ window.submitComment = async function () {
 
 window.deleteComment = async function (id) {
   if (!confirm('确认删除?')) return;
-  await fetch(`${API_BASE}/comments?id=${id}`, { method: 'DELETE' });
+  await fetchApi(`${API_BASE}/comments?id=${id}`, { method: 'DELETE' });
   loadComments(currentPostId, true);
 };
 
 window.pinComment = async function (id) {
-  await fetch(`${API_BASE}/comments`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pin', id }) });
+  await fetchApi(`${API_BASE}/comments`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pin', id }) });
   loadComments(currentPostId, true);
 };
 
 // === 点赞 ===
 window.toggleLike = async function (id, type, btn) {
   try {
-    const res = await fetch(`${API_BASE}/like`, {
+    const res = await fetchApi(`${API_BASE}/like`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target_id: id, target_type: type })
@@ -840,7 +844,7 @@ window.toggleLike = async function (id, type, btn) {
 // === 帖子操作 ===
 window.editPostMode = async function (id) {
   try {
-    const res = await fetch(`${API_BASE}/posts?id=${id}`);
+    const res = await fetchApi(`${API_BASE}/posts?id=${id}`);
     const post = await res.json();
     isEditingPost = true; editingPostId = id;
     document.getElementById('postTitle').value = post.title || '';
@@ -1065,12 +1069,12 @@ window.submitPost = async function (e) {
   try {
     let res;
     if (isEditingPost && editingPostId) {
-      res = await fetch(`${API_BASE}/posts`, {
+      res = await fetchApi(`${API_BASE}/posts`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingPostId, action: 'edit', title, content, category, mood })
       });
     } else {
-      res = await fetch(`${API_BASE}/posts`, {
+      res = await fetchApi(`${API_BASE}/posts`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, content, category, mood })
       });
@@ -1089,14 +1093,14 @@ window.submitPost = async function (e) {
 window.deletePost = async function (id) {
   if (!confirm('确定删除? 不可恢复。')) return;
   try {
-    const res = await fetch(`${API_BASE}/posts?id=${id}`, { method: 'DELETE' });
+    const res = await fetchApi(`${API_BASE}/posts?id=${id}`, { method: 'DELETE' });
     if (res.ok) { showToast('已删除', 'success'); window.location.hash = '#home'; loadPosts(true); }
     else showToast('删除失败', 'error');
   } catch (e) { showToast('网络错误', 'error'); }
 };
 
 window.pinPost = async function (id) {
-  const res = await fetch(`${API_BASE}/posts`, {
+  const res = await fetchApi(`${API_BASE}/posts`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, action: 'pin' })
   });
@@ -1139,7 +1143,7 @@ async function uploadMarkdownFile(file, options = {}) {
     try {
       const formData = new FormData();
       formData.append('file', file, getUploadFileName(file, options.prefix || 'upload', options.index || 0));
-      const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+      const res = await fetchApi(`${API_BASE}/upload`, { method: 'POST', body: formData });
       let data = {};
       try {
         data = await res.json();
@@ -1362,12 +1366,24 @@ function bindPostDragDropUpload() {
 }
 
 // === 个人主页 ===
+let profileState = null;
+let profileRequest = 0;
+const PROFILE_PAGE_SIZE = 20;
 async function loadUserProfile(param) {
+  const request = ++profileRequest;
+  profileState = null;
   document.getElementById('profileName').textContent = '加载中...';
+  document.getElementById('profileBio').textContent = '';
+  document.getElementById('statPosts').textContent = '0';
+  document.getElementById('profileAvatar').textContent = '?';
+  document.getElementById('profilePosts').innerHTML = '';
+  document.getElementById('profileArchive').hidden = true;
+  document.getElementById('profileLoadMore').hidden = true;
   try {
     const isId = /^\d+$/.test(param);
-    const res = await fetch(`${API_BASE}/user-public?${isId ? 'id' : 'username'}=${encodeURIComponent(param)}`);
+    const res = await fetchApi(`${API_BASE}/user-public?${isId ? 'id' : 'username'}=${encodeURIComponent(param)}`);
     const data = await res.json();
+    if (request !== profileRequest) return;
     if (data.error) { document.getElementById('profileName').textContent = data.error; return; }
 
     document.getElementById('profileName').textContent = data.nickname || data.username;
@@ -1377,31 +1393,125 @@ async function loadUserProfile(param) {
     const avatarEl = document.getElementById('profileAvatar');
     avatarEl.innerHTML = renderUserAvatar(data);
 
-    const postsRes = await fetch(`${API_BASE}/posts?sort=latest&limit=50`);
-    const allPosts = await postsRes.json();
-    const userPosts = Array.isArray(allPosts) ? allPosts.filter(p => p.user_id === data.id) : [];
-    const profilePosts = document.getElementById('profilePosts');
-    if (userPosts.length === 0) {
-      profilePosts.innerHTML = '<div class="empty-state"><p>暂无帖子</p></div>';
-    } else {
-      profilePosts.innerHTML = `<h3 style="margin-bottom:14px;font-weight:650;">TA 的帖子</h3>` +
-        userPosts.map(p => `
-          <div class="post-card" onclick="window.location.hash='#post?id=${Number(p.id)}'" style="margin-bottom:8px;">
-            <div class="card-header"><span class="category-badge">${escapeHtml(p.category || '灌水')}</span></div>
-            <div class="card-title">${escapeHtml(p.title || '无题 / Untitled')}</div>
-            <div class="card-meta" style="margin-top:6px;">${timeAgo(p.created_at)} · 💬 ${p.comment_count || 0} · ❤ ${p.like_count || 0}</div>
-          </div>
-        `).join('');
-    }
-  } catch (e) { console.error(e); }
+    const state = profileState = { userId: data.id, page: 1, date: '', loading: false, more: true, days: new Map(), months: [], month: '', generation: 0 };
+    await Promise.all([loadProfilePosts(true), loadProfileArchive(state)]);
+  } catch (e) {
+    if (request !== profileRequest) return;
+    document.getElementById('profileName').textContent = '加载失败';
+    showToast('个人主页加载失败，请重试', 'error');
+  }
 }
+
+async function loadProfileArchive(state) {
+  try {
+    const res = await fetchApi(`${API_BASE}/posts?user_id=${state.userId}&archive=1`);
+    const data = await res.json();
+    if (profileState !== state) return;
+    if (!res.ok || !Array.isArray(data.days)) throw new Error('日期加载失败');
+    state.days = new Map(data.days.filter(d => d.date).map(d => [d.date, d.count]));
+    state.months = [...new Set([...state.days.keys()].map(d => d.slice(0, 7)))].sort();
+    state.month = state.months.at(-1) || '';
+    renderProfileCalendar();
+  } catch (e) {
+    if (profileState === state) {
+      document.getElementById('profileArchive').hidden = false;
+      document.getElementById('profileCalendar').innerHTML = '<button class="btn btn-sm" onclick="loadProfileArchive(profileState)">日期加载失败，点击重试</button>';
+      showToast('日期筛选加载失败，帖子仍可浏览', 'error');
+    }
+  }
+}
+
+window.loadProfilePosts = async function(reset = false) {
+  const state = profileState;
+  if (!state || (!reset && (state.loading || !state.more))) return;
+  if (reset) {
+    state.generation++;
+    state.page = 1;
+    state.more = true;
+    document.getElementById('profilePosts').innerHTML = '<div class="empty-state">加载中...</div>';
+  }
+  const generation = state.generation;
+  state.loading = true;
+  const button = document.getElementById('profileLoadMore');
+  button.disabled = true;
+  button.textContent = '加载中...';
+  try {
+    const res = await fetchApi(`${API_BASE}/posts?user_id=${state.userId}&sort=latest&page=${state.page}&limit=${PROFILE_PAGE_SIZE}${state.date ? '&date=' + state.date : ''}`);
+    const posts = await res.json();
+    if (profileState !== state || generation !== state.generation) return;
+    if (!res.ok || !Array.isArray(posts)) throw new Error('帖子加载失败');
+    const container = document.getElementById('profilePosts');
+    if (reset) container.innerHTML = '';
+    if (reset && !posts.length) container.innerHTML = '<div class="empty-state"><p>暂无帖子</p></div>';
+    container.insertAdjacentHTML('beforeend', posts.map(p => `
+      <a class="post-card profile-post-card" href="#post?id=${Number(p.id)}">
+        <div class="card-header"><span class="category-badge">${escapeHtml(p.category || '灌水')}</span></div>
+        <div class="card-title">${escapeHtml(p.title || '无题 / Untitled')}</div>
+        <div class="card-meta">${BlogUtils.formatTime(p.created_at)} · 💬 ${p.comment_count || 0} · ❤ ${p.like_count || 0}</div>
+      </a>`).join(''));
+    state.page++;
+    state.more = posts.length === PROFILE_PAGE_SIZE;
+    button.hidden = !state.more;
+    button.textContent = '加载更多';
+  } catch (e) {
+    if (profileState !== state || generation !== state.generation) return;
+    if (reset) document.getElementById('profilePosts').innerHTML = '';
+    button.hidden = false;
+    button.textContent = '加载失败，点击重试';
+    showToast('帖子加载失败，请重试', 'error');
+  } finally {
+    if (profileState === state && generation === state.generation) {
+      state.loading = false;
+      button.disabled = false;
+    }
+  }
+};
+
+function renderProfileCalendar() {
+  const state = profileState;
+  if (!state) return;
+  document.getElementById('profileArchive').hidden = !state.months.length;
+  document.getElementById('profileDateLabel').textContent = state.date ? `${state.date} 的帖子` : 'TA 的全部帖子';
+  if (!state.month) return;
+  const [year, month] = state.month.split('-').map(Number);
+  const firstDay = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const index = state.months.indexOf(state.month);
+  let html = `<div class="archive-month-nav">
+    <button class="btn btn-sm btn-ghost" onclick="changeProfileMonth(-1)" aria-label="上一个有帖子的月份" ${index === 0 ? 'disabled' : ''}>‹</button>
+    <label><span class="sr-only">选择月份</span><select class="form-control" onchange="selectProfileMonth(this.value)">${state.months.map(m => `<option ${m === state.month ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
+    <button class="btn btn-sm btn-ghost" onclick="changeProfileMonth(1)" aria-label="下一个有帖子的月份" ${index === state.months.length - 1 ? 'disabled' : ''}>›</button></div>
+    <div class="archive-days">${['日','一','二','三','四','五','六'].map(d => `<span class="archive-weekday">${d}</span>`).join('')}${'<span></span>'.repeat(firstDay)}`;
+  for (let d = 1; d <= count; d++) {
+    const date = `${state.month}-${String(d).padStart(2, '0')}`;
+    const total = state.days.get(date) || 0;
+    html += `<button class="archive-day ${state.date === date ? 'selected' : ''}" ${total ? '' : 'disabled'} aria-pressed="${state.date === date}" aria-label="${date}，${total} 篇帖子" onclick="selectProfileDate('${date}')">${d}${total ? '<i></i>' : ''}</button>`;
+  }
+  document.getElementById('profileCalendar').innerHTML = html + '</div>';
+}
+window.selectProfileMonth = function(month) {
+  if (!profileState?.months.includes(month)) return;
+  profileState.month = month;
+  renderProfileCalendar();
+};
+window.changeProfileMonth = function(delta) {
+  const state = profileState;
+  if (state) selectProfileMonth(state.months[state.months.indexOf(state.month) + delta]);
+};
+window.selectProfileDate = function(date) {
+  if (!profileState || (date && !profileState.days.has(date))) return;
+  profileState.date = date;
+  renderProfileCalendar();
+  loadProfilePosts(true);
+  document.getElementById('profileDateLabel').scrollIntoView({ block: 'start' });
+};
 
 // === 设置 ===
 window.updateNickname = async function () {
   const nickname = document.getElementById('settingsNickname').value.trim();
   if (!nickname) return showToast('昵称不能为空', 'error');
   try {
-    const res = await fetch(`${API_BASE}/profile`, {
+    const res = await fetchApi(`${API_BASE}/profile`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nickname })
     });
@@ -1417,7 +1527,7 @@ window.updateNickname = async function () {
 window.updateBio = async function () {
   const bio = document.getElementById('settingsBio').value.trim();
   try {
-    const res = await fetch(`${API_BASE}/profile`, {
+    const res = await fetchApi(`${API_BASE}/profile`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bio })
     });
@@ -1436,10 +1546,10 @@ window.uploadUserAvatar = async function () {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+    const res = await fetchApi(`${API_BASE}/upload`, { method: 'POST', body: formData });
     const data = await res.json();
     if (data.success) {
-      await fetch(`${API_BASE}/profile`, {
+      await fetchApi(`${API_BASE}/profile`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ avatar_url: data.url })
       });
@@ -1487,16 +1597,26 @@ let lightboxX = 0, lightboxY = 0;
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
 let startX = 0, startY = 0;
+let lightboxScroll = null;
+let lightboxTouchDistance = 0;
+let lightboxBodyStyles = null;
 
 window.openLightbox = function (src) {
   const lb = document.getElementById('lightbox');
   const img = document.getElementById('lightboxImg');
   img.src = src;
   lightboxScale = 1; lightboxX = 0; lightboxY = 0;
+  isDragging = false;
+  lightboxTouchDistance = 0;
   img.style.transform = 'scale(1) translate(0, 0)';
   img.style.cursor = 'grab';
   lb.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+  if (lightboxScroll === null) {
+    lightboxScroll = window.scrollY;
+    lightboxBodyStyles = {};
+    for (const key of ['overflow', 'position', 'top', 'width']) lightboxBodyStyles[key] = document.body.style[key];
+    Object.assign(document.body.style, { overflow: 'hidden', position: 'fixed', top: `-${lightboxScroll}px`, width: '100%' });
+  }
 
   const closeBtn = document.getElementById('lightboxCloseBtn');
   if (!closeBtn) {
@@ -1504,14 +1624,21 @@ window.openLightbox = function (src) {
     btn.id = 'lightboxCloseBtn';
     btn.className = 'lightbox-close';
     btn.textContent = '✕';
+    btn.setAttribute('aria-label', '关闭图片');
     btn.onclick = closeLightbox;
-    document.body.appendChild(btn);
+    lb.appendChild(btn);
   }
 };
 
 window.closeLightbox = function () {
   document.getElementById('lightbox').style.display = 'none';
-  document.body.style.overflow = '';
+  isDragging = false;
+  lightboxTouchDistance = 0;
+  if (lightboxScroll !== null) {
+    Object.assign(document.body.style, lightboxBodyStyles);
+    window.scrollTo({ top: lightboxScroll, behavior: 'instant' });
+    lightboxScroll = null;
+  }
   const btn = document.getElementById('lightboxCloseBtn');
   if (btn) btn.remove();
 };
@@ -1519,31 +1646,42 @@ window.closeLightbox = function () {
 document.addEventListener('DOMContentLoaded', () => {
   const lbImg = document.getElementById('lightboxImg');
   if (!lbImg) return;
+  const lb = document.getElementById('lightbox');
+  lbImg.addEventListener('click', e => e.stopPropagation());
+  lbImg.addEventListener('dragstart', e => e.preventDefault());
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    lb.addEventListener(type, e => e.preventDefault(), { passive: false });
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && lb.style.display !== 'none') closeLightbox(); });
 
-  lbImg.addEventListener('wheel', (e) => {
+  lb.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.2 : 0.2;
     lightboxScale = Math.max(0.5, Math.min(3, lightboxScale + delta));
     updateLightboxTransform();
-  });
+  }, { passive: false });
 
-  let touchDist0 = 0;
-  lbImg.addEventListener('touchstart', (e) => {
+  function beginTouch(e) {
+    isDragging = false;
+    lightboxTouchDistance = 0;
     if (e.touches.length === 2) {
-      touchDist0 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      if (e.cancelable) e.preventDefault();
+      lightboxTouchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     } else if (e.touches.length === 1 && lightboxScale > 1) {
       isDragging = true;
       dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY;
       startX = lightboxX; startY = lightboxY;
     }
-  });
+  }
+  lb.addEventListener('touchstart', beginTouch, { passive: false });
 
-  lbImg.addEventListener('touchmove', (e) => {
+  lb.addEventListener('touchmove', (e) => {
+    if (e.cancelable) e.preventDefault();
     if (e.touches.length === 2) {
       const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      if (touchDist0 > 0) {
-        lightboxScale = Math.max(0.5, Math.min(3, lightboxScale * (dist / touchDist0)));
-        touchDist0 = dist;
+      if (lightboxTouchDistance > 0) {
+        lightboxScale = Math.max(0.5, Math.min(3, lightboxScale * (dist / lightboxTouchDistance)));
+        lightboxTouchDistance = dist;
         updateLightboxTransform();
       }
     } else if (isDragging && e.touches.length === 1) {
@@ -1551,9 +1689,10 @@ document.addEventListener('DOMContentLoaded', () => {
       lightboxY = startY + (e.touches[0].clientY - dragStartY);
       updateLightboxTransform();
     }
-  });
+  }, { passive: false });
 
-  lbImg.addEventListener('touchend', () => { isDragging = false; });
+  lb.addEventListener('touchend', beginTouch, { passive: false });
+  lb.addEventListener('touchcancel', () => { isDragging = false; lightboxTouchDistance = 0; });
 
   lbImg.addEventListener('mousedown', (e) => {
     if (lightboxScale > 1) {
@@ -1595,7 +1734,7 @@ function bindImageClicks(container) {
 // === 管理员 ===
 async function loadAdminPanel() {
   try {
-    const res = await fetch(`${API_BASE}/admin?action=stats`);
+    const res = await fetchApi(`${API_BASE}/admin?action=stats`);
     const data = await res.json();
     if (!data.stats) return showToast('加载失败', 'error');
     const stats = data.stats;
@@ -1655,7 +1794,7 @@ window.showAdminDetail = async function (type) {
 
   try {
     const actions = { online: 'online_list', users: 'user_list', posts: 'post_list', comments: 'comment_list', security: 'security_list' };
-    const res = await fetch(`${API_BASE}/admin?action=${actions[type]}`);
+    const res = await fetchApi(`${API_BASE}/admin?action=${actions[type]}`);
     const data = await res.json();
 
     if (type === 'online') {
@@ -1704,7 +1843,7 @@ window.loadMoreAdminPosts = async function() {
   if (btn) btn.textContent = '加载中...';
   window._adminPostOffset = (window._adminPostOffset || 0) + 20;
   try {
-    const res = await fetch(`${API_BASE}/admin?action=post_list&offset=${window._adminPostOffset}`);
+    const res = await fetchApi(`${API_BASE}/admin?action=post_list&offset=${window._adminPostOffset}`);
     const data = await res.json();
     if (window._renderAdminPosts) window._renderAdminPosts(data.posts || [], data.hasMore, false);
   } catch (e) {
@@ -1715,7 +1854,7 @@ window.loadMoreAdminPosts = async function() {
 window.cleanupSessions = async function () {
   if (!confirm('清理 7 天前的过期会话？当前登录不会受影响。')) return;
   try {
-    const res = await fetch(`${API_BASE}/admin`, {
+    const res = await fetchApi(`${API_BASE}/admin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'cleanup_sessions' })
@@ -1734,7 +1873,7 @@ window.cleanupSessions = async function () {
 
 window.toggleTurnstile = async function () {
   if (!confirm('确定要切换人机验证开关吗？')) return;
-  const res = await fetch(`${API_BASE}/admin`, {
+  const res = await fetchApi(`${API_BASE}/admin`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'toggle_turnstile' })
   });
@@ -1749,7 +1888,7 @@ window.postAnnounce = async function () {
   const title = document.getElementById('adminAnnounceTitle').value.trim();
   const content = document.getElementById('adminAnnounceContent').value.trim();
   if (!title) return showToast('请输入标题', 'error');
-  const res = await fetch(`${API_BASE}/admin`, {
+  const res = await fetchApi(`${API_BASE}/admin`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'post_announce', title, content })
   });
@@ -1803,7 +1942,7 @@ function initApp() {
   window.addEventListener('hashchange', handleRoute);
 
   // 心跳上报，每 2 分钟更新在线状态
-  setInterval(() => { fetch(`${API_BASE}/heartbeat`, { method: 'POST' }).catch(() => {}); }, 120000);
+  setInterval(() => { fetchApi(`${API_BASE}/heartbeat`, { method: 'POST' }).catch(() => {}); }, 120000);
 
   checkSecurity();
 }

@@ -9,6 +9,8 @@ export function json(data, init = {}) {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      'X-Server-Time': String(Date.now()),
+      'Cache-Control': 'no-store',
       ...(init.headers || {})
     }
   });

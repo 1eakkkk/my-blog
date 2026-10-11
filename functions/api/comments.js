@@ -33,12 +33,12 @@ export async function onRequestGet(context) {
     LIMIT ? OFFSET ?
   `).bind(currentUserId, postId, limit, offset).all();
 
-  return new Response(JSON.stringify({
+  return json({
     total: total,
     page: page,
     limit: limit,
     results: comments.results
-  }), { headers: { 'Content-Type': 'application/json' } });
+  });
 }
 
 export async function onRequestPost(context) {
