@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -6,9 +7,12 @@ import { onRequestGet as getComments } from '../functions/api/comments.js';
 function fixture() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(`CREATE TABLE users (id INTEGER PRIMARY KEY,username TEXT,nickname TEXT,avatar_variant INTEGER,avatar_url TEXT,role TEXT);
+    CREATE TABLE posts (id INTEGER PRIMARY KEY,user_id INTEGER);
+    INSERT INTO posts VALUES (1,1),(2,1);
     CREATE TABLE comments (id INTEGER PRIMARY KEY,post_id INTEGER,user_id INTEGER,content TEXT,parent_id INTEGER,reply_to_uid INTEGER,created_at INTEGER,is_pinned INTEGER DEFAULT 0);
     CREATE TABLE likes (target_id INTEGER,target_type TEXT,user_id INTEGER);
     INSERT INTO users VALUES (1,'owner','作者',0,'','user');`);
+  sqlite.exec(readFileSync(new URL('../migrations/002_recycle.sql', import.meta.url), 'utf8'));
   const stmt = sqlite.prepare('INSERT INTO comments(id,post_id,user_id,content,parent_id,created_at,is_pinned) VALUES (?,?,1,?,?,?,?)');
   const add = (id, parent = null, pinned = 0, post = 1) => stmt.run(id, post, '评论' + id, parent, 1000, pinned);
   function prepare(sql, args = []) {

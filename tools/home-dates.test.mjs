@@ -11,9 +11,10 @@ function fixture() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(`CREATE TABLE users (id INTEGER, username TEXT, nickname TEXT, avatar_variant INTEGER, avatar_url TEXT, role TEXT);
     CREATE TABLE posts (id INTEGER, user_id INTEGER, title TEXT, content TEXT, category TEXT, created_at INTEGER, like_count INTEGER DEFAULT 0, is_pinned INTEGER DEFAULT 0, pinned_until INTEGER);
-    CREATE TABLE comments (id INTEGER, post_id INTEGER, content TEXT);
+    CREATE TABLE comments (id INTEGER, post_id INTEGER, content TEXT, parent_id INTEGER, user_id INTEGER, created_at INTEGER);
     CREATE TABLE likes (target_id INTEGER, target_type TEXT, user_id INTEGER);
     INSERT INTO users VALUES (1,'owner','作者',0,'','user'), (2,'other','其他作者',0,'','user');`);
+  sqlite.exec(readFileSync(new URL('../migrations/002_recycle.sql', import.meta.url), 'utf8'));
   const add = sqlite.prepare('INSERT INTO posts (id,user_id,title,content,category,created_at) VALUES (?,?,?,?,?,?)');
   const start = Date.parse('2026-10-11T00:00:00+08:00');
   add.run(1, 1, '相册 A', '图片', '生活', start - 1);
@@ -21,7 +22,7 @@ function fixture() {
   add.run(3, 2, '另一篇', '文字', '生活', start + 86400000 - 1);
   add.run(4, 2, '相册 C', '图片', '技术', start + 3600000);
   add.run(5, 1, '相册 D', '图片', '生活', start + 86400000);
-  sqlite.exec("INSERT INTO comments VALUES (1,3,'相册里的回复')");
+  sqlite.exec("INSERT INTO comments VALUES (1,3,'相册里的回复',NULL,1,1000)");
   const db = { prepare(sql) { return { bind(...args) { const stmt = sqlite.prepare(sql); return { first: async () => stmt.get(...args), all: async () => ({ results: stmt.all(...args) }) }; } }; } };
   return { sqlite, context: query => ({ env: { DB: db }, request: new Request('https://test.local/api/posts?' + query) }) };
 }

@@ -334,6 +334,14 @@ select.form-control { cursor:pointer; }
 .draft-item-title { font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .draft-item-meta { font-size:0.7rem; color:var(--text-muted); margin-top:4px; }
 .draft-empty { padding:40px 0; text-align:center; color:var(--text-muted); font-size:0.85rem; }
+.draft-item { flex-wrap:wrap; }
+.draft-item-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.draft-save-status { font-size:0.78rem; color:var(--text-muted); }
+.draft-save-status.save-error { color:var(--danger); }
+.draft-box-hint { padding:12px 20px 0; color:var(--text-muted); font-size:0.76rem; }
+.draft-box-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.draft-box-footer span { color:var(--text-muted); font-size:0.7rem; }
+.draft-modal-open { overflow:hidden; }
 #lightbox { background:#11130ff0; user-select:none; touch-action:none; overscroll-behavior:contain; overflow:hidden; cursor:default; }
 #lightbox img { touch-action:none; object-fit:contain; cursor:grab; }
 #lightbox img:active { cursor:grabbing; }

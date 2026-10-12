@@ -1,179 +1,49 @@
 # Project Summary: 1eak.cool
 
-## 1) 项目总览
+**当前版本**：v2.8.0（2026-10-12）
 
-基于 Cloudflare 全家桶（Pages + D1 + R2 + KV）构建的轻量级私人论坛。原生 HTML/JS/CSS 开发，无前端框架，SPA 架构。私人小站，供自己和好友使用。
+原生 HTML/CSS/JavaScript SPA，Cloudflare Pages Functions + D1 + R2 + KV，站点供本人和好友登录后使用。GitHub main 自动触发 Pages 部署，当前开发目录名称保留 my-blog-v2.6.2。
 
-**当前版本**：v2.7.1（2026-10-11）
+## 文件与职责
 
-## 2) 技术栈
+- index.html / style.css / script.js：导航、路由、帖子、评论、编辑器、个人主页、设置、后台、灯箱与 TOC。
+- blog-utils.js：UTC+8 时间、有序列表续号、安全 URL、转义高亮、首页筛选 URL。
+- draft-store.js / draft-ui.js：按用户 ID 使用 IndexedDB 事务存储本机草稿，显式保存失败、刷新恢复、版本冲突检查、手动旧稿导入和 Markdown 导出。
+- privacy-ui.js / privacy.css：管理员邀请码面板、精确旧媒体域映射。login.html 支持邀请码及暂停注册状态。
+- recovery-ui.js / recovery.css：设置页回收站、权限提示、恢复及帖子 Markdown 导出。
+- community-ui.js / community.css：回复我的、成功定位后已读、可暂停轮询、账号回访紧凑首页。
+- assets/vendor：本地固定 Marked 11.1.1、DOMPurify 3.4.16、许可证与 SHA-256，保持字节不变。
+- migrations：001_registration_invites、002_recycle、003_reply_inbox，新增结构可重复执行。
+- tools：Node24 SQLite 功能/安全回归、发布检查、完整 D1/R2 备份和独立恢复校验。
 
-- **前端**：原生 JavaScript (ES6+)、HTML5、CSS3
-- **前端库**：Marked.js（Markdown）、DOMPurify（XSS 防护）、Cloudflare Turnstile（人机验证）
-- **后端**：Cloudflare Pages Functions（Edge 运行时）
-- **数据库**：Cloudflare D1（SQLite）
-- **对象存储**：Cloudflare R2（图片/视频，域名 img.1eak.cool）
-- **KV**：限流计数（绑定变量名 `KV`，namespace `RATE_LIMIT`）
-- **鉴权**：Cookie Session + PBKDF2（salt:hash 格式，100000次迭代）
+## 后端约定
 
-## 3) 目录结构
+DB 绑定 D1；MY_BUCKET 绑定私有 R2；KV 为尽力而为的分组限流；TURNSTILE_SECRET 用于服务端 hostname 校验。Cookie session_id 通过 DB 校验七天过期与封禁，PBKDF2-SHA256 100000 次，保留旧 SHA-256 升级和旧长密码登录。内容 GET/HEAD 同样要求登录，写入校验 Origin/Fetch Metadata 和内容类型；JSON 流体积 256KiB，multipart 51MiB，上传文件50MiB。
 
-```text
-/
-├── login.html
-├── index.html
-├── style.css
-├── script.js
-└── functions/api/
-    ├── _middleware.js
-    ├── admin.js
-    ├── comments.js
-    ├── config.js
-    ├── heartbeat.js
-    ├── like.js
-    ├── posts.js
-    ├── profile.js
-    ├── random_avatar.js
-    ├── upload.js
-    ├── user.js
-    ├── user-public.js
-    └── auth/
-        ├── login.js
-        ├── logout.js
-        └── register.js
-```
+用户输入使用绑定参数，动态表名仅来自代码固定白名单。D1 db.batch 是事务，任一语句失败回滚全部，顺序 await 本身不是事务。API 响应 no-store、nosniff、禁止嵌入，Markdown 标签/属性白名单净化。
 
-## 4) 功能模块
+- posts.js / _search.js：作者完整分页、日期统计/UTC+8范围、组合搜索/分类/排序，字面 LIKE 与附近正文/评论摘录，绑定参数每批不超100。
+- comments.js：按主讨论分页，每个讨论首批20回复，独立加载更多；稳定时间/ID排序、置顶归属、locate_id 深定位。回复必须同帖且父级可见。
+- _recycle.js / recycle.js：新增 content_recycle 删除记录，保留原 posts/comments/likes；active_posts / active_comments 视图统一可见性。恢复按原删除ID比较，防止撤销并发新删除；普通用户不能恢复管理员删除。
+- invites.js / _privacy.js / auth/register.js：新版 registration_invites 仅持久化 SHA-256 摘要，单次消费和新用户 INSERT 用同一事务，防止并发使用及重复用户名损失邀请码。默认 invite，可管理员 closed，已有账号保留。
+- upload.js / media/[key].js / profile.js：新上传严格 MIME+扩展名+实际签名，禁止 SVG/HTML。返回同源媒体地址；读取鉴权、流式视频 Range、HEAD/条件请求、PDF附件。历史 MOV/ICO/HEIF 和安全单文件旧名称只兼容读取。旧 img URL 渲染时映射，关闭 R2 custom domain/r2.dev 后完成私有边界。
+- notifications.js：新 notification_reads 回执表，现存可见评论动态推导接收人，不复用旧 notifications。主评论提醒帖主，回复提醒 reply_to_uid，排除本人；启用前评论默认已读。
+- admin.js / user-public.js / like.js：统计/内容查询及变更目标采用可见视图，回收内容不继续参与正常列表、搜索、计数、提醒或写入。
 
-**帖子（posts.js）**
-- CRUD，分类（灌水/技术/生活/提问/公告）
-- 心情标签：mood 字段（TEXT，DEFAULT NULL），7种可选，存储格式如 "😊 开心"
-- 阅读时间：前端 estimateReadTime(content) 计算，300字/分钟，显示在 card-meta 和 article-meta
-- 排序：latest / hot / comments
-- 搜索：标题 + 内容 + 分类 + 评论内容全文搜索
-- 管理员置顶，定时置顶到期自动解除
+## 状态与界面
 
-**评论（comments.js）**
-- 楼中楼（parent_id 二级，不支持三级嵌套）
-- 前端分组渲染：子评论紧跟父评论，不按时间混排
-- 根评论显示楼层号 #N，子评论显示缩进 + 回复标签
-- 字数限制：500字（前后端双重校验）
-- 删除：普通用户删自己的评论时级联删除子评论
-- 管理员可置顶评论（每帖只能有一条置顶）
+首页路由 #home?search=…&category=…&sort=…&date=… 可刷新/前进后退/详情返回。个人主页按作者分页覆盖全部旧帖，日历空日期禁用。日期统一 UTC+8，数据库服务器 Unix 毫秒不批量偏移。
 
-**用户（auth/、user.js、profile.js）**
-- 注册：用户名 2-20 字符，白名单 `[\u4e00-\u9fa5a-zA-Z0-9_-]`
-- 密码：PBKDF2-SHA256，旧 SHA-256 格式登录时自动升级
-- 登录失败锁定：5次失败后锁定 15 分钟
-- Session：7天有效期，user.js 请求时异步清理过期记录
-- 个人资料：昵称（限12字）、签名（限50字）、头像（R2）
+评论路由 #post?id=…&commentId=… 直接加载目标讨论和回复页；评论成功显示且仍在当前路由后才写已读。旧请求以代次/当前帖子检查隔离。
 
-**上传（upload.js）**
-- 最大 50MB
-- MIME 白名单：jpeg/png/gif/webp/svg/mp4/webm/pdf
-- 扩展名白名单：双重校验防伪造
-- 返回 Markdown 格式插入文本（图片/视频/文件自动区分）
+草稿按用户 ID 在 blog-drafts-v3/accounts 的事务中保存；超十篇不自动丢弃，存储损坏/配额/其他标签页冲突均明确失败且保留当前内容。无归属旧数据不自动迁移，手动导入不删除原数据。草稿仅本机保存；云同步不在当前版本。
 
-**限流（_middleware.js）**
-- 仅限制 POST/PUT/DELETE
-- KV 实现：key = `rate:{ip}`，60s TTL 自动过期，上限 180次/分钟
-- KV 异常时放行，不影响正常请求
+暖纸/暖石墨主题，原创星形字标、衬线标题、系统正文，主断点1180/900/600/360px；新增UI须检查320、390、平板、900临界、桌面、深浅主题、键盘、焦点、减少动态效果。只缩放灯箱图片，正常网页保留浏览器缩放。
 
-**管理（admin.js）**
-- 统计：在线用户（5分钟内）、今日活跃（24小时）、总用户/帖子/评论数、有效会话
-- 反爬：Turnstile 状态、登录失败计数、锁定账号列表
-- 列表：用户列表、帖子列表、最近评论、在线列表
-- 操作：发布公告、动态开关 Turnstile、清理 7 天前过期 session
-- 权限校验：所有接口均验证 `role === 'admin'`
+## 发布与备份
 
-## 5) 数据库结构（D1）
+先完整备份与独立恢复校验，再按001→002→003执行增量迁移，最后部署代码并核对版本/私有API/所有历史媒体。数据库含其它应用和早期遗留表，禁止重建、清空或复用它们。
 
-**users**
-```sql
-id, username, password(salt:hash), nickname, bio, avatar_url, avatar_variant,
-role, status, ban_expires_at, ban_reason,
-login_fails, login_locked_until,
-xp, level, is_vip, badge_preference, equipped_post_style,
-name_color, custom_title, custom_title_color,
-created_at, last_seen
-```
+备份通过 Wrangler 或 D1 REST 导出完整SQL和R2字节/原key/元数据，SHA-256清单及远端二次核对，失败保留INCOMPLETE。verify-backup 向新SQLite和媒体目录恢复，完整性/外键/哈希检查，清除恢复库旧session，不动线上数据。灾难恢复用新的D1与私有桶，核对后切换绑定。不要把凭据或私有备份提交仓库。
 
-**sessions**
-```sql
-session_id, user_id, created_at
-```
-
-**posts**
-```sql
-id, user_id, author_name, title, content, category, mood,
-like_count, is_pinned, pinned_until, updated_at, created_at
-```
-
-**comments**
-```sql
-id, post_id, user_id, content, parent_id, reply_to_uid,
-like_count, is_pinned, created_at
-```
-
-**likes**
-```sql
-id, user_id, target_id, target_type(post|comment), created_at
-```
-
-**system_settings**
-```sql
-key, value
--- 当前已知 key: turnstile_enabled
-```
-
-## 6) 前端架构（script.js）
-
-**路由**：基于 `window.location.hash` 的客户端路由，`handleRoute()` 统一处理视图切换。
-
-**视图列表**：
-- `#home` — 帖子列表（含搜索、分类、排序、滚动位置恢复）
-- `#post?id=N` — 帖子详情 + 评论区
-- `#write` — 发帖（Markdown 实时预览、草稿状态）
-- `#profile?u=username` — 个人主页
-- `#settings` — 个人设置
-- `#about` — 关于 + Markdown 指南 + 更新日志
-- `#admin` — 站点控制台（仅 admin 角色可见）
-
-**关键函数**：
-- `loadPosts(reset)` — 帖子列表加载，支持翻页、搜索、筛选
-- `loadSinglePost(id)` — 帖子详情加载
-- `loadComments(postId, reset)` — 评论加载，前端分组渲染
-- `createCommentElement(c, isReply, postAuthorId, floorNumber)` — 评论渲染
-- `prepareReply(commentId, authorName)` — 激活回复模式（显示提示条）
-- `cancelReply()` — 退出回复模式
-- `submitComment()` — 提交评论（含前端字数校验）
-- `estimateReadTime(content)` — 阅读时间估算
-- `addCopyButtons(container)` — 为容器内所有 pre 块添加复制按钮
-
-**滚动位置恢复**：`sessionStorage.homeScrollY`，进入帖子详情时保存，返回首页时恢复。
-
-## 7) 编码规范
-
-- SQL 全部参数化，禁止模板字符串拼接
-- 多步写操作用 `db.batch()` 或顺序 await（D1 的 batch 不是原子事务）
-- 后台任务用 `context.waitUntil()` 异步执行
-- API 统一返回 `{ success: true/false, error?: "..." }`
-- Cookie：`Secure; HttpOnly; SameSite=Lax; Max-Age=604800`，host-only，设置和清除属性必须对称
-- 前端所有异步操作必须有 `showToast` 反馈
-
-## 8) 环境变量 / 绑定
-
-| 类型 | 绑定名 | 说明 |
-|---|---|---|
-| D1 | `DB` | 主数据库 |
-| R2 | `MY_BUCKET` | 文件存储 |
-| KV | `KV` | 限流计数（RATE_LIMIT namespace） |
-| Secret | `TURNSTILE_SECRET` | Cloudflare Turnstile 验证密钥 |
-
-## v2.7.1 更新
-
-评论按主讨论分页，每个讨论的回复有独立分页；支持 locate_id 深链接读取目标评论所在回复页。楼层按时间/ID稳定编号，置顶回复归属原讨论。前端防重复点击、失败重试、过期请求隔离；发表成功直接定位新评论。无需数据库迁移。
-
-## v2.7.0 更新
-
-首页新增与搜索/分类组合的 UTC+8 日期归档；列表请求使用取消与代次隔离防止旧响应覆盖。暖纸色/暖石墨双主题统一全站排版、组件及响应式布局。Markdown 依赖在 assets/vendor 本地固定（DOMPurify 3.4.16、Marked 11.1.1），渲染实施标签/属性白名单。API middleware 校验写入来源和内容格式，私有内容读取要求登录，统一封禁边界与安全响应头；上传增加真实文件签名匹配；评论回复必须同帖。登录失败计数原子累计，解封竞争不覆盖管理员新封禁，兼容旧长密码。
+本地检查：所有根目录和functions JavaScript语法、node --test tools/*.test.mjs、node tools/check-release.mjs、Wrangler Pages Functions 编译、浏览器功能与视觉验证。README记录使用、迁移、维护、限制和版本历史。KV不是严格原子限流；静态CSP因现有内联事件保留unsafe-inline；文件签名校验不代替病毒扫描。

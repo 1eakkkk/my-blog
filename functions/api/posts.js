@@ -1,4 +1,6 @@
 import { json, getUser, readJson, isBanned } from './_lib.js';
+import { recycleContent } from './_recycle.js';
+import { literalSearch, addSearchMatches } from './_search.js';
 
 const CATEGORIES = ['灌水', '技术', '生活', '提问', '公告'];
 const validId = value => ['string', 'number'].includes(typeof value) && /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value));
@@ -55,7 +57,7 @@ export async function onRequestGet(context) {
     users.avatar_url as author_avatar_url,
     users.role as author_role,
     (SELECT COUNT(*) FROM likes WHERE target_id = posts.id AND target_type = 'post' AND user_id = ?) as is_liked,
-    (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) as comment_count
+    (SELECT COUNT(*) FROM active_comments WHERE post_id = posts.id) as comment_count
   `;
 
   try {
@@ -64,22 +66,22 @@ export async function onRequestGet(context) {
     const filterParams = [];
     if (userId) { conditions.push('posts.user_id = ?'); filterParams.push(userId); }
     if (search) {
-      const term = `%${search}%`;
-      conditions.push('(posts.title LIKE ? OR posts.content LIKE ? OR posts.category LIKE ? OR EXISTS (SELECT 1 FROM comments WHERE comments.post_id = posts.id AND comments.content LIKE ?))');
+      const term = literalSearch(search);
+      conditions.push("(posts.title LIKE ? ESCAPE '\\' OR posts.content LIKE ? ESCAPE '\\' OR posts.category LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM active_comments comments WHERE comments.post_id = posts.id AND comments.content LIKE ? ESCAPE '\\'))");
       filterParams.push(term, term, term, term);
     }
     if (category) { conditions.push('posts.category = ?'); filterParams.push(category); }
     if (url.searchParams.get('archive') === '1') {
       const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
       const days = await db.prepare(`SELECT strftime('%Y-%m-%d', posts.created_at / 1000, 'unixepoch', '+8 hours') AS date,
-        COUNT(*) AS count FROM posts${where} GROUP BY date ORDER BY date DESC`).bind(...filterParams).all();
+        COUNT(*) AS count FROM active_posts posts${where} GROUP BY date ORDER BY date DESC`).bind(...filterParams).all();
       return json({ days: days.results, time_zone: 'UTC+8' });
     }
     if (id) {
-      const post = await db.prepare(`SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(now, currentUserId || 0, id).first();
+      const post = await db.prepare(`SELECT ${fields} FROM active_posts posts JOIN users ON posts.user_id = users.id WHERE posts.id = ?`).bind(now, currentUserId || 0, id).first();
       return json(post);
     } else {
-      let sql = `SELECT ${fields} FROM posts JOIN users ON posts.user_id = users.id`;
+      let sql = `SELECT ${fields} FROM active_posts posts JOIN users ON posts.user_id = users.id`;
       const params = [now, currentUserId || 0, ...filterParams];
       if (date !== null) {
         conditions.push('posts.created_at >= ? AND posts.created_at < ?');
@@ -103,6 +105,7 @@ export async function onRequestGet(context) {
       params.push(limit, offset);
 
       const posts = await db.prepare(sql).bind(...params).all();
+      await addSearchMatches(db, posts.results, search);
 
       // 列表模式不传全文：缩略图、纯文本字数在服务端算好，正文只保留摘要所需的前 600 字符
       const IMG_RE = /!\[.*?\]\((https?:\/\/[^)]+)\)/g;
@@ -142,10 +145,10 @@ export async function onRequestPost(context) {
   let finalCategory = CATEGORIES.includes(category) ? category : '灌水';
   if (finalCategory === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '权限不足' }), { status: 403 });
 
-  await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, mood, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+  const inserted = await db.prepare('INSERT INTO posts (user_id, author_name, title, content, category, mood, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .bind(user.id, user.nickname || user.username, title, content, finalCategory, mood || null, Date.now()).run();
 
-  return new Response(JSON.stringify({ success: true, message: '发布成功！' }));
+  return json({ success: true, message: '发布成功！', id: Number.isSafeInteger(Number(inserted.meta?.last_row_id)) && Number(inserted.meta.last_row_id) > 0 ? Number(inserted.meta.last_row_id) : undefined });
 }
 
 export async function onRequestPut(context) {
@@ -160,7 +163,7 @@ export async function onRequestPut(context) {
   if (action === 'edit') {
     const inputError = postInputError(payload);
     if (inputError) return json({ success: false, error: inputError }, { status: 400 });
-    const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(id).first();
+    const post = await db.prepare('SELECT user_id FROM active_posts WHERE id = ?').bind(id).first();
     if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
     if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
     if (category === '公告' && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
@@ -168,17 +171,19 @@ export async function onRequestPut(context) {
     if (!title || !title.trim()) title = "无题 / Untitled";
     if (!content || !content.trim()) content = "（如题）";
 
-    await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, mood = ?, updated_at = ? WHERE id = ?')
+    const changed = await db.prepare('UPDATE posts SET title = ?, content = ?, category = ?, mood = ?, updated_at = ? WHERE id = ? AND EXISTS (SELECT 1 FROM active_posts visible WHERE visible.id=posts.id)')
       .bind(title, content, category, mood || null, Date.now(), id).run();
+    if (!changed.meta.changes) return json({ success: false, error: '帖子已移入回收站或不存在' }, { status: 404 });
     return new Response(JSON.stringify({ success: true, message: '文章已更新' }));
   }
 
   if (action === 'pin') {
-    const post = await db.prepare('SELECT user_id, is_pinned FROM posts WHERE id = ?').bind(id).first();
+    const post = await db.prepare('SELECT user_id, is_pinned FROM active_posts WHERE id = ?').bind(id).first();
     if (!post) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }));
     if (user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '仅管理员可置顶' }), { status: 403 });
     const newState = post.is_pinned ? 0 : 1;
-    await db.prepare('UPDATE posts SET is_pinned = ?, pinned_until = 0 WHERE id = ?').bind(newState, id).run();
+    const changed = await db.prepare('UPDATE posts SET is_pinned = ?, pinned_until = 0 WHERE id = ? AND EXISTS (SELECT 1 FROM active_posts visible WHERE visible.id=posts.id)').bind(newState, id).run();
+    if (!changed.meta.changes) return json({ success: false, error: '帖子已移入回收站或不存在' }, { status: 404 });
     return new Response(JSON.stringify({ success: true, message: newState ? '已置顶' : '已取消置顶', is_pinned: newState }));
   }
 
@@ -193,9 +198,5 @@ export async function onRequestDelete(context) {
   const url = new URL(context.request.url);
   const id = url.searchParams.get('id');
   if (!validId(id)) return json({ success: false, error: '帖子编号无效' }, { status: 400 });
-  let result;
-  if (user.role === 'admin') result = await db.prepare('DELETE FROM posts WHERE id = ?').bind(id).run();
-  else result = await db.prepare('DELETE FROM posts WHERE id = ? AND user_id = ?').bind(id, user.id).run();
-  if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '删除成功' }));
-  else return new Response(JSON.stringify({ success: false, error: '无法删除' }), { status: 403 });
+  return recycleContent(db, user, 'post', id);
 }

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -41,6 +42,7 @@ function fixture() {
     CREATE TABLE comments (id INTEGER, post_id INTEGER, user_id INTEGER, content TEXT, created_at INTEGER, is_pinned INTEGER DEFAULT 0, reply_to_uid INTEGER, parent_id INTEGER);
     CREATE TABLE likes (target_id INTEGER, target_type TEXT, user_id INTEGER);
     INSERT INTO users VALUES (1, 'owner', '作者', 0, '', 'user'), (2, 'other', '其他用户', 0, '', 'user');`);
+  sqlite.exec(readFileSync(new URL('../migrations/002_recycle.sql', import.meta.url), 'utf8'));
   const statement = sqlite.prepare('INSERT INTO posts (id,user_id,title,content,category,created_at) VALUES (?,?,?,?,?,?)');
   // 44 篇旧帖淹没在其他用户的 80 篇新帖之下。
   for (let i = 1; i <= 44; i++) statement.run(i, 1, '旧帖' + i, '内容', '灌水', Date.parse('2026-01-01T00:00:00Z') + i);

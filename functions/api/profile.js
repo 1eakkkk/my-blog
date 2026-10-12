@@ -19,7 +19,9 @@ export async function onRequestPost(context) {
     if (avatar_url !== '') {
       let avatar;
       try { avatar = new URL(avatar_url); } catch { return json({ success: false, error: '头像地址无效' }, { status: 400 }); }
-      if (avatar.origin !== 'https://img.1eak.cool' || avatar.username || avatar.password || avatar.search || avatar.hash || !/^\/[a-zA-Z0-9-]+\.(?:jpe?g|png|gif|webp)$/.test(avatar.pathname)) {
+      const legacy = avatar.origin === 'https://img.1eak.cool' && /^\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|gif|webp)$/.test(avatar.pathname);
+      const privateMedia = avatar.origin === new URL(context.request.url).origin && /^\/api\/media\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|gif|webp)$/.test(avatar.pathname);
+      if ((!legacy && !privateMedia) || avatar.username || avatar.password || avatar.search || avatar.hash) {
         return json({ success: false, error: '请上传有效的图片作为头像' }, { status: 400 });
       }
     }

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -23,6 +24,7 @@ function fixture() {
     INSERT INTO users (id, username) VALUES (1,'owner'),(2,'other');
     INSERT INTO posts (id,user_id) VALUES (1,1),(2,2);
     INSERT INTO comments (id,post_id,user_id,content,parent_id) VALUES (1,1,1,'root',NULL),(2,2,2,'other post',NULL),(3,1,2,'reply',1),(4,1,2,'historically inconsistent',2);`);
+  sqlite.exec(readFileSync(new URL('../migrations/002_recycle.sql', import.meta.url), 'utf8'));
   sqlite.prepare('INSERT INTO sessions VALUES (?,?,?)').run('valid-session', 1, Date.now());
   function prepare(sql, args = []) {
     return {

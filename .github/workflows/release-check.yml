@@ -12,9 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --check script.js
+      - name: Check all frontend JavaScript
+        run: for file in ./*.js; do node --check "$file"; done
       - name: Check all backend JavaScript
         run: find functions -name '*.js' -print0 | xargs -0 -n1 node --check
-      - run: node --check blog-utils.js
       - run: node --test tools/*.test.mjs
       - run: node tools/check-release.mjs

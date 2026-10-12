@@ -1,4 +1,5 @@
 import { json, getUser, readJson, positiveId, isBanned } from './_lib.js';
+import { recycleContent } from './_recycle.js';
 
 const COMMENT_FIELDS = `comments.*, users.username, users.nickname, users.avatar_variant, users.avatar_url,
   users.role, reply_users.username AS reply_to_username, reply_users.nickname AS reply_to_nickname,
@@ -29,10 +30,10 @@ export async function onRequestGet(context) {
   if (!postId) return new Response(JSON.stringify({ results: [] }), { headers: { 'Content-Type': 'application/json' } });
 
   if (rootId) {
-    const root = await db.prepare('SELECT id FROM comments WHERE id = ? AND post_id = ? AND parent_id IS NULL').bind(rootId, postId).first();
+    const root = await db.prepare('SELECT id FROM active_comments WHERE id = ? AND post_id = ? AND parent_id IS NULL').bind(rootId, postId).first();
     if (!root) return json({ error: '讨论不存在' }, { status: 404 });
-    const { total } = await db.prepare('SELECT COUNT(*) AS total FROM comments WHERE parent_id = ? AND post_id = ?').bind(rootId, postId).first();
-    const replies = await db.prepare(`SELECT ${COMMENT_FIELDS} FROM comments ${COMMENT_JOINS}
+    const { total } = await db.prepare('SELECT COUNT(*) AS total FROM active_comments WHERE parent_id = ? AND post_id = ?').bind(rootId, postId).first();
+    const replies = await db.prepare(`SELECT ${COMMENT_FIELDS} FROM active_comments comments ${COMMENT_JOINS}
       WHERE comments.parent_id = ? AND comments.post_id = ?
       ORDER BY comments.is_pinned DESC, comments.created_at ASC, comments.id ASC LIMIT ? OFFSET ?`)
       .bind(currentUserId, rootId, postId, limit, offset).all();
@@ -42,25 +43,25 @@ export async function onRequestGet(context) {
   let focusRootId = null;
   let replyPage = 1;
   if (locateId) {
-    const target = await db.prepare('SELECT id, parent_id FROM comments WHERE id = ? AND post_id = ?').bind(locateId, postId).first();
+    const target = await db.prepare('SELECT id, parent_id FROM active_comments WHERE id = ? AND post_id = ?').bind(locateId, postId).first();
     if (!target) return json({ error: '该评论已删除或不存在' }, { status: 404 });
     focusRootId = target.parent_id || target.id;
     if (target.parent_id) {
       const ranked = await db.prepare(`SELECT position FROM (
         SELECT id, ROW_NUMBER() OVER (ORDER BY is_pinned DESC, created_at ASC, id ASC) AS position
-        FROM comments WHERE parent_id = ? AND post_id = ?) WHERE id = ?`).bind(focusRootId, postId, locateId).first();
+        FROM active_comments WHERE parent_id = ? AND post_id = ?) WHERE id = ?`).bind(focusRootId, postId, locateId).first();
       replyPage = Math.ceil(ranked.position / REPLY_LIMIT);
     }
   }
   const counts = await db.prepare(`SELECT COUNT(*) AS total,
-    COALESCE(SUM(parent_id IS NULL), 0) AS root_total FROM comments WHERE post_id = ?`).bind(postId).first();
+    COALESCE(SUM(parent_id IS NULL), 0) AS root_total FROM active_comments WHERE post_id = ?`).bind(postId).first();
   // 楼层按主评论发布时间稳定编号，置顶只影响展示顺序。置顶回复带动所属讨论提前。
   const roots = await db.prepare(`WITH ranked_roots AS (
       SELECT *, ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) AS floor
-      FROM comments WHERE post_id = ? AND parent_id IS NULL)
+      FROM active_comments WHERE post_id = ? AND parent_id IS NULL)
     SELECT ${COMMENT_FIELDS},
-      (SELECT COUNT(*) FROM comments child WHERE child.parent_id = comments.id AND child.post_id = comments.post_id) AS reply_total,
-      CASE WHEN comments.is_pinned = 1 OR EXISTS (SELECT 1 FROM comments child
+      (SELECT COUNT(*) FROM active_comments child WHERE child.parent_id = comments.id AND child.post_id = comments.post_id) AS reply_total,
+      CASE WHEN comments.is_pinned = 1 OR EXISTS (SELECT 1 FROM active_comments child
         WHERE child.parent_id = comments.id AND child.post_id = comments.post_id AND child.is_pinned = 1) THEN 1 ELSE 0 END AS thread_pinned
     FROM ranked_roots comments ${COMMENT_JOINS}
     ${focusRootId ? 'WHERE comments.id = ?' : ''}
@@ -76,7 +77,7 @@ export async function onRequestGet(context) {
       // 每个讨论首批最多 20 条回复；避免一次返回某个长讨论的全部内容。
       const result = await db.prepare(`WITH ranked_replies AS (
         SELECT *, ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY is_pinned DESC, created_at ASC, id ASC) AS reply_position
-        FROM comments WHERE post_id = ? AND parent_id IN (${ids.map(() => '?').join(',')}))
+        FROM active_comments WHERE post_id = ? AND parent_id IN (${ids.map(() => '?').join(',')}))
       SELECT ${COMMENT_FIELDS} FROM ranked_replies comments ${COMMENT_JOINS}
       WHERE reply_position > ? AND reply_position <= ? ORDER BY parent_id, reply_position`)
         .bind(postId, ...ids, currentUserId, (replyPage - 1) * REPLY_LIMIT, replyPage * REPLY_LIMIT).all();
@@ -103,26 +104,29 @@ export async function onRequestPost(context) {
   if (typeof content !== 'string' || !content.trim()) return json({ success: false, error: '内容为空' }, { status: 400 });
   if (content.length > 500) return new Response(JSON.stringify({ success: false, error: '评论最多500字' }), { status: 400 });
 
-  const postOwner = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(post_id).first();
+  const postOwner = await db.prepare('SELECT user_id FROM active_posts WHERE id = ?').bind(post_id).first();
   if (!postOwner) return new Response(JSON.stringify({ success: false, error: '帖子不存在' }), { status: 404 });
 
   let finalParentId = null;
   let replyToUid = null;
 
   if (parent_id) {
-    const targetComment = await db.prepare('SELECT id, parent_id, user_id FROM comments WHERE id = ? AND post_id = ?').bind(parent_id, post_id).first();
+    const targetComment = await db.prepare('SELECT id, parent_id, user_id FROM active_comments WHERE id = ? AND post_id = ?').bind(parent_id, post_id).first();
     if (!targetComment) return new Response(JSON.stringify({ success: false, error: '回复的评论不存在' }), { status: 404 });
     replyToUid = targetComment.user_id;
     if (targetComment.parent_id) {
-      const root = await db.prepare('SELECT id FROM comments WHERE id = ? AND post_id = ? AND parent_id IS NULL').bind(targetComment.parent_id, post_id).first();
+      const root = await db.prepare('SELECT id FROM active_comments WHERE id = ? AND post_id = ? AND parent_id IS NULL').bind(targetComment.parent_id, post_id).first();
       if (!root) return json({ success: false, error: '回复的评论不存在' }, { status: 404 });
       finalParentId = root.id;
     }
     else finalParentId = targetComment.id;
   }
 
-  const inserted = await db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, reply_to_uid, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
-    .bind(post_id, user.id, content, finalParentId, replyToUid, Date.now()).first();
+  const inserted = await db.prepare(`INSERT INTO comments (post_id, user_id, content, parent_id, reply_to_uid, created_at)
+    SELECT ?, ?, ?, ?, ?, ? FROM active_posts p WHERE p.id=?
+    AND (? IS NULL OR EXISTS (SELECT 1 FROM active_comments target WHERE target.id=? AND target.post_id=p.id)) RETURNING id`)
+    .bind(post_id, user.id, content, finalParentId, replyToUid, Date.now(), post_id, parent_id || null, parent_id || null).first();
+  if (!inserted) return json({ success: false, error: '回复目标已移入回收站或不存在' }, { status: 404 });
 
   return json({ success: true, message: '评论成功', id: inserted.id });
 }
@@ -137,24 +141,26 @@ export async function onRequestPut(context) {
   if (!positiveId(id)) return json({ success: false, error: '参数无效' }, { status: 400 });
 
   if (action === 'edit') {
-    const comment = await db.prepare('SELECT user_id FROM comments WHERE id = ?').bind(id).first();
+    const comment = await db.prepare('SELECT user_id FROM active_comments WHERE id = ?').bind(id).first();
     if (!comment) return new Response(JSON.stringify({ success: false, error: '评论不存在' }));
     if (comment.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权编辑' }), { status: 403 });
     if (typeof content !== 'string' || !content.trim()) return json({ success: false, error: '内容为空' }, { status: 400 });
     if (content.length > 500) return json({ success: false, error: '评论最多500字' }, { status: 400 });
-    await db.prepare('UPDATE comments SET content = ? WHERE id = ?').bind(content, id).run();
+    const changed = await db.prepare('UPDATE comments SET content = ? WHERE id = ? AND EXISTS (SELECT 1 FROM active_comments visible WHERE visible.id=comments.id)').bind(content, id).run();
+    if (!changed.meta.changes) return json({ success: false, error: '评论已移入回收站或不存在' }, { status: 404 });
     return new Response(JSON.stringify({ success: true, message: '评论已更新' }));
   }
 
   if (action === 'pin') {
-    const comment = await db.prepare('SELECT post_id, is_pinned FROM comments WHERE id = ?').bind(id).first();
+    const comment = await db.prepare('SELECT post_id, is_pinned FROM active_comments WHERE id = ?').bind(id).first();
     if (!comment) return new Response(JSON.stringify({ success: false, error: '评论不存在' }));
-    const post = await db.prepare('SELECT user_id FROM posts WHERE id = ?').bind(comment.post_id).first();
+    const post = await db.prepare('SELECT user_id FROM active_posts WHERE id = ?').bind(comment.post_id).first();
     if (!post) return new Response(JSON.stringify({ success: false, error: '文章不存在' }));
     if (post.user_id !== user.id && user.role !== 'admin') return new Response(JSON.stringify({ success: false, error: '无权' }), { status: 403 });
 
     const newState = comment.is_pinned ? 0 : 1;
-    await db.prepare('UPDATE comments SET is_pinned = ? WHERE id = ?').bind(newState, id).run();
+    const changed = await db.prepare('UPDATE comments SET is_pinned = ? WHERE id = ? AND EXISTS (SELECT 1 FROM active_comments visible WHERE visible.id=comments.id)').bind(newState, id).run();
+    if (!changed.meta.changes) return json({ success: false, error: '评论已移入回收站或不存在' }, { status: 404 });
     return new Response(JSON.stringify({ success: true, message: newState ? '评论已置顶' : '已取消置顶' }));
   }
 
@@ -171,18 +177,5 @@ export async function onRequestDelete(context) {
   const commentId = url.searchParams.get('id');
   if (!positiveId(commentId)) return json({ success: false, error: '参数无效' }, { status: 400 });
 
-  let result;
-  if (user.role === 'admin') {
-    result = await db.prepare('DELETE FROM comments WHERE id = ? OR parent_id = ?').bind(commentId, commentId).run();
-  } else {
-    result = await db.prepare('DELETE FROM comments WHERE id = ? AND user_id = ?')
-      .bind(commentId, user.id).run();
-    if (result.meta.changes > 0) {
-      await db.prepare('DELETE FROM comments WHERE parent_id = ?')
-        .bind(commentId).run();
-    }
-  }
-
-  if (result.meta.changes > 0) return new Response(JSON.stringify({ success: true, message: '评论已删除' }));
-  else return new Response(JSON.stringify({ success: false, error: '删除失败' }), { status: 403 });
+  return recycleContent(db, user, 'comment', commentId);
 }

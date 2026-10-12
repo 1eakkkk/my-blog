@@ -8,7 +8,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>登录 | 1eak.cool</title>
   <link rel="icon" type="image/svg+xml" href="assets/mark.svg">
-  <link rel="stylesheet" href="style.css?v=2.7.1">
+  <link rel="stylesheet" href="style.css?v=2.8.0">
+  <link rel="stylesheet" href="privacy.css?v=2.8.0">
 </head>
 <body class="auth-page">
 
@@ -37,6 +38,11 @@
     <input type="text" id="username" class="form-control" placeholder="你的用户名" autocomplete="username" required>
     <label for="password" class="auth-label">密码</label>
     <input type="password" id="password" class="form-control" placeholder="输入密码" autocomplete="current-password" required>
+    <p id="registrationNote" class="invite-auth-note" hidden></p>
+    <div id="authInviteField" class="invite-auth-field" hidden>
+      <label for="inviteCode" class="auth-label">邀请码</label>
+      <input type="text" id="inviteCode" class="form-control" placeholder="粘贴朋友发给你的邀请码" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64" disabled>
+    </div>
     <div id="msgBox" class="msg-box" role="status" aria-live="polite"></div>
     <div class="cf-turnstile" data-sitekey="0x4AAAAAACDgXdJPWAee7ZdB" data-theme="auto"></div>
     <button type="submit" class="btn btn-primary" id="submitBtn">登录</button>
@@ -50,6 +56,23 @@
   const msgBox = document.getElementById('msgBox');
   const submitBtn = document.getElementById('submitBtn');
   const passInput = document.getElementById('password');
+  const inviteInput = document.getElementById('inviteCode');
+  let registrationMode = null;
+  let submitting = false;
+  let registrationConfigFailed = false;
+
+  function syncRegistrationUI() {
+    const registering = currentMode === 'register';
+    const canRegister = registrationMode === 'invite';
+    document.getElementById('registrationNote').hidden = !registering;
+    document.getElementById('registrationNote').textContent = registrationMode === 'closed'
+      ? '小站暂时停止新账号注册。已有账号可以正常登录。'
+      : registrationMode === 'invite' ? '小站通过邀请加入。一个邀请码可以注册一个账号。' : registrationConfigFailed ? '注册设置读取失败，请刷新后重试。' : '正在读取注册设置，请稍候。';
+    document.getElementById('authInviteField').hidden = !registering || !canRegister;
+    inviteInput.required = registering && canRegister;
+    inviteInput.disabled = !registering || !canRegister;
+    submitBtn.disabled = submitting || (registering && !canRegister);
+  }
 
   // 主题
   function getSavedTheme() { return localStorage.getItem('theme') || 'dark'; }
@@ -70,14 +93,21 @@
   });
 
   fetch('/api/config')
-    .then(res => res.json())
+    .then(res => { if (!res.ok) throw new Error('Registration configuration unavailable'); return res.json(); })
     .then(data => {
+      if (!['invite', 'closed'].includes(data.registrationMode) || typeof data.turnstileEnabled !== 'boolean') throw new Error('Registration configuration invalid');
       const widget = document.querySelector('.cf-turnstile');
-      if (!data.turnstileEnabled) { if (widget) widget.style.display = 'none'; window.isTurnstileDisabled = true; }
+      if (data.turnstileEnabled === false) { if (widget) widget.style.display = 'none'; window.isTurnstileDisabled = true; }
+      registrationMode = data.registrationMode;
+      syncRegistrationUI();
     })
-    .catch(() => { });
+    .catch(() => {
+      registrationConfigFailed = true;
+      syncRegistrationUI();
+    });
 
   function switchTab(mode, el) {
+    if (submitting) return;
     currentMode = mode;
     const tabs = Array.from(document.querySelectorAll('.tab'));
     tabs.forEach(t => t.classList.remove('active'));
@@ -89,14 +119,18 @@
     if (mode === 'login') {
       submitBtn.textContent = '登录';
       passInput.placeholder = '输入密码'; passInput.autocomplete = 'current-password';
+      passInput.removeAttribute('maxlength');
     } else if (mode === 'register') {
       submitBtn.textContent = '注册';
       passInput.placeholder = '设置密码'; passInput.autocomplete = 'new-password';
+      passInput.maxLength = 128;
     }
+    syncRegistrationUI();
   }
 
   document.getElementById('authForm').onsubmit = async (e) => {
     e.preventDefault();
+    if (submitting || (currentMode === 'register' && registrationMode !== 'invite')) return;
     const u = document.getElementById('username').value;
     const p = document.getElementById('password').value;
     const formData = new FormData(e.target);
@@ -104,12 +138,12 @@
 
     if (!window.isTurnstileDisabled && !token) { msgBox.textContent = '请完成人机验证'; return; }
 
-    submitBtn.disabled = true; submitBtn.textContent = '处理中...'; msgBox.textContent = '';
+    submitting = true; submitBtn.disabled = true; submitBtn.textContent = '处理中...'; msgBox.textContent = '';
 
     let endpoint = '/api/auth/login';
     let body = { username: u, password: p, turnstileToken: token };
 
-    if (currentMode === 'register') { endpoint = '/api/auth/register'; }
+    if (currentMode === 'register') { endpoint = '/api/auth/register'; body.inviteCode = inviteInput.value.trim(); }
 
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -122,7 +156,9 @@
           currentMode = 'login';
           document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === '登录'));
           passInput.placeholder = '输入密码'; passInput.autocomplete = 'current-password';
+          passInput.removeAttribute('maxlength');
           passInput.value = '';
+          inviteInput.value = '';
           submitBtn.textContent = '登录';
           if (window.turnstile) turnstile.reset();
         }
@@ -135,7 +171,8 @@
       msgBox.textContent = '连接中断，请重试';
       if (window.turnstile) turnstile.reset();
     } finally {
-      submitBtn.disabled = false;
+      submitting = false;
+      syncRegistrationUI();
       submitBtn.textContent = currentMode === 'register' ? '注册' : '登录';
     }
   };
