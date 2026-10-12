@@ -61,10 +61,42 @@
     try {
       const url = new URL(value, base);
       if (url.username || url.password) return '';
-      return ['https:', 'http:', ...(allowContact ? ['mailto:', 'tel:'] : [])].includes(url.protocol) ? url.href : '';
+      if (!['https:', 'http:', ...(allowContact ? ['mailto:', 'tel:'] : [])].includes(url.protocol)) return '';
+      return root.BlogPrivacy ? root.BlogPrivacy.mediaUrl(url.href, base) : url.href;
     } catch (_) { return ''; }
   }
-  const utils = { timestamp, formatTime, relativeTime, orderedListEdit, isCalendarDate, archiveData, safeUrl };
+  function highlightText(value, search) {
+    const text = String(value ?? '');
+    const escape = part => part.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+    if (typeof search !== 'string' || !search || search.length > 200) return escape(text);
+    const pattern = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let html = '', start = 0;
+    for (const match of text.matchAll(pattern)) {
+      html += escape(text.slice(start, match.index)) + '<mark>' + escape(match[0]) + '</mark>';
+      start = match.index + match[0].length;
+    }
+    return html + escape(text.slice(start));
+  }
+  function homeFilters(hash) {
+    const value = typeof hash === 'string' ? hash : '';
+    const query = new URLSearchParams(value.includes('?') ? value.slice(value.indexOf('?') + 1) : '');
+    return {
+      search: (query.get('search') || '').trim().slice(0, 200),
+      category: ['灌水', '技术', '生活', '提问', '公告'].includes(query.get('category')) ? query.get('category') : '',
+      sort: ['latest', 'hot', 'comments'].includes(query.get('sort')) ? query.get('sort') : 'latest',
+      date: isCalendarDate(query.get('date')) ? query.get('date') : ''
+    };
+  }
+  function homeRoute(filters) {
+    const query = new URLSearchParams();
+    if (filters.search) query.set('search', filters.search);
+    if (filters.category) query.set('category', filters.category);
+    if (filters.sort && filters.sort !== 'latest') query.set('sort', filters.sort);
+    if (filters.date) query.set('date', filters.date);
+    const suffix = query.toString();
+    return '#home' + (suffix ? '?' + suffix : '');
+  }
+  const utils = { timestamp, formatTime, relativeTime, orderedListEdit, isCalendarDate, archiveData, safeUrl, highlightText, homeFilters, homeRoute };
   root.BlogUtils = utils;
   if (typeof module !== 'undefined') module.exports = utils;
 })(typeof window !== 'undefined' ? window : globalThis);

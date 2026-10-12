@@ -1,6 +1,7 @@
 // === 全局状态 ===
 const API_BASE = '/api';
 let serverClockOffset = 0;
+let logoutPending = false;
 async function fetchApi(url, options) {
   const started = Date.now();
   const response = await fetch(url, options);
@@ -25,7 +26,7 @@ let editingPostId = null;
 let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
-const HOME_UPDATE_NOTICE_VERSION = 'v2.7.1';
+const HOME_UPDATE_NOTICE_VERSION = 'v2.8.0';
 const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSION}`;
 
 // 随机标语
@@ -45,7 +46,7 @@ document.title = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
 
 // === 主题管理 ===
 function getSavedTheme() {
-  return localStorage.getItem('theme') || 'dark';
+  try { return localStorage.getItem('theme') || 'dark'; } catch (_) { return 'dark'; }
 }
 
 function applyTheme(theme) {
@@ -54,7 +55,7 @@ function applyTheme(theme) {
   else if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
   // 'auto' — no attribute, CSS media query handles it
 
-  localStorage.setItem('theme', theme);
+  try { localStorage.setItem('theme', theme); } catch (_) {}
 
   document.getElementById('themeLight').classList.toggle('active', theme === 'light');
   document.getElementById('themeDark').classList.toggle('active', theme === 'dark');
@@ -390,6 +391,9 @@ async function checkSecurity() {
     }
 
     currentUser = data;
+    await initializeDraftUI();
+    initializePrivacyUI(currentUser);
+    initializeRecoveryUI(currentUser);
     userRole = data.role || 'user';
     isAppReady = true;
 
@@ -410,6 +414,7 @@ async function checkSecurity() {
     }
 
     handleRoute();
+    if (typeof initializeCommunityUI === 'function') initializeCommunityUI(currentUser);
     if (mask) { mask.style.opacity = '0'; setTimeout(() => mask.remove(), 500); }
   } catch (e) {
     console.error(e);
@@ -418,8 +423,21 @@ async function checkSecurity() {
 }
 
 async function doLogout() {
-  await fetchApi(`${API_BASE}/auth/logout`, { method: 'POST' });
-  window.location.href = '/login.html';
+  if (logoutPending) return;
+  if (postSubmitting) { showToast('正在发布，请等待完成后再退出', 'info'); return; }
+  const generation = routeGeneration, account = currentUser?.id, captured = window.DraftUI?.token();
+  if (window.DraftUI?.hasUnsaved() && !await saveDraft() && !confirm('草稿未能保存。确认已导出，或愿意丢弃当前未保存内容并退出？')) return;
+  if (generation !== routeGeneration || currentUser?.id !== account || !window.DraftUI?.isCurrent(captured)) return;
+  const controls = [...document.querySelectorAll('#postForm input,#postForm textarea,#postForm select,#postForm button')].map(node => ({ node, disabled: node.disabled }));
+  logoutPending = true;
+  controls.forEach(({ node }) => { node.disabled = true; });
+  try {
+    const response = await fetchApi(`${API_BASE}/auth/logout`, { method: 'POST' });
+    if (!response.ok) { showToast('退出失败，请重试', 'error'); return; }
+    window.CommunityUI?.destroy();
+    window.location.href = '/login.html';
+  } catch (_) { showToast('退出失败，请重试', 'error'); }
+  finally { logoutPending = false; controls.forEach(({ node, disabled }) => { node.disabled = disabled; }); }
 }
 
 function syncHomeUpdateNotice() {
@@ -453,17 +471,26 @@ let routeGeneration = 0;
 
 async function handleRoute() {
   const hash = window.location.hash || '#home';
+  const route = hash.split('?')[0];
+  const routeParams = new URLSearchParams(hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : '');
+  const isHome = route === '#home';
   const generation = ++routeGeneration;
   const navLinks = document.querySelectorAll('.nav-link');
 
   // 必须在隐藏首页前记录位置，导航按钮和浏览器后退同样适用。
-  if (hash !== '#home' && views.home?.style.display === 'block') {
-    sessionStorage.setItem('homeScrollY', String(window.scrollY));
+  if (!isHome && views.home?.style.display === 'block') {
+    rememberHomeScroll(window.scrollY);
+  }
+  let draftCanReset = false;
+  if (hash !== '#write' && views.write?.style.display === 'block') {
+    draftCanReset = await saveDraft();
+    if (generation !== routeGeneration || (window.location.hash || '#home') !== hash) return;
+    if (!draftCanReset) showToast('草稿保存失败；返回发帖页可导出当前内容', 'error');
   }
   destroyTOC();
   Object.values(views).forEach(el => { if (el) el.style.display = 'none'; });
   navLinks.forEach(el => el.classList.remove('active'));
-  if (hash !== '#home') window.scrollTo({ top: 0, behavior: 'instant' });
+  if (!isHome) window.scrollTo({ top: 0, behavior: 'instant' });
 
   if (hash !== '#write' && window._draftTimer) {
     clearInterval(window._draftTimer);
@@ -472,21 +499,32 @@ async function handleRoute() {
 
   if (!isAppReady && hash === '#admin') return;
 
-  if (hash !== '#write' && isEditingPost) {
+  if (hash !== '#write' && isEditingPost && draftCanReset) {
     isEditingPost = false; editingPostId = null;
     const btn = document.querySelector('#postForm button[type="submit"]');
     if (btn) btn.textContent = '发布';
     document.getElementById('postTitle').value = '';
     document.getElementById('postContent').value = '';
+    resetDraftEditor();
   }
 
-  if (hash === '#home') {
+  if (isHome) {
     views.home.style.display = 'block';
     document.getElementById('navHome').classList.add('active');
     syncHomeUpdateNotice();
+    const filters = BlogUtils.homeFilters(hash);
+    const canonical = BlogUtils.homeRoute(filters);
+    const changed = loadedHomeRoute !== canonical;
+    document.getElementById('searchInput').value = filters.search;
+    document.getElementById('categoryFilter').value = filters.category;
+    document.getElementById('sortSelect').value = filters.sort;
+    homeArchiveState.date = filters.date;
+    if (filters.date) homeArchiveState.month = filters.date.slice(0, 7);
+    rememberHomeRoute(canonical);
+    if (hash !== canonical) window.history.replaceState(null, '', canonical);
     const list = document.getElementById('posts-list');
-    const savedScroll = sessionStorage.getItem('homeScrollY');
-    if (!list || list.children.length === 0) {
+    const savedScroll = changed ? 0 : readHomeScroll();
+    if (changed || !list || list.children.length === 0) {
       await loadPosts(true);
     }
     const top = Number(savedScroll);
@@ -494,22 +532,23 @@ async function handleRoute() {
       if (generation !== routeGeneration) return;
       window.scrollTo({ top: Number.isFinite(top) && top >= 0 ? top : 0, behavior: 'instant' });
     });
-  } else if (hash.startsWith('#post?id=')) {
+  } else if (route === '#post' && /^[1-9]\d*$/.test(routeParams.get('id') || '')) {
     views.post.style.display = 'block';
-    currentPostId = hash.split('id=')[1].split('&')[0];
-    const commentId = hash.includes('commentId=') ? hash.split('commentId=')[1] : null;
+    currentPostId = routeParams.get('id');
+    const commentId = /^[1-9]\d*$/.test(routeParams.get('commentId') || '') ? routeParams.get('commentId') : null;
     loadSinglePost(currentPostId, commentId);
   } else if (hash === '#write') {
     views.write.style.display = 'block';
     document.getElementById('navWrite').classList.add('active');
-    restoreDraft();
+    await restoreDraft(() => generation === routeGeneration && window.location.hash === '#write');
+    if (generation !== routeGeneration || window.location.hash !== '#write') return;
     // 自动保存定时器
     if (!window._draftTimer) {
       window._draftTimer = setInterval(saveDraft, 3000);
     }
-  } else if (hash.startsWith('#profile?u=')) {
+  } else if (route === '#profile' && routeParams.has('u')) {
     views.profile.style.display = 'block';
-    loadUserProfile(decodeURIComponent(hash.split('=')[1]).trim());
+    loadUserProfile(routeParams.get('u').trim());
   } else if (hash === '#profile') {
     if (currentUser) {
       views.profile.style.display = 'block';
@@ -544,6 +583,33 @@ function estimateReadTime(content, knownLength) {
 }
 
 // === 帖子加载 ===
+let loadedHomeRoute = '';
+let lastHomeRoute = '#home';
+function rememberHomeScroll(value) { try { sessionStorage.setItem('homeScrollY', String(value)); } catch (_) {} }
+function readHomeScroll() { try { return sessionStorage.getItem('homeScrollY'); } catch (_) { return '0'; } }
+function currentHomeRoute() {
+  return BlogUtils.homeRoute({ search: (document.getElementById('searchInput')?.value || '').trim().slice(0, 200),
+    category: document.getElementById('categoryFilter')?.value || '', sort: document.getElementById('sortSelect')?.value || 'latest', date: homeArchiveState.date });
+}
+function rememberHomeRoute(route) {
+  lastHomeRoute = route;
+  try { if (typeof currentUser !== 'undefined' && currentUser) sessionStorage.setItem(`lastHomeRoute:${currentUser.id}`, route); } catch (_) {}
+}
+window.returnToHome = function () {
+  let route = lastHomeRoute;
+  try {
+    if (typeof currentUser !== 'undefined' && currentUser) route = sessionStorage.getItem(`lastHomeRoute:${currentUser.id}`) || route;
+  } catch (_) {}
+  window.location.hash = BlogUtils.homeRoute(BlogUtils.homeFilters(route));
+};
+function commitHomeFilters(refreshArchive = true) {
+  const route = currentHomeRoute();
+  document.getElementById('searchInput').value = BlogUtils.homeFilters(route).search;
+  if (window.location.hash !== route) window.history?.pushState(null, '', route);
+  rememberHomeRoute(route);
+  rememberHomeScroll(0);
+  loadPosts(true, refreshArchive);
+}
 async function loadPosts(reset = false, refreshArchive = true) {
   const container = document.getElementById('posts-list');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -552,6 +618,8 @@ async function loadPosts(reset = false, refreshArchive = true) {
   const sortVal = document.getElementById('sortSelect')?.value || 'latest';
 
   if (reset) {
+    loadedHomeRoute = currentHomeRoute();
+    rememberHomeRoute(loadedHomeRoute);
     homePostsGeneration++;
     homePostsController?.abort();
     isLoadingPosts = false;
@@ -591,13 +659,21 @@ async function loadPosts(reset = false, refreshArchive = true) {
         const safeAuthor = escapeHtml(author);
         const timeStr = timeAgo(post.created_at);
         const cat = post.category || '灌水';
-        const safeCat = escapeHtml(cat);
-        const safeTitle = escapeHtml(post.title || '无题 / Untitled');
+        const safeCat = BlogUtils.highlightText(cat, searchVal);
+        const safeTitle = BlogUtils.highlightText(post.title || '无题 / Untitled', searchVal);
         const safeMood = post.mood ? escapeHtml(post.mood) : '';
         const commentCount = Number(post.comment_count) || 0;
 
         let snippet = post.content ? stripMarkdown(post.content.replace(/<[^>]*>/g, '')).replace(/\[图片\](\s*\[图片\])+/g, '[图片]').substring(0, 120) : '';
-        snippet = escapeHtml(snippet);
+        snippet = BlogUtils.highlightText(snippet, searchVal);
+        const matches = (Array.isArray(post.search_matches) ? post.search_matches : []).filter(match => ['body', 'comment'].includes(match.source)).slice(0, 2);
+        const matchesHtml = matches.map(match => {
+          const commentId = Number(match.comment_id);
+          const commentLink = match.source === 'comment' && Number.isSafeInteger(commentId) && commentId > 0
+            ? `<a class="search-comment-link" href="#post?id=${Number(post.id)}&commentId=${commentId}">查看评论 ↗</a>` : '';
+          const label = match.source === 'body' ? '正文匹配' : `评论匹配${match.author ? ' · ' + match.author : ''}`;
+          return `<div class="search-match"><div class="search-match-label">${escapeHtml(label)} ${commentLink}</div><p class="search-match-excerpt">${BlogUtils.highlightText(match.excerpt, searchVal)}</p></div>`;
+        }).join('');
         const thumbUrls = (Array.isArray(post.thumb_urls) ? post.thumb_urls : extractImages(post.content))
           .map(url => BlogUtils.safeUrl(url, location.href)).filter(Boolean).slice(0, 3);
 
@@ -609,7 +685,7 @@ async function loadPosts(reset = false, refreshArchive = true) {
             ${post.is_pinned ? '<span style="font-size:0.75rem;color:var(--text-muted);">📌 置顶</span>' : ''}
           </div>
           <div class="card-title">${safeTitle}${safeMood ? `<span class="mood-tag">${safeMood}</span>` : ''}</div>
-          ${snippet ? `<div class="card-snippet">${snippet}</div>` : ''}
+          ${matchesHtml || (snippet ? `<div class="card-snippet">${snippet}</div>` : '')}
           ${thumbUrls.length > 0 ? `<div class="card-thumbs">${thumbUrls.map(url => `<div class="card-thumb-item"><img src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.parentElement.remove()"></div>`).join('')}</div>` : ''}
           <div class="card-meta">
             <span>👤 ${safeAuthor}</span>
@@ -619,12 +695,16 @@ async function loadPosts(reset = false, refreshArchive = true) {
             <span>⏱ ${estimateReadTime(post.content, post.content_length)}</span>
           </div>
         `;
-        const openPost = () => { sessionStorage.setItem('homeScrollY', window.scrollY); window.location.hash = `#post?id=${Number(post.id)}`; };
+        const openPost = () => { rememberHomeScroll(window.scrollY); window.location.hash = `#post?id=${Number(post.id)}`; };
         card.onclick = openPost;
         card.tabIndex = 0;
         card.setAttribute('role', 'link');
         card.setAttribute('aria-label', `${post.title || '无题 / Untitled'}，${author}`);
         card.onkeydown = event => { if (event.key === 'Enter') openPost(); };
+        card.querySelectorAll?.('.search-comment-link').forEach(link => {
+          link.addEventListener('click', event => { event.stopPropagation(); rememberHomeScroll(window.scrollY); });
+          link.addEventListener('keydown', event => event.stopPropagation());
+        });
         container.appendChild(card);
       });
       currentPage++;
@@ -644,7 +724,7 @@ async function loadPosts(reset = false, refreshArchive = true) {
   }
 }
 
-window.searchPosts = function () { loadPosts(true); };
+window.searchPosts = function () { commitHomeFilters(); };
 
 function updateHomeDateLabel() {
   const state = homeArchiveState;
@@ -678,10 +758,6 @@ async function loadHomeArchive() {
     state.months = months;
     state.month = months.includes(state.month) ? state.month : (months.at(-1) || '');
     state.loading = false;
-    if (state.date && !days.has(state.date)) {
-      state.date = '';
-      loadPosts(true, false);
-    }
     renderHomeCalendar();
   } catch (_) {
     if (generation !== state.generation) return;
@@ -712,7 +788,7 @@ window.selectHomeDate = function(date) {
   if (state.date === date) return;
   state.date = date;
   renderHomeCalendar();
-  loadPosts(true, false);
+  commitHomeFilters(false);
   const label = document.getElementById('homeDateLabel');
   label?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
 };
@@ -880,13 +956,14 @@ async function loadComments(postId, reset = false, highlightId = null) {
     if (loadMoreBtn) {
       loadMoreBtn.style.display = hasMoreComments ? 'block' : 'none';
       loadMoreBtn.querySelector('button').textContent = '加载更多讨论';
+      loadMoreBtn.querySelector('button').onclick = () => loadComments(postId);
     }
 
     if (highlightId) {
       requestAnimationFrame(() => {
         if (!isCurrent() || !window.location.hash.startsWith('#post?')) return;
         const target = document.getElementById(`comment-${highlightId}`);
-        if (target) { target.tabIndex = -1; target.focus({ preventScroll: true }); target.scrollIntoView({ behavior: 'instant', block: 'center' }); }
+        if (target) { target.tabIndex = -1; target.focus({ preventScroll: true }); target.scrollIntoView({ behavior: 'instant', block: 'center' }); window.CommunityUI?.onCommentShown(postId, highlightId); }
       });
     }
   } catch (e) {
@@ -896,6 +973,7 @@ async function loadComments(postId, reset = false, highlightId = null) {
     if (loadMoreBtn) {
       loadMoreBtn.style.display = 'block';
       loadMoreBtn.querySelector('button').textContent = '加载失败，点击重试';
+      loadMoreBtn.querySelector('button').onclick = () => loadComments(postId, Boolean(highlightId), highlightId);
     }
   } finally {
     if (isCurrent()) { commentsLoading = false; if (more) more.disabled = false; }
@@ -1062,9 +1140,14 @@ window.submitComment = async function () {
 };
 
 window.deleteComment = async function (id) {
-  if (!confirm('确认删除?')) return;
-  await fetchApi(`${API_BASE}/comments?id=${id}`, { method: 'DELETE' });
-  loadComments(currentPostId, true);
+  if (!confirm('将这条评论移入回收站？主评论的回复也会隐藏，可以在个人设置中恢复。')) return;
+  try {
+    const res = await fetchApi(`${API_BASE}/comments?id=${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok || !data.success) return showToast(data.error || '删除失败', 'error');
+    showToast(data.message || '已移入回收站', 'success');
+    loadComments(currentPostId, true);
+  } catch (_) { showToast('网络错误，请重试', 'error'); }
 };
 
 window.pinComment = async function (id) {
@@ -1090,10 +1173,23 @@ window.toggleLike = async function (id, type, btn) {
 };
 
 // === 帖子操作 ===
-window.editPostMode = async function (id) {
+let editRequestGeneration = 0;
+let postSubmitting = false;
+let lastPublishedDraftSignature = '';
+window.editPostMode = async function (id, requestedDraftId = '') {
+  const requestGeneration = ++editRequestGeneration, generation = routeGeneration;
+  const sourceHash = window.location.hash, captured = window.DraftUI?.token(), account = currentUser?.id;
+  const isCurrent = () => requestGeneration === editRequestGeneration && generation === routeGeneration &&
+    window.location.hash === sourceHash && account === currentUser?.id && window.DraftUI?.isCurrent(captured);
   try {
     const res = await fetchApi(`${API_BASE}/posts?id=${id}`);
     const post = await res.json();
+    if (!isCurrent()) return false;
+    if (!res.ok || !post.id) throw new Error('加载失败');
+    if (!await saveDraft()) { if (isCurrent()) showToast('请先导出未保存的草稿', 'error'); return false; }
+    if (!isCurrent()) return false;
+    const candidate = await findEditingDraft(post, isCurrent, requestedDraftId);
+    if (!isCurrent()) return false;
     isEditingPost = true; editingPostId = id;
     document.getElementById('postTitle').value = post.title || '';
     document.getElementById('postContent').value = post.content || '';
@@ -1105,31 +1201,14 @@ window.editPostMode = async function (id) {
     else document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
     document.querySelector('#postForm button[type="submit"]').textContent = '保存修改';
     document.getElementById('cancelEditPostBtn').textContent = '取消编辑';
-    // 检查是否有该帖的编辑备份
-    try {
-      const backup = JSON.parse(localStorage.getItem('editingBackup') || 'null');
-      if (backup && String(backup.postId) === String(id)) {
-        const diff = Date.now() - backup.savedAt;
-        if (diff < 86400000 && confirm(`检测到上次未完成的编辑（${new Date(backup.savedAt).toLocaleTimeString('zh-CN')}），是否恢复？`)) {
-          post.title = backup.title;
-          post.content = backup.content;
-          post.category = backup.category;
-          post.mood = backup.mood;
-          document.getElementById('postTitle').value = post.title || '';
-          document.getElementById('postContent').value = post.content || '';
-          document.getElementById('postCategory').value = post.category || '灌水';
-          document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
-          const moodBtn2 = document.querySelector(`.mood-btn[data-mood="${post.mood || ''}"]`);
-          if (moodBtn2) moodBtn2.classList.add('active');
-          else document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
-        }
-      }
-    } catch (e) {}
+    beginEditingDraft(post, candidate);
+    lastPublishedDraftSignature = '';
     window.location.hash = '#write';
-  } catch (e) { showToast('加载失败', 'error'); }
+    return true;
+  } catch (e) { if (isCurrent()) showToast(e.message || '加载失败', 'error'); return false; }
 };
 
-window.cancelEditPost = function () {
+function resetPostEditor() {
   isEditingPost = false; editingPostId = null;
   document.getElementById('postTitle').value = '';
   document.getElementById('postContent').value = '';
@@ -1137,185 +1216,35 @@ window.cancelEditPost = function () {
   document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('.mood-btn[data-mood=""]')?.classList.add('active');
   document.querySelector('#postForm button[type="submit"]').textContent = '发布';
-  clearDraft();
-  localStorage.removeItem('editingBackup');
+  resetDraftEditor();
+  lastPublishedDraftSignature = '';
+}
+window.cancelEditPost = async function () {
+  const requestGeneration = ++editRequestGeneration, generation = routeGeneration, captured = window.DraftUI?.token();
+  if (views.write.style.display === 'block' && !await saveDraft()) { showToast('保存失败，请先导出当前内容', 'error'); return false; }
+  if (generation !== routeGeneration || requestGeneration !== editRequestGeneration || !window.DraftUI?.isCurrent(captured)) return false;
+  resetPostEditor();
   window.location.hash = '#home';
-};
-
-const DRAFT_LIST_KEY = 'draftList';
-const DRAFT_MAX = 10;
-
-function getDraftList() {
-  try {
-    const raw = localStorage.getItem(DRAFT_LIST_KEY);
-    if (raw) return JSON.parse(raw);
-    // 兼容旧单篇格式，自动迁移
-    const old = localStorage.getItem('postDraft');
-    if (old) {
-      const oldDraft = JSON.parse(old);
-      if (oldDraft.title || oldDraft.content) {
-        const migrated = [{ id: Date.now(), savedAt: Date.now(), ...oldDraft }];
-        localStorage.setItem(DRAFT_LIST_KEY, JSON.stringify(migrated));
-        localStorage.removeItem('postDraft');
-        return migrated;
-      }
-    }
-  } catch (e) {}
-  return [];
-}
-
-function saveDraftList(list) {
-  localStorage.setItem(DRAFT_LIST_KEY, JSON.stringify(list));
-  updateDraftCount();
-}
-
-function updateDraftCount() {
-  const list = getDraftList();
-  const el = document.getElementById('draftCount');
-  if (el) el.textContent = list.length;
-}
-
-function saveDraft() {
-  if (isEditingPost) {
-    // 编辑模式：单独备份，不写入草稿箱
-    const title = document.getElementById('postTitle').value;
-    const content = document.getElementById('postContent').value;
-    const category = document.getElementById('postCategory').value;
-    const mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
-    if (title || content) {
-      localStorage.setItem('editingBackup', JSON.stringify({ postId: editingPostId, title, content, category, mood, savedAt: Date.now() }));
-      const status = document.getElementById('draftStatus');
-      if (status) { status.textContent = '草稿已保存'; setTimeout(() => { if (status) status.textContent = ''; }, 2000); }
-    }
-    return;
-  }
-  const title = document.getElementById('postTitle').value;
-  const content = document.getElementById('postContent').value;
-  const category = document.getElementById('postCategory').value;
-  const mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
-  const currentId = document.getElementById('postContent').dataset.draftId;
-  if (!title && !content) {
-    // 有草稿ID说明之前有内容，不用空内容覆盖，直接跳过
-    return;
-  }
-
-  let list = getDraftList();
-  // 若当前编辑器有 _currentDraftId，更新该条；否则新建
-  if (currentId) {
-    const idx = list.findIndex(d => String(d.id) === String(currentId));
-    if (idx !== -1) {
-      list[idx] = { ...list[idx], title, content, category, mood, savedAt: Date.now() };
-    } else {
-      list.unshift({ id: parseInt(currentId), title, content, category, mood, savedAt: Date.now() });
-    }
-  } else {
-    const newId = Date.now();
-    document.getElementById('postContent').dataset.draftId = newId;
-    list.unshift({ id: newId, title, content, category, mood, savedAt: Date.now() });
-  }
-  // 超出上限删最旧
-  if (list.length > DRAFT_MAX) list = list.slice(0, DRAFT_MAX);
-  saveDraftList(list);
-
-  const status = document.getElementById('draftStatus');
-  if (status) {
-    status.textContent = '草稿已保存';
-    setTimeout(() => { if (status) status.textContent = ''; }, 2000);
-  }
-}
-
-function restoreDraft() {
-  if (isEditingPost) return;
-  // 清除当前 draftId，让下次保存视为新草稿
-  const ta = document.getElementById('postContent');
-  if (ta) ta.dataset.draftId = '';
-  updateDraftCount();
-}
-
-function clearDraft() {
-  // 发帖成功后删除当前草稿
-  const ta = document.getElementById('postContent');
-  const currentId = ta?.dataset.draftId;
-  if (currentId) {
-    let list = getDraftList();
-    list = list.filter(d => String(d.id) !== String(currentId));
-    saveDraftList(list);
-    if (ta) ta.dataset.draftId = '';
-  }
-  const status = document.getElementById('draftStatus');
-  if (status) status.textContent = '';
-}
-
-window.openDraftBox = function() {
-  const list = getDraftList();
-  const listEl = document.getElementById('draftBoxList');
-  if (!listEl) return;
-  if (list.length === 0) {
-    listEl.innerHTML = '<div class="draft-empty">暂无草稿</div>';
-  } else {
-    listEl.innerHTML = list.map(d => {
-      const displayTitle = escapeHtml(d.title?.trim() || d.content?.trim().slice(0, 20) || '无标题');
-      const category = escapeHtml(d.category || '');
-      const draftId = Number(d.id);
-      const timeStr = new Date(d.savedAt).toLocaleString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
-      return `<div class="draft-item">
-        <div class="draft-item-info">
-          <div class="draft-item-title">${displayTitle}</div>
-          <div class="draft-item-meta">${category} · ${timeStr}</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button class="btn btn-sm btn-primary" onclick="loadDraftItem(${draftId})">加载</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteDraftItem(${draftId})">删除</button>
-        </div>
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('draftBoxOverlay').style.display = 'flex';
-};
-
-window.closeDraftBox = function() {
-  document.getElementById('draftBoxOverlay').style.display = 'none';
-};
-
-window.loadDraftItem = function(id) {
-  const list = getDraftList();
-  const draft = list.find(d => d.id === id);
-  if (!draft) return;
-  document.getElementById('postTitle').value = draft.title || '';
-  const ta = document.getElementById('postContent');
-  ta.value = draft.content || '';
-  ta.dataset.draftId = draft.id;
-  if (draft.category) document.getElementById('postCategory').value = draft.category;
-  if (draft.mood) {
-    document.querySelectorAll('.mood-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.mood === draft.mood);
-    });
-  }
-  ta.dispatchEvent(new Event('input', { bubbles: true }));
-  closeDraftBox();
-  showToast('草稿已加载', 'success');
-};
-
-window.deleteDraftItem = function(id) {
-  let list = getDraftList();
-  list = list.filter(d => d.id !== id);
-  saveDraftList(list);
-  // 若删的是当前正在编辑的草稿，清除 draftId
-  const ta = document.getElementById('postContent');
-  if (ta && String(ta.dataset.draftId) === String(id)) ta.dataset.draftId = '';
-  openDraftBox(); // 刷新列表
+  return true;
 };
 
 window.submitPost = async function (e) {
   e.preventDefault();
-  const title = document.getElementById('postTitle').value.trim();
-  const content = document.getElementById('postContent').value.trim();
-  const category = document.getElementById('postCategory').value;
-  const mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
-  if (!title && !content) return showToast('标题和内容不能同时为空', 'error');
-
+  if (postSubmitting) return;
+  const generation = routeGeneration, captured = window.DraftUI?.token(), account = currentUser?.id;
+  const isCurrent = () => generation === routeGeneration && account === currentUser?.id && window.location.hash === '#write' && window.DraftUI?.isCurrent(captured);
+  const button = document.querySelector('#postForm button[type="submit"]');
+  postSubmitting = true; button.disabled = true;
   try {
+    await saveDraft();
+    if (!isCurrent()) return;
+    const signature = window.DraftUI.fingerprint();
+    if (signature === lastPublishedDraftSignature) { showToast('这份内容已发布；请修改内容或取消编辑后再写新帖', 'error'); return; }
+    const title = document.getElementById('postTitle').value.trim(), content = document.getElementById('postContent').value.trim();
+    const category = document.getElementById('postCategory').value, mood = document.querySelector('.mood-btn.active')?.dataset.mood || '';
+    if (!title && !content) { showToast('标题和内容不能同时为空', 'error'); return; }
     let res;
+    const creating = !isEditingPost || !editingPostId;
     if (isEditingPost && editingPostId) {
       res = await fetchApi(`${API_BASE}/posts`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -1328,22 +1257,40 @@ window.submitPost = async function (e) {
       });
     }
     const data = await res.json();
-    if (data.success) {
+    if (res.ok && data.success) {
       showToast(data.message || '成功', 'success');
-      clearDraft();
-      localStorage.removeItem('editingBackup');
-      cancelEditPost();
-      loadPosts(true);
+      lastPublishedDraftSignature = signature;
+      if (!isCurrent()) return;
+      const preserveNewInput = async () => {
+        if (creating && Number.isSafeInteger(Number(data.id)) && Number(data.id) > 0) {
+          isEditingPost = true; editingPostId = Number(data.id);
+          button.textContent = '保存修改'; document.getElementById('cancelEditPostBtn').textContent = '取消编辑';
+        }
+        await saveDraft();
+        showToast('原内容已发布；新输入保留为编辑备份，请继续编辑', 'info');
+      };
+      if (window.DraftUI.fingerprint() !== signature) { await preserveNewInput(); return; }
+      const clearedToken = await clearDraft(signature);
+      if (!clearedToken) {
+        if (generation === routeGeneration && account === currentUser?.id && window.location.hash === '#write' && window.DraftUI.fingerprint() !== signature) await preserveNewInput();
+        else showToast('已发布，本机未清除备份仍保留', 'info');
+        return;
+      }
+      if (generation !== routeGeneration || account !== currentUser?.id || window.location.hash !== '#write' || !window.DraftUI.isCurrent(clearedToken)) return;
+      resetPostEditor(); loadedHomeRoute = '';
+      window.location.hash = '#home';
     } else { showToast(data.error || '失败', 'error'); }
   } catch (e) { showToast('网络错误', 'error'); }
+  finally { postSubmitting = false; if (!logoutPending) button.disabled = false; }
 };
 
 window.deletePost = async function (id) {
-  if (!confirm('确定删除? 不可恢复。')) return;
+  if (!confirm('将帖子移入回收站？评论也会隐藏，可以在个人设置中恢复。')) return;
   try {
     const res = await fetchApi(`${API_BASE}/posts?id=${id}`, { method: 'DELETE' });
-    if (res.ok) { showToast('已删除', 'success'); window.location.hash = '#home'; loadPosts(true); }
-    else showToast('删除失败', 'error');
+    const data = await res.json();
+    if (res.ok && data.success) { showToast(data.message || '已移入回收站', 'success'); window.location.hash = '#home'; loadPosts(true); }
+    else showToast(data.error || '删除失败', 'error');
   } catch (e) { showToast('网络错误', 'error'); }
 };
 

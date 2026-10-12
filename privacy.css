@@ -1,0 +1,35 @@
+.privacy-panel { grid-column: 1 / -1; }
+.privacy-eyebrow { font-size: .62rem !important; letter-spacing: .13em; color: var(--accent) !important; margin-bottom: 9px; }
+.privacy-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 16px; align-items: end; }
+.privacy-controls label { display: grid; gap: 8px; font-size: .76rem; color: var(--text-secondary); }
+.privacy-controls select { margin: 0; }
+.privacy-controls .btn { min-height: 42px; }
+.privacy-status { min-height: 1.7em; margin: 16px 0 6px; font-size: .77rem; color: var(--text-secondary); line-height: 1.7; }
+.privacy-status.is-error { color: var(--danger); }
+.invite-created { margin-top: 20px; border-left: 2px solid var(--accent); padding: 4px 0 4px 16px; }
+.invite-created[hidden], .privacy-list-actions [hidden] { display: none; }
+.invite-created label { font-size: .81rem; font-weight: 600; }
+.invite-created p { color: var(--text-secondary); font-size: .73rem; line-height: 1.8; margin-top: 9px; }
+.invite-code-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.invite-code-row input { min-width: 0; font-family: monospace; font-size: .8rem; margin: 0; }
+.invite-code-row button { flex-shrink: 0; }
+.invite-item { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.invite-item > div { min-width: 0; }
+.invite-item strong { font-family: monospace; font-size: .82rem; font-weight: 500; }
+.invite-item p { color: var(--text-muted); font-size: .7rem; line-height: 1.8; margin-top: 6px; overflow-wrap: anywhere; }
+.invite-state { font-family: system-ui, sans-serif; margin-left: 9px; font-size: .7rem; color: var(--text-secondary); }
+.privacy-list-actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 14px; }
+.invite-auth-note { color: var(--text-secondary); font-size: .78rem; line-height: 1.8; margin-bottom: 16px; }
+.invite-auth-field[hidden] { display: none; }
+.invite-auth-field input { font-family: monospace; font-size: .85rem; }
+@media (max-width: 600px) {
+  .privacy-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .privacy-controls .btn { grid-column: 1 / -1; }
+  .privacy-controls select, .invite-code-row .btn, .invite-item .btn, .privacy-list-actions .btn { min-height: 44px; }
+  .invite-code-row { flex-wrap: wrap; }
+  .invite-code-row input { flex-basis: 100%; }
+  .invite-item { gap: 10px; align-items: start; }
+}
+@media (max-width: 360px) {
+  .privacy-controls { grid-template-columns: minmax(0, 1fr); }
+}

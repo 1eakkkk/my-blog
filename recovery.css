@@ -1,0 +1,18 @@
+.recovery-settings p, .recovery-note { color: var(--text-secondary); line-height: 1.7; }
+.recovery-modal-open { overflow: hidden; }
+.recovery-dialog { color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 28px; margin: auto; width: min(700px, calc(100% - 32px)); max-height: min(760px, calc(100dvh - 40px)); overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; box-shadow: 0 24px 80px #0003; }
+.recovery-dialog::backdrop { background: #15151199; backdrop-filter: blur(4px); }
+.recovery-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.recovery-header h2 { margin: 4px 0 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.55rem, 4vw, 2rem); }
+.recovery-header .eyebrow { margin: 0; }
+.recovery-note { font-size: .86rem; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.recovery-status { color: var(--text-muted); font-size: .9rem; }
+.recovery-item { padding: 20px 0; border-bottom: 1px solid var(--border); }
+.recovery-meta { margin: 0 0 8px; font-size: .76rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.recovery-item h3 { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.recovery-preview { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); font-size: .86rem; line-height: 1.6; margin: 8px 0 16px; max-height: 130px; overflow: auto; }
+.recovery-item-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.recovery-item-actions span { font-size: .76rem; color: var(--text-muted); }
+.recovery-item-actions button { flex-shrink: 0; }
+.recovery-footer { display: flex; justify-content: center; padding-top: 20px; }
+@media (max-width: 600px) { .recovery-dialog { padding: 20px; border-radius: 14px; } }

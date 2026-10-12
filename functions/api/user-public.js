@@ -32,7 +32,7 @@ export async function onRequestGet(context) {
   }
   if (!user) return json({ error: '用户不存在' }, { status: 404 });
 
-  const postCount = await db.prepare('SELECT COUNT(*) as c FROM posts WHERE user_id = ?').bind(user.id).first();
+  const postCount = await db.prepare('SELECT COUNT(*) as c FROM active_posts WHERE user_id = ?').bind(user.id).first();
 
   return json({ ...user, post_count: postCount.c });
 }

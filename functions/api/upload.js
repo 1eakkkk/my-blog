@@ -55,7 +55,7 @@ export async function onRequestPost(context) {
     console.error('R2 upload failed:', error);
     return json({ success: false, error: '文件上传暂时失败，请稍后再试' }, { status: 500 });
   }
-  const url = `https://img.1eak.cool/${filename}`;
+  const url = new URL(`/api/media/${filename}`, request.url).href;
   const label = file.name.replace(/[\r\n]/g, ' ').replace(/[\\\[\]]/g, '\\$&');
   const mdInsert = file.type.startsWith('image/') ? `![](${url})` : file.type.startsWith('video/') ? `<video controls src="${url}"></video>` : `[${label}](${url})`;
   return json({ success: true, url, mdInsert, fileName: file.name, size: file.size });
