@@ -26,7 +26,7 @@ let editingPostId = null;
 let currentPostId = null;
 let currentPostAuthorId = null;
 let currentLayout = 'list';
-const HOME_UPDATE_NOTICE_VERSION = 'v2.8.0';
+const HOME_UPDATE_NOTICE_VERSION = 'v2.8.1';
 const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSION}`;
 
 // 随机标语
