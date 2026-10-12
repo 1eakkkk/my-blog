@@ -2,7 +2,9 @@
 .reply-count { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; border-radius:100px; color:var(--bg); background:var(--accent); font-size:0.65rem; font-variant-numeric:tabular-nums; }
 .user-pill #navUsername { max-width:10em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media (min-width:901px) and (max-width:1180px) { .user-pill #navUsername { max-width:7em; } }
-.reply-inbox-heading { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:28px; }
+.reply-inbox-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:24px; margin-bottom:28px; }
+.reply-inbox-heading > div { min-width:0; }
+.reply-inbox-heading > .btn { padding-right:0; }
 .reply-inbox-heading .eyebrow { margin-bottom:10px; }
 .reply-inbox-heading .section-title { margin-bottom:0; }
 .reply-tabs { display:inline-flex; gap:4px; padding:3px; border-radius:var(--radius-sm); background:var(--bg-secondary); margin-bottom:18px; }
@@ -31,10 +33,11 @@
 .search-comment-link { font-size:0.7rem; white-space:nowrap; text-decoration:underline; text-underline-offset:3px; }
 @media (hover:hover) and (pointer:fine) { .reply-inbox-card:hover .reply-inbox-card-head strong { color:var(--accent); } }
 @media (max-width:600px) {
-  .reply-inbox-heading { align-items:flex-start; gap:14px; }
+  .reply-inbox-heading { gap:14px; }
   .reply-inbox-heading .eyebrow { font-size:0.56rem; letter-spacing:0.04em; }
   .reply-inbox-heading .section-title { font-size:1.65rem; }
-  .reply-inbox-heading > .btn { margin-top:25px; padding-inline:0; font-size:0.69rem; }
+  .reply-inbox-heading > .btn { min-height:44px; padding-inline:0; font-size:0.69rem; }
+  .reply-tabs .btn { min-height:44px; min-width:60px; }
   .reply-inbox-card { padding:20px 0; }
   .reply-inbox-excerpt { font-size:0.86rem; }
   .reply-inbox-meta { gap:10px; }
@@ -45,7 +48,6 @@
 }
 @media (max-width:360px) {
   .community-returning h1 { font-size:1.65rem; }
-  .reply-inbox-heading { flex-wrap:wrap; gap:8px; }
-  .reply-inbox-heading > .btn { margin-top:0; }
+  .reply-inbox-heading { gap:8px; }
   #homeDateLabel::before { display:block; margin-bottom:3px; }
 }

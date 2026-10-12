@@ -2,8 +2,8 @@
 .privacy-eyebrow { font-size: .62rem !important; letter-spacing: .13em; color: var(--accent) !important; margin-bottom: 9px; }
 .privacy-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 16px; align-items: end; }
 .privacy-controls label { display: grid; gap: 8px; font-size: .76rem; color: var(--text-secondary); }
-.privacy-controls select { margin: 0; }
-.privacy-controls .btn { min-height: 42px; }
+.privacy-controls select { margin: 0; height: 44px; min-height: 44px; padding-block: 0; }
+.privacy-controls .btn { min-height: 44px; }
 .privacy-status { min-height: 1.7em; margin: 16px 0 6px; font-size: .77rem; color: var(--text-secondary); line-height: 1.7; }
 .privacy-status.is-error { color: var(--danger); }
 .invite-created { margin-top: 20px; border-left: 2px solid var(--accent); padding: 4px 0 4px 16px; }
@@ -11,8 +11,8 @@
 .invite-created label { font-size: .81rem; font-weight: 600; }
 .invite-created p { color: var(--text-secondary); font-size: .73rem; line-height: 1.8; margin-top: 9px; }
 .invite-code-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
-.invite-code-row input { min-width: 0; font-family: monospace; font-size: .8rem; margin: 0; }
-.invite-code-row button { flex-shrink: 0; }
+.invite-code-row input { min-width: 0; height: 44px; line-height: 1.5; font-family: monospace; font-size: .8rem; margin: 0; }
+.invite-code-row button { flex-shrink: 0; min-height: 44px; }
 .invite-item { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border); }
 .invite-item > div { min-width: 0; }
 .invite-item strong { font-family: monospace; font-size: .82rem; font-weight: 500; }
@@ -27,7 +27,7 @@
   .privacy-controls .btn { grid-column: 1 / -1; }
   .privacy-controls select, .invite-code-row .btn, .invite-item .btn, .privacy-list-actions .btn { min-height: 44px; }
   .invite-code-row { flex-wrap: wrap; }
-  .invite-code-row input { flex-basis: 100%; }
+  .invite-code-row input { flex-basis: 100%; font-size: 16px; }
   .invite-item { gap: 10px; align-items: start; }
 }
 @media (max-width: 360px) {
