@@ -133,18 +133,29 @@ async function readBoundedBody(request) {
   return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
 }
 
-async function readForm(request, origin) {
-  if (request.headers.get('Origin') !== origin
-    || (request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site') !== 'same-origin')) {
-    throw new TypeError('The authorization form must be submitted from the same origin.');
+class FormDiagnosticError extends TypeError {
+  constructor(code) { super('Authorization form validation failed.'); this.diagnosticCode = code; }
+}
+
+async function readForm(request, origin, progress) {
+  progress('post_origin');
+  if (request.headers.get('Origin') !== origin) {
+    throw new FormDiagnosticError(request.headers.has('Origin') ? 'origin_mismatch' : 'origin_missing');
   }
+  progress('post_fetch_site');
+  if (request.headers.has('Sec-Fetch-Site') && request.headers.get('Sec-Fetch-Site') !== 'same-origin') {
+    throw new FormDiagnosticError('fetch_site_mismatch');
+  }
+  progress('post_content_type');
   if (request.headers.get('Content-Type')?.split(';')[0].trim() !== 'application/x-www-form-urlencoded') {
-    throw new TypeError('Unsupported authorization form.');
+    throw new FormDiagnosticError('unsupported_content_type');
   }
+  progress('post_body');
   const form = new URLSearchParams(await readBoundedBody(request));
+  progress('post_fields');
   if ([...form.keys()].some(key => !['handle', 'scope', 'ticket', 'decision'].includes(key))
     || ['handle', 'ticket', 'decision'].some(key => form.getAll(key).length > 1)) {
-    throw new TypeError('Invalid authorization form.');
+    throw new FormDiagnosticError('invalid_form_fields');
   }
   return form;
 }
@@ -282,24 +293,35 @@ async function authorize(request, env, origin, rules) {
       stage = 'begin_consent';
       const transaction = await oauth.beginConsent(authRequest);
       const headers = secureHeaders(transaction.headers, authRequest.redirectUri);
+      // Preserve the Origin on the same-origin form POST without sending a
+      // Referer to the cross-origin OAuth callback.
+      headers.set('Referrer-Policy', 'same-origin');
       headers.set('Content-Type', 'text/html; charset=utf-8');
       return new Response(consentPage(details, transaction.handle), { headers });
     }
     if (request.method !== 'POST') return localError(405, 'Use GET or POST for authorization.');
-    const form = await readForm(request, origin);
+    const form = await readForm(request, origin, value => { stage = value; });
+    stage = 'post_decision';
     if (form.get('decision') === 'deny') {
+      stage = 'post_deny_consent';
       const denied = await oauth.denyConsent(request, form.get('handle'));
+      stage = 'post_validate_policy';
       validateAuthorization(denied.request, rules, origin);
       return new Response(null, { status: 303, headers: secureHeaders(denied.headers) });
     }
-    if (form.get('decision') !== 'approve') throw new TypeError();
+    if (form.get('decision') !== 'approve') throw new FormDiagnosticError('invalid_decision');
+    stage = 'post_scopes';
     const scope = validateScopes(form.getAll('scope'));
     if (!hasToolScope(scope)) throw new TypeError();
+    stage = 'post_approve_consent';
     const approved = await oauth.approveConsent(request, form.get('handle'), { scope });
+    stage = 'post_validate_policy';
     validateAuthorization(approved.request, rules, origin);
+    stage = 'post_consume_ticket';
     if (!await consumeAuthTicket(env.DB, form.get('ticket'))) {
       return localError(401, 'The authorization ticket is invalid, expired, or already used. Start authorization again.');
     }
+    stage = 'post_complete_authorization';
     const { redirectTo } = await oauth.completeAuthorization({
       request: approved.request, userId: AUTH_USER_ID, scope: approved.request.scope,
       metadata: { channel: 'diary-p0', synthetic: true }, props: { ...AUTH_PROPS },
@@ -307,16 +329,25 @@ async function authorize(request, env, origin, rules) {
     approved.headers.set('Location', redirectTo);
     return new Response(null, { status: 303, headers: secureHeaders(approved.headers) });
   } catch (error) {
-    if (request.method === 'GET') {
+    if (request.method === 'GET' || request.method === 'POST') {
       const knownCodes = ['invalid_request', 'invalid_client', 'invalid_client_metadata', 'invalid_redirect_uri',
         'invalid_target', 'unauthorized_client', 'access_denied', 'unsupported_response_type',
         'invalid_scope', 'server_error', 'temporarily_unavailable'];
-      const code = error instanceof CimdFetchError ? 'metadata_resolution_failed'
+      const consentCodes = new Map([
+        ['Missing transaction handle', 'consent_handle_missing'],
+        ['This authorization was not started in this browser; start again', 'consent_cookie_missing'],
+        ['This authorization belongs to a different browser session; start again', 'consent_binding_mismatch'],
+        ['This authorization expired or was already used; start again', 'consent_expired_or_reused'],
+      ]);
+      const consentCode = request.method === 'POST' && ['post_approve_consent', 'post_deny_consent'].includes(stage)
+        && error instanceof AuthorizationError ? consentCodes.get(error.description) : undefined;
+      const code = error instanceof FormDiagnosticError ? error.diagnosticCode
+        : consentCode || (error instanceof CimdFetchError ? 'metadata_resolution_failed'
         : (error instanceof OAuthError || error instanceof AuthorizationError) && knownCodes.includes(error.code) ? error.code
         : error instanceof Error && error.message === "CIMD is enabled but 'global_fetch_strictly_public' compatibility flag is not set."
           ? 'cimd_compatibility_flag_missing'
-          : error instanceof TypeError ? 'policy_rejected' : 'authorization_failed';
-      const metadata = { stage, code };
+          : error instanceof TypeError ? 'policy_rejected' : 'authorization_failed');
+      const metadata = { stage, code, ...(request.method === 'POST' ? { method: 'POST' } : {}) };
       // Read only the library's exact HTTP-status detail; never retain its URL,
       // detail, message, description, state, redirect, or cause.
       if (error instanceof CimdFetchError && typeof error.detail === 'string') {

@@ -7,12 +7,16 @@ import { getSourcePacket, publishDiary, DiaryServiceError } from './diary-servic
 const READ = 'diary:read';
 const WRITE = 'diary:publish';
 
-function secure(response) {
+function secure(response, request) {
   const headers = new Headers(response.headers);
   headers.set('Cache-Control', 'no-store');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
-  headers.set('Referrer-Policy', 'no-referrer');
+  const consent = request?.method === 'GET' && new URL(request.url).pathname === '/authorize'
+    && response.status === 200 && headers.get('Content-Type')?.startsWith('text/html')
+    && headers.get('Referrer-Policy') === 'same-origin';
+  // Keep the validated consent form's Origin without sending its URL off-site.
+  headers.set('Referrer-Policy', consent ? 'same-origin' : 'no-referrer');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -112,7 +116,7 @@ export default {
         await audit(runtimeEnv, response.status === 200 ? 'token_response_success' : 'token_response_failure',
           null, runtimeEnv.PROBE_REQUEST_ID, { httpStatus: response.status });
       }
-      return secure(response);
+      return secure(response, request);
     } catch {
       return secure(Response.json({ error: 'PROBE_FAILED' }, { status: 503 }));
     }

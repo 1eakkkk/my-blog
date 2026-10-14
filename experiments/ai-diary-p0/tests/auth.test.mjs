@@ -326,6 +326,8 @@ test('a failed completion consumes only that ticket and a newly minted ticket ca
   f.env.OAUTH_PROVIDER.completeAuthorization = async () => { throw new Error('Synthetic storage outage.'); };
   assert.equal((await f.dispatch(formRequest(f, flow, issued.value))).status, 400);
   assert.ok(f.env.DB.tickets.get(issued.hash).consumedAt);
+  assert.deepEqual(f.env.DB.events.at(-1).metadata,
+    { stage: 'post_complete_authorization', code: 'authorization_failed', method: 'POST' });
   f.env.OAUTH_PROVIDER.completeAuthorization = originalComplete;
   const retry = await ticket(f);
   assert.equal((await f.dispatch(formRequest(f, await authorization(f, client), retry.value))).status, 303);
@@ -763,6 +765,7 @@ test('consent CSP permits only self and the exact validated callback while error
     const flow = await authorization(f, client);
     assert.equal(flow.response.status, 200);
     assert.equal(formAction(flow.response), `form-action 'self' ${redirect}`);
+    assert.equal(flow.response.headers.get('Referrer-Policy'), 'same-origin');
     assert.match(flow.response.headers.get('Content-Security-Policy'), /default-src 'none'/);
     assert.match(flow.response.headers.get('Content-Security-Policy'), /base-uri 'none'; frame-ancestors 'none'/);
     assert.match(flow.html, /<form method="post" action="\/authorize">/);
@@ -771,16 +774,19 @@ test('consent CSP permits only self and the exact validated callback while error
       assert.equal(rejected.response.status, 400);
       assert.equal(rejected.response.headers.get('Location'), null);
       assert.equal(formAction(rejected.response), "form-action 'self'");
+      assert.equal(rejected.response.headers.get('Referrer-Policy'), 'no-referrer');
       assert.ok(!rejected.response.headers.get('Content-Security-Policy').includes(badRedirect));
     }
     for (const path of ['/not-found', '/authorize?ticket=synthetic-only']) {
       const response = await f.dispatch(new Request(`${ORIGIN}${path}`));
       assert.ok(response.status >= 400);
       assert.equal(formAction(response), "form-action 'self'");
+      assert.equal(response.headers.get('Referrer-Policy'), 'no-referrer');
     }
     const operatorError = await f.dispatch(jsonRequest('/operator/revoke', { all: true }));
     assert.equal(operatorError.status, 401);
     assert.equal(formAction(operatorError), "form-action 'self'");
+    assert.equal(operatorError.headers.get('Referrer-Policy'), 'no-referrer');
     const issued = await ticket(f);
     const approved = await f.dispatch(formRequest(f, flow, issued.value));
     assert.equal(approved.status, 303);
@@ -788,5 +794,54 @@ test('consent CSP permits only self and the exact validated callback while error
     assert.equal(location.origin + location.pathname, redirect);
     assert.ok(!location.searchParams.has('ticket'));
     assert.equal(formAction(approved), "form-action 'self'", 'The redirect response must not relax unrelated pages');
+    assert.equal(approved.headers.get('Referrer-Policy'), 'no-referrer');
+  }
+});
+
+test('POST diagnostics distinguish form and consent rejection without consuming valid tickets or retaining credentials', async () => {
+  const secret = 'synthetic-private-post-body-cookie-and-header-sentinel';
+  const cases = [
+    ['post_origin', 'origin_missing', (_body, headers) => headers.delete('Origin')],
+    ['post_origin', 'origin_mismatch', (_body, headers) => headers.set('Origin', 'null')],
+    ['post_fetch_site', 'fetch_site_mismatch', (_body, headers) => headers.set('Sec-Fetch-Site', 'cross-site')],
+    ['post_content_type', 'unsupported_content_type', (_body, headers) => headers.set('Content-Type', 'application/json')],
+    ['post_fields', 'invalid_form_fields', body => body.set('unknown', secret)],
+    ['post_decision', 'invalid_decision', body => body.set('decision', secret)],
+    ['post_scopes', 'policy_rejected', body => { body.delete('scope'); body.append('scope', 'offline_access'); }],
+    ['post_approve_consent', 'consent_handle_missing', body => body.delete('handle')],
+    ['post_approve_consent', 'consent_cookie_missing', (_body, headers) => headers.delete('Cookie')],
+    ['post_approve_consent', 'consent_binding_mismatch', (_body, headers) => headers.set('Cookie', `${headers.get('Cookie').split('=')[0]}=${secret}`)],
+    ['post_approve_consent', 'consent_expired_or_reused', (_body, _headers, f) => {
+      for (const [key, row] of f.env.OAUTH_KV.rows) if (key.startsWith('transaction:')) row.expires = Date.now() - 1;
+    }],
+    ['post_validate_policy', 'policy_rejected', (_body, _headers, f) => {
+      const approve = f.env.OAUTH_PROVIDER.approveConsent.bind(f.env.OAUTH_PROVIDER);
+      f.env.OAUTH_PROVIDER.approveConsent = async (...args) => {
+        const approved = await approve(...args);
+        return { ...approved, request: { ...approved.request, resource: `${ORIGIN}/wrong` } };
+      };
+    }],
+  ];
+  for (const [stage, code, mutate] of cases) {
+    const f = fixture({ PROBE_REQUEST_ID: 'synthetic-post-diagnostic-request' });
+    const client = await register(f);
+    const flow = await authorization(f, client);
+    const issued = await ticket(f);
+    const request = formRequest(f, flow, issued.value);
+    const headers = new Headers(request.headers);
+    const body = new URLSearchParams(await request.text());
+    mutate(body, headers, f);
+    const response = await f.dispatch(new Request(`${ORIGIN}/authorize`, { method: 'POST', headers, body }));
+    assert.equal(response.status, 400, `${stage}/${code}`);
+    assert.equal(f.env.DB.tickets.get(issued.hash).consumedAt, null);
+    const event = f.env.DB.events.find(event => event.eventType === 'oauth_authorize_failure');
+    assert.ok(event, `${stage}/${code}`);
+    assert.deepEqual(event.metadata, { stage, code, method: 'POST' });
+    assert.equal(event.requestId, 'synthetic-post-diagnostic-request');
+    const diagnosticText = JSON.stringify(event);
+    for (const forbidden of [secret, issued.value, issued.hash, flow.handle, flow.cookie, client.client_id, ORIGIN]) {
+      assert.ok(!diagnosticText.includes(forbidden));
+    }
+    assert.ok(!(await response.text()).includes(secret));
   }
 });

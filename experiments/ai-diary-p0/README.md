@@ -1,6 +1,6 @@
 # AI 日记 P0 · 独立链路实验
 
-**状态：已首次部署独立实验服务；P0 总验收仍为 UNVERIFIED。** 本实验只验证 ChatGPT 定时任务调用远程 MCP、OAuth 持续授权和安全写入的可行性。ChatGPT 连接正在配置，尚未确认完成；真实定时验收尚未完成。当前网站版本仍为 v2.8.1；本目录不接入现有网站的生产发布、数据库或账号。
+**状态：DCR 已连接，同一任务提示词已保存；P0 总验收仍 UNVERIFIED。** 手动“立即运行”已读取虚构来源，并完成过期后的刷新；发表仍停在审批，未取得发布回执。午夜、离线、定时自动续期与异常通知尚未验证。网站仍 v2.8.1，本实验仅 synthetic，无生产接入。
 
 ## 范围与隔离
 
@@ -11,7 +11,7 @@
 
 ## MCP 与授权约定
 
-ChatGPT 中已创建原 CIMD 插件 **AI 日记 P0（隔离测试）** 与首选 DCR 测试插件 **AI 日记 P0（DCR 隔离测试）**，两者使用同一 MCP 地址与相同的 `diary:read`、`diary:publish`、`offline_access` 权限，实际连接均尚未完成。原定时任务保持未修改，原提示词与设置已有仓库外备份。实验 MCP 只暴露两个工具：
+ChatGPT 首选插件 **AI 日记 P0（DCR 隔离测试）** 已连接，CIMD 旧插件仍未连接。同一原任务 ID 已保存 3097 字符测试提示词，重开编辑页匹配为 true；标题、每天 0:00、启用状态保留。原 464 字符提示词与仓库外备份一致后才替换。同一 MCP 的 `diary:read`、`diary:publish`、`offline_access` 及默认低风险操作权限没有更改；发表审批仍待人类确认。实验只暴露两个工具：
 
 | 工具 | 用途 |
 | --- | --- |
@@ -75,7 +75,7 @@ node tools/operations.mjs help
 
 `edit-test` 只更新 `probe_diaries.content`，`delete-test` 只物理删除匹配的固定作者测试记录；两者核对 `ai_diary_registry` 保持不变，不输出正文。报告只查询日期登记、来源清单和事件的允许元数据，排除日记正文、源素材与 token；本地 / 远程观察分别标为 `LOCAL` / `REMOTE`，真实任务验收保持 `UNVERIFIED`。`oauth_refresh_token` 的 `validated_exchange` 只证明已校验交换，需与相同 request ID 的 `token_response_success` 配对才能观察到服务端成功返回，仍不能代替真实定时运行证据。
 
-2026-10-14（`Asia/Singapore`）部署记录如下。首次版本用于留痕，**不是当前版本**；当前版本为 `9dee1040-7475-4daf-ac55-829151e8e24e`，已替代 `fba419d6-ed08-4d4f-a024-2a88832c0979`，包含窄 CSP 回调兼容修复。持续刷新授权保护与不含凭据的失败诊断继续保留。已记录的实现提交与四项 CI 保存在草稿 PR #19；后续修复须与最终提交核对，远程 ChatGPT 连接与真实定时验收尚未完成。
+2026-10-14（`Asia/Singapore`）部署记录如下。当前版本为 `6895aa22-dcf3-4597-b4e1-de1bfedafee1`。中间版本 `480cb9ec-be50-4829-9959-aebf913ee138` 的内层策略仍被外层覆盖，不能视为当时已生效。最终入口只对成功 GET `/authorize`、HTML、内层已验证的 `same-origin` 保留策略；实际授权页已核对 HTTP 200 与 `same-origin`，其余页仍 `no-referrer`。严格 Origin、CSP 与安全诊断继续保留。旧提交 `1ac2f57` 的五项 CI 通过，后续修复待提交与新 CI；DCR 连接已核实，定时验收未完成。
 
 | 部署字段 | 值 |
 | --- | --- |
@@ -84,24 +84,29 @@ node tools/operations.mjs help
 | 独立 KV 名称 / ID | `my-blog-diary-p0-OAUTH_KV` / `2e3231a294d944cba76bddb738018ce8` |
 | 固定测试作者 / 逻辑标识 | `AI 日记（隔离测试）` / `ai-diary-p0`；频道 `diary-p0` |
 | 首次 Worker 部署版本 | `520bb1ed-f8c2-475c-ba86-7425fed09f9d`；2026-10-14（Asia/Singapore）；非最终候选 |
-| 当前 Worker 部署版本 | `9dee1040-7475-4daf-ac55-829151e8e24e`；2026-10-14（Asia/Singapore）；窄 CSP 回调兼容修复 |
-| 实现代码提交 | `2e81becaab9f095a978747a2d82d2a7a1df4bd88` |
-| ChatGPT 实际连接 / 原任务 | CIMD 与 DCR 插件已创建；DCR 授权页已打开，但表单未完成、票据未消费；原任务未修改；UNVERIFIED |
+| 当前 Worker 部署版本 | `6895aa22-dcf3-4597-b4e1-de1bfedafee1`；2026-10-14（Asia/Singapore）；最终入口来源策略修复 |
+| 中间内层修复版本 | `480cb9ec-be50-4829-9959-aebf913ee138`；仍受外层响应头覆盖，不能当作最终响应策略已生效 |
+| 已保存实验代码提交 | `1ac2f5714baded97709607aa45b909fc93f6020a`；五项旧 CI 通过，后续修复待提交与新 CI |
+| ChatGPT 实际连接 / 原任务 | DCR 已连接，CIMD 未连接；同一 ID 已保存 3097 字符提示词并重开核对一致，标题 / 每天 0:00 / 启用状态保留 |
 | 异常推送目标 / 方式 | 任务 UI 仅见推送 / 邮件；真实送达与仅异常策略仍 UNVERIFIED，可能受平台限制 |
 | 原任务设置备份位置 | 负责人根工作区、仓库外受保护的 `outputs/ai-diary-p0/task-original.json` 与 `task-original.jpg` |
 | 验收报告 | [2026-10-14 阶段报告](docs/P0验证报告-2026-10-14.md)；真实运行证据仍待取得 |
 
 | 已完成的局部验证 | 结果 | 范围 |
 | --- | --- | --- |
-| 本地测试 | PASS，64/64 | LOCAL；auth 27、service 20、metadata 6、operations 11；包含 OAuth metadata wire、授权保护与窄 CSP 验证 |
+| 最新实验测试 | PASS，71/71 | LOCAL；auth 28、service 20、metadata 6、operations 11、真实 Worker 入口 6；验证最终响应策略 |
+| 此前内层测试 | PASS，65/65 | LOCAL 历史记录；尚未包含六项 Worker 入口测试，后来发现外层覆盖，不能证明中间版本策略生效 |
+| 此前本地测试 | PASS，64/64 | LOCAL 历史记录；auth 27、service 20、metadata 6、operations 11；窄 CSP 验证，非最新回归 |
 | 已记录的本地 Worker / MCP / OAuth smoke | PASS，9/9 | LOCAL；此前运行记录，不代替当前远程连接或真实计划触发 |
 | 远程手动 smoke | PASS，10 项 | REMOTE 手动；2026-10-14 00:43:42–00:44:26 UTC；仅处理 `2026-10-07`；不代表 ChatGPT 定时运行 |
+| 官方 ChatGPT DCR 连接 | 已核实连接 | 09:39:50 UTC 票据消费；09:40:07 / 08 授权码交换与 token 成功响应配对；只证明连接建立 |
+| 同一任务手动 RunNow 预检 | 读取与过期刷新已核实，发表待审批 | 当地 17:51 手动触发；09:52:01 / 02 UTC 刷新配对，09:52:04 UTC 读取日期 `2026-10-13`；无该日期 registry / 发布回执 |
 
 以上结果由实验负责人在 2026-10-14 提供，详细脱敏运行证据待补链。不能把本地 PASS 或首次远程部署改写为“ChatGPT 定时已通过”。任务通知界面目前只见推送 / 邮件，未见“仅异常”选项；静默提示词不能证明成功通知已被抑制，也不修改全局通知。
 
 远程手动检查的细项、时间区间、首次手动顺序错误的独立记录，以及仓库外证据文件的 SHA-256 见[阶段报告](docs/P0验证报告-2026-10-14.md)。两轮显式刷新与撤销均属于手动检查，所有真实任务门槛仍为 `UNVERIFIED`。
 
-### 当前连接观察（尚未完成）
+### 连接观察（DCR 已连接，定时未验）
 
 | 观察范围 | 实际结果 | 判断边界 |
 | --- | --- | --- |
@@ -109,11 +114,16 @@ node tools/operations.mjs help
 | 同一公开 CIMD 文档的访问 | 本机公开访问返回 200，Workers fetch 到 ChatGPT 返回 403 | 两个网络执行环境结果不同，不能据本机 200 声称 Worker 可访问 |
 | 浏览器打开 Workers origin | `ERR_BLOCKED_BY_CLIENT` | 是独立的客户端现象；已有 AdGuard / 图片权限日志，但尚未证明具体阻止来源，更不能用它解释服务端的 403 |
 | 官方 ChatGPT 的 DCR 连接 | 新插件“AI 日记 P0（DCR 隔离测试）”已创建；2026-10-14 约 00:36 UTC（08:36 Asia/Singapore）授权页正常打开 | 同一 MCP、相同三项权限；只证明 provider 可解析授权请求 |
-| DCR 授权表单提交与核对 | 00:37:32 UTC（08:37:32 当地）签发票据并提交后显示 `ERR_BLOCKED_BY_CLIENT`；约 00:40 UTC（08:40 当地）远程只读确认票据未消费、无新增 grant 事件 | 连接未完成；原 CIMD 插件仍未连接，原任务未修改；阻止原因未确认 |
+| 早期 DCR 提交与核对 | 00:37:32 UTC 提交后显示 `ERR_BLOCKED_BY_CLIENT`；约 00:40 UTC 确认票据未消费、无新增 grant 事件 | 当时未完成连接；历史失败与后来成功分别保留 |
 | 窄 CSP 回调兼容 | 已部署：只有已校验的 GET consent 页允许 `'self'` 与精确回调，其他页仍为 `'self'` | 兼容修复不证明 Edge 阻止原因或问题已解决 |
-| 内置浏览器连接 | 用户已登录，负责人正在继续连接 | 当前连接结果待核实，不能称 ChatGPT 已连接 |
+| 09:20 UTC 手动提交 | 用户 POST 已到达服务端，返回通用 400；票据有效至 09:27 UTC，当时未消费 | 当次失败不只属于客户端阻断，保留历史记录 |
+| 同一内置浏览器的本机合成表单复现 | 无凭据夹具中，`no-referrer` 导致 `Origin: null`，`same-origin` 保留准确自身 Origin | 原型兼容缺陷；最终修复同时处理内外层，入口只保留已验证的成功 GET consent HTML 策略；其余 `no-referrer`，仍拒绝空 Origin |
+| 修复后真实连接 | 09:39:50 UTC 用户手动授权票据消费，ChatGPT 管理页显示已连接账户 | DCR 连接已核实；默认低风险权限未改，CIMD 旧插件仍未连接 |
+| 连接建立期间刷新 | 09:40:10、09:40:19 UTC 两次 refresh 均有成功交换 / 响应配对 | 仅 bootstrap 刷新，不代表五分钟 access 过期后的定时自动续期 |
+| 手动任务跨过期刷新 | 09:52:01 UTC refresh、09:52:02 UTC 成功响应；requestId `bc3cdfa5-75b8-4c25-97c4-7e389c03bad0` | 已超过五分钟有效期，但运行由 RunNow 手动触发，不算午夜定时证据 |
+| 手动任务发表审批 | `publish_diary` 针对日期 13 停在 ChatGPT 审批；当前无 registry，审批菜单有仅对本次对话允许该插件的选项 | 尚待人类确认，未改 policy；不称已发帖或无人值守通过 |
 
-已请用户仅临时暂停该站点过滤以继续定位；AdGuard 日志中的 HTML 200 与权限策略调整不足以证明整页阻止原因或问题已解决。远程服务已部署、本地检查已通过与真实连接未完成是三个不同状态。报告和连接证据仍不完整，真实两午夜、电脑离线、过期自动刷新、异常推送继续为 `UNVERIFIED`。
+早期失败、连接成功、任务保存与手动预检分阶段保留。来源读取 requestId 为 `bad21448-b10e-4cd2-8387-ab7ec093023e`；完整 manifest 与时序见[阶段报告](docs/P0验证报告-2026-10-14.md)。本次过期刷新属于真实 ChatGPT 手动任务，不能代替午夜自动触发。发表待审批，真实两午夜、离线、定时过期续期与异常通知继续 `UNVERIFIED`，通知策略也未改变。
 
 ## P0 完成条件
 
