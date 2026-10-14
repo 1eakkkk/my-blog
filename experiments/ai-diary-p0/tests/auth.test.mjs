@@ -753,3 +753,40 @@ test('HTTPS DCR with the exact ChatGPT callback uses PKCE and never fetches unav
     assert.equal(externalFetches, 0, 'DCR must resolve its registered client from KV without fetching CIMD/JWKS');
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test('consent CSP permits only self and the exact validated callback while errors remain self-only', async () => {
+  const formAction = response => response.headers.get('Content-Security-Policy')?.split(';')
+    .map(directive => directive.trim()).find(directive => directive.startsWith('form-action '));
+  for (const redirect of [REDIRECT, 'https://chatgpt.com/connector/oauth/synthetic_callback_id']) {
+    const f = fixture({ OAUTH_REDIRECT_URIS: JSON.stringify([redirect]) });
+    const client = await register(f, { redirect_uris: [redirect] });
+    const flow = await authorization(f, client);
+    assert.equal(flow.response.status, 200);
+    assert.equal(formAction(flow.response), `form-action 'self' ${redirect}`);
+    assert.match(flow.response.headers.get('Content-Security-Policy'), /default-src 'none'/);
+    assert.match(flow.response.headers.get('Content-Security-Policy'), /base-uri 'none'; frame-ancestors 'none'/);
+    assert.match(flow.html, /<form method="post" action="\/authorize">/);
+    for (const badRedirect of [`${redirect}?unvalidated=1`, 'https://chatgpt.com.evil.example/callback', 'https://evil.example/callback']) {
+      const rejected = await authorization(f, client, { redirect_uri: badRedirect });
+      assert.equal(rejected.response.status, 400);
+      assert.equal(rejected.response.headers.get('Location'), null);
+      assert.equal(formAction(rejected.response), "form-action 'self'");
+      assert.ok(!rejected.response.headers.get('Content-Security-Policy').includes(badRedirect));
+    }
+    for (const path of ['/not-found', '/authorize?ticket=synthetic-only']) {
+      const response = await f.dispatch(new Request(`${ORIGIN}${path}`));
+      assert.ok(response.status >= 400);
+      assert.equal(formAction(response), "form-action 'self'");
+    }
+    const operatorError = await f.dispatch(jsonRequest('/operator/revoke', { all: true }));
+    assert.equal(operatorError.status, 401);
+    assert.equal(formAction(operatorError), "form-action 'self'");
+    const issued = await ticket(f);
+    const approved = await f.dispatch(formRequest(f, flow, issued.value));
+    assert.equal(approved.status, 303);
+    const location = new URL(approved.headers.get('Location'));
+    assert.equal(location.origin + location.pathname, redirect);
+    assert.ok(!location.searchParams.has('ticket'));
+    assert.equal(formAction(approved), "form-action 'self'", 'The redirect response must not relax unrelated pages');
+  }
+});

@@ -11,7 +11,7 @@
 
 ## MCP 与授权约定
 
-ChatGPT 中已创建的插件名为 **AI 日记 P0（隔离测试）**，实际连接尚未完成。原定时任务保持未修改，原提示词与设置已有仓库外备份。实验 MCP 只暴露两个工具：
+ChatGPT 中已创建原 CIMD 插件 **AI 日记 P0（隔离测试）** 与首选 DCR 测试插件 **AI 日记 P0（DCR 隔离测试）**，两者使用同一 MCP 地址与相同的 `diary:read`、`diary:publish`、`offline_access` 权限，实际连接均尚未完成。原定时任务保持未修改，原提示词与设置已有仓库外备份。实验 MCP 只暴露两个工具：
 
 | 工具 | 用途 |
 | --- | --- |
@@ -75,7 +75,7 @@ node tools/operations.mjs help
 
 `edit-test` 只更新 `probe_diaries.content`，`delete-test` 只物理删除匹配的固定作者测试记录；两者核对 `ai_diary_registry` 保持不变，不输出正文。报告只查询日期登记、来源清单和事件的允许元数据，排除日记正文、源素材与 token；本地 / 远程观察分别标为 `LOCAL` / `REMOTE`，真实任务验收保持 `UNVERIFIED`。`oauth_refresh_token` 的 `validated_exchange` 只证明已校验交换，需与相同 request ID 的 `token_response_success` 配对才能观察到服务端成功返回，仍不能代替真实定时运行证据。
 
-2026-10-14（`Asia/Singapore`）部署记录如下。首次版本用于留痕，**不是当前版本**；当前版本为 `fba419d6-ed08-4d4f-a024-2a88832c0979`，已替代 `ace1f99c-90e7-4533-be82-04a711477905`，包含 `offline_access` 未授权时的刷新保护与不含凭据的授权失败诊断。代码提交仍待补录；远程 ChatGPT 连接与真实定时验收尚未完成。
+2026-10-14（`Asia/Singapore`）部署记录如下。首次版本用于留痕，**不是当前版本**；当前版本为 `9dee1040-7475-4daf-ac55-829151e8e24e`，已替代 `fba419d6-ed08-4d4f-a024-2a88832c0979`，包含窄 CSP 回调兼容修复。持续刷新授权保护与不含凭据的失败诊断继续保留。已记录的实现提交与四项 CI 保存在草稿 PR #19；后续修复须与最终提交核对，远程 ChatGPT 连接与真实定时验收尚未完成。
 
 | 部署字段 | 值 |
 | --- | --- |
@@ -84,19 +84,22 @@ node tools/operations.mjs help
 | 独立 KV 名称 / ID | `my-blog-diary-p0-OAUTH_KV` / `2e3231a294d944cba76bddb738018ce8` |
 | 固定测试作者 / 逻辑标识 | `AI 日记（隔离测试）` / `ai-diary-p0`；频道 `diary-p0` |
 | 首次 Worker 部署版本 | `520bb1ed-f8c2-475c-ba86-7425fed09f9d`；2026-10-14（Asia/Singapore）；非最终候选 |
-| 当前 Worker 部署版本 | `fba419d6-ed08-4d4f-a024-2a88832c0979`；2026-10-14（Asia/Singapore） |
-| 代码提交 | 待补录 |
-| ChatGPT 实际连接 / 原任务 | 插件已创建，连接未完成；原任务未修改；UNVERIFIED |
+| 当前 Worker 部署版本 | `9dee1040-7475-4daf-ac55-829151e8e24e`；2026-10-14（Asia/Singapore）；窄 CSP 回调兼容修复 |
+| 实现代码提交 | `2e81becaab9f095a978747a2d82d2a7a1df4bd88` |
+| ChatGPT 实际连接 / 原任务 | CIMD 与 DCR 插件已创建；DCR 授权页已打开，但表单未完成、票据未消费；原任务未修改；UNVERIFIED |
 | 异常推送目标 / 方式 | 任务 UI 仅见推送 / 邮件；真实送达与仅异常策略仍 UNVERIFIED，可能受平台限制 |
 | 原任务设置备份位置 | 负责人根工作区、仓库外受保护的 `outputs/ai-diary-p0/task-original.json` 与 `task-original.jpg` |
 | 验收报告 | [2026-10-14 阶段报告](docs/P0验证报告-2026-10-14.md)；真实运行证据仍待取得 |
 
 | 已完成的局部验证 | 结果 | 范围 |
 | --- | --- | --- |
-| 本地测试 | PASS，63/63 | LOCAL；auth 26、service 20、metadata 6、operations 11；包含 OAuth 工具 metadata 实际 wire 验证及最新授权保护 |
+| 本地测试 | PASS，64/64 | LOCAL；auth 27、service 20、metadata 6、operations 11；包含 OAuth metadata wire、授权保护与窄 CSP 验证 |
 | 已记录的本地 Worker / MCP / OAuth smoke | PASS，9/9 | LOCAL；此前运行记录，不代替当前远程连接或真实计划触发 |
+| 远程手动 smoke | PASS，10 项 | REMOTE 手动；2026-10-14 00:43:42–00:44:26 UTC；仅处理 `2026-10-07`；不代表 ChatGPT 定时运行 |
 
 以上结果由实验负责人在 2026-10-14 提供，详细脱敏运行证据待补链。不能把本地 PASS 或首次远程部署改写为“ChatGPT 定时已通过”。任务通知界面目前只见推送 / 邮件，未见“仅异常”选项；静默提示词不能证明成功通知已被抑制，也不修改全局通知。
+
+远程手动检查的细项、时间区间、首次手动顺序错误的独立记录，以及仓库外证据文件的 SHA-256 见[阶段报告](docs/P0验证报告-2026-10-14.md)。两轮显式刷新与撤销均属于手动检查，所有真实任务门槛仍为 `UNVERIFIED`。
 
 ### 当前连接观察（尚未完成）
 
@@ -105,9 +108,12 @@ node tools/operations.mjs help
 | 远程 CIMD 授权 GET | 返回 400；D1 诊断为 `stage=parse_request`、`code=metadata_resolution_failed`、`metadataHttpStatus=403` | Worker 解析客户端元数据失败，尚未完成授权 |
 | 同一公开 CIMD 文档的访问 | 本机公开访问返回 200，Workers fetch 到 ChatGPT 返回 403 | 两个网络执行环境结果不同，不能据本机 200 声称 Worker 可访问 |
 | 浏览器打开 Workers origin | `ERR_BLOCKED_BY_CLIENT` | 是独立的客户端现象；已有 AdGuard / 图片权限日志，但尚未证明具体阻止来源，更不能用它解释服务端的 403 |
-| 官方连接 UI 的 DCR 选项 | 正在尝试，结果待核实 | 权限范围保持不变，不放宽后端授权策略；不计为连接通过 |
+| 官方 ChatGPT 的 DCR 连接 | 新插件“AI 日记 P0（DCR 隔离测试）”已创建；2026-10-14 约 00:36 UTC（08:36 Asia/Singapore）授权页正常打开 | 同一 MCP、相同三项权限；只证明 provider 可解析授权请求 |
+| DCR 授权表单提交与核对 | 00:37:32 UTC（08:37:32 当地）签发票据并提交后显示 `ERR_BLOCKED_BY_CLIENT`；约 00:40 UTC（08:40 当地）远程只读确认票据未消费、无新增 grant 事件 | 连接未完成；原 CIMD 插件仍未连接，原任务未修改；阻止原因未确认 |
+| 窄 CSP 回调兼容 | 已部署：只有已校验的 GET consent 页允许 `'self'` 与精确回调，其他页仍为 `'self'` | 兼容修复不证明 Edge 阻止原因或问题已解决 |
+| 内置浏览器连接 | 用户已登录，负责人正在继续连接 | 当前连接结果待核实，不能称 ChatGPT 已连接 |
 
-远程服务已部署、本地检查已通过与真实连接未完成是三个不同状态。报告和连接证据仍不完整，真实两午夜、电脑离线、过期自动刷新、异常推送继续为 `UNVERIFIED`。
+已请用户仅临时暂停该站点过滤以继续定位；AdGuard 日志中的 HTML 200 与权限策略调整不足以证明整页阻止原因或问题已解决。远程服务已部署、本地检查已通过与真实连接未完成是三个不同状态。报告和连接证据仍不完整，真实两午夜、电脑离线、过期自动刷新、异常推送继续为 `UNVERIFIED`。
 
 ## P0 完成条件
 

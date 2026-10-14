@@ -86,13 +86,16 @@ export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`);
 }
 
-function secureHeaders(extra) {
+function secureHeaders(extra, validatedRedirectUri) {
   const headers = new Headers(extra);
   headers.set('Cache-Control', 'no-store');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'no-referrer');
   headers.set('X-Frame-Options', 'DENY');
-  headers.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+  // Only the validated consent page may follow its precise OAuth callback.
+  // Server-side exact redirect validation remains authoritative on redirects.
+  const formActions = validatedRedirectUri ? `'self' ${validatedRedirectUri}` : "'self'";
+  headers.set('Content-Security-Policy', `default-src 'none'; style-src 'unsafe-inline'; form-action ${formActions}; base-uri 'none'; frame-ancestors 'none'`);
   return headers;
 }
 
@@ -278,7 +281,7 @@ async function authorize(request, env, origin, rules) {
       const details = await oauth.describeConsent(authRequest);
       stage = 'begin_consent';
       const transaction = await oauth.beginConsent(authRequest);
-      const headers = secureHeaders(transaction.headers);
+      const headers = secureHeaders(transaction.headers, authRequest.redirectUri);
       headers.set('Content-Type', 'text/html; charset=utf-8');
       return new Response(consentPage(details, transaction.handle), { headers });
     }
