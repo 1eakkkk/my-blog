@@ -2,6 +2,14 @@
 
 近期版本按发布时间倒序记录。更早条目及原有日期保留在[站内更新日志](https://app.1eak.cool/#about)，需登录查看。
 
+## 未发布 · AI 日记 P0 独立实验
+
+- 开发 synthetic 专用实验链路：独立 Worker、D1、KV，固定测试作者；不读取真实 ChatGPT / Codex 聊天，不绑定现有网站生产资源。
+- 实现两个 MCP 工具 `get_diary_source_packet` / `publish_diary`、10 分钟单次授权票据、5 分钟 access token、30 天闲置 refresh 授权和轮换撤销；已部署至独立测试服务，真实定时链路仍待验收。
+- 沿用既有 ChatGPT task `6acdfb952ee08191b12eaf699e9323f0`，目标每天 00:00（`Asia/Singapore`）；需连续两个真实午夜、一次电脑离线、刷新轮换、撤销与异常推送证据。
+- 实现与测试帖子独立的永久日期登记：相同请求复用，不同正文冲突，物理删除后仍占用日期，重试保留人工编辑。后续 P1–P4 保留软回收保护、空日跳过及七天迟到补发约定，本轮暂不实施。
+- 新增[实验说明](experiments/ai-diary-p0/README.md)与[验收清单](experiments/ai-diary-p0/docs/验收清单.md)。当前验收状态 **UNVERIFIED**；本地或普通 HTTP 检查不代表 ChatGPT 真实定时通过，网站版本保持 v2.8.1。
+
 ## v2.8.1 · 2026-10-12
 
 - 整理站内更新日志与首页公告，补齐近期功能说明，新增仓库 `CHANGELOG.md`。

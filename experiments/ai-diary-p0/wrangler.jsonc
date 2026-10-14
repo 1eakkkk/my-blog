@@ -1,0 +1,21 @@
+{
+  "name": "my-blog-diary-p0",
+  "account_id": "8e73b0f5db32961447753ca70a8d52ea",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-13",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "vars": {
+    "PUBLIC_ORIGIN": "https://my-blog-diary-p0.zhou17749984708.workers.dev",
+    "PROBE_ENVIRONMENT": "synthetic-only"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "my-blog-diary-p0",
+    "database_id": "da72d1a2-9a81-4c8c-98c5-1b82ad30a9ac",
+    "migrations_dir": "migrations"
+  }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "2e3231a294d944cba76bddb738018ce8" }]
+}

@@ -37,6 +37,14 @@
 
 帖子、评论、资料和媒体均要求登录。旧 `img.1eak.cool` 图片链接会映射到同源鉴权路径；v2.8.0 上线时已关闭 R2 自定义域名及 r2.dev 公开入口，历史文件仍可在登录后读取。
 
+## AI 日记 P0 状态
+
+已开发并部署[独立实验](experiments/ai-diary-p0/README.md)，真实定时验收状态为 **UNVERIFIED**。本轮仅使用 synthetic 虚构素材，在独立 Worker、D1、KV 中验证两个 MCP 工具 `get_diary_source_packet` / `publish_diary`、短期 OAuth、刷新轮换、撤销及日期保护；固定实验测试作者，不使用真实聊天，不绑定网站生产资源。
+
+计划沿用既有 ChatGPT 任务 `6acdfb952ee08191b12eaf699e9323f0`，每天 00:00（`Asia/Singapore`）运行。必须完成连续两个真实午夜及其中一次电脑离线的验证，不能把本地、普通 HTTP 或手动调用成功写成 ChatGPT 定时已通过。部署字段和实际证据见[验收清单](experiments/ai-diary-p0/docs/验收清单.md)，尚未填写的项目均未验证。
+
+已发布日记即使回收或物理删除仍永久占用日期；成功空源的 `SKIPPED_EMPTY` 可在 7 天内 late 补发，`sourceFailed` 必须报错，不能空跳过。P1–P4 暂不实施，未来内容范围锁定仅摘要。网站当前版本仍为 **v2.8.1**。
+
 ## 升级与部署
 
 GitHub 的 `main` 分支连接现有 Cloudflare Pages 项目，合并后自动部署。Pages 使用以下绑定：
