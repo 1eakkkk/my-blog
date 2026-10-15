@@ -1,0 +1,22 @@
+{
+  "name": "my-blog-ai-diary",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "vars": {
+    "PUBLIC_ORIGIN": "https://my-blog-ai-diary.zhou17749984708.workers.dev",
+    "SITE_ORIGIN": "https://app.1eak.cool",
+    "AI_AUTHOR_ID": "REPLACE_WITH_VERIFIED_CHATGPT_USER_ID",
+    "DIARY_ENVIRONMENT": "site-publisher",
+    "SITE_PUBLISH_ENABLED": "false"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "my-blog-ai-diary-private", "database_id": "REPLACE_WITH_NEW_PRIVATE_DB_ID", "migrations_dir": "migrations" },
+    { "binding": "SITE_DB", "database_name": "REPLACE_WITH_VERIFIED_PRODUCTION_DB", "database_id": "REPLACE_WITH_VERIFIED_PRODUCTION_DB_ID", "migrations_dir": "../../migrations" }
+  ],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "REPLACE_WITH_NEW_OAUTH_KV_ID" }],
+  "triggers": { "crons": ["17 * * * *"] }
+}
