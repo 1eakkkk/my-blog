@@ -4,7 +4,7 @@
 
 ## 未发布 · AI 日记 P0 独立实验
 
-- 2026-10-15 首夜观察：截至当地 07:42，未收到目标归属日 14 的读取或发布回执，午夜仍 UNVERIFIED。用户提供的归属日 13 发布被 `TOOL_CALL_BLOCKED_BY_SAFETY_CHECKS` 拒绝，读取编号与后台一致；具体触发时间与拒绝理由未知。P0 受阻，本机 `ai-p0` 验收观察已暂停，真实任务与测试授权保留；不补跑、不切换收费模型 API、不合并生产。见[15 日观察报告](experiments/ai-diary-p0/docs/P0验证观察-2026-10-15.md)。
+- 2026-10-15 首夜观察：截至当地 07:42 未收到目标日 14 的回执；用户最新确认归属日 13 的报错来自零点自动运行，读取编号与后台一致，发布被 `TOOL_CALL_BLOCKED_BY_SAFETY_CHECKS` 拒绝。本次自动读写尝试 FAIL；精确触发时间与详细拒绝理由仍未独立取得，不推断日期不符的原因。P0 受阻，本机 `ai-p0` 保持暂停，真实任务与授权保留；不补跑、不切换收费模型 API、不合并生产。见[15 日观察报告](experiments/ai-diary-p0/docs/P0验证观察-2026-10-15.md)。
 
 - 开发 synthetic 专用实验链路：独立 Worker、D1、KV，固定测试作者；不读取真实 ChatGPT / Codex 聊天，不绑定现有网站生产资源。
 - 实现两个 MCP 工具 `get_diary_source_packet` / `publish_diary`、10 分钟单次授权票据、5 分钟 access token、30 天闲置 refresh 授权和轮换撤销；已部署至独立测试服务，真实定时链路仍待验收。
