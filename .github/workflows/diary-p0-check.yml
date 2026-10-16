@@ -1,0 +1,33 @@
+name: AI diary P0 check
+
+on:
+  push:
+    paths:
+      - 'experiments/ai-diary-p0/**'
+      - '.github/workflows/diary-p0-check.yml'
+  pull_request:
+    paths:
+      - 'experiments/ai-diary-p0/**'
+      - '.github/workflows/diary-p0-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-prototype:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiments/ai-diary-p0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: experiments/ai-diary-p0/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Bundle the isolated Worker without deploying
+        run: npx wrangler deploy --dry-run --outdir /tmp/diary-p0-worker

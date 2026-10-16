@@ -1,0 +1,34 @@
+name: AI diary production check
+
+on:
+  push:
+    paths:
+      - 'services/ai-diary/**'
+      - 'migrations/004_ai_diary.sql'
+      - '.github/workflows/diary-production-check.yml'
+  pull_request:
+    paths:
+      - 'services/ai-diary/**'
+      - 'migrations/004_ai_diary.sql'
+      - '.github/workflows/diary-production-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  production-publisher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/ai-diary
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/ai-diary/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
