@@ -114,6 +114,46 @@ test('report projects metadata only, marks truncation, and never claims schedule
   assert.equal(data.scheduledExecution,'UNVERIFIED'); assert.equal(data.computerOffline,'UNVERIFIED');
 });
 
+test('report exposes fixed authorization diagnostics only for authorization failure events', () => {
+  const data = buildReport([[],[
+    {id:1,event_type:'oauth_authorize_failure',stage:'parse_request',code:'metadata_resolution_failed',metadataHttpStatus:403,
+      detail:'private-detail-sentinel',description:'private-description-sentinel',metadata_json:'private-metadata-sentinel'},
+    {id:2,event_type:'oauth_authorize_failure',stage:'post_approve_consent',code:'consent_cookie_missing'},
+    {id:3,event_type:'SOURCE_READ',stage:'parse_request',code:'invalid_client',metadataHttpStatus:200},
+    {id:4,event_type:'token_response_success',stage:'parse_request',code:'invalid_client',metadataHttpStatus:200},
+  ],[],[{source_count:0,event_count:4}],[{registry_count:0}]],NOW);
+  assert.equal(data.events[0].stage,'parse_request');
+  assert.equal(data.events[0].code,'metadata_resolution_failed');
+  assert.equal(data.events[0].metadataHttpStatus,403);
+  assert.equal(data.events[1].stage,'post_approve_consent');
+  assert.equal(data.events[1].code,'consent_cookie_missing');
+  assert.equal(data.events[1].metadataHttpStatus,null);
+  for (const event of data.events.slice(2)) {
+    for (const key of ['stage','code','metadataHttpStatus']) assert.equal(Object.hasOwn(event,key),false);
+  }
+  for (const marker of ['private-detail-sentinel','private-description-sentinel','private-metadata-sentinel']) {
+    assert.ok(!JSON.stringify(data).includes(marker));
+  }
+  assert.equal(data.status,'UNVERIFIED');
+});
+
+test('report rejects arbitrary diagnostic strings, URLs and invalid HTTP status values', () => {
+  const invalid = [
+    {stage:'https://private.example/authorize?ticket=private-ticket-sentinel',code:'private-error-sentinel',metadataHttpStatus:'403'},
+    {stage:{secret:'private-stage-sentinel'},code:['private-code-sentinel'],metadataHttpStatus:599.5},
+    {stage:'parse_request?state=private-state-sentinel',code:'invalid_client: private-description-sentinel',metadataHttpStatus:600},
+    {stage:'private-unknown-stage',code:'private-unknown-code',metadataHttpStatus:99},
+    {stage:null,code:null,metadataHttpStatus:true},
+  ];
+  const data = buildReport([[],invalid.map((metadata,id)=>({id,event_type:'oauth_authorize_failure',...metadata})),[],
+    [{source_count:0,event_count:invalid.length}],[{registry_count:0}]],NOW);
+  for (const event of data.events) {
+    assert.equal(event.stage,null); assert.equal(event.code,null); assert.equal(event.metadataHttpStatus,null);
+  }
+  const text = JSON.stringify(data);
+  assert.ok(!text.includes('private-')); assert.ok(!text.includes('https://'));
+});
+
 test('revoke-all signs an in-memory ticket, targets only this publisher and reports confirmed count', async () => {
   const calls = [], logs = [], requests = [];
   const client = {async query(...args) { calls.push(args); return []; }};

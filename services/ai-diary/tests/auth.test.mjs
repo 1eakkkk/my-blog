@@ -162,7 +162,10 @@ test('provider uses canonical discovery and requires authentication for MCP', as
   assert.equal(metadata.token_endpoint, `${ORIGIN}/oauth/token`);
   assert.ok(metadata.code_challenge_methods_supported.includes('S256'));
   assert.equal(metadata.authorization_response_iss_parameter_supported, true);
-  assert.equal(metadata.client_id_metadata_document_supported, true);
+  assert.equal(metadata.client_id_metadata_document_supported, false);
+  assert.equal(metadata.registration_endpoint, `${ORIGIN}/oauth/register`);
+  assert.ok(metadata.token_endpoint_auth_methods_supported.includes('none'));
+  assert.ok(!metadata.token_endpoint_auth_methods_supported.includes('private_key_jwt'));
   assert.deepEqual(metadata.scopes_supported, [...AUTH_SCOPES]);
   const resourceResponse = await f.dispatch(new Request(`${ORIGIN}/.well-known/oauth-protected-resource/mcp`));
   assert.equal(resourceResponse.status, 200);
@@ -220,38 +223,43 @@ test('DCR and authorization both reject redirects outside the exact allowlist', 
   assert.equal(flow.response.headers.get('Location'), null);
 });
 
-test('CIMD allowlist rejects unknown documents before a network fetch', async () => {
+test('DCR-only authorization rejects all URL clients before lookup or a network fetch', async () => {
   const f = fixture();
   const originalFetch = globalThis.fetch;
   let fetched = false;
   globalThis.fetch = async () => { fetched = true; throw new Error('A network fetch was not expected.'); };
   try {
-    const flow = await authorization(f, { client_id: 'https://evil.example/client.json', redirect_uris: [REDIRECT] });
-    assert.equal(flow.response.status, 400);
+    // Even previously allowlisted or cached CIMD identities must fail closed.
+    const issued = await ticket(f);
+    for (const clientId of ['https://evil.example/client.json', 'https://chatgpt.com/oauth/client.json']) {
+      await f.env.OAUTH_KV.put(`client:${clientId}`, JSON.stringify({ clientId, redirectUris: [REDIRECT] }));
+      const flow = await authorization(f, { client_id: clientId, redirect_uris: [REDIRECT] });
+      assert.equal(flow.response.status, 400);
+      assert.equal(flow.handle, undefined);
+      assert.equal(flow.response.headers.get('Location'), null);
+      assert.match(flow.html, /Authorization initialization failed/);
+      assert.match(flow.html, /No authorization ticket was processed/);
+      assert.match(flow.html, /dynamic client registration \(DCR\)/);
+      assert.doesNotMatch(flow.html, /previous one was consumed/);
+      assert.equal(f.env.DB.tickets.get(issued.hash).consumedAt, null);
+    }
     assert.equal(fetched, false);
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test('allowlisted CIMD still validates the exact redirect against fetched client metadata', async () => {
+test('disabled CIMD is rejected at the token endpoint without fetching metadata or registering a client', async () => {
   const f = fixture();
   const originalFetch = globalThis.fetch;
   let fetched = 0;
   const clientId = 'https://chatgpt.com/oauth/client.json';
-  let redirects = [REDIRECT];
-  globalThis.fetch = async input => {
-    assert.equal(typeof input === 'string' ? input : input.url, clientId);
-    fetched++;
-    return Response.json({ client_id: clientId, client_name: 'Synthetic CIMD client',
-      redirect_uris: redirects, token_endpoint_auth_methods_supported: ['none'],
-      token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'],
-      response_types: ['code'] });
-  };
+  globalThis.fetch = async () => { fetched++; throw new Error('No CIMD metadata must be fetched.'); };
   try {
-    const client = { client_id: clientId, redirect_uris: [REDIRECT] };
-    assert.equal((await authorization(f, client)).response.status, 200);
-    redirects = ['https://evil.example/callback'];
-    assert.equal((await authorization(f, client)).response.status, 400);
-    assert.ok(fetched >= 2);
+    const response = await tokenRequest(f, { grant_type: 'authorization_code', client_id: clientId,
+      code: 'unissued-code', code_verifier: 'a'.repeat(64), redirect_uri: REDIRECT });
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error, 'invalid_client');
+    assert.equal(fetched, 0);
+    assert.equal(await f.env.OAUTH_KV.get(`client:${clientId}`), null);
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -324,7 +332,9 @@ test('a failed completion consumes only that ticket and a newly minted ticket ca
   const issued = await ticket(f);
   const originalComplete = f.env.OAUTH_PROVIDER.completeAuthorization;
   f.env.OAUTH_PROVIDER.completeAuthorization = async () => { throw new Error('Synthetic storage outage.'); };
-  assert.equal((await f.dispatch(formRequest(f, flow, issued.value))).status, 400);
+  const failed = await f.dispatch(formRequest(f, flow, issued.value));
+  assert.equal(failed.status, 400);
+  assert.match(await failed.text(), /obtain a new ticket if the previous one was consumed/);
   assert.ok(f.env.DB.tickets.get(issued.hash).consumedAt);
   assert.deepEqual(f.env.DB.events.at(-1).metadata,
     { stage: 'post_complete_authorization', code: 'authorization_failed', method: 'POST' });
@@ -338,11 +348,14 @@ test('missing/foreign grant metadata is rejected before issuance', () => {
     clientId: 'synthetic-client', resource: `${ORIGIN}/mcp`, props: { ...AUTH_PROPS },
     scope: [...AUTH_SCOPES], requestedScope: [...AUTH_SCOPES] };
   assert.doesNotThrow(() => validateGrantExchange(valid, ORIGIN));
-  for (const changed of [{ grantId: '' }, { userId: 'admin' }, { props: { channel: 'wrong' } },
+  for (const changed of [{ grantId: '' }, { clientId: 'https://chatgpt.com/oauth/client.json' },
+    { clientId: undefined }, { userId: 'admin' }, { props: { channel: 'wrong' } },
     { resource: `${ORIGIN}/wrong` }, { scope: ['diary:source:read', 'admin'] }, { requestedScope: ['admin'] },
     { scope: ['offline_access'], requestedScope: ['offline_access'] }, { scope: [], requestedScope: [] }]) {
     assert.throws(() => validateGrantExchange({ ...valid, ...changed }, ORIGIN), /not authorized/);
   }
+  assert.throws(() => validateGrantExchange({ ...valid, grantType: GrantType.REFRESH_TOKEN,
+    props: { ...AUTH_PROPS, grantId: valid.grantId }, clientId: 'https://chatgpt.com/oauth/client.json' }, ORIGIN), /not authorized/);
 });
 
 test('real provider issues code/access/refresh, rotates, revokes, and audits without credentials', async () => {
@@ -626,48 +639,39 @@ test('an older refresh token granted without offline_access is rejected by the c
 test('authorization failure diagnostics identify fixed stages without retaining error messages, URLs, or credentials', async () => {
   const secret = 'synthetic-private-ticket-and-token-sentinel';
   const cases = ['client_policy', 'parse_request', 'validate_policy', 'describe_consent', 'begin_consent'];
-  const originalFetch = globalThis.fetch;
-  try {
-    for (const stage of cases) {
-      const f = fixture({ DIARY_REQUEST_ID: 'synthetic-diagnostic-request' });
-      const client = await register(f);
-      const extra = {};
-      let requestClient = client;
-      if (stage === 'client_policy') requestClient = { client_id: `https://evil.example/${secret}.json`, redirect_uris: [REDIRECT] };
-      if (stage === 'parse_request') {
-        requestClient = { client_id: 'https://chatgpt.com/oauth/client.json', redirect_uris: [REDIRECT] };
-        globalThis.fetch = async () => new Response(JSON.stringify({ diagnostic: secret }), { status: 503 });
-      }
-      if (['validate_policy', 'describe_consent', 'begin_consent'].includes(stage)) {
-        assert.equal((await authorization(f, client)).response.status, 200);
-        if (stage === 'validate_policy') {
-          const parse = f.env.OAUTH_PROVIDER.parseAuthRequest.bind(f.env.OAUTH_PROVIDER);
-          f.env.OAUTH_PROVIDER.parseAuthRequest = async request => ({ ...await parse(request), resource: `${ORIGIN}/wrong-${secret}` });
-        } else {
-          f.env.OAUTH_PROVIDER[stage === 'describe_consent' ? 'describeConsent' : 'beginConsent'] = async () => { throw new Error(secret); };
-        }
-      }
-      const flow = await authorization(f, requestClient, extra);
-      globalThis.fetch = originalFetch;
-      assert.equal(flow.response.status, 400);
-      assert.ok(!flow.html.includes(secret));
-      const event = f.env.DB.events.find(event => event.eventType === 'oauth_authorize_failure');
-      assert.ok(event, stage);
-      assert.equal(event.requestId, 'synthetic-diagnostic-request');
-      assert.equal(event.metadata.stage, stage);
-      assert.deepEqual(Object.keys(event.metadata).sort(), stage === 'parse_request'
-        ? ['code', 'metadataHttpStatus', 'stage'] : ['code', 'stage']);
-      if (stage === 'parse_request') assert.equal(event.metadata.metadataHttpStatus, 503);
-      assert.ok(['invalid_request', 'invalid_client', 'invalid_client_metadata', 'invalid_redirect_uri',
-        'invalid_target', 'unauthorized_client', 'access_denied', 'unsupported_response_type',
-        'invalid_scope', 'server_error', 'temporarily_unavailable', 'policy_rejected', 'authorization_failed',
-        'metadata_resolution_failed', 'cimd_compatibility_flag_missing'].includes(event.metadata.code));
-      const diagnosticText = JSON.stringify(event);
-      for (const forbidden of [secret, ORIGIN, requestClient.client_id, client.client_id, flow.handle]) {
-        if (forbidden) assert.ok(!diagnosticText.includes(forbidden));
+  for (const stage of cases) {
+    const f = fixture({ DIARY_REQUEST_ID: 'synthetic-diagnostic-request' });
+    const client = await register(f);
+    const extra = {};
+    let requestClient = client;
+    if (stage === 'client_policy') requestClient = { client_id: `https://evil.example/${secret}.json`, redirect_uris: [REDIRECT] };
+    if (stage === 'parse_request') extra.code_challenge_method = 'plain';
+    if (['validate_policy', 'describe_consent', 'begin_consent'].includes(stage)) {
+      assert.equal((await authorization(f, client)).response.status, 200);
+      if (stage === 'validate_policy') {
+        const parse = f.env.OAUTH_PROVIDER.parseAuthRequest.bind(f.env.OAUTH_PROVIDER);
+        f.env.OAUTH_PROVIDER.parseAuthRequest = async request => ({ ...await parse(request), resource: `${ORIGIN}/wrong-${secret}` });
+      } else {
+        f.env.OAUTH_PROVIDER[stage === 'describe_consent' ? 'describeConsent' : 'beginConsent'] = async () => { throw new Error(secret); };
       }
     }
-  } finally { globalThis.fetch = originalFetch; }
+    const flow = await authorization(f, requestClient, extra);
+    assert.equal(flow.response.status, 400);
+    assert.ok(!flow.html.includes(secret));
+    const event = f.env.DB.events.find(event => event.eventType === 'oauth_authorize_failure');
+    assert.ok(event, stage);
+    assert.equal(event.requestId, 'synthetic-diagnostic-request');
+    assert.equal(event.metadata.stage, stage);
+    assert.deepEqual(Object.keys(event.metadata).sort(), ['code', 'stage']);
+    assert.ok(['invalid_request', 'invalid_client', 'invalid_client_metadata', 'invalid_redirect_uri',
+      'invalid_target', 'unauthorized_client', 'access_denied', 'unsupported_response_type',
+      'invalid_scope', 'server_error', 'temporarily_unavailable', 'policy_rejected', 'authorization_failed',
+      'metadata_resolution_failed', 'cimd_compatibility_flag_missing'].includes(event.metadata.code));
+    const diagnosticText = JSON.stringify(event);
+    for (const forbidden of [secret, ORIGIN, requestClient.client_id, client.client_id, flow.handle]) {
+      if (forbidden) assert.ok(!diagnosticText.includes(forbidden));
+    }
+  }
 });
 
 test('exported authorization and CIMD errors produce fixed codes and only exact numeric HTTP-status metadata', async () => {

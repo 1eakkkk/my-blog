@@ -187,7 +187,7 @@ export async function stageSource(client, options, { log = console.log, now = Da
 
 export const REPORT_QUERIES = [
   { database: PRIVATE_DB, sql: `SELECT id,date,channel,snapshot_id,created_at,expires_at,json_extract(manifest_json,'$.serverHash') AS server_hash,json_extract(manifest_json,'$.messageCount') AS message_count FROM diary_source_packets ORDER BY date,channel LIMIT ${ROW_LIMIT + 1}` },
-  { database: PRIVATE_DB, sql: `SELECT id,event_type,date,grant_id,request_id,created_at,json_extract(metadata_json,'$.phase') AS phase,json_extract(metadata_json,'$.postId') AS post_id,json_extract(metadata_json,'$.requestHash') AS request_hash FROM diary_events ORDER BY created_at,id LIMIT ${ROW_LIMIT + 1}` },
+  { database: PRIVATE_DB, sql: `SELECT id,event_type,date,grant_id,request_id,created_at,json_extract(metadata_json,'$.phase') AS phase,json_extract(metadata_json,'$.postId') AS post_id,json_extract(metadata_json,'$.requestHash') AS request_hash,json_extract(metadata_json,'$.stage') AS stage,json_extract(metadata_json,'$.code') AS code,json_extract(metadata_json,'$.metadataHttpStatus') AS metadataHttpStatus FROM diary_events ORDER BY created_at,id LIMIT ${ROW_LIMIT + 1}` },
   { database: SITE_DB, sql: `SELECT channel,date,registry_id,author_id,snapshot_id,source_manifest_id,source_hash,request_hash,state,post_id,created_at FROM ai_diary_registry ORDER BY date,channel LIMIT ${ROW_LIMIT + 1}` },
   { database: PRIVATE_DB, sql: 'SELECT (SELECT COUNT(*) FROM diary_source_packets) AS source_count,(SELECT COUNT(*) FROM diary_events) AS event_count' },
   { database: SITE_DB, sql: 'SELECT COUNT(*) AS registry_count FROM ai_diary_registry' },
@@ -201,13 +201,31 @@ const EVENTS = new Set(['SOURCE_READ','SKIPPED_EMPTY','MCP_PUBLISH_RECEIPT','SOU
   'CONFLICT','AUTH_REQUIRED','POST_DELETED','SOURCE_EMPTY','INVALID_MANIFEST','INVALID_DATE','DATE_OUT_OF_RANGE',
   'INVALID_CONTENT','INVALID_TITLE','INVALID_INPUT','AUTHOR_UNAVAILABLE','PUBLICATION_INTEGRITY_FAILED',
   'oauth_authorization_code','oauth_refresh_token','token_response_success','token_response_failure','oauth_operator_revoke','oauth_authorize_failure']);
+// Only fixed diagnostics emitted by auth.js may enter a shareable report.
+const AUTHORIZE_STAGES = new Set(['client_policy','parse_request','validate_policy','describe_consent','begin_consent',
+  'post_origin','post_fetch_site','post_content_type','post_body','post_fields','post_decision','post_deny_consent',
+  'post_validate_policy','post_scopes','post_approve_consent','post_consume_ticket','post_complete_authorization']);
+const AUTHORIZE_CODES = new Set(['invalid_request','invalid_client','invalid_client_metadata','invalid_redirect_uri',
+  'invalid_target','unauthorized_client','access_denied','unsupported_response_type','invalid_scope','server_error',
+  'temporarily_unavailable','origin_mismatch','origin_missing','fetch_site_mismatch','unsupported_content_type',
+  'invalid_form_fields','invalid_decision','consent_handle_missing','consent_cookie_missing','consent_binding_mismatch',
+  'consent_expired_or_reused','metadata_resolution_failed','cimd_compatibility_flag_missing','policy_rejected',
+  'authorization_failed']);
 export function buildReport(sets, now = Date.now()) {
   if (!Array.isArray(sets) || sets.length !== 5 || sets.some(set => !Array.isArray(set))
     || sets[3].length !== 1 || sets[4].length !== 1) fail('REPORT_SCHEMA_MISMATCH');
   const totals = { sources: sets[3][0].source_count, events: sets[3][0].event_count, registry: sets[4][0].registry_count };
   if (Object.values(totals).some(value => !Number.isSafeInteger(value) || value < 0)) fail('REPORT_SCHEMA_MISMATCH');
-  const rows = sets.slice(0,3).map((set,index) => set.slice(0,ROW_LIMIT).map(row =>
-    Object.fromEntries(FIELDS[index].map(key => [key,row[key] ?? null]))));
+  const rows = sets.slice(0,3).map((set,index) => set.slice(0,ROW_LIMIT).map(row => {
+    const projected = Object.fromEntries(FIELDS[index].map(key => [key,row[key] ?? null]));
+    if (index === 1 && row.event_type === 'oauth_authorize_failure') {
+      projected.stage = AUTHORIZE_STAGES.has(row.stage) ? row.stage : null;
+      projected.code = AUTHORIZE_CODES.has(row.code) ? row.code : null;
+      projected.metadataHttpStatus = Number.isInteger(row.metadataHttpStatus)
+        && row.metadataHttpStatus >= 100 && row.metadataHttpStatus <= 599 ? row.metadataHttpStatus : null;
+    }
+    return projected;
+  }));
   for (const row of rows[1]) {
     if (!EVENTS.has(row.event_type)) row.event_type = 'UNKNOWN_EVENT';
     if (row.phase !== 'validated_exchange') row.phase = null;

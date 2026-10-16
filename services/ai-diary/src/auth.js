@@ -76,9 +76,7 @@ function validateAuthorization(request, rules, origin) {
   if (!rules.redirects.has(request.redirectUri) || request.resource !== `${origin}/mcp`) {
     throw new TypeError('Unsupported OAuth client or resource.');
   }
-  if (request.clientId.includes('://') && !rules.clientDocuments.has(request.clientId)) {
-    throw new TypeError('Unsupported OAuth client metadata.');
-  }
+  if (request.clientId.includes('://')) throw new TypeError('Only registered OAuth clients are supported.');
   validateScopes(request.scope);
 }
 
@@ -176,7 +174,8 @@ export async function consumeAuthTicket(db, ticket, now = Date.now()) {
 export function validateGrantExchange(options, origin) {
   try {
     if (![GrantType.AUTHORIZATION_CODE, GrantType.REFRESH_TOKEN].includes(options.grantType)
-      || options.userId !== AUTH_USER_ID || !options.grantId || !options.clientId
+      || options.userId !== AUTH_USER_ID || !options.grantId
+      || typeof options.clientId !== 'string' || !options.clientId || options.clientId.includes('://')
       || options.resource !== `${origin}/mcp` || options.props?.channel !== AUTH_PROPS.channel
       || options.props?.authorId !== AUTH_PROPS.authorId) throw new TypeError();
     if (options.grantType === GrantType.REFRESH_TOKEN && options.props.grantId !== options.grantId) {
@@ -283,7 +282,9 @@ async function authorize(request, env, origin, rules) {
   try {
     if (request.method === 'GET') {
       const clientId = url.searchParams.get('client_id') || '';
-      if (clientId.includes('://') && !rules.clientDocuments.has(clientId)) throw new TypeError();
+      // This service uses DCR only. Reject CIMD before any metadata lookup,
+      // including URL clients left over from a previously advertised flow.
+      if (clientId.includes('://')) throw new TypeError();
       stage = 'parse_request';
       const authRequest = await oauth.parseAuthRequest(request);
       stage = 'validate_policy';
@@ -360,7 +361,9 @@ async function authorize(request, env, origin, rules) {
           .bind('oauth_authorize_failure', requestId(env), Date.now(), JSON.stringify(metadata)).run();
       } catch { /* Diagnostics never change authorization failure behavior. */ }
     }
-    return localError(400, 'Authorization could not be completed. Start again and obtain a new ticket if the previous one was consumed.');
+    return localError(400, request.method === 'GET'
+      ? 'Authorization initialization failed. No authorization ticket was processed. Start a new connection using dynamic client registration (DCR).'
+      : 'Authorization could not be completed. Start again and obtain a new ticket if the previous one was consumed.');
   }
 }
 
@@ -398,7 +401,9 @@ export function makeProvider(env, apiHandler) {
     // Authentication is still required; each tool enforces its own narrow scope.
     requiredScopes: [], scopesSupported: [...AUTH_SCOPES],
     accessTokenTTL: ACCESS_TOKEN_TTL, refreshTokenTTL: REFRESH_IDLE_TTL, refreshTokenIdleTTL: REFRESH_IDLE_TTL,
-    clientIdMetadataDocumentEnabled: true,
+    // The ChatGPT CIMD document is unavailable to this Worker (HTTP 403).
+    // Advertise the supported DCR flow rather than an unusable CIMD flow.
+    clientIdMetadataDocumentEnabled: false,
     clientRegistrationCallback: ({ clientMetadata }) => {
       if (!Array.isArray(clientMetadata.redirect_uris) || clientMetadata.redirect_uris.length === 0
         || clientMetadata.redirect_uris.some(uri => !rules.redirects.has(uri))) {
