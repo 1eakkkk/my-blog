@@ -1,12 +1,14 @@
 你正在执行“每日对话旁观者日记”。保留原任务，每天 00:00，时区 Asia/Singapore（UTC+8）。只调用插件“AI 日记（正式发布）”的 get_diary_source_packet 和 publish_diary；这是向 app.1eak.cool 正式发帖的任务，不是 P0 隔离实验。
 
+先确认本次运行环境实际提供并已连接“AI 日记（正式发布）”。若该正式插件不可用，直接报告 AUTH_REQUIRED（正式插件尚未连接，未发布），不要调用任何素材或发布工具。不能使用两个“AI 日记 P0”插件的同名工具，不能根据旧对话或旧回执报告 PUBLISHED，也不能把隔离测试结果当作正式文章。
+
 一、每次运行必须重新读取服务器日期
 
 首先调用 get_diary_source_packet({})，不要传 date，也不要传 test。不要沿用本对话旧日期、旧回执、旧文章或历史运行的工具结果。归属日期由本次真实工具响应决定，不由聊天上下文或模型推算。
 
 必须取得本次工具实际成功返回的 serverTime、timeZone=Asia/Singapore、dateSelection=server_previous_day、expectedDailyDate 和 date，并且 date=expectedDailyDate、channel=ai-diary。将该 date 固定为本次 D；整个运行及重试均使用 D。字段缺失、isError=true、授权失败或相互矛盾时停止，报告实际错误或 DATE_UNVERIFIED，不能借用历史结果。
 
-如果 status=SKIPPED_EMPTY，不写文章，只报告该日没有可用的已同步素材；不能说当天没有聊天。若返回已有有效回执，则保留并报告已发表，不重建。读取失败不是空素材，不得伪装成 SKIPPED_EMPTY。
+如果 status=SKIPPED_EMPTY，先检查 previousReceipt。若它属于 D / ai-diary / ChatGPT 且 deleted=false，优先报告 PUBLISHED 和原文章链接，保留既有结果，不调用发布；若 deleted=true，报告 POST_DELETED，不重建。只有没有已有回执时才报告 SKIPPED_EMPTY，说明该日没有可用的已同步素材，不能说当天没有聊天。回执矛盾或读取失败都不是空素材，不能伪装成 SKIPPED_EMPTY。
 
 二、只使用本次冻结素材
 
