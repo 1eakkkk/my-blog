@@ -107,7 +107,7 @@ function consentPage(details, handle) {
     'diary:site:publish': '以固定 ChatGPT 账号在正式博客创建日记；测试模式也公开可见',
     offline_access: '在授权有效期内自动续期；可撤销授权',
   };
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 日记 · 网站发布授权</title><style>body{font:16px/1.7 system-ui,sans-serif;background:#f4f5f7;color:#19212d;margin:0;padding:24px}main{max-width:560px;margin:48px auto;padding:32px;background:white;border-radius:20px}h1{font-size:24px}label{display:block;margin:16px 0}input[type=password]{box-sizing:border-box;width:100%;padding:12px;font:inherit}button{padding:12px 20px;font:inherit;margin:8px 8px 0 0}small{color:#576474;overflow-wrap:anywhere}</style></head><body><main><h1>允许此客户端发布网站日记？</h1><p>客户端：<strong>${escapeHtml(details.clientName)}</strong></p><p>${details.clientDomain ? `客户端声明域名：${escapeHtml(details.clientDomain)}` : '客户端名称由其自行声明。'}<br>授权结果将发送到：<strong>${escapeHtml(details.redirectHost)}</strong></p><p>此授权可以读取已同步的私有素材，并以 ChatGPT 账号在正式博客公开创建日记。测试模式也会写入正式网站，但会明确标注测试。此工具不会自动读取所有 ChatGPT 或本地聊天。请输入本次管理员签发的十分钟一次性票据，并明确选择授权：</p><form method="post" action="/authorize"><input type="hidden" name="handle" value="${escapeHtml(handle)}">${AUTH_SCOPES.map(scope => `<label><input type="checkbox" name="scope" value="${escapeHtml(scope)}" checked> ${labels[scope]}</label>`).join('')}<label>一次性授权票据<input type="password" name="ticket" autocomplete="off" spellcheck="false" minlength="43" maxlength="128"></label><button name="decision" value="approve" type="submit">同意网站发布授权</button><button name="decision" value="deny" type="submit">拒绝</button></form><small>票据只随此表单提交，不放入网址。授权失败时，请重新打开授权流程；票据已消费时可重新签发。</small></main></body></html>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 日记 · 网站发布授权</title><style>body{font:16px/1.7 system-ui,sans-serif;background:#f4f5f7;color:#19212d;margin:0;padding:24px}main{max-width:560px;margin:48px auto;padding:32px;background:white;border-radius:20px}h1{font-size:24px}label{display:block;margin:16px 0}input[type=password]{box-sizing:border-box;width:100%;padding:12px;font:inherit}button{padding:12px 20px;font:inherit;margin:8px 8px 0 0}small{color:#576474;overflow-wrap:anywhere}</style></head><body><main><h1>允许此客户端发布网站日记？</h1><p>客户端：<strong>${escapeHtml(details.clientName)}</strong></p><p>${details.clientDomain ? `客户端声明域名：${escapeHtml(details.clientDomain)}` : '客户端名称由其自行声明。'}<br>授权结果将发送到：<strong>${escapeHtml(details.redirectHost)}</strong></p><p>此授权可以读取已同步的私有素材，并以 ChatGPT 账号在正式博客公开创建日记。测试模式也会写入正式网站，但会明确标注测试。此工具不会自动读取所有 ChatGPT 或本地聊天。请输入本次管理员签发的十分钟一次性票据，并明确选择授权：</p><p><strong>请在打开本页后的十分钟内完成授权。</strong>页面浏览器会话与一次性票据独立过期；必须在打开本页的同一浏览器、同一用户配置中提交。签发新票据不会延长本页有效期。页面过期后请回到 ChatGPT 重新发起连接，不要刷新错误页继续提交。</p><form method="post" action="/authorize"><input type="hidden" name="handle" value="${escapeHtml(handle)}">${AUTH_SCOPES.map(scope => `<label><input type="checkbox" name="scope" value="${escapeHtml(scope)}" checked> ${labels[scope]}</label>`).join('')}<label>一次性授权票据<input type="password" name="ticket" autocomplete="off" spellcheck="false" minlength="43" maxlength="128"></label><button name="decision" value="approve" type="submit">同意网站发布授权</button><button name="decision" value="deny" type="submit">拒绝</button></form><small>票据只随此表单提交，不放入网址。授权失败时，请重新打开授权流程；票据已消费时可重新签发。</small></main></body></html>`;
 }
 
 async function readBoundedBody(request) {
@@ -330,6 +330,7 @@ async function authorize(request, env, origin, rules) {
     approved.headers.set('Location', redirectTo);
     return new Response(null, { status: 303, headers: secureHeaders(approved.headers) });
   } catch (error) {
+    let consentMessage;
     if (request.method === 'GET' || request.method === 'POST') {
       const knownCodes = ['invalid_request', 'invalid_client', 'invalid_client_metadata', 'invalid_redirect_uri',
         'invalid_target', 'unauthorized_client', 'access_denied', 'unsupported_response_type',
@@ -349,6 +350,14 @@ async function authorize(request, env, origin, rules) {
           ? 'cimd_compatibility_flag_missing'
           : error instanceof TypeError ? 'policy_rejected' : 'authorization_failed');
       const metadata = { stage, code, ...(request.method === 'POST' ? { method: 'POST' } : {}) };
+      const consentMessages = {
+        consent_cookie_missing: '授权页面所需的浏览器会话信息未随本次提交发送，授权未完成。',
+        consent_binding_mismatch: '本次提交与打开授权页的浏览器会话不一致，授权未完成。',
+        consent_expired_or_reused: '本次授权页面已过期或已被使用，授权未完成。',
+      };
+      if (consentCode && Object.hasOwn(consentMessages, consentCode)) {
+        consentMessage = `${consentMessages[consentCode]}本次尚未处理一次性授权票据。请回到 ChatGPT 重新发起连接，使用同一浏览器和同一用户配置，在新页面的十分钟有效期内提交；新票据不能延长旧页面的有效期。`;
+      }
       // Read only the library's exact HTTP-status detail; never retain its URL,
       // detail, message, description, state, redirect, or cause.
       if (error instanceof CimdFetchError && typeof error.detail === 'string') {
@@ -361,9 +370,9 @@ async function authorize(request, env, origin, rules) {
           .bind('oauth_authorize_failure', requestId(env), Date.now(), JSON.stringify(metadata)).run();
       } catch { /* Diagnostics never change authorization failure behavior. */ }
     }
-    return localError(400, request.method === 'GET'
+    return localError(400, consentMessage || (request.method === 'GET'
       ? 'Authorization initialization failed. No authorization ticket was processed. Start a new connection using dynamic client registration (DCR).'
-      : 'Authorization could not be completed. Start again and obtain a new ticket if the previous one was consumed.');
+      : 'Authorization could not be completed. Start again and obtain a new ticket if the previous one was consumed.'));
   }
 }
 
