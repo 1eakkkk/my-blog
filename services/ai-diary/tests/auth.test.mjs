@@ -281,6 +281,9 @@ test('GET validates PKCE/scopes, escapes metadata, and creates browser-bound con
   assert.match(flow.response.headers.get('Content-Security-Policy'), /frame-ancestors 'none'/);
   assert.equal(flow.response.headers.get('X-Frame-Options'), 'DENY');
   assert.equal(flow.response.headers.get('Cache-Control'), 'no-store');
+  assert.ok(flow.html.includes('请在打开本页后的十分钟内完成授权。'));
+  assert.ok(flow.html.includes('页面浏览器会话与一次性票据独立过期；必须在打开本页的同一浏览器、同一用户配置中提交。'));
+  assert.ok(flow.html.includes('签发新票据不会延长本页有效期。页面过期后请回到 ChatGPT 重新发起连接，不要刷新错误页继续提交。'));
 });
 
 test('CSRF, missing binding cookie, scope escalation, and oversized forms do not consume tickets', async () => {
@@ -804,6 +807,11 @@ test('consent CSP permits only self and the exact validated callback while error
 
 test('POST diagnostics distinguish form and consent rejection without consuming valid tickets or retaining credentials', async () => {
   const secret = 'synthetic-private-post-body-cookie-and-header-sentinel';
+  const consentMessages = {
+    consent_cookie_missing: '授权页面所需的浏览器会话信息未随本次提交发送，授权未完成。',
+    consent_binding_mismatch: '本次提交与打开授权页的浏览器会话不一致，授权未完成。',
+    consent_expired_or_reused: '本次授权页面已过期或已被使用，授权未完成。',
+  };
   const cases = [
     ['post_origin', 'origin_missing', (_body, headers) => headers.delete('Origin')],
     ['post_origin', 'origin_mismatch', (_body, headers) => headers.set('Origin', 'null')],
@@ -846,6 +854,12 @@ test('POST diagnostics distinguish form and consent rejection without consuming 
     for (const forbidden of [secret, issued.value, issued.hash, flow.handle, flow.cookie, client.client_id, ORIGIN]) {
       assert.ok(!diagnosticText.includes(forbidden));
     }
-    assert.ok(!(await response.text()).includes(secret));
+    const responseText = await response.text();
+    if (Object.hasOwn(consentMessages, code)) {
+      assert.equal(responseText, `${consentMessages[code]}本次尚未处理一次性授权票据。请回到 ChatGPT 重新发起连接，使用同一浏览器和同一用户配置，在新页面的十分钟有效期内提交；新票据不能延长旧页面的有效期。`);
+    }
+    for (const forbidden of [secret, issued.value, issued.hash, flow.handle, flow.cookie, client.client_id, ORIGIN]) {
+      assert.ok(!responseText.includes(forbidden));
+    }
   }
 });

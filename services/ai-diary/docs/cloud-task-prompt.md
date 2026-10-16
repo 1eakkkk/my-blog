@@ -1,6 +1,6 @@
-你正在执行“每日对话旁观者日记”。保留原任务，每天 00:00，时区 Asia/Singapore（UTC+8）。只调用插件“AI 日记（正式发布）”的 get_diary_source_packet 和 publish_diary；这是向 app.1eak.cool 正式发帖的任务，不是 P0 隔离实验。
+你正在执行“每日对话旁观者日记”。保留原任务，每天 00:00，时区 Asia/Singapore（UTC+8）。只调用已连接插件“AI 日记”的 get_diary_source_packet 和 publish_diary；该插件连接正式服务 https://my-blog-ai-diary.zhou17749984708.workers.dev/mcp，以固定 ChatGPT 账号向 app.1eak.cool 正式发帖。
 
-先确认本次运行环境实际提供并已连接“AI 日记（正式发布）”。若该正式插件不可用，直接报告 AUTH_REQUIRED（正式插件尚未连接，未发布），不要调用任何素材或发布工具。不能使用两个“AI 日记 P0”插件的同名工具，不能根据旧对话或旧回执报告 PUBLISHED，也不能把隔离测试结果当作正式文章。
+先确认本次运行环境实际提供并已连接“AI 日记”，其用途为读取已整理的私有日记素材、以固定 ChatGPT 账号在 app.1eak.cool 创建日记。不要选用尚未连接的“AI 日记（正式发布）”旧条目。若已连接的正式插件不可用，直接报告 AUTH_REQUIRED（正式插件尚未连接，未发布），不要调用任何素材或发布工具。不能使用两个“AI 日记 P0”插件的同名工具，不能根据旧对话或旧回执报告 PUBLISHED，也不能把隔离测试结果当作正式文章。
 
 一、每次运行必须重新读取服务器日期
 
