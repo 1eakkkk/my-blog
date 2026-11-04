@@ -12,6 +12,17 @@ import { onRequestGet as media, onRequestHead as mediaHead, byteRange } from '..
 import { inviteDigest } from '../functions/api/_privacy.js';
 const { mediaUrl } = createRequire(import.meta.url)('../privacy-ui.js');
 
+test('新域名读取旧域名上传的私人媒体与站内链接，不请求旧域名', () => {
+  const base = 'https://app.1eak.me/#post?id=1';
+  assert.equal(mediaUrl('https://app.1eak.cool/api/media/photo.png', base), 'https://app.1eak.me/api/media/photo.png');
+  assert.equal(mediaUrl('https://img.1eak.cool/%E6%97%A7%20%E7%85%A7%E7%89%87.jpg', base), 'https://app.1eak.me/api/media/%E6%97%A7%20%E7%85%A7%E7%89%87.jpg');
+  assert.equal(mediaUrl('https://app.1eak.cool/#post?id=2', base), 'https://app.1eak.me/#post?id=2');
+  assert.equal(mediaUrl('https://gua.1eak.cool/?x=1', base), 'https://gua.1eak.me/?x=1');
+  assert.equal(mediaUrl('https://img.1eak.cool/folder/123.png', base), 'https://img.1eak.cool/folder/123.png');
+  assert.equal(mediaUrl('https://app.1eak.cool.evil.test/api/media/photo.png', base), 'https://app.1eak.cool.evil.test/api/media/photo.png');
+  assert.equal(mediaUrl('https://app.1eak.me/api/media/photo.png', 'https://app.1eak.cool/'), 'https://app.1eak.cool/api/media/photo.png');
+});
+
 function fixture() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(`PRAGMA foreign_keys=ON;

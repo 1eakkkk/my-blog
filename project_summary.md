@@ -1,4 +1,4 @@
-# Project Summary: 1eak.cool
+# Project Summary: 1eak.me
 
 **当前版本**：v2.8.1（2026-10-12）
 

@@ -1,11 +1,19 @@
 (function (root) {
   const mediaKey = /^[^\u0000-\u001f\u007f/\\?#]+\.(?:jpe?g|png|gif|webp|mp4|webm|pdf|mov|ico|heif|heic)$/i;
+  const blogOrigins = new Set(['https://app.1eak.cool', 'https://app.1eak.me']);
+  const migratedHosts = new Set(['1eak.cool', ...['www', 'app', 'pt', 'qian', 'zwj', 'dao', 'gua', 'liuyao', 'lottery', 'xiuxian', 'save'].map(name => `${name}.1eak.cool`)]);
   function mediaUrl(value, base) {
     try {
       const url = new URL(value, base);
-      const key = decodeURIComponent(url.pathname.slice(1));
-      if (url.origin === 'https://img.1eak.cool' && !url.username && !url.password && key.length <= 1024 && mediaKey.test(key)) {
+      const legacy = ['https://img.1eak.cool', 'https://img.1eak.me'].includes(url.origin);
+      const privateMedia = blogOrigins.has(url.origin) && url.pathname.startsWith('/api/media/');
+      const key = decodeURIComponent(url.pathname.slice(privateMedia ? '/api/media/'.length : 1));
+      if ((legacy || privateMedia) && !url.username && !url.password && key.length <= 1024 && mediaKey.test(key)) {
         return new URL(`/api/media/${encodeURIComponent(key)}`, base).href;
+      }
+      if (new URL(base).hostname.endsWith('.1eak.me') && url.protocol === 'https:' && migratedHosts.has(url.hostname) && !url.username && !url.password) {
+        url.hostname = url.hostname.replace('1eak.cool', '1eak.me');
+        return url.href;
       }
     } catch (_) { /* URL 的完整安全校验由 BlogUtils.safeUrl 完成。 */ }
     return value;

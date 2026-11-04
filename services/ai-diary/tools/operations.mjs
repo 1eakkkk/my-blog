@@ -54,7 +54,7 @@ export function validateConfiguration(config) {
     || siteDb?.database_id !== SITE_DB || siteDb.database_name !== 'my-blog-db'
     || privateDb.database_id === siteDb.database_id
     || config?.kv_namespaces?.length !== 1 || config.kv_namespaces[0].binding !== 'OAUTH_KV' || config.kv_namespaces[0].id !== KV
-    || config.vars?.PUBLIC_ORIGIN !== ORIGIN || config.vars?.SITE_ORIGIN !== 'https://app.1eak.cool'
+    || config.vars?.PUBLIC_ORIGIN !== ORIGIN || config.vars?.SITE_ORIGIN !== 'https://app.1eak.me'
     || config.vars?.AI_AUTHOR_ID !== '56' || config.vars?.DIARY_ENVIRONMENT !== 'site-publisher'
     || !['true', 'false'].includes(config.vars?.SITE_PUBLISH_ENABLED)
     || Object.keys(config.env || {}).length || config.r2_buckets?.length) fail('CONFIGURATION_SCOPE_MISMATCH');

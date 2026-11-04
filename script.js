@@ -31,7 +31,7 @@ const HOME_UPDATE_NOTICE_KEY = `homeUpdateNoticeSeen:${HOME_UPDATE_NOTICE_VERSIO
 
 // 随机标语
 const TAGLINES = [
-  '1eak.cool · 简单的论坛',
+  '1eak.me · 简单的论坛',
   '记录生活，分享想法',
   '小而美的交流空间',
   'Keep it simple, stupid',

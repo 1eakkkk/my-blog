@@ -9,7 +9,7 @@
   "observability": { "enabled": false },
   "vars": {
     "PUBLIC_ORIGIN": "https://my-blog-ai-diary.zhou17749984708.workers.dev",
-    "SITE_ORIGIN": "https://app.1eak.cool",
+    "SITE_ORIGIN": "https://app.1eak.me",
     "AI_AUTHOR_ID": "56",
     "DIARY_ENVIRONMENT": "site-publisher",
     "SITE_PUBLISH_ENABLED": "true"
